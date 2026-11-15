@@ -1,0 +1,123 @@
+{
+  "code": "start_wallpaper_upload",
+  "name": "Web: start a sleep-screen picture upload (signed PUT URL)",
+  "draft": {
+    "nodes": [
+      {
+        "id": "in",
+        "type": "http_in"
+      },
+      {
+        "id": "prep",
+        "type": "code",
+        "config": {
+          "source": {
+            "$file": "nodes/prep.go"
+          },
+          "input": {
+            "body": "{{ input.body }}",
+            "uid": "{{ input.user.id }}"
+          }
+        }
+      },
+      {
+        "id": "isok",
+        "type": "branch",
+        "config": {
+          "rules": [
+            {
+              "left": "{{ prep.ok }}",
+              "op": "eq",
+              "right": true
+            }
+          ]
+        }
+      },
+      {
+        "id": "sign",
+        "type": "storage_sign",
+        "config": {
+          "key": "{{ prep.key }}",
+          "method": "PUT",
+          "max_bytes": 300000,
+          "ttl_seconds": 900
+        }
+      },
+      {
+        "id": "out",
+        "type": "respond",
+        "config": {
+          "status": 201,
+          "body": {
+            "id": "{{ prep.id }}",
+            "url": "{{ sign.url }}"
+          }
+        }
+      },
+      {
+        "id": "bad",
+        "type": "respond",
+        "config": {
+          "status": 422,
+          "body": {
+            "error": "{{ prep.why }}"
+          }
+        }
+      },
+      {
+        "id": "fail",
+        "type": "respond",
+        "config": {
+          "status": 500,
+          "body": {
+            "error": "{{ prep.error }}"
+          }
+        }
+      },
+      {
+        "id": "fail2",
+        "type": "respond",
+        "config": {
+          "status": 500,
+          "body": {
+            "error": "{{ sign.error }}"
+          }
+        }
+      }
+    ],
+    "edges": [
+      {
+        "from": "in",
+        "to": "prep"
+      },
+      {
+        "from": "prep",
+        "to": "isok"
+      },
+      {
+        "from": "prep",
+        "to": "fail",
+        "port": "error"
+      },
+      {
+        "from": "isok",
+        "to": "sign",
+        "port": "true"
+      },
+      {
+        "from": "isok",
+        "to": "bad",
+        "port": "false"
+      },
+      {
+        "from": "sign",
+        "to": "out"
+      },
+      {
+        "from": "sign",
+        "to": "fail2",
+        "port": "error"
+      }
+    ]
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "code": "user_profiles",
+  "columns": [
+    {
+      "code": "user_id",
+      "default": null,
+      "help": null,
+      "indexed": false,
+      "label": "User",
+      "options": [],
+      "position": 1,
+      "read_only": false,
+      "ref_table": null,
+      "required": true,
+      "type": "integer",
+      "unique": true
+    },
+    {
+      "code": "notify_hash",
+      "default": null,
+      "help": null,
+      "indexed": false,
+      "label": "Notify key hash",
+      "options": [],
+      "position": 2,
+      "read_only": false,
+      "ref_table": null,
+      "required": false,
+      "type": "text",
+      "unique": true
+    }
+  ],
+  "label": "User profiles",
+  "singular": "User profile",
+  "unique_together": []
+}

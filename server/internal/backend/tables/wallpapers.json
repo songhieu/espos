@@ -1,0 +1,112 @@
+{
+  "code": "wallpapers",
+  "label": "Wallpapers",
+  "singular": "Wallpaper",
+  "unique_together": [],
+  "columns": [
+    {
+      "code": "user_id",
+      "default": null,
+      "help": null,
+      "indexed": true,
+      "label": "User",
+      "options": [],
+      "position": 1,
+      "read_only": false,
+      "ref_table": null,
+      "required": true,
+      "type": "integer",
+      "unique": false
+    },
+    {
+      "code": "file_key",
+      "default": null,
+      "help": null,
+      "indexed": false,
+      "label": "Storage key",
+      "options": [],
+      "position": 2,
+      "read_only": false,
+      "ref_table": null,
+      "required": true,
+      "type": "text",
+      "unique": true
+    },
+    {
+      "code": "orient",
+      "default": "p",
+      "help": "p = 480x800 portrait, l = 800x480 landscape",
+      "indexed": false,
+      "label": "Orientation",
+      "options": [
+        "p",
+        "l"
+      ],
+      "position": 3,
+      "read_only": false,
+      "ref_table": null,
+      "required": false,
+      "type": "enum",
+      "unique": false
+    },
+    {
+      "code": "size",
+      "default": 0,
+      "help": null,
+      "indexed": false,
+      "label": "Size (bytes)",
+      "options": [],
+      "position": 4,
+      "read_only": false,
+      "ref_table": null,
+      "required": false,
+      "type": "integer",
+      "unique": false
+    },
+    {
+      "code": "status",
+      "default": "uploading",
+      "help": null,
+      "indexed": true,
+      "label": "Status",
+      "options": [
+        "uploading",
+        "ready"
+      ],
+      "position": 5,
+      "read_only": false,
+      "ref_table": null,
+      "required": false,
+      "type": "enum",
+      "unique": false
+    },
+    {
+      "code": "thumb",
+      "default": null,
+      "help": null,
+      "indexed": false,
+      "label": "Thumbnail (PNG data URL)",
+      "options": [],
+      "position": 6,
+      "read_only": false,
+      "ref_table": null,
+      "required": false,
+      "type": "long_text",
+      "unique": false
+    },
+    {
+      "code": "pos",
+      "default": 0,
+      "help": null,
+      "indexed": false,
+      "label": "Order",
+      "options": [],
+      "position": 7,
+      "read_only": false,
+      "ref_table": null,
+      "required": false,
+      "type": "integer",
+      "unique": false
+    }
+  ]
+}

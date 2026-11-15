@@ -1,0 +1,92 @@
+{
+  "code": "battery_log",
+  "label": "Battery log",
+  "singular": "Battery reading",
+  "unique_together": [],
+  "columns": [
+    {
+      "code": "device_id",
+      "default": null,
+      "help": null,
+      "indexed": true,
+      "label": "Device",
+      "options": [],
+      "position": 1,
+      "read_only": false,
+      "ref_table": null,
+      "required": true,
+      "type": "integer",
+      "unique": false
+    },
+    {
+      "code": "user_id",
+      "default": null,
+      "help": null,
+      "indexed": true,
+      "label": "User",
+      "options": [],
+      "position": 2,
+      "read_only": false,
+      "ref_table": null,
+      "required": true,
+      "type": "integer",
+      "unique": false
+    },
+    {
+      "code": "mv",
+      "default": null,
+      "help": null,
+      "indexed": false,
+      "label": "Voltage (mV)",
+      "options": [],
+      "position": 3,
+      "read_only": false,
+      "ref_table": null,
+      "required": false,
+      "type": "integer",
+      "unique": false
+    },
+    {
+      "code": "pct",
+      "default": null,
+      "help": null,
+      "indexed": false,
+      "label": "Percent",
+      "options": [],
+      "position": 4,
+      "read_only": false,
+      "ref_table": null,
+      "required": false,
+      "type": "integer",
+      "unique": false
+    },
+    {
+      "code": "usb",
+      "default": false,
+      "help": null,
+      "indexed": false,
+      "label": "On USB",
+      "options": [],
+      "position": 5,
+      "read_only": false,
+      "ref_table": null,
+      "required": false,
+      "type": "boolean",
+      "unique": false
+    },
+    {
+      "code": "at_ms",
+      "default": null,
+      "help": null,
+      "indexed": true,
+      "label": "Time (epoch ms)",
+      "options": [],
+      "position": 6,
+      "read_only": false,
+      "ref_table": null,
+      "required": false,
+      "type": "integer",
+      "unique": false
+    }
+  ]
+}

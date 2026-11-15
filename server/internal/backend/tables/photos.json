@@ -1,0 +1,123 @@
+{
+  "code": "photos",
+  "label": "Photos",
+  "singular": "Photo",
+  "unique_together": [],
+  "columns": [
+    {
+      "code": "user_id",
+      "default": null,
+      "help": null,
+      "indexed": true,
+      "label": "User",
+      "options": [],
+      "position": 1,
+      "read_only": false,
+      "ref_table": null,
+      "required": true,
+      "type": "integer",
+      "unique": false
+    },
+    {
+      "code": "file_key",
+      "default": null,
+      "help": "the original; renders sit next to it",
+      "indexed": false,
+      "label": "Storage key",
+      "options": [],
+      "position": 2,
+      "read_only": false,
+      "ref_table": null,
+      "required": true,
+      "type": "text",
+      "unique": true
+    },
+    {
+      "code": "size",
+      "default": 0,
+      "help": null,
+      "indexed": false,
+      "label": "Size (bytes)",
+      "options": [],
+      "position": 3,
+      "read_only": false,
+      "ref_table": null,
+      "required": false,
+      "type": "integer",
+      "unique": false
+    },
+    {
+      "code": "status",
+      "default": "uploading",
+      "help": null,
+      "indexed": true,
+      "label": "Status",
+      "options": [
+        "uploading",
+        "ready"
+      ],
+      "position": 4,
+      "read_only": false,
+      "ref_table": null,
+      "required": false,
+      "type": "enum",
+      "unique": false
+    },
+    {
+      "code": "thumb",
+      "default": null,
+      "help": null,
+      "indexed": false,
+      "label": "Thumbnail (PNG data URL)",
+      "options": [],
+      "position": 5,
+      "read_only": false,
+      "ref_table": null,
+      "required": false,
+      "type": "long_text",
+      "unique": false
+    },
+    {
+      "code": "pos",
+      "default": 0,
+      "help": null,
+      "indexed": false,
+      "label": "Order",
+      "options": [],
+      "position": 6,
+      "read_only": false,
+      "ref_table": null,
+      "required": false,
+      "type": "integer",
+      "unique": false
+    },
+    {
+      "code": "w",
+      "default": 0,
+      "help": "pixels of the original",
+      "indexed": false,
+      "label": "Width",
+      "options": [],
+      "position": 7,
+      "read_only": false,
+      "ref_table": null,
+      "required": false,
+      "type": "integer",
+      "unique": false
+    },
+    {
+      "code": "h",
+      "default": 0,
+      "help": "pixels of the original",
+      "indexed": false,
+      "label": "Height",
+      "options": [],
+      "position": 8,
+      "read_only": false,
+      "ref_table": null,
+      "required": false,
+      "type": "integer",
+      "unique": false
+    }
+  ]
+}

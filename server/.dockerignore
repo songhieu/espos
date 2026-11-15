@@ -1,0 +1,6 @@
+.git
+data
+inkdesk
+web/node_modules
+internal/server/dist
+.env

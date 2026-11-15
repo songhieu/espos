@@ -1,0 +1,59 @@
+{
+  "code": "make_news_now",
+  "name": "Web: make today's morning paper now",
+  "draft": {
+    "nodes": [
+      {
+        "id": "in",
+        "type": "http_in"
+      },
+      {
+        "id": "go",
+        "type": "job_enqueue",
+        "config": {
+          "worker": "news",
+          "input": {
+            "mode": "one",
+            "user_id": "{{ input.user.id }}"
+          },
+          "idem_key": "now:{{ input.user.id }}:{{ input.body.nonce }}"
+        }
+      },
+      {
+        "id": "out",
+        "type": "respond",
+        "config": {
+          "status": 202,
+          "body": {
+            "job_id": "{{ go.job_id }}"
+          }
+        }
+      },
+      {
+        "id": "fail",
+        "type": "respond",
+        "config": {
+          "status": 500,
+          "body": {
+            "error": "{{ go.error }}"
+          }
+        }
+      }
+    ],
+    "edges": [
+      {
+        "from": "in",
+        "to": "go"
+      },
+      {
+        "from": "go",
+        "to": "out"
+      },
+      {
+        "from": "go",
+        "to": "fail",
+        "port": "error"
+      }
+    ]
+  }
+}

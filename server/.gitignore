@@ -1,0 +1,11 @@
+# data folder of a local run
+/data/
+# built binaries
+/inkdesk
+/bin/
+# the web build is embedded at compile time; only the placeholder is kept
+/internal/server/dist/*
+!/internal/server/dist/.keep
+/web/node_modules/
+.env
+.DS_Store

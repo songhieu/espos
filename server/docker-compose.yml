@@ -1,0 +1,12 @@
+services:
+  inkdesk:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      INKDESK_USER: admin
+      INKDESK_PASSWORD: ${INKDESK_PASSWORD:?set INKDESK_PASSWORD in .env}
+      # INKDESK_PUBLIC_URL: https://inkdesk.example.com
+    volumes:
+      - ./data:/data

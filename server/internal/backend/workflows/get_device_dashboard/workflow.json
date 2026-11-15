@@ -1,0 +1,27 @@
+{
+  "code": "get_device_dashboard",
+  "name": "Web: preview a device dashboard",
+  "draft": {
+    "nodes": [
+      { "id": "in", "type": "http_in" },
+      { "id": "own", "type": "code", "config": { "source": { "$file": "nodes/own.go" },
+          "input": { "params": "{{ input.params }}", "uid": "{{ input.user.id }}" } } },
+      { "id": "ok", "type": "branch", "config": { "rules": [ { "left": "{{ own.ok }}", "op": "eq", "right": true } ] } },
+      { "id": "dash", "type": "call_workflow", "config": { "workflow": "build_dashboard",
+          "input": { "device_id": "{{ own.device_id }}", "user_id": "{{ own.user_id }}" } } },
+      { "id": "out", "type": "respond", "config": { "status": 200, "body": "{{ dash.dashboard }}" } },
+      { "id": "none", "type": "respond", "config": { "status": 404, "body": { "error": "not found" } } },
+      { "id": "fail", "type": "respond", "config": { "status": 500, "body": { "error": "{{ own.error }}" } } },
+      { "id": "fail2", "type": "respond", "config": { "status": 500, "body": { "error": "dashboard failed" } } }
+    ],
+    "edges": [
+      { "from": "in", "to": "own" },
+      { "from": "own", "to": "ok" },
+      { "from": "own", "to": "fail", "port": "error" },
+      { "from": "ok", "to": "dash", "port": "true" },
+      { "from": "ok", "to": "none", "port": "false" },
+      { "from": "dash", "to": "out" },
+      { "from": "dash", "to": "fail2", "port": "error" }
+    ]
+  }
+}

@@ -1,0 +1,44 @@
+{
+  "code": "market_tick",
+  "name": "Schedule: gold prices, stock indices and exchange rates for the widgets",
+  "draft": {
+    "nodes": [
+      {
+        "id": "tick",
+        "type": "schedule_trigger",
+        "config": {
+          "expression": "*/15 * * * *"
+        }
+      },
+      {
+        "id": "work",
+        "type": "code",
+        "config": {
+          "source": {
+            "$file": "nodes/work.go"
+          },
+          "timeout_ms": 30000,
+          "input": {}
+        }
+      },
+      {
+        "id": "done",
+        "type": "respond",
+        "config": {
+          "status": 200,
+          "body": "{{ work }}"
+        }
+      }
+    ],
+    "edges": [
+      {
+        "from": "tick",
+        "to": "work"
+      },
+      {
+        "from": "work",
+        "to": "done"
+      }
+    ]
+  }
+}

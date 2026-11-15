@@ -1,0 +1,30 @@
+{
+  "code": "device_sync",
+  "name": "Device: two-way sync",
+  "draft": {
+    "nodes": [
+      { "id": "in", "type": "http_in" },
+      { "id": "work", "type": "code", "config": { "source": { "$file": "nodes/work.go" }, "timeout_ms": 15000,
+          "input": { "body": "{{ input.body }}", "device": "{{ input.guard.require_device }}", "host": "{{ input.headers.host }}" } } },
+      { "id": "dash", "type": "call_workflow", "config": { "workflow": "build_dashboard",
+          "input": { "device_id": "{{ input.guard.require_device.device_id }}", "user_id": "{{ input.guard.require_device.user_id }}" } } },
+      { "id": "merge", "type": "code", "config": { "source": { "$file": "nodes/merge.go" },
+          "input": { "sync": "{{ work.body }}", "dashboard": "{{ dash.dashboard }}" } } },
+      { "id": "out", "type": "respond", "config": { "status": 200, "body": "{{ merge.body }}" } },
+      { "id": "bad", "type": "respond", "config": { "status": "{{ work.status }}", "body": "{{ work.body }}" } },
+      { "id": "isok", "type": "branch", "config": { "rules": [ { "left": "{{ work.status }}", "op": "eq", "right": 200 } ] } },
+      { "id": "fail", "type": "respond", "config": { "status": 500, "body": { "error": "{{ work.error }}" } } },
+      { "id": "fail2", "type": "respond", "config": { "status": 500, "body": { "error": "dashboard failed" } } }
+    ],
+    "edges": [
+      { "from": "in", "to": "work" },
+      { "from": "work", "to": "isok" },
+      { "from": "work", "to": "fail", "port": "error" },
+      { "from": "isok", "to": "dash", "port": "true" },
+      { "from": "isok", "to": "bad", "port": "false" },
+      { "from": "dash", "to": "merge" },
+      { "from": "dash", "to": "fail2", "port": "error" },
+      { "from": "merge", "to": "out" }
+    ]
+  }
+}

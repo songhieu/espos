@@ -1,0 +1,50 @@
+{
+  "code": "news_cache",
+  "label": "News cache",
+  "singular": "Cached section",
+  "unique_together": [],
+  "columns": [
+    {
+      "code": "slug",
+      "default": null,
+      "help": null,
+      "indexed": false,
+      "label": "Section",
+      "options": [],
+      "position": 1,
+      "read_only": false,
+      "ref_table": null,
+      "required": true,
+      "type": "text",
+      "unique": true
+    },
+    {
+      "code": "items",
+      "default": null,
+      "help": null,
+      "indexed": false,
+      "label": "Stories [{id, title}] newest first",
+      "options": [],
+      "position": 2,
+      "read_only": false,
+      "ref_table": null,
+      "required": false,
+      "type": "json",
+      "unique": false
+    },
+    {
+      "code": "fetched_ms",
+      "default": 0,
+      "help": null,
+      "indexed": false,
+      "label": "Fetched (epoch ms)",
+      "options": [],
+      "position": 3,
+      "read_only": false,
+      "ref_table": null,
+      "required": false,
+      "type": "integer",
+      "unique": false
+    }
+  ]
+}

@@ -1,0 +1,120 @@
+{
+  "code": "photo_source",
+  "name": "Web: signed link to the original of a widget picture",
+  "draft": {
+    "nodes": [
+      {
+        "id": "in",
+        "type": "http_in"
+      },
+      {
+        "id": "find",
+        "type": "code",
+        "config": {
+          "source": {
+            "$file": "nodes/find.go"
+          },
+          "input": {
+            "id": "{{ input.params.id }}",
+            "uid": "{{ input.user.id }}"
+          }
+        }
+      },
+      {
+        "id": "has",
+        "type": "branch",
+        "config": {
+          "rules": [
+            {
+              "left": "{{ find.ok }}",
+              "op": "eq",
+              "right": true
+            }
+          ]
+        }
+      },
+      {
+        "id": "sign",
+        "type": "storage_sign",
+        "config": {
+          "key": "{{ find.key }}",
+          "ttl_seconds": 900
+        }
+      },
+      {
+        "id": "go",
+        "type": "respond",
+        "config": {
+          "status": 200,
+          "body": {
+            "url": "{{ sign.url }}"
+          }
+        }
+      },
+      {
+        "id": "none",
+        "type": "respond",
+        "config": {
+          "status": 404,
+          "body": {
+            "error": "not_found"
+          }
+        }
+      },
+      {
+        "id": "fail",
+        "type": "respond",
+        "config": {
+          "status": 500,
+          "body": {
+            "error": "{{ find.error }}"
+          }
+        }
+      },
+      {
+        "id": "fail2",
+        "type": "respond",
+        "config": {
+          "status": 500,
+          "body": {
+            "error": "{{ sign.error }}"
+          }
+        }
+      }
+    ],
+    "edges": [
+      {
+        "from": "in",
+        "to": "find"
+      },
+      {
+        "from": "find",
+        "to": "has"
+      },
+      {
+        "from": "find",
+        "to": "fail",
+        "port": "error"
+      },
+      {
+        "from": "has",
+        "to": "sign",
+        "port": "true"
+      },
+      {
+        "from": "has",
+        "to": "none",
+        "port": "false"
+      },
+      {
+        "from": "sign",
+        "to": "go"
+      },
+      {
+        "from": "sign",
+        "to": "fail2",
+        "port": "error"
+      }
+    ]
+  }
+}

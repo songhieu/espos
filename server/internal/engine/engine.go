@@ -1,0 +1,332 @@
+// Package engine runs the workflows in internal/backend/workflows: small graphs of nodes
+// (http_in → code → branch → respond, …) whose code nodes are the Go functions in
+// internal/flows. It understands the node types those graphs use, and nothing more.
+package engine
+
+import (
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io/fs"
+	"log"
+	"path"
+	"strings"
+	"time"
+
+	"inkdesk/internal/wm"
+)
+
+// NodeFunc is a code node: its input map and the run's context ({end_user_id}).
+type NodeFunc func(in, ctx map[string]any) map[string]any
+
+// Node is one node of a graph.
+type Node struct {
+	ID     string         `json:"id"`
+	Type   string         `json:"type"`
+	Config map[string]any `json:"config"`
+}
+
+// Edge joins two nodes; Port is "", "error", "true" or "false".
+type Edge struct {
+	From string `json:"from"`
+	To   string `json:"to"`
+	Port string `json:"port"`
+}
+
+// Flow is one workflow.
+type Flow struct {
+	Code  string
+	Nodes map[string]Node
+	Out   map[string][]Edge
+	Start string
+	Cron  string // the schedule_trigger expression, if any
+}
+
+// Result is how a run ended: a respond node (an HTTP answer) or a return node.
+type Result struct {
+	Status  int
+	Headers map[string]string
+	Body    any
+	Data    any
+	Deny    bool
+}
+
+// Enqueuer starts a background job.
+type Enqueuer func(worker string, input any) (string, error)
+
+// Engine holds the loaded flows.
+type Engine struct {
+	Flows   map[string]*Flow
+	Nodes   map[string]NodeFunc // "<workflow>/<node file stem>"
+	Enqueue Enqueuer
+	// Base is the server's public address for links made outside a request (schedules).
+	Base string
+	// ScheduleGate, when set, can skip a scheduled run (false = skip this time).
+	ScheduleGate func(code string) bool
+}
+
+// Load reads every workflows/<code>/workflow.json under dir.
+func Load(fsys fs.FS, dir string, nodes map[string]NodeFunc) (*Engine, error) {
+	e := &Engine{Flows: map[string]*Flow{}, Nodes: nodes}
+	entries, err := fs.ReadDir(fsys, dir)
+	if err != nil {
+		return nil, err
+	}
+	for _, ent := range entries {
+		if !ent.IsDir() {
+			continue
+		}
+		raw, err := fs.ReadFile(fsys, path.Join(dir, ent.Name(), "workflow.json"))
+		if err != nil {
+			continue
+		}
+		var doc struct {
+			Code  string `json:"code"`
+			Draft struct {
+				Nodes []Node `json:"nodes"`
+				Edges []Edge `json:"edges"`
+			} `json:"draft"`
+		}
+		if err := json.Unmarshal(raw, &doc); err != nil {
+			return nil, fmt.Errorf("%s: %w", ent.Name(), err)
+		}
+		f := &Flow{Code: doc.Code, Nodes: map[string]Node{}, Out: map[string][]Edge{}}
+		for _, n := range doc.Draft.Nodes {
+			f.Nodes[n.ID] = n
+			switch n.Type {
+			case "http_in", "function_in":
+				f.Start = n.ID
+			case "schedule_trigger":
+				f.Start = n.ID
+				f.Cron = wm.Str(n.Config["expression"])
+			case "code":
+				key := doc.Code + "/" + nodeStem(n)
+				if _, ok := nodes[key]; !ok {
+					return nil, fmt.Errorf("%s: no Go code for node %s", doc.Code, key)
+				}
+			}
+		}
+		for _, ed := range doc.Draft.Edges {
+			f.Out[ed.From] = append(f.Out[ed.From], ed)
+		}
+		if f.Start == "" {
+			return nil, fmt.Errorf("%s: no trigger node", doc.Code)
+		}
+		e.Flows[f.Code] = f
+	}
+	return e, nil
+}
+
+// nodeStem is the code file a node runs: {"source":{"$file":"nodes/work.go"}} → "work".
+func nodeStem(n Node) string {
+	src, _ := n.Config["source"].(map[string]any)
+	file := wm.Str(src["$file"])
+	return strings.TrimSuffix(path.Base(file), ".go")
+}
+
+// Run executes a flow from its trigger with `input` as {{ input }}.
+func (e *Engine) Run(code string, input map[string]any, ctx map[string]any, base string) (*Result, error) {
+	f, ok := e.Flows[code]
+	if !ok {
+		return nil, fmt.Errorf("no workflow %q", code)
+	}
+	if ctx == nil {
+		ctx = map[string]any{}
+	}
+	if base == "" {
+		base = e.Base
+	}
+	vars := map[string]any{"input": input}
+	cur := f.Start
+	for steps := 0; steps < 500; steps++ {
+		n := f.Nodes[cur]
+		port, failed, res, err := e.step(f, n, vars, ctx, base)
+		if err != nil {
+			return nil, err
+		}
+		if res != nil {
+			return res, nil
+		}
+		next := ""
+		for _, ed := range f.Out[cur] {
+			switch {
+			case failed && ed.Port == "error":
+				next = ed.To
+			case !failed && ed.Port == port:
+				next = ed.To
+			}
+			if next != "" {
+				break
+			}
+		}
+		if next == "" {
+			if failed {
+				out, _ := vars[n.ID].(map[string]any)
+				return nil, fmt.Errorf("%s/%s failed: %s", code, n.ID, wm.Str(out["error"]))
+			}
+			return &Result{Status: 204}, nil
+		}
+		cur = next
+	}
+	return nil, fmt.Errorf("%s: too many steps", code)
+}
+
+// step runs one node: the port it leaves by, whether it failed, or the run's end.
+func (e *Engine) step(f *Flow, n Node, vars, ctx map[string]any, base string) (string, bool, *Result, error) {
+	cfg := n.Config
+	switch n.Type {
+	case "http_in", "function_in", "schedule_trigger":
+		return "", false, nil, nil
+
+	case "code":
+		in, _ := eval(cfg["input"], vars).(map[string]any)
+		if in == nil {
+			in = map[string]any{}
+		}
+		out := e.callNode(f.Code+"/"+nodeStem(n), in, ctx)
+		vars[n.ID] = out
+		return "", wm.Failed(out), nil, nil
+
+	case "branch":
+		rules, _ := cfg["rules"].([]any)
+		anyRule := wm.Str(cfg["match"]) == "any"
+		ok := !anyRule
+		for _, r := range rules {
+			rm, _ := r.(map[string]any)
+			hit := compare(eval(rm["left"], vars), wm.Str(rm["op"]), eval(rm["right"], vars))
+			if anyRule && hit {
+				ok = true
+			}
+			if !anyRule && !hit {
+				ok = false
+			}
+		}
+		if ok {
+			return "true", false, nil, nil
+		}
+		return "false", false, nil, nil
+
+	case "respond":
+		status := wm.Int(eval(cfg["status"], vars))
+		if status == 0 {
+			status = 200
+		}
+		res := &Result{Status: status, Body: eval(cfg["body"], vars), Headers: map[string]string{}}
+		if hs, ok := eval(cfg["headers"], vars).(map[string]any); ok {
+			for k, v := range hs {
+				res.Headers[k] = wm.Str(v)
+			}
+		}
+		return "", false, res, nil
+
+	case "return":
+		res := &Result{Data: eval(cfg["data"], vars), Deny: wm.Bool(cfg["deny"]), Status: wm.Int(eval(cfg["status"], vars)), Body: eval(cfg["body"], vars)}
+		return "", false, res, nil
+
+	case "storage_sign":
+		key := wm.Str(eval(cfg["key"], vars))
+		if key == "" {
+			vars[n.ID] = map[string]any{"error": "no key to sign"}
+			return "", true, nil, nil
+		}
+		ttl := wm.Int(eval(cfg["ttl_seconds"], vars))
+		if ttl <= 0 {
+			ttl = 900
+		}
+		method := strings.ToUpper(wm.Str(cfg["method"]))
+		if method == "" {
+			method = "GET"
+		}
+		u := wm.SignURL(base, key, method, time.Duration(ttl)*time.Second, int64(wm.Num(eval(cfg["max_bytes"], vars))))
+		vars[n.ID] = map[string]any{"url": u, "method": method, "key": key}
+		return "", false, nil, nil
+
+	case "call_workflow":
+		in, _ := eval(cfg["input"], vars).(map[string]any)
+		res, err := e.Run(wm.Str(cfg["workflow"]), in, ctx, base)
+		if err != nil {
+			vars[n.ID] = map[string]any{"error": err.Error()}
+			return "", true, nil, nil
+		}
+		out, _ := res.Data.(map[string]any)
+		if out == nil {
+			out = map[string]any{}
+		}
+		vars[n.ID] = out
+		return "", false, nil, nil
+
+	case "job_enqueue":
+		if e.Enqueue == nil {
+			vars[n.ID] = map[string]any{"error": "no job runner"}
+			return "", true, nil, nil
+		}
+		id, err := e.Enqueue(wm.Str(cfg["worker"]), eval(cfg["input"], vars))
+		if err != nil {
+			vars[n.ID] = map[string]any{"error": err.Error()}
+			return "", true, nil, nil
+		}
+		vars[n.ID] = map[string]any{"job_id": id, "id": id}
+		return "", false, nil, nil
+	}
+	return "", false, nil, fmt.Errorf("%s/%s: node type %q is not supported", f.Code, n.ID, n.Type)
+}
+
+// callNode runs a code node; a panic fails the node instead of the server.
+func (e *Engine) callNode(key string, in, ctx map[string]any) (out map[string]any) {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("node %s panicked: %v", key, r)
+			out = wm.Fail(fmt.Sprint(r))
+		}
+	}()
+	fn := e.Nodes[key]
+	if fn == nil {
+		return wm.Fail(errors.New("missing node " + key))
+	}
+	out = fn(in, ctx)
+	if out == nil {
+		out = map[string]any{}
+	}
+	return out
+}
+
+func compare(l any, op string, r any) bool {
+	switch op {
+	case "eq", "":
+		return equal(l, r)
+	case "ne", "neq":
+		return !equal(l, r)
+	case "gt":
+		return wm.Num(l) > wm.Num(r)
+	case "gte":
+		return wm.Num(l) >= wm.Num(r)
+	case "lt":
+		return wm.Num(l) < wm.Num(r)
+	case "lte":
+		return wm.Num(l) <= wm.Num(r)
+	case "exists":
+		return l != nil && l != ""
+	case "empty":
+		return l == nil || l == ""
+	case "contains":
+		return strings.Contains(wm.Str(l), wm.Str(r))
+	}
+	return false
+}
+
+func equal(l, r any) bool {
+	switch rv := r.(type) {
+	case bool:
+		lb, ok := l.(bool)
+		return ok && lb == rv
+	case float64, int, int64:
+		switch l.(type) {
+		case float64, int, int64, string:
+			return wm.Num(l) == wm.Num(rv) && wm.Str(l) != ""
+		}
+		return false
+	case nil:
+		return l == nil
+	}
+	return wm.Str(l) == wm.Str(r)
+}

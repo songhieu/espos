@@ -1,0 +1,156 @@
+{
+  "code": "start_photo_render",
+  "name": "Web: upload the render of a picture for one widget box (signed PUT URL)",
+  "draft": {
+    "nodes": [
+      {
+        "id": "in",
+        "type": "http_in"
+      },
+      {
+        "id": "prep",
+        "type": "code",
+        "config": {
+          "source": {
+            "$file": "nodes/prep.go"
+          },
+          "input": {
+            "body": "{{ input.body }}",
+            "uid": "{{ input.user.id }}"
+          }
+        }
+      },
+      {
+        "id": "isok",
+        "type": "branch",
+        "config": {
+          "rules": [
+            {
+              "left": "{{ prep.ok }}",
+              "op": "eq",
+              "right": true
+            }
+          ]
+        }
+      },
+      {
+        "id": "sign",
+        "type": "storage_sign",
+        "config": {
+          "key": "{{ prep.key }}",
+          "method": "PUT",
+          "max_bytes": 100000,
+          "ttl_seconds": 900
+        }
+      },
+      {
+        "id": "out",
+        "type": "respond",
+        "config": {
+          "status": 201,
+          "body": {
+            "exists": false,
+            "url": "{{ sign.url }}"
+          }
+        }
+      },
+      {
+        "id": "bad",
+        "type": "respond",
+        "config": {
+          "status": 422,
+          "body": {
+            "error": "{{ prep.why }}"
+          }
+        }
+      },
+      {
+        "id": "fail",
+        "type": "respond",
+        "config": {
+          "status": 500,
+          "body": {
+            "error": "{{ prep.error }}"
+          }
+        }
+      },
+      {
+        "id": "fail2",
+        "type": "respond",
+        "config": {
+          "status": 500,
+          "body": {
+            "error": "{{ sign.error }}"
+          }
+        }
+      },
+      {
+        "id": "has",
+        "type": "branch",
+        "config": {
+          "rules": [
+            {
+              "left": "{{ prep.exists }}",
+              "op": "eq",
+              "right": true
+            }
+          ]
+        }
+      },
+      {
+        "id": "already",
+        "type": "respond",
+        "config": {
+          "status": 200,
+          "body": {
+            "exists": true
+          }
+        }
+      }
+    ],
+    "edges": [
+      {
+        "from": "in",
+        "to": "prep"
+      },
+      {
+        "from": "prep",
+        "to": "isok"
+      },
+      {
+        "from": "prep",
+        "to": "fail",
+        "port": "error"
+      },
+      {
+        "from": "isok",
+        "to": "has",
+        "port": "true"
+      },
+      {
+        "from": "isok",
+        "to": "bad",
+        "port": "false"
+      },
+      {
+        "from": "sign",
+        "to": "out"
+      },
+      {
+        "from": "sign",
+        "to": "fail2",
+        "port": "error"
+      },
+      {
+        "from": "has",
+        "to": "already",
+        "port": "true"
+      },
+      {
+        "from": "has",
+        "to": "sign",
+        "port": "false"
+      }
+    ]
+  }
+}

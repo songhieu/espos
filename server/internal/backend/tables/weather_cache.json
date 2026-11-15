@@ -1,0 +1,50 @@
+{
+  "code": "weather_cache",
+  "columns": [
+    {
+      "code": "loc",
+      "default": null,
+      "help": null,
+      "indexed": false,
+      "label": "Location key",
+      "options": [],
+      "position": 1,
+      "read_only": false,
+      "ref_table": null,
+      "required": true,
+      "type": "text",
+      "unique": true
+    },
+    {
+      "code": "data",
+      "default": null,
+      "help": null,
+      "indexed": false,
+      "label": "Data",
+      "options": [],
+      "position": 2,
+      "read_only": false,
+      "ref_table": null,
+      "required": false,
+      "type": "json",
+      "unique": false
+    },
+    {
+      "code": "fetched_ms",
+      "default": 0,
+      "help": null,
+      "indexed": false,
+      "label": "Fetched (epoch ms)",
+      "options": [],
+      "position": 3,
+      "read_only": false,
+      "ref_table": null,
+      "required": false,
+      "type": "integer",
+      "unique": false
+    }
+  ],
+  "label": "Weather cache",
+  "singular": null,
+  "unique_together": []
+}

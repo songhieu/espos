@@ -1,0 +1,271 @@
+[
+  {
+    "method": "POST",
+    "path": "/v1/books/confirm",
+    "auth": "end_user",
+    "workflow": "confirm_book"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/books/delete",
+    "auth": "end_user",
+    "workflow": "delete_book"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/books/upload",
+    "auth": "end_user",
+    "workflow": "start_book_upload",
+    "rate_limit_per_min": 30
+  },
+  {
+    "method": "GET",
+    "path": "/v1/books",
+    "auth": "end_user",
+    "workflow": "list_books"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/device/book/:id",
+    "auth": "public",
+    "guards": [
+      "require_device"
+    ],
+    "workflow": "device_book",
+    "rate_limit_per_min": 30
+  },
+  {
+    "method": "GET",
+    "path": "/v1/device/dashboard",
+    "auth": "public",
+    "guards": [
+      "require_device"
+    ],
+    "workflow": "device_dashboard",
+    "rate_limit_per_min": 30
+  },
+  {
+    "method": "GET",
+    "path": "/v1/device/photos/:id/:dim/:p",
+    "auth": "public",
+    "guards": [
+      "require_device"
+    ],
+    "workflow": "device_photo",
+    "rate_limit_per_min": 120
+  },
+  {
+    "method": "POST",
+    "path": "/v1/device/sync",
+    "auth": "public",
+    "guards": [
+      "require_device"
+    ],
+    "workflow": "device_sync",
+    "rate_limit_per_min": 20
+  },
+  {
+    "method": "GET",
+    "path": "/v1/device/wallpaper/:id",
+    "auth": "public",
+    "guards": [
+      "require_device"
+    ],
+    "workflow": "device_wallpaper",
+    "rate_limit_per_min": 60
+  },
+  {
+    "method": "GET",
+    "path": "/v1/device/whoami",
+    "auth": "public",
+    "guards": [
+      "require_device"
+    ],
+    "workflow": "device_whoami",
+    "rate_limit_per_min": 30
+  },
+  {
+    "method": "GET",
+    "path": "/v1/devices/:id/dashboard",
+    "auth": "end_user",
+    "workflow": "get_device_dashboard",
+    "rate_limit_per_min": 30
+  },
+  {
+    "method": "POST",
+    "path": "/v1/devices/:id/firmware",
+    "auth": "end_user",
+    "workflow": "device_firmware",
+    "rate_limit_per_min": 30
+  },
+  {
+    "method": "GET",
+    "path": "/v1/devices/:id/settings",
+    "auth": "end_user",
+    "workflow": "get_device_settings"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/devices/:id/settings",
+    "auth": "end_user",
+    "workflow": "save_device_settings",
+    "rate_limit_per_min": 30
+  },
+  {
+    "method": "GET",
+    "path": "/v1/devices/:id/wifi",
+    "auth": "end_user",
+    "workflow": "list_wifi"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/devices/:id/wifi",
+    "auth": "end_user",
+    "workflow": "save_wifi",
+    "rate_limit_per_min": 30
+  },
+  {
+    "method": "POST",
+    "path": "/v1/devices/update",
+    "auth": "end_user",
+    "workflow": "update_device"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/devices",
+    "auth": "end_user",
+    "workflow": "list_devices"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/devices",
+    "auth": "end_user",
+    "workflow": "create_device",
+    "rate_limit_per_min": 10
+  },
+  {
+    "method": "GET",
+    "path": "/v1/markets",
+    "auth": "end_user",
+    "workflow": "get_markets",
+    "rate_limit_per_min": 60
+  },
+  {
+    "method": "POST",
+    "path": "/v1/news/now",
+    "auth": "end_user",
+    "workflow": "make_news_now",
+    "rate_limit_per_min": 4
+  },
+  {
+    "method": "GET",
+    "path": "/v1/news",
+    "auth": "end_user",
+    "workflow": "get_news"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/news",
+    "auth": "end_user",
+    "workflow": "save_news",
+    "rate_limit_per_min": 30
+  },
+  {
+    "method": "POST",
+    "path": "/v1/notify-key",
+    "auth": "end_user",
+    "workflow": "save_notify_key"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/notify",
+    "auth": "public",
+    "workflow": "post_notification",
+    "rate_limit_per_min": 30
+  },
+  {
+    "method": "POST",
+    "path": "/v1/pair/confirm",
+    "auth": "end_user",
+    "workflow": "confirm_pair",
+    "rate_limit_per_min": 10
+  },
+  {
+    "method": "POST",
+    "path": "/v1/pair/start",
+    "auth": "public",
+    "workflow": "start_pair",
+    "rate_limit_per_min": 6
+  },
+  {
+    "method": "GET",
+    "path": "/v1/photos/:id/source",
+    "auth": "end_user",
+    "workflow": "photo_source",
+    "rate_limit_per_min": 120
+  },
+  {
+    "method": "POST",
+    "path": "/v1/photos/confirm",
+    "auth": "end_user",
+    "workflow": "confirm_photo"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/photos/delete",
+    "auth": "end_user",
+    "workflow": "delete_photo"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/photos/render",
+    "auth": "end_user",
+    "workflow": "start_photo_render",
+    "rate_limit_per_min": 240
+  },
+  {
+    "method": "POST",
+    "path": "/v1/photos/upload",
+    "auth": "end_user",
+    "workflow": "start_photo_upload",
+    "rate_limit_per_min": 30
+  },
+  {
+    "method": "GET",
+    "path": "/v1/photos",
+    "auth": "end_user",
+    "workflow": "list_photos"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/stats",
+    "auth": "end_user",
+    "workflow": "get_stats",
+    "rate_limit_per_min": 60
+  },
+  {
+    "method": "POST",
+    "path": "/v1/wallpapers/confirm",
+    "auth": "end_user",
+    "workflow": "confirm_wallpaper"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/wallpapers/delete",
+    "auth": "end_user",
+    "workflow": "delete_wallpaper"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/wallpapers/upload",
+    "auth": "end_user",
+    "workflow": "start_wallpaper_upload",
+    "rate_limit_per_min": 30
+  },
+  {
+    "method": "GET",
+    "path": "/v1/wallpapers",
+    "auth": "end_user",
+    "workflow": "list_wallpapers"
+  }
+]

@@ -1,0 +1,45 @@
+{
+  "code": "news_refresh",
+  "name": "Schedule: refresh the shared VnExpress cache every 15 minutes",
+  "draft": {
+    "nodes": [
+      {
+        "id": "tick",
+        "type": "schedule_trigger",
+        "config": {
+          "expression": "*/15 * * * *"
+        }
+      },
+      {
+        "id": "go",
+        "type": "job_enqueue",
+        "config": {
+          "worker": "news",
+          "input": {
+            "mode": "refresh"
+          }
+        }
+      },
+      {
+        "id": "done",
+        "type": "respond",
+        "config": {
+          "status": 200,
+          "body": {
+            "job_id": "{{ go.job_id }}"
+          }
+        }
+      }
+    ],
+    "edges": [
+      {
+        "from": "tick",
+        "to": "go"
+      },
+      {
+        "from": "go",
+        "to": "done"
+      }
+    ]
+  }
+}

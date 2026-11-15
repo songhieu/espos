@@ -1,0 +1,100 @@
+{
+  "code": "device_settings",
+  "columns": [
+    {
+      "code": "device_id",
+      "default": null,
+      "help": null,
+      "indexed": true,
+      "label": "Device",
+      "options": [],
+      "position": 1,
+      "read_only": false,
+      "ref_table": null,
+      "required": true,
+      "type": "integer",
+      "unique": false
+    },
+    {
+      "code": "user_id",
+      "default": null,
+      "help": null,
+      "indexed": true,
+      "label": "User",
+      "options": [],
+      "position": 2,
+      "read_only": false,
+      "ref_table": null,
+      "required": true,
+      "type": "integer",
+      "unique": false
+    },
+    {
+      "code": "skey",
+      "default": null,
+      "help": null,
+      "indexed": false,
+      "label": "Key",
+      "options": [],
+      "position": 3,
+      "read_only": false,
+      "ref_table": null,
+      "required": true,
+      "type": "text",
+      "unique": false
+    },
+    {
+      "code": "svalue",
+      "default": null,
+      "help": null,
+      "indexed": false,
+      "label": "Value",
+      "options": [],
+      "position": 4,
+      "read_only": false,
+      "ref_table": null,
+      "required": false,
+      "type": "text",
+      "unique": false
+    },
+    {
+      "code": "updated_ms",
+      "default": 0,
+      "help": null,
+      "indexed": false,
+      "label": "Changed at (epoch ms)",
+      "options": [],
+      "position": 5,
+      "read_only": false,
+      "ref_table": null,
+      "required": false,
+      "type": "integer",
+      "unique": false
+    },
+    {
+      "code": "source",
+      "default": "web",
+      "help": null,
+      "indexed": false,
+      "label": "Changed on",
+      "options": [
+        "web",
+        "device"
+      ],
+      "position": 6,
+      "read_only": false,
+      "ref_table": null,
+      "required": false,
+      "type": "enum",
+      "unique": false
+    }
+  ],
+  "label": "Device settings",
+  "singular": "Device setting",
+  "unique_together": [
+    [
+      "device_id",
+      "skey"
+    ]
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "code": "device_whoami",
+  "name": "Device: who am I",
+  "draft": {
+    "nodes": [
+      { "id": "in", "type": "http_in" },
+      { "id": "out", "type": "respond", "config": { "status": 200, "body": { "device": {
+          "id": "{{ input.guard.require_device.device_id }}",
+          "name": "{{ input.guard.require_device.name }}",
+          "user": "{{ input.guard.require_device.email }}" } } } }
+    ],
+    "edges": [ { "from": "in", "to": "out" } ]
+  }
+}

@@ -1,0 +1,50 @@
+{
+  "code": "market_cache",
+  "label": "Market cache",
+  "singular": "Market quote set",
+  "unique_together": [],
+  "columns": [
+    {
+      "code": "key",
+      "default": null,
+      "help": null,
+      "indexed": false,
+      "label": "Key (gold, index, fx, stk)",
+      "options": [],
+      "position": 1,
+      "read_only": false,
+      "ref_table": null,
+      "required": true,
+      "type": "text",
+      "unique": true
+    },
+    {
+      "code": "data",
+      "default": null,
+      "help": null,
+      "indexed": false,
+      "label": "Data",
+      "options": [],
+      "position": 2,
+      "read_only": false,
+      "ref_table": null,
+      "required": false,
+      "type": "json",
+      "unique": false
+    },
+    {
+      "code": "fetched_ms",
+      "default": 0,
+      "help": null,
+      "indexed": false,
+      "label": "Fetched (epoch ms)",
+      "options": [],
+      "position": 3,
+      "read_only": false,
+      "ref_table": null,
+      "required": false,
+      "type": "integer",
+      "unique": false
+    }
+  ]
+}

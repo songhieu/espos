@@ -1,0 +1,25 @@
+{
+  "code": "require_device",
+  "name": "Guard: device token",
+  "draft": {
+    "nodes": [
+      { "id": "in", "type": "function_in" },
+      { "id": "chk", "type": "code", "config": {
+          "source": { "$file": "nodes/chk.go" },
+          "input": { "headers": "{{ input.headers }}" } } },
+      { "id": "ok", "type": "branch", "config": { "rules": [ { "left": "{{ chk.ok }}", "op": "eq", "right": true } ] } },
+      { "id": "pass", "type": "return", "config": { "data": {
+          "device_id": "{{ chk.device_id }}", "user_id": "{{ chk.user_id }}",
+          "name": "{{ chk.name }}", "email": "{{ chk.email }}" } } },
+      { "id": "deny", "type": "return", "config": { "deny": true, "status": 401, "body": { "error": "{{ chk.err }}" } } },
+      { "id": "boom", "type": "return", "config": { "deny": true, "status": 500, "body": { "error": "{{ chk.error }}" } } }
+    ],
+    "edges": [
+      { "from": "in", "to": "chk" },
+      { "from": "chk", "to": "ok" },
+      { "from": "chk", "to": "boom", "port": "error" },
+      { "from": "ok", "to": "pass", "port": "true" },
+      { "from": "ok", "to": "deny", "port": "false" }
+    ]
+  }
+}

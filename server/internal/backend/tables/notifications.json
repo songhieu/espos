@@ -1,0 +1,50 @@
+{
+  "code": "notifications",
+  "columns": [
+    {
+      "code": "user_id",
+      "default": null,
+      "help": null,
+      "indexed": true,
+      "label": "User",
+      "options": [],
+      "position": 1,
+      "read_only": false,
+      "ref_table": null,
+      "required": true,
+      "type": "integer",
+      "unique": false
+    },
+    {
+      "code": "title",
+      "default": null,
+      "help": null,
+      "indexed": false,
+      "label": "Title",
+      "options": [],
+      "position": 2,
+      "read_only": false,
+      "ref_table": null,
+      "required": true,
+      "type": "text",
+      "unique": false
+    },
+    {
+      "code": "source",
+      "default": null,
+      "help": null,
+      "indexed": false,
+      "label": "Source",
+      "options": [],
+      "position": 3,
+      "read_only": false,
+      "ref_table": null,
+      "required": false,
+      "type": "text",
+      "unique": false
+    }
+  ],
+  "label": "Notifications",
+  "singular": "Notification",
+  "unique_together": []
+}

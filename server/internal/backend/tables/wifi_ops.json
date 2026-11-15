@@ -1,0 +1,113 @@
+{
+  "code": "wifi_ops",
+  "label": "WiFi changes for devices",
+  "singular": "WiFi change",
+  "unique_together": [],
+  "columns": [
+    {
+      "code": "device_id",
+      "default": null,
+      "help": null,
+      "indexed": true,
+      "label": "Device",
+      "options": [],
+      "position": 1,
+      "read_only": false,
+      "ref_table": null,
+      "required": true,
+      "type": "integer",
+      "unique": false
+    },
+    {
+      "code": "user_id",
+      "default": null,
+      "help": null,
+      "indexed": true,
+      "label": "User",
+      "options": [],
+      "position": 2,
+      "read_only": false,
+      "ref_table": null,
+      "required": true,
+      "type": "integer",
+      "unique": false
+    },
+    {
+      "code": "op",
+      "default": "add",
+      "help": null,
+      "indexed": false,
+      "label": "Change",
+      "options": [
+        "add",
+        "remove"
+      ],
+      "position": 3,
+      "read_only": false,
+      "ref_table": null,
+      "required": true,
+      "type": "enum",
+      "unique": false
+    },
+    {
+      "code": "ssid",
+      "default": null,
+      "help": null,
+      "indexed": false,
+      "label": "Network name",
+      "options": [],
+      "position": 4,
+      "read_only": false,
+      "ref_table": null,
+      "required": true,
+      "type": "text",
+      "unique": false
+    },
+    {
+      "code": "pass",
+      "default": null,
+      "help": null,
+      "indexed": false,
+      "label": "Password (cleared once the device saved it)",
+      "options": [],
+      "position": 5,
+      "read_only": false,
+      "ref_table": null,
+      "required": false,
+      "type": "text",
+      "unique": false
+    },
+    {
+      "code": "status",
+      "default": "pending",
+      "help": null,
+      "indexed": true,
+      "label": "Status",
+      "options": [
+        "pending",
+        "done",
+        "failed"
+      ],
+      "position": 6,
+      "read_only": false,
+      "ref_table": null,
+      "required": false,
+      "type": "enum",
+      "unique": false
+    },
+    {
+      "code": "result",
+      "default": null,
+      "help": null,
+      "indexed": false,
+      "label": "Device result",
+      "options": [],
+      "position": 7,
+      "read_only": false,
+      "ref_table": null,
+      "required": false,
+      "type": "text",
+      "unique": false
+    }
+  ]
+}

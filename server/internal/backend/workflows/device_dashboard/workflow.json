@@ -1,0 +1,18 @@
+{
+  "code": "device_dashboard",
+  "name": "Device: dashboard data",
+  "draft": {
+    "nodes": [
+      { "id": "in", "type": "http_in" },
+      { "id": "dash", "type": "call_workflow", "config": { "workflow": "build_dashboard",
+          "input": { "device_id": "{{ input.guard.require_device.device_id }}", "user_id": "{{ input.guard.require_device.user_id }}" } } },
+      { "id": "out", "type": "respond", "config": { "status": 200, "body": "{{ dash.dashboard }}" } },
+      { "id": "fail", "type": "respond", "config": { "status": 500, "body": { "error": "{{ dash.error }}" } } }
+    ],
+    "edges": [
+      { "from": "in", "to": "dash" },
+      { "from": "dash", "to": "out" },
+      { "from": "dash", "to": "fail", "port": "error" }
+    ]
+  }
+}

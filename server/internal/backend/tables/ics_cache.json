@@ -1,0 +1,64 @@
+{
+  "code": "ics_cache",
+  "columns": [
+    {
+      "code": "device_id",
+      "default": null,
+      "help": null,
+      "indexed": false,
+      "label": "Device",
+      "options": [],
+      "position": 1,
+      "read_only": false,
+      "ref_table": null,
+      "required": true,
+      "type": "integer",
+      "unique": true
+    },
+    {
+      "code": "day",
+      "default": null,
+      "help": null,
+      "indexed": false,
+      "label": "Day (YYYY-MM-DD)",
+      "options": [],
+      "position": 2,
+      "read_only": false,
+      "ref_table": null,
+      "required": false,
+      "type": "text",
+      "unique": false
+    },
+    {
+      "code": "data",
+      "default": null,
+      "help": null,
+      "indexed": false,
+      "label": "Events",
+      "options": [],
+      "position": 3,
+      "read_only": false,
+      "ref_table": null,
+      "required": false,
+      "type": "json",
+      "unique": false
+    },
+    {
+      "code": "fetched_ms",
+      "default": 0,
+      "help": null,
+      "indexed": false,
+      "label": "Fetched (epoch ms)",
+      "options": [],
+      "position": 4,
+      "read_only": false,
+      "ref_table": null,
+      "required": false,
+      "type": "integer",
+      "unique": false
+    }
+  ],
+  "label": "Calendar cache",
+  "singular": null,
+  "unique_together": []
+}

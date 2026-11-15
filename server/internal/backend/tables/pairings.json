@@ -1,0 +1,81 @@
+{
+  "code": "pairings",
+  "columns": [
+    {
+      "code": "code",
+      "default": null,
+      "help": null,
+      "indexed": false,
+      "label": "Code",
+      "options": [],
+      "position": 1,
+      "read_only": false,
+      "ref_table": null,
+      "required": true,
+      "type": "text",
+      "unique": true
+    },
+    {
+      "code": "token_hash",
+      "default": null,
+      "help": null,
+      "indexed": false,
+      "label": "Token hash",
+      "options": [],
+      "position": 2,
+      "read_only": false,
+      "ref_table": null,
+      "required": true,
+      "type": "text",
+      "unique": true
+    },
+    {
+      "code": "name",
+      "default": null,
+      "help": null,
+      "indexed": false,
+      "label": "Device name",
+      "options": [],
+      "position": 3,
+      "read_only": false,
+      "ref_table": null,
+      "required": false,
+      "type": "text",
+      "unique": false
+    },
+    {
+      "code": "status",
+      "default": "pending",
+      "help": null,
+      "indexed": false,
+      "label": "Status",
+      "options": [
+        "pending",
+        "linked"
+      ],
+      "position": 4,
+      "read_only": false,
+      "ref_table": null,
+      "required": false,
+      "type": "enum",
+      "unique": false
+    },
+    {
+      "code": "expires_ms",
+      "default": null,
+      "help": null,
+      "indexed": true,
+      "label": "Expires (epoch ms)",
+      "options": [],
+      "position": 5,
+      "read_only": false,
+      "ref_table": null,
+      "required": true,
+      "type": "integer",
+      "unique": false
+    }
+  ],
+  "label": "Pairings",
+  "singular": "Pairing",
+  "unique_together": []
+}

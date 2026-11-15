@@ -1,0 +1,45 @@
+{
+  "code": "news_tick",
+  "name": "Schedule: start morning papers whose hour has come",
+  "draft": {
+    "nodes": [
+      {
+        "id": "tick",
+        "type": "schedule_trigger",
+        "config": {
+          "expression": "7 * * * *"
+        }
+      },
+      {
+        "id": "go",
+        "type": "job_enqueue",
+        "config": {
+          "worker": "news",
+          "input": {
+            "mode": "due"
+          }
+        }
+      },
+      {
+        "id": "done",
+        "type": "respond",
+        "config": {
+          "status": 200,
+          "body": {
+            "job_id": "{{ go.job_id }}"
+          }
+        }
+      }
+    ],
+    "edges": [
+      {
+        "from": "tick",
+        "to": "go"
+      },
+      {
+        "from": "go",
+        "to": "done"
+      }
+    ]
+  }
+}

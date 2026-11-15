@@ -1,0 +1,18 @@
+{
+  "code": "build_dashboard",
+  "name": "Build the device dashboard data",
+  "draft": {
+    "nodes": [
+      { "id": "in", "type": "function_in", "config": { "inputs": ["device_id", "user_id"] } },
+      { "id": "dash", "type": "code", "config": {
+          "source": { "$file": "nodes/dash.go" },
+          "timeout_ms": 25000,
+          "input": { "device_id": "{{ input.device_id }}", "user_id": "{{ input.user_id }}" } } },
+      { "id": "out", "type": "return", "config": { "data": { "dashboard": "{{ dash.dashboard }}" } } }
+    ],
+    "edges": [
+      { "from": "in", "to": "dash" },
+      { "from": "dash", "to": "out" }
+    ]
+  }
+}

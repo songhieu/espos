@@ -1,0 +1,17 @@
+{
+  "code": "start_pair",
+  "name": "Device: start pairing with a code",
+  "draft": {
+    "nodes": [
+      { "id": "in", "type": "http_in" },
+      { "id": "work", "type": "code", "config": { "source": { "$file": "nodes/work.go" }, "input": { "body": "{{ input.body }}" } } },
+      { "id": "out", "type": "respond", "config": { "status": "{{ work.status }}", "body": "{{ work.body }}" } },
+      { "id": "fail", "type": "respond", "config": { "status": 500, "body": { "error": "{{ work.error }}" } } }
+    ],
+    "edges": [
+      { "from": "in", "to": "work" },
+      { "from": "work", "to": "out" },
+      { "from": "work", "to": "fail", "port": "error" }
+    ]
+  }
+}
