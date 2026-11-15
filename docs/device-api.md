@@ -108,7 +108,7 @@ device  → INKDESK:READY {"fw":"inkdesk-0.1.0","linked":false}
 browser → INKDESK:PROVISION {"api":"https://inkdesk.example.com","token":"<64 hex>",
            "device":{"id":3,"name":"X4 phòng ngủ","user":"you@example.com"},
            "wifi":[{"ssid":"NhaMinh","pass":"…"}],
-           "settings":{"sys.lang":"vi","read.font":"bookerly"},"settings_rev":1794631999000,
+           "settings":{"sys.lang":"vi","read.font":"LexicaUltralegible"},"settings_rev":1794631999000,
            "now_ms":1794631999000}
 device  → INKDESK:OK            (or INKDESK:ERR <reason>)
 ```
@@ -122,7 +122,7 @@ does, until the device acknowledges it: see "WiFi from the web" below.)
 |---|---|---|---|
 | `sys.lang` | `vi`, `en` | `vi` | UI language |
 | `sys.sleep_min` | `5`,`10`,`15`,`30` | `10` | auto-sleep timeout |
-| `read.font` | `bookerly`, `notosans`, `notoserif` | `bookerly` | reader font family (map to what exists) |
+| `read.font` | `notosans` (built in) or a family of CrossPoint's SD font catalogue (`LexicaUltralegible`, `Literata`, `Bitter`, …) | `LexicaUltralegible` | reader font; the device downloads a missing family (sync screen, or its font screen after a reboot for a fresh heap) |
 | `read.size` | `small`, `medium`, `large`, `xlarge` | `medium` | reader font size |
 | `read.spacing` | `1.2`, `1.4`, `1.6` | `1.4` | line spacing |
 | `dash.enabled` | `0`,`1` | `1` | sleep screen = dashboard |
@@ -169,7 +169,7 @@ Web-only keys (never sent to the device): `dash.city`, `dash.lat`, `dash.lon`, `
 Where these differ from the sections above, this is what the device does.
 
 - **USB provisioning**: the device's serial RX buffer is 2 KB. Send `PROVISION` only after `READY`, as one line under 2 KB. The device answers `OK` and opens the welcome screen without rebooting. It must be awake (any screen); after a flash it boots normally into Home. Its log lines share the port.
-- **Settings from the device**: changes are found by comparing against the last applied set, so `age_s` is always `0` (if both sides changed a key between syncs, the device value wins). Keys the device applies: `sys.lang` (`vi`/`en`), `sys.sleep_min`, `read.size` (12/14/16/18 pt), `read.spacing`. `read.font` is ignored (only Noto Sans is built in). Keys the device can change itself: those four plus `dash.enabled`, `dash.interval_min`, `dash.charging_min`, `dash.save_pct`, `dash.layout`.
+- **Settings from the device**: changes are found by comparing against the last applied set, so `age_s` is always `0` (if both sides changed a key between syncs, the device value wins). Keys the device applies: `sys.lang` (`vi`/`en`), `sys.sleep_min`, `read.size` (12/14/16/18 pt), `read.spacing`. `read.font` names the reader font; a family not on the SD card is downloaded from the catalogue (manifest over TLS, files checked by CRC32) and selected once installed. Keys the device can change itself: those four plus `dash.enabled`, `dash.interval_min`, `dash.charging_min`, `dash.save_pct`, `dash.layout`.
 - **Quiet hours**: read from `dash.quiet_from` / `dash.quiet_to` in the merged `settings`, so send them there (defaults 23:00 / 06:00).
 - **progress**: sent only for InkDesk books in the device's recent-books list (at most 10).
 - **Dashboard**: `next_s` is ignored. The device wakes every `dash.interval_min` (every 60 s on USB power when `dash.charging_min` is `1`), skipping quiet hours, and fetches `GET /v1/device/dashboard` on each wake. `layout` in the dashboard object wins over `dash.layout` when present. No live clock is drawn.

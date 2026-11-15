@@ -86,8 +86,10 @@ function DeviceRow({ d, ink, onChange }: { d: Device; ink: Ink; onChange: () => 
   );
 }
 
+// Failure reasons from the reader; fw 0.3.5+ adds details after a colon ("download: HTTP -1, 0/5890176 B").
 const WHY: Record<string, string> = {
-  download: "WiFi bị đứt giữa chừng",
+  download: "tải firmware không xong",
+  wifi: "máy không vào được WiFi",
   checksum: "file tải về bị lỗi",
   rollback: "bản mới khởi động lỗi nên máy tự quay về bản cũ",
   "image check": "file firmware không hợp lệ",
@@ -178,7 +180,7 @@ function FirmwareBox({ d, latest, ink, onChange }: { d: Device; latest: Firmware
       )}
       {!requested && st?.state === "failed" && (
         <div className="ik-fw-state bad">
-          Lần cài bản {shortVersion(st.version ?? "")} {hhmm(st.at) && `lúc ${hhmm(st.at)} `}không thành công: {WHY[st.why ?? ""] ?? "lỗi khi ghi"}. Máy vẫn chạy bản{" "}
+          Lần cài bản {shortVersion(st.version ?? "")} {hhmm(st.at) && `lúc ${hhmm(st.at)} `}không thành công: <span title={st.why}>{WHY[(st.why ?? "").split(":")[0]] ?? "lỗi khi ghi"}</span>. Máy vẫn chạy bản{" "}
           {running}, không mất gì.
           {newer && (
             <button type="button" className="ik-btn ghost sm" disabled={busy} onClick={() => act({ action: "update" })}>
@@ -729,7 +731,7 @@ function lineKind(l: string): string {
 function Bars({ rssi }: { rssi: number }) {
   const n = rssi >= -55 ? 4 : rssi >= -67 ? 3 : rssi >= -78 ? 2 : 1;
   return (
-    <span className="ik-bars" aria-label={`Sóng ${n}/4`}>
+    <span className="ik-signal" aria-label={`Sóng ${n}/4`}>
       {[1, 2, 3, 4].map((i) => (
         <i key={i} className={i <= n ? "on" : ""} style={{ height: 3 + i * 3 }} />
       ))}

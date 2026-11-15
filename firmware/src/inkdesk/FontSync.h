@@ -24,6 +24,16 @@ bool select(const std::string& family);
 // The family read.font asks for but the card does not have yet ("" when none).
 std::string missing();
 
+// The catalogue comes from GitHub over TLS and needs a larger contiguous block than the
+// InkDesk calls: right after a sync the largest block was 47 KB and the download hung; on a
+// fresh boot it is about 86 KB. Below this, reboot into the font screen first.
+constexpr size_t MIN_BLOCK = 70000;
+
+// One automatic attempt per power-up: Home does not start the download again after an
+// attempt (or a cancel) until the next boot that is not a silent restart.
+bool attempted();
+void markAttempted();
+
 // Downloads one family (manifest over TLS, files checked by CRC32), then selects it.
 // `progress(done, total)` reports bytes across the family. Returns true on success.
 bool install(const std::string& family, const std::function<void(size_t, size_t)>& progress = nullptr,

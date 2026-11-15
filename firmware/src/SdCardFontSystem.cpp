@@ -284,6 +284,13 @@ int SdCardFontSystem::variantFontId(const int readerFontId, const uint8_t pointS
   return id != 0 ? id : 1;
 }
 
+void SdCardFontSystem::unloadForTransfer(GfxRenderer& renderer) {
+#if CROSSPOINT_VECTOR_FONTS
+  if (!ttfFamily_.empty()) unloadTtf(renderer);
+#endif
+  if (!manager_.currentFamilyName().empty()) unloadCpfonts(renderer);
+}
+
 void SdCardFontSystem::unloadCpfonts(GfxRenderer& renderer) {
   cpfontVariants_.clear();  // the manager owns and frees the fonts themselves
   manager_.unloadAll(renderer);

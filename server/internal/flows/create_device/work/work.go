@@ -17,7 +17,7 @@ var hashRe = regexp.MustCompile(`^[0-9a-f]{64}$`)
 // Device-visible keys and their defaults (docs/inkdesk-api.md); web-only keys never reach the device.
 var deviceDefaults = map[string]string{
 	"sys.lang": "vi", "sys.sleep_min": "10",
-	"read.font": "notosans", "read.size": "medium", "read.spacing": "1.4",
+	"read.font": "LexicaUltralegible", "read.size": "medium", "read.spacing": "1.4",
 	"dash.enabled": "1", "dash.layout": "desk", "dash.interval_min": "30", "dash.clock": "1",
 	"dash.charging_min": "1", "dash.save_pct": "20", "dash.quiet_from": "23:00", "dash.quiet_to": "06:00",
 	"sleep.mode": "dashboard", "sleep.rotate": "sleep", "sleep.order": "seq", "sleep.clock": "1",

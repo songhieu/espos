@@ -1,5 +1,6 @@
 #include "InkOtaActivity.h"
 
+#include <FontCacheManager.h>
 #include <GfxRenderer.h>
 #include <HalGPIO.h>
 #include <HalPowerManager.h>
@@ -10,6 +11,7 @@
 
 #include <cstdio>
 
+#include "SdCardFontSystem.h"
 #include "SilentRestart.h"
 #include "WifiCredentialStore.h"
 #include "fontIds.h"
@@ -18,6 +20,8 @@
 #include "inkdesk/InkNet.h"
 #include "inkdesk/InkOta.h"
 #include "inkdesk/InkUi.h"
+
+extern SdCardFontSystem sdFontSystem;
 
 namespace iu = inkdesk::ui;
 
@@ -108,6 +112,11 @@ void InkOtaActivity::loop() {
 }
 
 void InkOtaActivity::runInstall() {
+  // A reading font from the SD card is loaded at boot and takes the RAM the TLS download
+  // needs (with Lexica selected the install failed at once). The restart after the install
+  // loads it again.
+  sdFontSystem.unloadForTransfer(renderer);
+  if (auto* fcm = renderer.getFontCacheManager()) fcm->releaseSdFontCaches();
   LOG_INF("OTA", "Install %s: max block %u", INKDESK.fwOffer.version.c_str(),
           static_cast<unsigned>(ESP.getMaxAllocHeap()));
   if (ESP.getMaxAllocHeap() < CLEAN_HEAP && s_otaRestarts < 2) {
@@ -129,22 +138,18 @@ void InkOtaActivity::runInstall() {
   total_ = INKDESK.fwOffer.size;
   requestUpdateAndWait();
 
-  inkdesk::ota::Result result = inkdesk::ota::Result::Network;
-  if (inkdesk::net::joinSaved(12000)) {
-    result = inkdesk::ota::install([this](const size_t done, const size_t total) {
-      done_ = done;
-      if (total > 0) total_ = total;
-      const int pct = total_ > 0 ? static_cast<int>(static_cast<uint64_t>(done) * 100 / total_) : 0;
-      // E-ink: repaint every 10%.
-      if (pct >= percent_ + 10) {
-        percent_ = pct - pct % 10;
-        requestUpdateAndWait();
-      }
-    });
-  } else {
-    INKDESK.fwOffer.install = false;
-    INKDESK.saveToFile();
-  }
+  const inkdesk::ota::Result result = inkdesk::ota::install(
+      [this](const size_t done, const size_t total) {
+        done_ = done;
+        if (total > 0) total_ = total;
+        const int pct = total_ > 0 ? static_cast<int>(static_cast<uint64_t>(done) * 100 / total_) : 0;
+        // E-ink: repaint every 10%.
+        if (pct >= percent_ + 10) {
+          percent_ = pct - pct % 10;
+          requestUpdateAndWait();
+        }
+      },
+      [] { return inkdesk::net::joinSaved(12000); });
   inkdesk::net::off();
 
   if (result == inkdesk::ota::Result::Ok) {

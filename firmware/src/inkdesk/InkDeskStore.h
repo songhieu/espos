@@ -16,7 +16,7 @@
 // the screens that show it read it).
 namespace inkdesk {
 
-constexpr const char* FW_VERSION = "inkdesk-0.3.3";
+constexpr const char* FW_VERSION = "inkdesk-0.3.5";
 // The server a reader talks to until USB setup gives it one. Empty by default: the web
 // installer always sends the server's address. Set them in platformio.local.ini (see the
 // firmware README) so a reader can also be linked with a code, without a cable.

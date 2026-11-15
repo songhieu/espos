@@ -7,8 +7,6 @@
 #include <HalPowerManager.h>
 #include <HalStorage.h>
 #include <I18n.h>
-#include <esp_attr.h>
-#include <esp_system.h>
 
 #include <algorithm>
 #include <climits>
@@ -69,71 +67,28 @@ void InkHomeActivity::onEnter() {
 namespace {
 // The WiFi prompt shows at most once per boot.
 bool s_wifiPrompted = false;
-
-// Font download bookkeeping that survives the silent restarts around it (RTC_NOINIT), reset on
-// any other boot: one attempt, and at most two restarts to get a clean heap first.
-RTC_NOINIT_ATTR uint32_t s_fontMagic;
-RTC_NOINIT_ATTR uint32_t s_fontRestarts;
-RTC_NOINIT_ATTR uint32_t s_fontTried;
-constexpr uint32_t FONT_MAGIC = 0xF0A7F0A7;
-void fontStateOnBoot() {
-  static bool checked = false;
-  if (checked) return;
-  checked = true;
-  if (esp_reset_reason() != ESP_RST_SW || s_fontMagic != FONT_MAGIC) {
-    s_fontMagic = FONT_MAGIC;
-    s_fontRestarts = 0;
-    s_fontTried = 0;
-  }
-}
 }  // namespace
 
 bool InkHomeActivity::shouldInstallFont() const {
-  fontStateOnBoot();
   const std::string missing = inkdesk::fonts::missing();
   WIFI_STORE.loadFromFile();
-  const bool go = linked_ && !s_fontTried && !missing.empty() && WIFI_STORE.getCredentialCount() > 0 &&
-                  powerManager.getBatteryPercentage() >= 15;
-  LOG_DBG("IKHM", "Font check: want=%s missing=%s tried=%u restarts=%u reason=%d -> %s",
-          INKDESK.get("read.font", "-").c_str(), missing.c_str(), static_cast<unsigned>(s_fontTried),
-          static_cast<unsigned>(s_fontRestarts), static_cast<int>(esp_reset_reason()), go ? "install" : "skip");
+  const bool go = linked_ && !inkdesk::fonts::attempted() && !missing.empty() &&
+                  WIFI_STORE.getCredentialCount() > 0 && powerManager.getBatteryPercentage() >= 15;
+  LOG_DBG("IKHM", "Font check: want=%s missing=%s -> %s", INKDESK.get("read.font", "-").c_str(), missing.c_str(),
+          go ? "install" : "skip");
   return go;
 }
 
-void InkHomeActivity::runFontInstall() {
-  const std::string family = inkdesk::fonts::missing();
-  if (family.empty()) return;
-  // The catalogue comes over TLS: it needs the contiguous heap a fresh boot has.
-  LOG_INF("IKHM", "Font %s: max block %u", family.c_str(), static_cast<unsigned>(ESP.getMaxAllocHeap()));
-  if (ESP.getMaxAllocHeap() < 70000 && s_fontRestarts < 2) {
-    s_fontRestarts++;
-    LOG_INF("IKHM", "Restarting for a clean heap before the font download");
-    silentRestart();
+// The font screen shows the download and lets Back stop it; it needs a fresh heap for the
+// catalogue's TLS session, so reboot into it unless Home already has one.
+void InkHomeActivity::openFontDownload() {
+  if (ESP.getMaxAllocHeap() < inkdesk::fonts::MIN_BLOCK) {
+    silentRestartToFontDownload();
     return;
   }
-  s_fontTried = 1;
-  char msg[96];
-  snprintf(msg, sizeof(msg), tr(STR_IK_FONT_INSTALLING_FMT), family.c_str(), 0);
-  statusMsg_ = msg;
-  requestUpdateAndWait();
-  bool ok = false;
-  if (inkdesk::net::joinSaved(8000)) {
-    int last = 0;
-    ok = inkdesk::fonts::install(family, [&](const size_t done, const size_t total) {
-      const int pct = total > 0 ? static_cast<int>(static_cast<uint64_t>(done) * 100 / total) : 0;
-      if (pct >= last + 20) {
-        last = pct;
-        snprintf(msg, sizeof(msg), tr(STR_IK_FONT_INSTALLING_FMT), family.c_str(), pct);
-        statusMsg_ = msg;
-        requestUpdateAndWait();
-      }
-    });
-  }
-  inkdesk::net::off();
-  LOG_INF("IKHM", "Font %s: %s", family.c_str(), ok ? "installed" : "failed");
-  statusMsg_.clear();
-  // TLS leaves the heap fragmented: come back to a clean Home.
-  silentRestart();
+  startActivityForResult(
+      std::make_unique<InkDeskSyncActivity>(renderer, mappedInput, InkDeskSyncActivity::Mode::Font),
+      [this](const ActivityResult&) { requestUpdate(); });
 }
 
 void InkHomeActivity::promptWifi() {
@@ -275,7 +230,7 @@ void InkHomeActivity::loop() {
   }
   if (fontInstall_ && millis() - enterMs_ > 800) {
     fontInstall_ = false;
-    runFontInstall();
+    openFontDownload();
     return;
   }
   if (autoSync_) {

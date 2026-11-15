@@ -2137,19 +2137,20 @@
   color: #fff;
   border-color: var(--ink);
 }
-.ik-bars {
+.ik-signal {
   display: inline-flex;
   align-items: flex-end;
   gap: 1.5px;
   height: 15px;
+  flex: none;
 }
-.ik-bars i {
+.ik-signal i {
   width: 3px;
   background: currentColor;
   opacity: 0.25;
   border-radius: 1px;
 }
-.ik-bars i.on {
+.ik-signal i.on {
   opacity: 1;
 }
 .ik-wifibox h3 {

@@ -20,7 +20,9 @@ bool offerAvailable();
 enum class Result { Ok, NoOffer, Network, WrongImage, Hash, Flash };
 // Downloads the offer into the spare slot, checks its SHA-256 and selects it for the next
 // boot. On Ok the caller restarts. Failures are queued for the next sync's report.
-Result install(const std::function<void(size_t done, size_t total)>& progress);
+// `connect` joins WiFi: called after the slot is erased (the erase holds the flash for
+// ~18 s, so WiFi stays off meanwhile) and again whenever the connection was lost.
+Result install(const std::function<void(size_t done, size_t total)>& progress, const std::function<bool()>& connect);
 
 // After INKDESK is loaded at boot: reports how the last install went.
 void checkAfterBoot();

@@ -1,5 +1,6 @@
 #include "InkDeskSyncActivity.h"
 
+#include <FontCacheManager.h>
 #include <LibraryBuilder.h>
 
 #include "inkdesk/FontSync.h"
@@ -11,6 +12,7 @@
 
 #include <cstdio>
 
+#include "SdCardFontSystem.h"
 #include "SilentRestart.h"
 #include "activities/network/WifiSelectionActivity.h"
 #include "inkdesk/InkNet.h"
@@ -20,6 +22,8 @@
 #include "inkdesk/InkDeskSync.h"
 #include "inkdesk/InkUi.h"
 #include "network/HttpDownloader.h"
+
+extern SdCardFontSystem sdFontSystem;
 
 namespace {
 enum ItemIndex : size_t { ITEM_SETTINGS = 0, ITEM_PROGRESS = 1, FIXED_ITEMS = 2 };
@@ -49,12 +53,16 @@ void InkDeskSyncActivity::onEnter() {
   Activity::onEnter();
   items_.clear();
   items_.reserve(FIXED_ITEMS + 4);
-  items_.push_back({tr(STR_ID_SYNC_SETTINGS), "", ItemStatus::Waiting});
-  items_.push_back({tr(STR_ID_SYNC_PROGRESS), "", ItemStatus::Waiting});
-
-  if (!INKDESK.isLinked()) {
-    fail(tr(STR_ID_NOT_LINKED));
-    return;
+  if (mode_ == Mode::Sync) {
+    items_.push_back({tr(STR_ID_SYNC_SETTINGS), "", ItemStatus::Waiting});
+    items_.push_back({tr(STR_ID_SYNC_PROGRESS), "", ItemStatus::Waiting});
+    if (!INKDESK.isLinked()) {
+      fail(tr(STR_ID_NOT_LINKED));
+      return;
+    }
+  } else {
+    // Counts even when WiFi fails, so Home does not reopen this screen in a loop.
+    inkdesk::fonts::markAttempted();
   }
   networkUsed_ = true;
   headline_ = tr(STR_ID_SYNC_CONNECTING);
@@ -75,7 +83,7 @@ void InkDeskSyncActivity::onEnter() {
   startActivityForResult(std::make_unique<WifiSelectionActivity>(renderer, mappedInput),
                          [this](const ActivityResult& result) {
                            if (result.isCancelled) {
-                             fail(tr(STR_ID_SYNC_FAILED));
+                             fail(mode_ == Mode::Font ? tr(STR_IK_FONT_FAILED) : tr(STR_ID_SYNC_FAILED));
                              return;
                            }
                            state_ = State::Working;
@@ -113,7 +121,11 @@ void InkDeskSyncActivity::setItem(const size_t index, const ItemStatus status, c
 void InkDeskSyncActivity::loop() {
   if (startPending_) {
     startPending_ = false;
-    runSync();
+    if (mode_ == Mode::Font) {
+      runFont();
+    } else {
+      runSync();
+    }
     return;
   }
   if (state_ == State::Done || state_ == State::Failed) {
@@ -172,6 +184,7 @@ void InkDeskSyncActivity::runSync() {
   if (!outcome.downloads.empty()) Storage.mkdir(inkdesk::BOOKS_DIR);
   bool anyFailed = false;
   const std::vector<HttpDownloader::Header> headers = {{"Authorization", INKDESK.authHeader()}};
+  cancellable_ = true;
   for (size_t i = 0; i < outcome.downloads.size() && !cancel_; i++) {
     const auto& d = outcome.downloads[i];
     const size_t row = firstBook + i;
@@ -209,16 +222,12 @@ void InkDeskSyncActivity::runSync() {
   }
 
   if (!cancel_ && inkdesk::sync::downloadWalls(outcome, &cancel_) > 0) anyFailed = true;
+  cancellable_ = false;
 
-  // Reading font picked on the web: Home downloads it right after, on a fresh heap.
-  if (!outcome.fontWanted.empty()) {
-    char label[64];
-    snprintf(label, sizeof(label), tr(STR_IK_FONT_ROW_FMT), outcome.fontWanted.c_str());
-    RenderLock lock(*this);
-    items_.push_back({label, tr(STR_IK_FONT_NEXT), ItemStatus::Waiting});
-  }
   // The Library list reads a prebuilt index: rebuild it on the next visit.
   if (libraryChanged) library::markLibraryIndexDirty();
+  // Reading font picked on the web: here, or after a reboot for a fresh heap.
+  if (!cancel_ && !outcome.fontWanted.empty() && !downloadFont(outcome.fontWanted)) anyFailed = true;
 
   WiFi.disconnect(true);
   WiFi.mode(WIFI_OFF);
@@ -226,6 +235,75 @@ void InkDeskSyncActivity::runSync() {
     RenderLock lock(*this);
     state_ = State::Done;
     headline_ = (anyFailed || cancel_) ? tr(STR_ID_SYNC_FAILED) : tr(STR_ID_SYNC_DONE);
+  }
+  requestUpdate();
+}
+
+// Returns false when the font did not install (failed or stopped).
+bool InkDeskSyncActivity::downloadFont(const std::string& family) {
+  char label[64];
+  snprintf(label, sizeof(label), tr(STR_IK_FONT_ROW_FMT), family.c_str());
+  size_t row = 0;
+  {
+    RenderLock lock(*this);
+    items_.push_back({label, "", ItemStatus::Working});
+    row = items_.size() - 1;
+  }
+  // The reading font loaded from the SD card holds RAM the TLS download needs.
+  sdFontSystem.unloadForTransfer(renderer);
+  if (auto* fcm = renderer.getFontCacheManager()) fcm->releaseSdFontCaches();
+  if (mode_ == Mode::Sync && ESP.getMaxAllocHeap() < inkdesk::fonts::MIN_BLOCK) {
+    LOG_INF("INKD", "Font %s: max block %u, rebooting into the font screen", family.c_str(),
+            static_cast<unsigned>(ESP.getMaxAllocHeap()));
+    setItem(row, ItemStatus::Working, tr(STR_IK_FONT_RESTART));
+    requestUpdateAndWait();
+    WiFi.disconnect(true);
+    WiFi.mode(WIFI_OFF);
+    delay(30);
+    silentRestartToFontDownload();  // returns only when sleep supersedes it
+    setItem(row, ItemStatus::Failed, tr(STR_ID_FAILED));
+    return false;
+  }
+  inkdesk::fonts::markAttempted();
+  lastPercent_ = -1;
+  cancellable_ = true;
+  requestUpdate(true);
+  const bool ok = inkdesk::fonts::install(
+      family,
+      [this, row](const size_t done, const size_t total) {
+        mappedInput.update(true);
+        if (mappedInput.wasReleased(MappedInputManager::Button::Back)) cancel_ = true;
+        const int percent = total > 0 ? static_cast<int>(static_cast<uint64_t>(done) * 100 / total) : 0;
+        if (percent >= lastPercent_ + 10 || percent >= 100) {
+          lastPercent_ = percent;
+          char detail[48];
+          snprintf(detail, sizeof(detail), tr(STR_ID_DOWNLOADING_FMT), percent);
+          setItem(row, ItemStatus::Working, detail);
+          requestUpdate(true);
+        }
+      },
+      &cancel_);
+  cancellable_ = false;
+  LOG_INF("INKD", "Font %s: %s", family.c_str(), ok ? "installed" : (cancel_ ? "stopped" : "failed"));
+  setItem(row, ok ? ItemStatus::Done : ItemStatus::Failed,
+          ok ? tr(STR_IK_FONT_IN_USE) : (cancel_ ? tr(STR_IK_STOPPED) : tr(STR_ID_FAILED)));
+  return ok;
+}
+
+void InkDeskSyncActivity::runFont() {
+  {
+    RenderLock lock(*this);
+    headline_ = tr(STR_IK_FONT_LOADING);
+  }
+  requestUpdateAndWait();
+  const std::string family = inkdesk::fonts::missing();
+  const bool ok = family.empty() || downloadFont(family);
+  WiFi.disconnect(true);
+  WiFi.mode(WIFI_OFF);
+  {
+    RenderLock lock(*this);
+    state_ = ok ? State::Done : State::Failed;
+    headline_ = ok ? tr(STR_IK_FONT_READY) : (cancel_ ? tr(STR_IK_FONT_STOPPED) : tr(STR_IK_FONT_FAILED));
   }
   requestUpdate();
 }
@@ -272,7 +350,7 @@ void InkDeskSyncActivity::render(RenderLock&&) {
     y += 10;
   }
 
-  if (state_ == State::Done) {
+  if (state_ == State::Done && mode_ == Mode::Sync) {
     const auto lines =
         renderer.wrappedText(NOTOSANS_12_FONT_ID, tr(STR_ID_SYNC_NOTE), w - left * 2 - 24, 3, EpdFontFamily::REGULAR);
     const int boxH = static_cast<int>(lines.size()) * detailH + 20;
@@ -286,7 +364,8 @@ void InkDeskSyncActivity::render(RenderLock&&) {
   }
 
   const bool finished = state_ == State::Done || state_ == State::Failed;
-  const auto labels = mappedInput.mapLabels(finished ? tr(STR_BACK) : "", "", "", "");
+  const char* back = finished ? tr(STR_BACK) : (cancellable_ ? tr(STR_CANCEL) : "");
+  const auto labels = mappedInput.mapLabels(back, "", "", "");
   GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
   renderer.displayBuffer();
 }

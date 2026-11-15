@@ -5,13 +5,17 @@
 
 #include "activities/Activity.h"
 
-// Runs one InkDesk sync: WiFi, POST /v1/device/sync, then book downloads,
-// showing one row per step. Network work blocks loop(), like the other
-// download screens; Back cancels a running download.
+// Runs one InkDesk sync: WiFi, POST /v1/device/sync, then book, picture and
+// reading-font downloads, showing one row per step. Network work blocks loop(),
+// like the other download screens; Back cancels a running download.
+// Mode::Font only downloads the reading font picked on the web (after a reboot
+// for a fresh heap, or from Home).
 class InkDeskSyncActivity final : public Activity {
  public:
-  explicit InkDeskSyncActivity(GfxRenderer& renderer, MappedInputManager& mappedInput)
-      : Activity("InkDeskSync", renderer, mappedInput) {}
+  enum class Mode { Sync, Font };
+
+  explicit InkDeskSyncActivity(GfxRenderer& renderer, MappedInputManager& mappedInput, Mode mode = Mode::Sync)
+      : Activity("InkDeskSync", renderer, mappedInput), mode_(mode) {}
 
   void onEnter() override;
   void onExit() override;
@@ -29,10 +33,14 @@ class InkDeskSyncActivity final : public Activity {
   };
 
   void runSync();
+  void runFont();
+  bool downloadFont(const std::string& family);
   void setItem(size_t index, ItemStatus status, const std::string& detail);
   void fail(const char* message);
 
+  Mode mode_;
   State state_ = State::Wifi;
+  bool cancellable_ = false;  // a download is running: Back stops it
   bool startPending_ = false;
   bool networkUsed_ = false;
   bool cancel_ = false;

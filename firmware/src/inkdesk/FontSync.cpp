@@ -3,7 +3,9 @@
 #include <ArduinoJson.h>
 #include <HalStorage.h>
 #include <Logging.h>
+#include <esp_attr.h>
 #include <esp_rom_crc.h>
+#include <esp_system.h>
 
 #include <cstring>
 
@@ -41,7 +43,32 @@ struct FileSpec {
   uint32_t crc32 = 0;
 };
 
+// Survives silent restarts (RTC_NOINIT); reset on any other boot.
+RTC_NOINIT_ATTR uint32_t s_magic;
+RTC_NOINIT_ATTR uint32_t s_attempted;
+constexpr uint32_t MAGIC = 0xF0A7F0A8;
+
+void checkBoot() {
+  static bool checked = false;
+  if (checked) return;
+  checked = true;
+  if (esp_reset_reason() != ESP_RST_SW || s_magic != MAGIC) {
+    s_magic = MAGIC;
+    s_attempted = 0;
+  }
+}
+
 }  // namespace
+
+bool attempted() {
+  checkBoot();
+  return s_attempted != 0;
+}
+
+void markAttempted() {
+  checkBoot();
+  s_attempted = 1;
+}
 
 std::vector<std::string> installed() {
   std::vector<std::string> out;
@@ -79,7 +106,11 @@ std::string missing() {
 bool install(const std::string& family, const std::function<void(size_t, size_t)>& progress, const bool* cancel) {
   if (!FontInstaller::isValidFamilyName(family.c_str())) return false;
   // The catalogue: over TLS, since its CRCs are what the files are checked against.
-  if (HttpDownloader::downloadToFile(FONT_MANIFEST_URL, MANIFEST_TMP, nullptr) != HttpDownloader::OK) {
+  // progress(0, 0) lets the caller poll Back while the catalogue arrives.
+  const auto poll = [&progress](const size_t, const size_t) {
+    if (progress) progress(0, 0);
+  };
+  if (HttpDownloader::downloadToFile(FONT_MANIFEST_URL, MANIFEST_TMP, poll, cancel) != HttpDownloader::OK) {
     LOG_ERR("FONT", "InkDesk: font catalogue download failed");
     return false;
   }

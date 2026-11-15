@@ -1,6 +1,8 @@
 #include "InkOta.h"
 
 #include <Logging.h>
+#include <ResumableFetch.h>
+#include <WiFi.h>
 #include <esp_ota_ops.h>
 #include <mbedtls/sha256.h>
 
@@ -9,7 +11,7 @@
 
 #include "InkDeskStore.h"
 #include "network/FirmwareFlasher.h"
-#include "network/HttpDownloader.h"
+#include "network/WifiPowerSaveGuard.h"
 
 // Arduino confirms a new OTA image as soon as it starts; InkDesk confirms it later, once the
 // image has shown it works (confirmRunning), so a broken build rolls back on its own.
@@ -17,6 +19,9 @@ extern "C" bool verifyRollbackLater() { return true; }
 
 namespace inkdesk::ota {
 namespace {
+
+constexpr int DOWNLOAD_ROUNDS = 6;
+constexpr int HTTP_TIMEOUT_MS = 30000;
 
 void report(const std::string& version, const bool ok, const char* why) {
   inkdesk::OtaReport r;
@@ -61,7 +66,7 @@ bool offerAvailable() {
   return !o.version.empty() && !o.url.empty() && versionCode(o.version) > versionCode(FW_VERSION);
 }
 
-Result install(const std::function<void(size_t, size_t)>& progress) {
+Result install(const std::function<void(size_t, size_t)>& progress, const std::function<bool()>& connect) {
   if (!offerAvailable()) return Result::NoOffer;
   const inkdesk::FwOffer offer = INKDESK.fwOffer;
   const esp_partition_t* slot = esp_ota_get_next_update_partition(nullptr);
@@ -75,6 +80,10 @@ Result install(const std::function<void(size_t, size_t)>& progress) {
   }
   LOG_INF("OTA", "InkDesk update %s -> slot %s (%u bytes)", offer.version.c_str(), slot->label,
           static_cast<unsigned>(offer.size));
+  if (!connect()) {
+    esp_ota_abort(handle);
+    return fail(Result::Network, "wifi");
+  }
 
   mbedtls_sha256_context sha;
   mbedtls_sha256_init(&sha);
@@ -84,7 +93,8 @@ Result install(const std::function<void(size_t, size_t)>& progress) {
   bool wrongChip = false;
   uint8_t header[14];
   size_t headerLen = 0;
-  const bool fetched = HttpDownloader::fetchUrl(offer.url, [&](const uint8_t* data, const size_t len) {
+  freeink::FetchSink sink;
+  sink.write = [&](const uint8_t* data, const size_t len) {
     // Bytes 12-13 of the image header name the chip: refuse an image for another MCU.
     if (headerLen < sizeof(header)) {
       const size_t take = std::min(len, sizeof(header) - headerLen);
@@ -108,15 +118,49 @@ Result install(const std::function<void(size_t, size_t)>& progress) {
     done += len;
     if (progress) progress(done, offer.size);
     return true;
-  });
+  };
+  // What is in the slot cannot be taken back: a server that ignores Range fails the install.
+  sink.rewind = [] { return false; };
+
+  // fetchResumable already resumes a cut body a few times; these rounds also outlast a WiFi
+  // drop (its own retries fail at once without WiFi), rejoining before each one.
+  bool complete = false;
+  int status = 0;
+  for (int round = 0; round < DOWNLOAD_ROUNDS && !complete; round++) {
+    if (round > 0) {
+      LOG_INF("OTA", "Resuming at %u of %u bytes (round %d)", static_cast<unsigned>(done),
+              static_cast<unsigned>(offer.size), round + 1);
+      delay(1500);
+      if (WiFi.status() != WL_CONNECTED && !connect()) continue;
+    }
+    WifiPowerSaveGuard psGuard;
+    freeink::FetchOptions options;
+    options.startOffset = done;
+    const freeink::FetchResult r = freeink::fetchResumable(
+        offer.url, options,
+        [](freeink::SecureHttpClient& http, bool) {
+          http.setTimeout(HTTP_TIMEOUT_MS);
+          http.setInsecure();  // the SHA-256 from the sync (over TLS) checks the image
+          http.setUserAgent(std::string("InkDesk-X4/") + FW_VERSION);
+        },
+        sink);
+    status = r.status;
+    complete = r.complete;
+    if (r.stopped || (r.status >= 400 && r.status < 500)) break;  // retrying will not help
+  }
   uint8_t digest[32];
   mbedtls_sha256_finish(&sha, digest);
   mbedtls_sha256_free(&sha);
 
-  if (wrongChip || !fetched || !flashOk) {
+  if (wrongChip || !complete || !flashOk) {
     esp_ota_abort(handle);
     if (wrongChip) return fail(Result::WrongImage, "wrong chip");
-    return flashOk ? fail(Result::Network, "download") : fail(Result::Flash, "write");
+    if (!flashOk) return fail(Result::Flash, "write");
+    // "download: HTTP <status>, <bytes>/<size> B" tells where it stopped (status -1: no answer).
+    char why[64];
+    snprintf(why, sizeof(why), "download: HTTP %d, %u/%u B", status, static_cast<unsigned>(done),
+             static_cast<unsigned>(offer.size));
+    return fail(Result::Network, why);
   }
   char hex[65];
   toHex(digest, sizeof(digest), hex);

@@ -30,7 +30,7 @@ class InkHomeActivity final : public Activity {
   void runAutoSync();
   void promptWifi();
   bool shouldInstallFont() const;
-  void runFontInstall();
+  void openFontDownload();
 
   bool linked_ = false;
   inkdesk::widgets::Layout layout_;
