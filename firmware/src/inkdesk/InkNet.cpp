@@ -64,6 +64,7 @@ bool joinSaved(const uint32_t perNetworkMs) {
   const size_t count = WIFI_STORE.getCredentialCount();
   if (count == 0) return false;
   WiFi.mode(WIFI_STA);
+  WiFi.disconnect();  // stop a reconnect still running after a drop, or the scan fails
 
   // Like a phone: the saved networks in range, strongest first.
   std::vector<Attempt> seen;

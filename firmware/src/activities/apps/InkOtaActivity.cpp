@@ -115,8 +115,11 @@ void InkOtaActivity::runInstall() {
   // A reading font from the SD card is loaded at boot and takes the RAM the TLS download
   // needs (with Lexica selected the install failed at once). The restart after the install
   // loads it again.
-  sdFontSystem.unloadForTransfer(renderer);
-  if (auto* fcm = renderer.getFontCacheManager()) fcm->releaseSdFontCaches();
+  {
+    RenderLock lock;  // the render task looks fonts up while it draws
+    sdFontSystem.unloadForTransfer(renderer);
+    if (auto* fcm = renderer.getFontCacheManager()) fcm->releaseSdFontCaches();
+  }
   LOG_INF("OTA", "Install %s: max block %u", INKDESK.fwOffer.version.c_str(),
           static_cast<unsigned>(ESP.getMaxAllocHeap()));
   if (ESP.getMaxAllocHeap() < CLEAN_HEAP && s_otaRestarts < 2) {

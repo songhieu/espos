@@ -250,8 +250,11 @@ bool InkDeskSyncActivity::downloadFont(const std::string& family) {
     row = items_.size() - 1;
   }
   // The reading font loaded from the SD card holds RAM the TLS download needs.
-  sdFontSystem.unloadForTransfer(renderer);
-  if (auto* fcm = renderer.getFontCacheManager()) fcm->releaseSdFontCaches();
+  {
+    RenderLock lock;  // the render task looks fonts up while it draws
+    sdFontSystem.unloadForTransfer(renderer);
+    if (auto* fcm = renderer.getFontCacheManager()) fcm->releaseSdFontCaches();
+  }
   if (mode_ == Mode::Sync && ESP.getMaxAllocHeap() < inkdesk::fonts::MIN_BLOCK) {
     LOG_INF("INKD", "Font %s: max block %u, rebooting into the font screen", family.c_str(),
             static_cast<unsigned>(ESP.getMaxAllocHeap()));

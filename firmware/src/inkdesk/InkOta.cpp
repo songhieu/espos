@@ -145,8 +145,11 @@ Result install(const std::function<void(size_t, size_t)>& progress, const std::f
         },
         sink);
     status = r.status;
-    complete = r.complete;
-    if (r.stopped || (r.status >= 400 && r.status < 500)) break;  // retrying will not help
+    // Every byte arrived even if the connection dropped before its end (a resume would get
+    // 416): the SHA-256 check below decides.
+    complete = r.complete || (offer.size > 0 && done == offer.size);
+    const bool finalNo = r.status >= 400 && r.status < 500 && r.status != 408 && r.status != 429;
+    if (r.stopped || (finalNo && !complete)) break;  // retrying will not help
   }
   uint8_t digest[32];
   mbedtls_sha256_finish(&sha, digest);
