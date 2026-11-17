@@ -73,6 +73,20 @@
       "required": true,
       "type": "integer",
       "unique": false
+    },
+    {
+      "code": "kind",
+      "default": null,
+      "help": "device kind the code came from: x4 or s3",
+      "indexed": false,
+      "label": "Kind",
+      "options": [],
+      "position": 6,
+      "read_only": false,
+      "ref_table": null,
+      "required": false,
+      "type": "text",
+      "unique": false
     }
   ],
   "label": "Pairings",

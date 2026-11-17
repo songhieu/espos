@@ -4,6 +4,7 @@ package work
 import (
 	"inkdesk/internal/wm"
 	"strings"
+	"time"
 )
 
 func Run(wmIn, wmCtx map[string]any) map[string]any {
@@ -31,6 +32,7 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 			return map[string]any{"status": 422, "body": map[string]any{"error": "Tên máy: 1–40 ký tự"}}
 		}
 		vals["name"] = n
+		vals["name_ms"] = time.Now().UnixMilli() // a colour desk's own rename wins only when newer (device_sync)
 	}
 	if v, ok := b["revoked"]; ok && wm.Bool(v) {
 		vals["revoked"] = true

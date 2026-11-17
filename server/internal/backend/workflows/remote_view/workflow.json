@@ -1,0 +1,14 @@
+{
+  "code": "remote_view",
+  "name": "Web: remote control, the device's screen",
+  "draft": {
+    "nodes": [
+      { "id": "in", "type": "http_in" },
+      { "id": "work", "type": "code", "config": { "source": { "$file": "nodes/work.go" }, "timeout_ms": 10000,
+          "input": { "params": "{{ input.params }}", "query": "{{ input.query }}", "uid": "{{ input.user.id }}" } } },
+      { "id": "out", "type": "respond", "config": { "status": "{{ work.status }}", "body": "{{ work.body }}" } },
+      { "id": "fail", "type": "respond", "config": { "status": 500, "body": { "error": "{{ work.error }}" } } }
+    ],
+    "edges": [ { "from": "in", "to": "work" }, { "from": "work", "to": "out" }, { "from": "work", "to": "fail", "port": "error" } ]
+  }
+}

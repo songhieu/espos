@@ -199,16 +199,52 @@ func crypto(at string) error {
 
 var indexNames = map[string]bool{"VNINDEX": true, "VN30": true, "HNX": true, "UPCOM": true}
 
+// The symbols after "stocks:" in a colour desk's widget options (only market widgets carry such tokens).
+func s3Stocks(s string) []string {
+	out := []string{}
+	for {
+		i := strings.Index(s, "stocks:")
+		if i < 0 {
+			return out
+		}
+		s = s[i+len("stocks:"):]
+		n := 0
+		for n < len(s) && n < 11 && (s[n] >= 'A' && s[n] <= 'Z' || s[n] >= 'a' && s[n] <= 'z' || s[n] >= '0' && s[n] <= '9') {
+			n++
+		}
+		if n > 0 && n <= 10 {
+			out = append(out, s[:n])
+		}
+		s = s[n:]
+	}
+}
+
 // The symbols in every stocks widget of every reader's layouts (indices come from "index").
 func wantedSymbols() ([]string, error) {
 	rows, err := wm.QueryOpts("device_settings", map[string]any{"filters": []map[string]any{
-		{"column": "skey", "op": "in", "value": []any{"home.w", "sleep.wl", "sleep.wp"}}}, "limit": 2000})
+		{"column": "skey", "op": "in", "value": []any{"home.w", "sleep.wl", "sleep.wp", "s3.home", "s3.saver_pages", "s3.markets"}}}, "limit": 4000})
 	if err != nil {
 		return nil, err
 	}
 	seen := map[string]bool{}
 	out := []string{}
+	add := func(t string) {
+		t = strings.ToUpper(strings.TrimSpace(t))
+		if t == "" || len(t) > 10 || indexNames[t] || seen[t] || len(out) >= 300 {
+			return
+		}
+		seen[t] = true
+		out = append(out, t)
+	}
 	for _, r := range rows {
+		// The colour desk's market widgets list "stocks:FPT" tokens among others (home and saver pages), and so
+		// does its Markets app's list (s3.markets).
+		if k := wm.Str(r["skey"]); k == "s3.home" || k == "s3.saver_pages" || k == "s3.markets" {
+			for _, t := range s3Stocks(wm.Str(r["svalue"])) {
+				add(t)
+			}
+			continue
+		}
 		var doc struct {
 			I [][]any `json:"i"`
 		}
@@ -220,12 +256,7 @@ func wantedSymbols() ([]string, error) {
 				continue
 			}
 			for _, t := range strings.Split(wm.Str(it[6]), ",") {
-				t = strings.ToUpper(strings.TrimSpace(t))
-				if t == "" || len(t) > 10 || indexNames[t] || seen[t] || len(out) >= 300 {
-					continue
-				}
-				seen[t] = true
-				out = append(out, t)
+				add(t)
 			}
 		}
 	}

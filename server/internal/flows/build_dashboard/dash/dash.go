@@ -78,24 +78,35 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 		"layout":  orDefault(st["dash.layout"], "desk"),
 		"next_s":  nextRefresh(st, local),
 	}
+	// The board: the colour desk (kind s3) runs apps (weather, calendar, markets, news) that
+	// need more than the X4's dashboard, whatever dash.blocks says. An X4 gets what it always got.
+	kind := ""
+	if devs, derr := wm.QueryOpts("devices", map[string]any{"filters": []map[string]any{
+		{"column": "id", "op": "eq", "value": deviceID}}, "limit": 1}); derr == nil && len(devs) == 1 {
+		kind = wm.Str(devs[0]["kind"])
+	}
+	s3 := kind == "s3"
 	if on("lunar") {
 		d["lunar"] = lunar
 		d["lunar_year"] = can[(ly+6)%10] + " " + chi[(ly+8)%12]
 	}
-	if on("weather") {
-		w, werr := weather(st, now, local)
+	if on("weather") || s3 {
+		w, werr := weather(st, now, local, s3)
 		if werr != nil {
 			wm.Log("weather: ", werr.Error())
 		} else {
 			d["weather"] = w
 		}
 	}
-	if on("calendar") && st["dash.ics_url"] != "" {
-		ev, eerr := calendar(deviceID, st["dash.ics_url"], now, local)
+	if (on("calendar") || s3) && st["dash.ics_url"] != "" {
+		ev, ag, eerr := calendar(deviceID, st["dash.ics_url"], now, local, s3)
 		if eerr != nil {
 			wm.Log("calendar: ", eerr.Error())
 		} else {
 			d["events"] = ev
+			if s3 {
+				d["agenda"] = ag
+			}
 		}
 	}
 	if on("notes") {
@@ -105,8 +116,9 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 		}
 		d["notes"] = n
 	}
-	// Market widgets: only what the layouts hold, to keep the device's copy small.
-	mk := marketNeeds(st)
+	// Market widgets: only what the layouts hold, to keep the device's copy small
+	// (the colour desk also gets its Markets app's fixed list).
+	mk := marketNeeds(st, kind)
 	if len(mk.gold) > 0 {
 		g, _, gerr := marketCached("gold")
 		if gerr != nil {
@@ -126,7 +138,7 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 		}
 	}
 	if mk.news {
-		n, nerr := newsTop(userID)
+		n, nerr := newsTop(userID, s3, s3WidgetOpts(st, "news"))
 		if nerr != nil {
 			return wm.Fail(nerr)
 		}
@@ -171,6 +183,15 @@ func cut(s string, n int) string {
 		return string(r)
 	}
 	return string(r[:n-1]) + "…"
+}
+
+// clip keeps at most n characters, without an ellipsis (the colour desk wraps or shrinks text instead).
+func clip(s string, n int) string {
+	r := []rune(strings.TrimSpace(s))
+	if len(r) <= n {
+		return string(r)
+	}
+	return strings.TrimSpace(string(r[:n]))
 }
 
 func loadSettings(deviceID int) (map[string]string, error) {
@@ -272,7 +293,27 @@ func wmo(code int, day bool) (string, string) {
 	return "cloud", "Nhiều mây"
 }
 
-func weather(st map[string]string, now time.Time, local time.Time) (map[string]any, error) {
+// One forecast call per place and 25 minutes, shared by every board: the X4 reads a few fields of
+// it, the colour desk's Weather app the rest (humidity, feels-like, wind, UV, sun, rain chances, 6 days).
+const forecastFields = "&current=temperature_2m,weather_code,is_day,relative_humidity_2m,apparent_temperature,wind_speed_10m" +
+	"&hourly=temperature_2m,weather_code,is_day,precipitation_probability" +
+	"&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,uv_index_max,sunrise,sunset"
+
+// fullForecast: a cached answer holds the fields the colour desk reads (older ones did not).
+func fullForecast(body map[string]any) bool {
+	h, _ := body["hourly"].(map[string]any)
+	dl, _ := body["daily"].(map[string]any)
+	c, _ := body["current"].(map[string]any)
+	if h == nil || dl == nil || c == nil {
+		return false
+	}
+	_, a := h["precipitation_probability"]
+	_, b := dl["sunrise"]
+	_, e := c["apparent_temperature"]
+	return a && b && e
+}
+
+func weather(st map[string]string, now time.Time, local time.Time, s3 bool) (map[string]any, error) {
 	lat := orDefault(st["dash.lat"], "21.0245")
 	lon := orDefault(st["dash.lon"], "105.8412")
 	city := orDefault(st["dash.city"], "Hà Nội")
@@ -288,12 +329,13 @@ func weather(st map[string]string, now time.Time, local time.Time) (map[string]a
 		return nil, err
 	}
 	if len(cached) == 1 && now.UnixMilli()-int64(wm.Num(cached[0]["fetched_ms"])) < 25*60*1000 {
-		body, _ = cached[0]["data"].(map[string]any)
+		if b, ok := cached[0]["data"].(map[string]any); ok && fullForecast(b) {
+			body = b
+		}
 	}
 	if body == nil {
 		u := "https://api.open-meteo.com/v1/forecast?latitude=" + url.QueryEscape(lat) + "&longitude=" + url.QueryEscape(lon) +
-			"&current=temperature_2m,weather_code,is_day&hourly=temperature_2m,weather_code,is_day" +
-			"&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=" + url.QueryEscape(zone) + "&forecast_days=4"
+			forecastFields + "&timezone=" + url.QueryEscape(zone) + "&forecast_days=6"
 		res, ferr := wm.Fetch("GET", u, nil)
 		if ferr != nil {
 			return nil, ferr
@@ -369,10 +411,143 @@ func weather(st map[string]string, now time.Time, local time.Time) (map[string]a
 		}
 	}
 	w["days"] = days
+	if s3 {
+		s3Weather(w, body, local)
+		// The air quality is a second, optional call: never worth failing (or slowing) the dashboard.
+		if time.Since(now) < 8*time.Second {
+			if aqi, ok := airQuality(lat, lon, zone, now); ok {
+				w["aqi"] = aqi
+			}
+		}
+	}
 	return w, nil
 }
 
 var shortDays = []string{"CN", "T2", "T3", "T4", "T5", "T6", "T7"}
+
+func roundOf(v any) int { return int(math.Round(wm.Num(v))) }
+
+// at is the i-th value of an Open-Meteo series (nil when missing).
+func at(series any, i int) any {
+	a, _ := series.([]any)
+	if i < 0 || i >= len(a) {
+		return nil
+	}
+	return a[i]
+}
+
+// clockOf turns "2026-11-16T06:05" into "06:05".
+func clockOf(v any) string {
+	s := wm.Str(v)
+	if i := strings.Index(s, "T"); i >= 0 && len(s) >= i+6 {
+		return s[i+1 : i+6]
+	}
+	return ""
+}
+
+// s3Weather adds the colour desk's Weather app data: now (humidity, feels-like, wind), today
+// (UV, sunrise, sunset), 8 steps of 3 hours from the current hour and 6 days from today.
+// Its "hours" and "days" replace the X4-sized ones.
+func s3Weather(w map[string]any, body map[string]any, local time.Time) {
+	cur, _ := body["current"].(map[string]any)
+	daily, _ := body["daily"].(map[string]any)
+	hourly, _ := body["hourly"].(map[string]any)
+	loc := local.Location()
+	if cur != nil {
+		if v := cur["relative_humidity_2m"]; v != nil {
+			w["hum"] = roundOf(v)
+		}
+		if v := cur["apparent_temperature"]; v != nil {
+			w["feels"] = roundOf(v)
+		}
+		if v := cur["wind_speed_10m"]; v != nil {
+			w["wind"] = roundOf(v)
+		}
+	}
+	hours := []any{}
+	if hourly != nil {
+		times, _ := hourly["time"].([]any)
+		idx := map[string]int{}
+		for i, t := range times {
+			idx[wm.Str(t)] = i
+		}
+		start := time.Date(local.Year(), local.Month(), local.Day(), local.Hour(), 0, 0, 0, loc)
+		for k := 0; k < 8; k++ {
+			ts := start.Add(time.Duration(3*k) * time.Hour)
+			i, ok := idx[ts.Format("2006-01-02T15:04")]
+			if !ok || at(hourly["temperature_2m"], i) == nil {
+				continue
+			}
+			ic, _ := wmo(wm.Int(at(hourly["weather_code"], i)), wm.Int(at(hourly["is_day"], i)) == 1)
+			hours = append(hours, map[string]any{"h": fmt.Sprintf("%dh", ts.Hour()), "t": roundOf(at(hourly["temperature_2m"], i)),
+				"icon": ic, "rain": roundOf(at(hourly["precipitation_probability"], i))})
+		}
+	}
+	w["hours"] = hours
+	days := []any{}
+	if daily != nil {
+		dt, _ := daily["time"].([]any)
+		today := local.Format("2006-01-02")
+		for i := range dt {
+			ds := wm.Str(dt[i])
+			if ds < today || at(daily["temperature_2m_max"], i) == nil || len(days) == 6 {
+				continue // a cached answer from yesterday still starts with yesterday
+			}
+			ts, perr := time.Parse("2006-01-02", ds)
+			if perr != nil {
+				continue
+			}
+			label := shortDays[int(ts.Weekday())]
+			if ds == today {
+				label = "Hôm nay"
+				w["uv"] = roundOf(at(daily["uv_index_max"], i))
+				w["sunrise"] = clockOf(at(daily["sunrise"], i))
+				w["sunset"] = clockOf(at(daily["sunset"], i))
+			}
+			ic, _ := wmo(wm.Int(at(daily["weather_code"], i)), true)
+			days = append(days, map[string]any{"d": label, "date": ts.Format("02/01"),
+				"min": roundOf(at(daily["temperature_2m_min"], i)), "max": roundOf(at(daily["temperature_2m_max"], i)),
+				"icon": ic, "rain": roundOf(at(daily["precipitation_probability_max"], i))})
+		}
+	}
+	w["days"] = days
+}
+
+// airQuality is the current US AQI at the place, cached like the forecast (a failure for 10 minutes).
+func airQuality(lat, lon, zone string, now time.Time) (int, bool) {
+	key := "aqi|" + lat + "," + lon
+	rows, err := wm.QueryOpts("weather_cache", map[string]any{
+		"filters": []map[string]any{{"column": "loc", "op": "eq", "value": key}}, "limit": 1})
+	if err != nil {
+		wm.Log("aqi cache: ", err.Error())
+		return 0, false
+	}
+	if len(rows) == 1 {
+		d, _ := rows[0]["data"].(map[string]any)
+		age := now.UnixMilli() - int64(wm.Num(rows[0]["fetched_ms"]))
+		good := d != nil && d["ok"] == true
+		if (good && age < 25*60*1000) || (!good && age < 10*60*1000) {
+			return wm.Int(d["aqi"]), good
+		}
+	}
+	rec := map[string]any{"ok": false}
+	u := "https://air-quality-api.open-meteo.com/v1/air-quality?latitude=" + url.QueryEscape(lat) + "&longitude=" + url.QueryEscape(lon) +
+		"&current=us_aqi&timezone=" + url.QueryEscape(zone)
+	res, ferr := wm.Fetch("GET", u, nil)
+	if ferr != nil {
+		wm.Log("aqi: ", ferr.Error())
+	} else if wm.Int(res["status"]) == 200 {
+		body, _ := res["body"].(map[string]any)
+		cur, _ := body["current"].(map[string]any)
+		if cur != nil && cur["us_aqi"] != nil {
+			rec = map[string]any{"ok": true, "aqi": roundOf(cur["us_aqi"])}
+		}
+	}
+	if _, uerr := wm.Upsert("weather_cache", []string{"loc"}, map[string]any{"loc": key, "data": rec, "fetched_ms": now.UnixMilli()}, nil); uerr != nil {
+		wm.Log("aqi cache: ", uerr.Error())
+	}
+	return wm.Int(rec["aqi"]), rec["ok"] == true
+}
 
 // ---------- markets (gold, stocks, exchange rates) ----------
 
@@ -393,6 +568,11 @@ func addCodes(into *[]string, seen map[string]bool, prefix string, it []any, def
 	if strings.TrimSpace(opt) == "" {
 		opt = def
 	}
+	addList(into, seen, prefix, opt, max)
+}
+
+// addList adds the comma-separated codes not seen yet, up to max in all.
+func addList(into *[]string, seen map[string]bool, prefix, opt string, max int) {
 	for _, c := range strings.Split(opt, ",") {
 		c = strings.ToUpper(strings.TrimSpace(c))
 		if c == "" || len(c) > 10 || seen[prefix+c] || len(*into) >= max {
@@ -406,10 +586,25 @@ func addCodes(into *[]string, seen map[string]bool, prefix string, it []any, def
 var indexNames = map[string]bool{"VNINDEX": true, "VN30": true, "HNX": true, "UPCOM": true}
 
 // Which market widgets this device's layouts hold, and the stock symbols they ask for.
-func marketNeeds(st map[string]string) needs {
+// The colour desk's built-in pages (widgets/... in its firmware), used while a page has no
+// layout saved: only their market widgets matter here.
+var s3Builtin = map[string]string{
+	"s3.p2": `{"v":1,"i":[["gold",0,0,2,2,"","SJC,N24K"],["stocks",2,0,2,2,"","VNINDEX,VN30,HNX"],["news",0,5,4,2,"",""]]}`,
+	"s3.l1": `{"v":1,"i":[["gold",4,2,2,2,"","SJC,N24K"]]}`,
+	"s3.l2": `{"v":1,"i":[["stocks",3,0,3,2,"","VNINDEX,VN30,HNX"],["news",3,2,3,2,"",""]]}`,
+}
+
+func marketNeeds(st map[string]string, kind string) needs {
+	if kind == "s3" {
+		for k, v := range s3Builtin {
+			if st[k] == "" {
+				st = copyWith(st, k, v)
+			}
+		}
+	}
 	var n needs
 	seen := map[string]bool{}
-	for _, key := range []string{"home.w", "sleep.wl", "sleep.wp"} {
+	for _, key := range []string{"home.w", "sleep.wl", "sleep.wp", "s3.p1", "s3.p2", "s3.l1", "s3.l2"} {
 		if st[key] == "" {
 			continue
 		}
@@ -437,7 +632,102 @@ func marketNeeds(st map[string]string) needs {
 			}
 		}
 	}
+	if kind == "s3" {
+		// What its market widgets pick (home pages and saver pages: "gold:SJC,stocks:FPT,..."), first.
+		for _, opt := range s3MarketOpts(st) {
+			for _, tok := range strings.Split(opt, ",") {
+				k, c, ok := strings.Cut(strings.TrimSpace(tok), ":")
+				if !ok {
+					continue
+				}
+				switch k {
+				case "gold":
+					addList(&n.gold, seen, "gold:", c, 16)
+				case "stocks":
+					addList(&n.tickers, seen, "stk:", c, 24)
+				case "fx":
+					addList(&n.fx, seen, "fx:", c, 20)
+				case "crypto":
+					addList(&n.coins, seen, "coin:", c, 12)
+				}
+			}
+		}
+		// The colour desk's Markets and News apps: always, after what its widgets pick.
+		n.news = true
+		addList(&n.gold, seen, "gold:", "SJC,N24K", 18)
+		addList(&n.tickers, seen, "stk:", "VNINDEX,VN30,HNX,UPCOM", 28)
+		addList(&n.fx, seen, "fx:", "USD,EUR,JPY,CNY,GBP,AUD,SGD,KRW,THB", 29)
+		addList(&n.coins, seen, "coin:", "BTC,ETH,BNB,SOL", 16)
+	}
 	return n
+}
+
+// The options of the colour desk's market widgets: on its home pages (s3.home v2: ["w", kind, x, y, size,
+// style, opt, open]) and on its saver pages (s3.saver_pages: {t:"w", k, op}). An empty option is the
+// firmware's built-in mix, which the always-lists cover.
+func s3MarketOpts(st map[string]string) []string {
+	out := s3WidgetOpts(st, "markets")
+	// The Markets app's own list (s3.markets, set on the web or the device), after the widgets' picks.
+	if v := strings.TrimSpace(st["s3.markets"]); v != "" {
+		out = append(out, v)
+	}
+	return out
+}
+
+// The non-empty options of the colour desk's widgets of one kind, on its home and saver pages.
+func s3WidgetOpts(st map[string]string, kind string) []string {
+	out := []string{}
+	if s := st["s3.home"]; s != "" {
+		var h struct {
+			Pages [][][]any `json:"pages"`
+		}
+		if json.Unmarshal([]byte(s), &h) == nil {
+			for _, p := range h.Pages {
+				for _, it := range p {
+					if len(it) > 6 && wm.Str(it[0]) == "w" && wm.Str(it[1]) == kind && wm.Str(it[6]) != "" {
+						out = append(out, wm.Str(it[6]))
+					}
+				}
+			}
+		}
+	}
+	if s := st["s3.saver_pages"]; s != "" {
+		type page struct {
+			E []map[string]any `json:"e"`
+		}
+		var d struct {
+			P  []page `json:"p"`
+			L  []page `json:"l"`
+			Np *page  `json:"np"`
+			Nl *page  `json:"nl"`
+		}
+		if json.Unmarshal([]byte(s), &d) == nil {
+			pages := append(append([]page{}, d.P...), d.L...)
+			if d.Np != nil {
+				pages = append(pages, *d.Np)
+			}
+			if d.Nl != nil {
+				pages = append(pages, *d.Nl)
+			}
+			for _, p := range pages {
+				for _, e := range p.E {
+					if wm.Str(e["t"]) == "w" && wm.Str(e["k"]) == kind && wm.Str(e["op"]) != "" {
+						out = append(out, wm.Str(e["op"]))
+					}
+				}
+			}
+		}
+	}
+	return out
+}
+
+func copyWith(st map[string]string, k, v string) map[string]string {
+	out := make(map[string]string, len(st)+1)
+	for a, b := range st {
+		out[a] = b
+	}
+	out[k] = v
+	return out
 }
 
 // The list entries whose `field` is one of `codes`, in the codes' order.
@@ -496,15 +786,33 @@ func stockQuotes(tickers []string) (map[string]any, error) {
 	return map[string]any{"at": at, "items": out}, nil
 }
 
+// VnExpress sections (news worker's catalogue): slug → the name shown.
+var sectionNames = map[string]string{
+	"tin-moi-nhat": "Tin mới nhất", "tin-noi-bat": "Tin nổi bật", "thoi-su": "Thời sự", "the-gioi": "Thế giới",
+	"kinh-doanh": "Kinh doanh", "bat-dong-san": "Bất động sản", "khoa-hoc-cong-nghe": "Khoa học công nghệ",
+	"suc-khoe": "Sức khỏe", "giao-duc": "Giáo dục", "phap-luat": "Pháp luật", "gia-dinh": "Đời sống",
+	"du-lich": "Du lịch", "giai-tri": "Giải trí", "the-thao": "Thể thao", "oto-xe-may": "Xe", "y-kien": "Ý kiến",
+}
+
 // The newest headlines of the reader's news sections (from the shared 15-minute news cache).
-func newsTop(userID int) (map[string]any, error) {
+// The colour desk also gets up to 12 stories with their cache id, section, time and picture
+// flag (its News app), and the sections the reader follows; plus the sections its news widgets
+// pick (`picked`, their slugs), with a few stories of each.
+func newsTop(userID int, s3 bool, picked []string) (map[string]any, error) {
 	sections := []string{"tin-moi-nhat", "thoi-su", "the-gioi"}
+	if s3 {
+		// The web's (and the news worker's) default choice.
+		sections = []string{"tin-moi-nhat", "thoi-su", "the-gioi", "kinh-doanh", "khoa-hoc-cong-nghe", "suc-khoe"}
+	}
 	prefs, err := wm.QueryOpts("news_prefs", map[string]any{"filters": []map[string]any{{"column": "user_id", "op": "eq", "value": userID}}, "limit": 1})
 	if err != nil {
 		return nil, err
 	}
 	if len(prefs) == 1 && strings.TrimSpace(wm.Str(prefs[0]["sections"])) != "" {
 		sections = strings.Split(wm.Str(prefs[0]["sections"]), ",")
+	}
+	if s3 {
+		return newsS3(sections, picked)
 	}
 	rows, err := wm.QueryOpts("news_cache", map[string]any{"limit": 40})
 	if err != nil {
@@ -516,6 +824,7 @@ func newsTop(userID int) (map[string]any, error) {
 		bySlug[wm.Str(r["slug"])] = list
 	}
 	top := []any{}
+	items := []any{} // with the lead, for the colour desk (tap a headline to read it)
 	// The first story of each section, then the second ones, up to three headlines.
 	for depth := 0; depth < 3 && len(top) < 3; depth++ {
 		for _, s := range sections {
@@ -523,11 +832,100 @@ func newsTop(userID int) (map[string]any, error) {
 			if depth < len(list) && len(top) < 3 {
 				if m, ok := list[depth].(map[string]any); ok && wm.Str(m["title"]) != "" {
 					top = append(top, cut(wm.Str(m["title"]), 120))
+					items = append(items, map[string]any{"title": cut(wm.Str(m["title"]), 120), "lead": cut(wm.Str(m["lead"]), 400)})
 				}
 			}
 		}
 	}
-	return map[string]any{"top": top}, nil
+	return map[string]any{"top": top, "items": items}, nil
+}
+
+// newsS3: the first story of each followed section, then the second ones…: 3 titles in `top`,
+// up to 12 distinct stories in `items`; then, for each section a news widget picks, its first
+// stories until it has 4 (up to 24 stories in all). `sections` lists both, followed ones first.
+func newsS3(sections []string, picked []string) (map[string]any, error) {
+	rows, err := wm.QueryOpts("news_cache", map[string]any{"limit": 40})
+	if err != nil {
+		return nil, err
+	}
+	bySlug := map[string][]any{}
+	for _, r := range rows {
+		list, _ := r["items"].([]any)
+		bySlug[wm.Str(r["slug"])] = list
+	}
+	followed := []any{}
+	slugs := []string{}
+	for _, s := range sections {
+		s = strings.TrimSpace(s)
+		if name, ok := sectionNames[s]; ok {
+			followed = append(followed, map[string]any{"slug": s, "name": name})
+			slugs = append(slugs, s)
+		}
+	}
+	top := []any{}
+	items := []any{}
+	seen := map[string]bool{}
+	soon := time.Now().Add(2 * time.Hour).UnixMilli()
+	// One story of a section, once.
+	add := func(s string, m map[string]any) bool {
+		if wm.Str(m["title"]) == "" || seen[wm.Str(m["id"])] {
+			return false
+		}
+		seen[wm.Str(m["id"])] = true
+		if len(top) < 3 {
+			top = append(top, clip(wm.Str(m["title"]), 120))
+		}
+		it := map[string]any{"id": wm.Str(m["id"]), "title": clip(wm.Str(m["title"]), 120),
+			"lead": clip(wm.Str(m["lead"]), 400), "sec": sectionNames[s], "pub_ms": int64(wm.Num(m["pub_ms"])), "img": m["img"] == true}
+		// The thumbnail's signed storage address, only while it has 2 hours left (the dashboard is kept that long).
+		if u := wm.Str(m["thumb"]); u != "" && int64(wm.Num(m["thumb_exp"])) >= soon {
+			it["thumb"] = u
+		}
+		items = append(items, it)
+		return true
+	}
+	for depth := 0; depth < 12 && len(items) < 12; depth++ {
+		for _, s := range slugs {
+			list := bySlug[s]
+			if depth >= len(list) || len(items) == 12 {
+				continue
+			}
+			if m, ok := list[depth].(map[string]any); ok {
+				add(s, m)
+			}
+		}
+	}
+	// The news widgets' sections: listed, and 4 stories each (those already in count).
+	listed := map[string]bool{}
+	for _, s := range slugs {
+		listed[s] = true
+	}
+	for _, p := range picked {
+		s := strings.TrimSpace(p)
+		name, ok := sectionNames[s]
+		if !ok {
+			continue
+		}
+		if !listed[s] {
+			listed[s] = true
+			followed = append(followed, map[string]any{"slug": s, "name": name})
+		}
+		have := 0
+		for _, it := range items {
+			if wm.Str(it.(map[string]any)["sec"]) == name {
+				have++
+			}
+		}
+		for _, v := range bySlug[s] {
+			if have >= 4 || len(items) >= 24 {
+				break
+			}
+			if m, ok := v.(map[string]any); ok && add(s, m) {
+				have++
+			}
+		}
+	}
+	return map[string]any{"top": top, "items": items, "sections": followed}, nil
 }
 
 func first(v any) float64 {
@@ -562,25 +960,35 @@ func icsLinks(v string) []string {
 }
 
 // calendar merges today's events from every linked calendar (cached 15 minutes per device).
-func calendar(deviceID int, icsURL string, now time.Time, local time.Time) ([]any, error) {
+// For the colour desk it also lists today and the next 6 days (its Calendar app); its cache row
+// then holds {"events": [...], "agenda": [...]} instead of today's list.
+func calendar(deviceID int, icsURL string, now time.Time, local time.Time, s3 bool) ([]any, []any, error) {
 	day := local.Format("2006-01-02")
 	cached, err := wm.QueryOpts("ics_cache", map[string]any{
 		"filters": []map[string]any{{"column": "device_id", "op": "eq", "value": deviceID}},
 		"limit":   1,
 	})
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if len(cached) == 1 && wm.Str(cached[0]["day"]) == day && now.UnixMilli()-int64(wm.Num(cached[0]["fetched_ms"])) < 15*60*1000 {
-		if list, ok := cached[0]["data"].([]any); ok {
-			return list, nil
+		if list, ok := cached[0]["data"].([]any); ok && !s3 {
+			return list, nil, nil
+		}
+		if both, ok := cached[0]["data"].(map[string]any); ok {
+			ev, okE := both["events"].([]any)
+			ag, okA := both["agenda"].([]any)
+			if okE && (okA || !s3) {
+				return ev, ag, nil
+			}
 		}
 	}
 	links := icsLinks(icsURL)
 	if len(links) == 0 {
-		return nil, fmt.Errorf("ics url must be https or webcal")
+		return nil, nil, fmt.Errorf("ics url must be https or webcal")
 	}
 	var evs []event
+	var all []vevent
 	var lastErr error
 	got := 0
 	for _, u := range links {
@@ -594,10 +1002,14 @@ func calendar(deviceID int, icsURL string, now time.Time, local time.Time) ([]an
 			continue
 		}
 		got++
-		evs = append(evs, parseICS(wm.Str(res["body"]), local)...)
+		vs := parseVEvents(wm.Str(res["body"]))
+		evs = append(evs, eventsOn(vs, local)...)
+		if s3 {
+			all = append(all, vs...)
+		}
 	}
 	if got == 0 {
-		return nil, lastErr
+		return nil, nil, lastErr
 	}
 	sort.SliceStable(evs, func(i, j int) bool { return evs[i].min < evs[j].min })
 	out := []any{}
@@ -607,10 +1019,37 @@ func calendar(deviceID int, icsURL string, now time.Time, local time.Time) ([]an
 			break
 		}
 	}
-	if _, uerr := wm.Upsert("ics_cache", []string{"device_id"}, map[string]any{"device_id": deviceID, "day": day, "data": out, "fetched_ms": now.UnixMilli()}, nil); uerr != nil {
-		return nil, uerr
+	var data any = out
+	var agenda []any
+	if s3 {
+		agenda = agendaOf(all, local)
+		data = map[string]any{"events": out, "agenda": agenda}
 	}
-	return out, nil
+	if _, uerr := wm.Upsert("ics_cache", []string{"device_id"}, map[string]any{"device_id": deviceID, "day": day, "data": data, "fetched_ms": now.UnixMilli()}, nil); uerr != nil {
+		return nil, nil, uerr
+	}
+	return out, agenda, nil
+}
+
+// agendaOf lists the events of today and the next 6 days, by day then time (all-day first),
+// at most 30: {date "YYYY-MM-DD", time "HH:MM" or "" for all day, title}.
+func agendaOf(vs []vevent, local time.Time) []any {
+	loc := local.Location()
+	out := []any{}
+	for k := 0; k < 7 && len(out) < 30; k++ {
+		day := time.Date(local.Year(), local.Month(), local.Day()+k, 0, 0, 0, 0, loc)
+		for _, e := range eventsOnDay(vs, day, loc) {
+			t := e.time
+			if e.min < 0 {
+				t = ""
+			}
+			out = append(out, map[string]any{"date": day.Format("2006-01-02"), "time": t, "title": clip(e.title, 80)})
+			if len(out) == 30 {
+				break
+			}
+		}
+	}
+	return out
 }
 
 // icsTime reads a DTSTART-style value; floating and TZID times are taken as Vietnam local time.
@@ -635,13 +1074,35 @@ func minInt(a, b int) int {
 	return b
 }
 
-func parseICS(raw string, local time.Time) []event {
+// vevent is one VEVENT of a feed: its properties (name → [params, value]) and EXDATE days.
+type vevent struct {
+	props   map[string][2]string
+	exdates []string
+}
+
+// eventsOn: today's events of a feed, by time.
+func eventsOn(vs []vevent, local time.Time) []event {
 	loc := local.Location()
+	return eventsOnDay(vs, time.Date(local.Year(), local.Month(), local.Day(), 0, 0, 0, 0, loc), loc)
+}
+
+// eventsOnDay: the events of a feed that happen on one day (local midnight), by time.
+func eventsOnDay(vs []vevent, day time.Time, loc *time.Location) []event {
+	var out []event
+	for _, v := range vs {
+		if e, ok := occursToday(v.props, v.exdates, day, loc); ok {
+			out = append(out, e)
+		}
+	}
+	sort.SliceStable(out, func(i, j int) bool { return out[i].min < out[j].min })
+	return out
+}
+
+func parseVEvents(raw string) []vevent {
 	raw = strings.ReplaceAll(raw, "\r\n", "\n")
 	raw = strings.ReplaceAll(raw, "\n ", "")
 	raw = strings.ReplaceAll(raw, "\n\t", "")
-	today := time.Date(local.Year(), local.Month(), local.Day(), 0, 0, 0, 0, loc)
-	var out []event
+	var out []vevent
 	inEv := false
 	var props map[string][2]string
 	var exdates []string
@@ -653,9 +1114,7 @@ func parseICS(raw string, local time.Time) []event {
 			exdates = nil
 		case line == "END:VEVENT":
 			inEv = false
-			if e, ok := occursToday(props, exdates, today, loc); ok {
-				out = append(out, e)
-			}
+			out = append(out, vevent{props: props, exdates: exdates})
 		case inEv:
 			idx := strings.Index(line, ":")
 			if idx < 0 {
@@ -679,7 +1138,6 @@ func parseICS(raw string, local time.Time) []event {
 			props[name] = [2]string{params, val}
 		}
 	}
-	sort.SliceStable(out, func(i, j int) bool { return out[i].min < out[j].min })
 	return out
 }
 

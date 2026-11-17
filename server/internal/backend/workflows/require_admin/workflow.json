@@ -1,0 +1,23 @@
+{
+  "code": "require_admin",
+  "name": "Guard: an InkDesk admin (variable admin_users)",
+  "draft": {
+    "nodes": [
+      { "id": "in", "type": "function_in" },
+      { "id": "chk", "type": "code", "config": {
+          "source": { "$file": "nodes/chk.go" },
+          "input": { "user": "{{ input.user }}", "admins": "{{ var.admin_users }}" } } },
+      { "id": "ok", "type": "branch", "config": { "rules": [ { "left": "{{ chk.ok }}", "op": "eq", "right": true } ] } },
+      { "id": "pass", "type": "return", "config": { "data": { "user_id": "{{ chk.user_id }}" } } },
+      { "id": "deny", "type": "return", "config": { "deny": true, "status": 403, "body": { "error": "admins only" } } },
+      { "id": "boom", "type": "return", "config": { "deny": true, "status": 500, "body": { "error": "{{ chk.error }}" } } }
+    ],
+    "edges": [
+      { "from": "in", "to": "chk" },
+      { "from": "chk", "to": "ok" },
+      { "from": "chk", "to": "boom", "port": "error" },
+      { "from": "ok", "to": "pass", "port": "true" },
+      { "from": "ok", "to": "deny", "port": "false" }
+    ]
+  }
+}

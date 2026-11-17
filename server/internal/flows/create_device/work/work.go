@@ -295,8 +295,12 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 		vals["dash.lon"] = lon
 		vals["dash.city"] = found
 	}
+	kind := wm.Str(b["kind"])
+	if kind != "s3" {
+		kind = "x4"
+	}
 	dev, err := wm.Insert("devices", map[string]any{
-		"user_id": uid, "user_email": email, "name": name, "token_hash": hash, "revoked": false,
+		"user_id": uid, "user_email": email, "name": name, "token_hash": hash, "revoked": false, "kind": kind,
 	})
 	if err != nil {
 		return wm.Fail(err)

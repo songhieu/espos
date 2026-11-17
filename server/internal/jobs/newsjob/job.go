@@ -194,6 +194,60 @@ const (
 
 func artKey(id string) string { return "newscache/art/" + id + ".json" }
 
+// The colour desk's copies: picture n (1-based, the same n as the grayscale newscache/img/<id>-<n>.jpg)
+// and the story's 96x96 thumbnail, cut from its first picture.
+func colorKey(id string, n int) string { return fmt.Sprintf("newscache/imgc/%s-%d.jpg", id, n) }
+func thumbKey(id string) string        { return "newscache/thumb/" + id + ".jpg" }
+
+// prevItem is a story's entry in the cache rows read at the start of the run (nil when none).
+func prevItem(cache map[string]cacheRow, id string) map[string]any {
+	for _, row := range cache {
+		for _, it := range row.items {
+			if str(it["id"]) == id {
+				return it
+			}
+		}
+	}
+	return nil
+}
+
+// hadPicture: the cache rows say the story has its colour thumbnail (stories cached before the
+// colour copies existed say nothing: false).
+func hadPicture(cache map[string]cacheRow, id string) bool {
+	it := prevItem(cache, id)
+	return it != nil && it["img"] == true
+}
+
+// The colour desk reads thumbnails straight from storage (no redirect: each TLS handshake costs
+// it 1–2 s), so the cache rows carry a signed address, valid 7 days and signed again when
+// fewer than 3 days are left. Readers hand it out only while it has hours left.
+const (
+	thumbTTL         = 7 * 24 * time.Hour
+	thumbRenewBefore = 3 * 24 * time.Hour
+)
+
+type signedLink struct {
+	url string
+	exp int64
+}
+
+// thumbLink keeps the cached signed address of a story's thumbnail while it lasts, else signs it again.
+func thumbLink(prev map[string]any, id string, now time.Time) signedLink {
+	if prev != nil && str(prev["thumb"]) != "" && num(prev["thumb_exp"]) > now.Add(thumbRenewBefore).UnixMilli() {
+		return signedLink{str(prev["thumb"]), num(prev["thumb_exp"])}
+	}
+	for _, ttl := range []time.Duration{thumbTTL, 24 * time.Hour} {
+		u, err := wmjob.StorageSign(thumbKey(id), ttl)
+		if err == nil && u != "" {
+			return signedLink{u, now.Add(ttl).UnixMilli()}
+		}
+		if err != nil {
+			wmjob.Log("warn", fmt.Sprintf("sign %s (%s): %v", thumbKey(id), ttl, err))
+		}
+	}
+	return signedLink{}
+}
+
 type cacheRow struct {
 	id    int64
 	items []map[string]any
@@ -229,6 +283,41 @@ func saveRow(cache map[string]cacheRow, slug string, items []any, ms int64) erro
 	return err
 }
 
+// leadOf is a cached story's lead (the colour device shows it when a headline is tapped):
+// from the cache rows when they hold it, else read once from the stored article (bounded per run).
+func leadOf(cache map[string]cacheRow, id string, reads *int) string {
+	for _, row := range cache {
+		for _, it := range row.items {
+			if str(it["id"]) == id {
+				if l := str(it["lead"]); l != "" {
+					return l
+				}
+			}
+		}
+	}
+	if *reads >= 60 {
+		return ""
+	}
+	*reads++
+	raw, _, err := wmjob.StorageGet(artKey(id))
+	if err != nil {
+		return ""
+	}
+	var a news.CachedArticle
+	if json.Unmarshal(raw, &a) != nil {
+		return ""
+	}
+	return cutRunes(a.Lead, 400)
+}
+
+func cutRunes(s string, n int) string {
+	r := []rune(strings.TrimSpace(s))
+	if len(r) <= n {
+		return string(r)
+	}
+	return string(r[:n])
+}
+
 // refresh fetches the stories of every section someone reads that the cache does not hold yet.
 func refresh(now time.Time) {
 	start := time.Now()
@@ -236,6 +325,7 @@ func refresh(now time.Time) {
 	if err != nil {
 		fail(err)
 	}
+	leadReads := 0
 	// One refresh at a time: a run still going (and not stale) means this one has nothing to do.
 	if lock, ok := cache[lockSlug]; ok && len(lock.items) > 0 && lock.items[0]["running"] == true &&
 		start.UnixMilli()-lock.ms < staleLockAfter.Milliseconds() {
@@ -250,10 +340,10 @@ func refresh(now time.Time) {
 		_ = saveRow(cache, lockSlug, []any{map[string]any{"running": false}}, time.Now().UnixMilli())
 	}()
 
-	// Sections someone reads (the defaults when nobody has chosen yet).
+	// Sections someone reads: every reader's choice (the morning paper on or off: the colour
+	// desk's News app reads them too) and the defaults, which readers without a choice get.
 	want := map[string]bool{}
-	prefs, _, err := wmjob.TableQuery("news_prefs", map[string]any{
-		"filters": []map[string]any{{"column": "enabled", "op": "eq", "value": true}}, "limit": 1000})
+	prefs, _, err := wmjob.TableQuery("news_prefs", map[string]any{"limit": 1000})
 	if err != nil {
 		fail(err)
 	}
@@ -264,10 +354,8 @@ func refresh(now time.Time) {
 			}
 		}
 	}
-	if len(want) == 0 {
-		for _, s := range defaultSections {
-			want[s] = true
-		}
+	for _, s := range defaultSections {
+		want[s] = true
 	}
 
 	known := map[string]bool{}
@@ -281,6 +369,8 @@ func refresh(now time.Time) {
 	}
 	client := &http.Client{Transport: wmjob.Transport{Timeout: 60 * time.Second}}
 	kept := map[string]bool{}
+	picNow := map[string]bool{}          // stories fetched in this run: whether they got their colour thumbnail
+	signedNow := map[string]signedLink{} // thumbnail addresses settled in this run (a story in two sections)
 	fetched, pictures := 0, 0
 	for _, sec := range news.Sections {
 		if !want[sec.Slug] {
@@ -300,6 +390,10 @@ func refresh(now time.Time) {
 				break
 			}
 			id := news.ArticleID(it.Link)
+			img, seenNow := picNow[id]
+			if !seenNow {
+				img = hadPicture(cache, id)
+			}
 			if !known[id] {
 				if time.Since(start) > refreshBudget {
 					break
@@ -310,21 +404,36 @@ func refresh(now time.Time) {
 					continue
 				}
 				n := 0
+				img = false
 				for bi := range a.Blocks {
 					b := &a.Blocks[bi]
 					b.ImgFile = ""
+					b.ImgC = ""
+					b.ImgCW, b.ImgCH = 0, 0
 					if b.ImgURL == "" || n == news.MaxImagesPerArticle || pictures >= imagesPerRun {
 						continue
 					}
-					small, ierr := news.FetchImage(client, b.ImgURL)
+					// One download: the X4's grayscale copy, the colour desk's, and (first picture) its thumbnail.
+					pics, ierr := news.FetchPictures(client, b.ImgURL, n == 0)
 					if ierr != nil {
 						continue
 					}
 					key := fmt.Sprintf("newscache/img/%s-%d.jpg", id, n+1)
-					if _, perr := wmjob.StoragePut(key, small, "image/jpeg", "private"); perr != nil {
+					if _, perr := wmjob.StoragePut(key, pics.Gray, "image/jpeg", "private"); perr != nil {
 						continue
 					}
 					b.ImgFile = key
+					if len(pics.Color) > 0 {
+						if _, perr := wmjob.StoragePut(colorKey(id, n+1), pics.Color, "image/jpeg", "private"); perr == nil {
+							b.ImgC = colorKey(id, n+1)
+							b.ImgCW, b.ImgCH = pics.ColorW, pics.ColorH
+						}
+					}
+					if n == 0 && b.ImgC != "" && len(pics.Thumb) > 0 {
+						if _, perr := wmjob.StoragePut(thumbKey(id), pics.Thumb, "image/jpeg", "private"); perr == nil {
+							img = true
+						}
+					}
 					n++
 					pictures++
 				}
@@ -334,10 +443,27 @@ func refresh(now time.Time) {
 					continue
 				}
 				known[id] = true
+				picNow[id] = img
 				fetched++
 			}
 			kept[id] = true
-			list = append(list, map[string]any{"id": id, "title": it.Title})
+			var pubMs int64
+			if !it.Pub.IsZero() {
+				pubMs = it.Pub.UnixMilli()
+			}
+			entry := map[string]any{"id": id, "title": it.Title, "lead": leadOf(cache, id, &leadReads),
+				"pub_ms": pubMs, "img": img}
+			if img {
+				link, done := signedNow[id]
+				if !done {
+					link = thumbLink(prevItem(cache, id), id, time.Now())
+					signedNow[id] = link
+				}
+				if link.url != "" {
+					entry["thumb"], entry["thumb_exp"] = link.url, link.exp
+				}
+			}
+			list = append(list, entry)
 		}
 		if err := saveRow(cache, sec.Slug, list, time.Now().UnixMilli()); err != nil {
 			fail(err)
@@ -352,7 +478,9 @@ func refresh(now time.Time) {
 		_ = wmjob.StorageDelete(artKey(id))
 		for i := 1; i <= news.MaxImagesPerArticle; i++ {
 			_ = wmjob.StorageDelete(fmt.Sprintf("newscache/img/%s-%d.jpg", id, i))
+			_ = wmjob.StorageDelete(colorKey(id, i))
 		}
+		_ = wmjob.StorageDelete(thumbKey(id))
 		dropped++
 	}
 	wmjob.SetResult(map[string]any{"fetched": fetched, "pictures": pictures, "dropped": dropped,

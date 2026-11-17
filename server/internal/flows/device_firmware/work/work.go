@@ -3,8 +3,29 @@ package work
 
 import (
 	"inkdesk/internal/wm"
+	"strings"
 	"time"
 )
+
+// devKind: the board of a device row ("" on rows made before the column = x4, unless its
+// firmware says S3).
+func devKind(r map[string]any) string {
+	if k := wm.Str(r["kind"]); k != "" {
+		return k
+	}
+	if strings.HasPrefix(wm.Str(r["fw"]), "inkdesk-s3-") {
+		return "s3"
+	}
+	return "x4"
+}
+
+// fwKind: the board of a firmware row (empty = x4).
+func fwKind(f map[string]any) string {
+	if k := wm.Str(f["kind"]); k != "" {
+		return k
+	}
+	return "x4"
+}
 
 // Body: {"action": "update"} asks the device to install the newest firmware at its next sync;
 // {"action": "cancel"} withdraws that; {"auto": true|false} turns auto-update (while charging) on or off.
@@ -28,7 +49,8 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 	}
 	b, _ := wmIn["body"].(map[string]any)
 	if auto, ok := b["auto"].(bool); ok {
-		if _, err := wm.Update("devices", devID, map[string]any{"fw_auto": auto}); err != nil {
+		// fw_auto_ms: a colour desk's own switch wins only when newer (device_sync).
+		if _, err := wm.Update("devices", devID, map[string]any{"fw_auto": auto, "fw_auto_ms": time.Now().UnixMilli()}); err != nil {
 			return wm.Fail(err)
 		}
 		return map[string]any{"status": 200, "body": map[string]any{"ok": true, "fw_auto": auto}}
@@ -36,9 +58,16 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 	now := time.Now().UTC().Format(time.RFC3339)
 	switch wm.Str(b["action"]) {
 	case "update":
-		fw, ferr := wm.QueryOpts("firmware", map[string]any{"order_by": "code", "desc": true, "limit": 1})
+		all, ferr := wm.QueryOpts("firmware", map[string]any{"order_by": "code", "desc": true, "limit": 50})
 		if ferr != nil {
 			return wm.Fail(ferr)
+		}
+		fw := []map[string]any{}
+		for _, f := range all {
+			if fwKind(f) == devKind(devs[0]) {
+				fw = append(fw, f)
+				break
+			}
 		}
 		if len(fw) != 1 {
 			return map[string]any{"status": 409, "body": map[string]any{"error": "Chưa có bản firmware nào trên server"}}

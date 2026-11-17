@@ -5,20 +5,36 @@ package flows
 
 import (
 	"inkdesk/internal/engine"
+	admin_sign_check "inkdesk/internal/flows/admin_sign/check"
 	build_dashboard_dash "inkdesk/internal/flows/build_dashboard/dash"
 	confirm_book_work "inkdesk/internal/flows/confirm_book/work"
 	confirm_pair_work "inkdesk/internal/flows/confirm_pair/work"
 	confirm_photo_work "inkdesk/internal/flows/confirm_photo/work"
+	confirm_user_pkg_chk "inkdesk/internal/flows/confirm_user_pkg/chk"
+	confirm_user_pkg_save "inkdesk/internal/flows/confirm_user_pkg/save"
 	confirm_wallpaper_work "inkdesk/internal/flows/confirm_wallpaper/work"
 	create_device_work "inkdesk/internal/flows/create_device/work"
 	delete_book_work "inkdesk/internal/flows/delete_book/work"
 	delete_photo_work "inkdesk/internal/flows/delete_photo/work"
+	delete_user_pkg_work "inkdesk/internal/flows/delete_user_pkg/work"
 	delete_wallpaper_work "inkdesk/internal/flows/delete_wallpaper/work"
 	device_book_find "inkdesk/internal/flows/device_book/find"
 	device_firmware_work "inkdesk/internal/flows/device_firmware/work"
+	device_news_list "inkdesk/internal/flows/device_news/list"
+	device_news_article_find "inkdesk/internal/flows/device_news_article/find"
+	device_news_article_merge "inkdesk/internal/flows/device_news_article/merge"
+	device_news_article_norm "inkdesk/internal/flows/device_news_article/norm"
+	device_news_img_find "inkdesk/internal/flows/device_news_img/find"
+	device_news_thumb_find "inkdesk/internal/flows/device_news_thumb/find"
 	device_photo_find "inkdesk/internal/flows/device_photo/find"
+	device_remote_work "inkdesk/internal/flows/device_remote/work"
+	device_sync_keep "inkdesk/internal/flows/device_sync/keep"
 	device_sync_merge "inkdesk/internal/flows/device_sync/merge"
+	device_sync_pk "inkdesk/internal/flows/device_sync/pk"
+	device_sync_skip "inkdesk/internal/flows/device_sync/skip"
+	device_sync_upk "inkdesk/internal/flows/device_sync/upk"
 	device_sync_work "inkdesk/internal/flows/device_sync/work"
+	device_sync_x4p "inkdesk/internal/flows/device_sync/x4p"
 	device_wallpaper_find "inkdesk/internal/flows/device_wallpaper/find"
 	get_device_dashboard_own "inkdesk/internal/flows/get_device_dashboard/own"
 	get_device_settings_work "inkdesk/internal/flows/get_device_settings/work"
@@ -28,40 +44,62 @@ import (
 	list_books_work "inkdesk/internal/flows/list_books/work"
 	list_devices_work "inkdesk/internal/flows/list_devices/work"
 	list_photos_work "inkdesk/internal/flows/list_photos/work"
+	list_user_pkgs_work "inkdesk/internal/flows/list_user_pkgs/work"
 	list_wallpapers_work "inkdesk/internal/flows/list_wallpapers/work"
 	list_wifi_work "inkdesk/internal/flows/list_wifi/work"
 	market_tick_work "inkdesk/internal/flows/market_tick/work"
 	photo_source_find "inkdesk/internal/flows/photo_source/find"
 	post_notification_work "inkdesk/internal/flows/post_notification/work"
+	remote_input_work "inkdesk/internal/flows/remote_input/work"
+	remote_view_work "inkdesk/internal/flows/remote_view/work"
+	require_admin_chk "inkdesk/internal/flows/require_admin/chk"
 	require_device_chk "inkdesk/internal/flows/require_device/chk"
 	save_device_settings_work "inkdesk/internal/flows/save_device_settings/work"
 	save_news_work "inkdesk/internal/flows/save_news/work"
 	save_notify_key_work "inkdesk/internal/flows/save_notify_key/work"
 	save_wifi_work "inkdesk/internal/flows/save_wifi/work"
+	sign_pkg_upload_check "inkdesk/internal/flows/sign_pkg_upload/check"
 	start_book_upload_prep "inkdesk/internal/flows/start_book_upload/prep"
 	start_pair_work "inkdesk/internal/flows/start_pair/work"
 	start_photo_render_prep "inkdesk/internal/flows/start_photo_render/prep"
 	start_photo_upload_prep "inkdesk/internal/flows/start_photo_upload/prep"
+	start_user_pkg_upload_prep "inkdesk/internal/flows/start_user_pkg_upload/prep"
 	start_wallpaper_upload_prep "inkdesk/internal/flows/start_wallpaper_upload/prep"
 	update_device_work "inkdesk/internal/flows/update_device/work"
 )
 
 // Nodes is every code node, by "<workflow>/<node>".
 var Nodes = map[string]engine.NodeFunc{
+	"admin_sign/check":            admin_sign_check.Run,
 	"build_dashboard/dash":        build_dashboard_dash.Run,
 	"confirm_book/work":           confirm_book_work.Run,
 	"confirm_pair/work":           confirm_pair_work.Run,
 	"confirm_photo/work":          confirm_photo_work.Run,
+	"confirm_user_pkg/chk":        confirm_user_pkg_chk.Run,
+	"confirm_user_pkg/save":       confirm_user_pkg_save.Run,
 	"confirm_wallpaper/work":      confirm_wallpaper_work.Run,
 	"create_device/work":          create_device_work.Run,
 	"delete_book/work":            delete_book_work.Run,
 	"delete_photo/work":           delete_photo_work.Run,
+	"delete_user_pkg/work":        delete_user_pkg_work.Run,
 	"delete_wallpaper/work":       delete_wallpaper_work.Run,
 	"device_book/find":            device_book_find.Run,
 	"device_firmware/work":        device_firmware_work.Run,
+	"device_news/list":            device_news_list.Run,
+	"device_news_article/find":    device_news_article_find.Run,
+	"device_news_article/merge":   device_news_article_merge.Run,
+	"device_news_article/norm":    device_news_article_norm.Run,
+	"device_news_img/find":        device_news_img_find.Run,
+	"device_news_thumb/find":      device_news_thumb_find.Run,
 	"device_photo/find":           device_photo_find.Run,
+	"device_remote/work":          device_remote_work.Run,
+	"device_sync/keep":            device_sync_keep.Run,
 	"device_sync/merge":           device_sync_merge.Run,
+	"device_sync/pk":              device_sync_pk.Run,
+	"device_sync/skip":            device_sync_skip.Run,
+	"device_sync/upk":             device_sync_upk.Run,
 	"device_sync/work":            device_sync_work.Run,
+	"device_sync/x4p":             device_sync_x4p.Run,
 	"device_wallpaper/find":       device_wallpaper_find.Run,
 	"get_device_dashboard/own":    get_device_dashboard_own.Run,
 	"get_device_settings/work":    get_device_settings_work.Run,
@@ -71,20 +109,26 @@ var Nodes = map[string]engine.NodeFunc{
 	"list_books/work":             list_books_work.Run,
 	"list_devices/work":           list_devices_work.Run,
 	"list_photos/work":            list_photos_work.Run,
+	"list_user_pkgs/work":         list_user_pkgs_work.Run,
 	"list_wallpapers/work":        list_wallpapers_work.Run,
 	"list_wifi/work":              list_wifi_work.Run,
 	"market_tick/work":            market_tick_work.Run,
 	"photo_source/find":           photo_source_find.Run,
 	"post_notification/work":      post_notification_work.Run,
+	"remote_input/work":           remote_input_work.Run,
+	"remote_view/work":            remote_view_work.Run,
+	"require_admin/chk":           require_admin_chk.Run,
 	"require_device/chk":          require_device_chk.Run,
 	"save_device_settings/work":   save_device_settings_work.Run,
 	"save_news/work":              save_news_work.Run,
 	"save_notify_key/work":        save_notify_key_work.Run,
 	"save_wifi/work":              save_wifi_work.Run,
+	"sign_pkg_upload/check":       sign_pkg_upload_check.Run,
 	"start_book_upload/prep":      start_book_upload_prep.Run,
 	"start_pair/work":             start_pair_work.Run,
 	"start_photo_render/prep":     start_photo_render_prep.Run,
 	"start_photo_upload/prep":     start_photo_upload_prep.Run,
+	"start_user_pkg_upload/prep":  start_user_pkg_upload_prep.Run,
 	"start_wallpaper_upload/prep": start_wallpaper_upload_prep.Run,
 	"update_device/work":          update_device_work.Run,
 }

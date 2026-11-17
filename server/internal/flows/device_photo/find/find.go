@@ -17,14 +17,18 @@ func renderKey(orig, dim, p string) string {
 	if !ok || e1 != nil || e2 != nil || wi < 16 || hi < 16 || wi > 800 || hi > 800 {
 		return ""
 	}
-	if len(p) != 4 || (p[0] != 'c' && p[0] != 'n') || (p[1] != 'a' && p[1] != 't') || p[2] < '0' || p[2] > '9' || p[3] < '0' || p[3] > '9' {
+	if len(p) != 4 || (p[0] != 'c' && p[0] != 'n') || (p[1] != 'a' && p[1] != 't' && p[1] != 'j') || p[2] < '0' || p[2] > '9' || p[3] < '0' || p[3] > '9' {
 		return ""
 	}
 	slash := strings.LastIndex(orig, "/")
 	if slash < 0 {
 		return ""
 	}
-	return fmt.Sprintf("%s/%dx%d-%s.bmp", orig[:slash], wi, hi, p)
+	ext := "bmp" // 1-bit for e-ink; "j" renders are colour JPEGs for the S3
+	if p[1] == 'j' {
+		ext = "jpg"
+	}
+	return fmt.Sprintf("%s/%dx%d-%s.%s", orig[:slash], wi, hi, p, ext)
 }
 
 func exists(key string) (bool, error) {

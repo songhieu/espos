@@ -1,0 +1,227 @@
+{
+  "code": "device_news_article",
+  "name": "Device: one cached news story, as plain blocks with signed colour pictures",
+  "draft": {
+    "nodes": [
+      {
+        "id": "in",
+        "type": "http_in"
+      },
+      {
+        "id": "find",
+        "type": "code",
+        "config": {
+          "source": {
+            "$file": "nodes/find.go"
+          },
+          "input": {
+            "id": "{{ input.params.id }}"
+          }
+        }
+      },
+      {
+        "id": "has",
+        "type": "branch",
+        "config": {
+          "rules": [
+            {
+              "left": "{{ find.ok }}",
+              "op": "eq",
+              "right": true
+            }
+          ]
+        }
+      },
+      {
+        "id": "get",
+        "type": "storage_get",
+        "config": {
+          "key": "{{ find.key }}"
+        }
+      },
+      {
+        "id": "norm",
+        "type": "code",
+        "config": {
+          "source": {
+            "$file": "nodes/norm.go"
+          },
+          "input": {
+            "raw": "{{ get.content }}",
+            "id": "{{ find.id }}"
+          }
+        }
+      },
+      {
+        "id": "pics",
+        "type": "for_each",
+        "config": {
+          "items": "{{ norm.keys }}"
+        }
+      },
+      {
+        "id": "sign",
+        "type": "storage_sign",
+        "config": {
+          "key": "{{ pics.item }}",
+          "ttl_seconds": 3600
+        }
+      },
+      {
+        "id": "merge",
+        "type": "code",
+        "config": {
+          "source": {
+            "$file": "nodes/merge.go"
+          },
+          "input": {
+            "article": "{{ norm.article }}",
+            "signed": "{{ pics.results }}"
+          }
+        }
+      },
+      {
+        "id": "out",
+        "type": "respond",
+        "config": {
+          "status": 200,
+          "headers": {
+            "Cache-Control": "no-store"
+          },
+          "body": "{{ merge.article }}"
+        }
+      },
+      {
+        "id": "none",
+        "type": "respond",
+        "config": {
+          "status": 404,
+          "body": {
+            "error": "not_found"
+          }
+        }
+      },
+      {
+        "id": "fail",
+        "type": "respond",
+        "config": {
+          "status": 500,
+          "body": {
+            "error": "{{ find.error }}"
+          }
+        }
+      },
+      {
+        "id": "fail_get",
+        "type": "respond",
+        "config": {
+          "status": 500,
+          "body": {
+            "error": "{{ get.error }}"
+          }
+        }
+      },
+      {
+        "id": "fail_norm",
+        "type": "respond",
+        "config": {
+          "status": 500,
+          "body": {
+            "error": "{{ norm.error }}"
+          }
+        }
+      },
+      {
+        "id": "fail_sign",
+        "type": "respond",
+        "config": {
+          "status": 500,
+          "body": {
+            "error": "{{ sign.error }}"
+          }
+        }
+      },
+      {
+        "id": "fail_merge",
+        "type": "respond",
+        "config": {
+          "status": 500,
+          "body": {
+            "error": "{{ merge.error }}"
+          }
+        }
+      }
+    ],
+    "edges": [
+      {
+        "from": "in",
+        "to": "find"
+      },
+      {
+        "from": "find",
+        "to": "has"
+      },
+      {
+        "from": "find",
+        "to": "fail",
+        "port": "error"
+      },
+      {
+        "from": "has",
+        "to": "get",
+        "port": "true"
+      },
+      {
+        "from": "has",
+        "to": "none",
+        "port": "false"
+      },
+      {
+        "from": "get",
+        "to": "norm"
+      },
+      {
+        "from": "get",
+        "to": "fail_get",
+        "port": "error"
+      },
+      {
+        "from": "norm",
+        "to": "pics"
+      },
+      {
+        "from": "norm",
+        "to": "fail_norm",
+        "port": "error"
+      },
+      {
+        "from": "pics",
+        "to": "sign",
+        "port": "item"
+      },
+      {
+        "from": "sign",
+        "to": "pics"
+      },
+      {
+        "from": "sign",
+        "to": "fail_sign",
+        "port": "error"
+      },
+      {
+        "from": "pics",
+        "to": "merge",
+        "port": "done"
+      },
+      {
+        "from": "merge",
+        "to": "out"
+      },
+      {
+        "from": "merge",
+        "to": "fail_merge",
+        "port": "error"
+      }
+    ]
+  }
+}

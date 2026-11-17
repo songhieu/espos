@@ -129,6 +129,20 @@
       "required": false,
       "type": "text",
       "unique": false
+    },
+    {
+      "code": "updated_ms",
+      "default": null,
+      "help": "When sections or per_section last changed (web or a colour desk: newest wins)",
+      "indexed": false,
+      "label": "Changed at (epoch ms)",
+      "options": [],
+      "position": 10,
+      "read_only": false,
+      "ref_table": null,
+      "required": false,
+      "type": "integer",
+      "unique": false
     }
   ]
 }

@@ -1,0 +1,18 @@
+{
+  "code": "device_news",
+  "name": "Device: cached news stories (colour desk News app)",
+  "draft": {
+    "nodes": [
+      { "id": "in", "type": "http_in" },
+      { "id": "list", "type": "code", "config": { "source": { "$file": "nodes/list.go" }, "timeout_ms": 10000,
+          "input": { "user_id": "{{ input.guard.require_device.user_id }}", "sec": "{{ input.query.sec }}" } } },
+      { "id": "out", "type": "respond", "config": { "status": "{{ list.status }}", "body": "{{ list.body }}" } },
+      { "id": "fail", "type": "respond", "config": { "status": 500, "body": { "error": "{{ list.error }}" } } }
+    ],
+    "edges": [
+      { "from": "in", "to": "list" },
+      { "from": "list", "to": "out" },
+      { "from": "list", "to": "fail", "port": "error" }
+    ]
+  }
+}

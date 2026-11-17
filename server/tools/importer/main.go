@@ -117,6 +117,12 @@ func importRoutes(src, dst string) {
 		if r.Published != nil && !*r.Published {
 			continue
 		}
+		// Routes for the hosted platform's API keys (the store's publishing tool) have no use here:
+		// this server has one account and no API keys.
+		if r.AuthMode == "api_key" {
+			log.Printf("skipped %s %s (api_key route of the hosted store)", r.Method, r.Path)
+			continue
+		}
 		wf := r.Workflow
 		if wf == "" {
 			wf = r.WorkflowCode
@@ -155,6 +161,9 @@ func portNode(code, stem, src string) string {
 	s = strings.ReplaceAll(s, `fmt.Sprintf("https://%s/v1/`, `fmt.Sprintf("%s/v1/`)
 	// Firmware bundles added with `inkdesk firmware add` are stored as paths on this server.
 	s = strings.ReplaceAll(s, `"url": wm.Str(f["url"])`, `"url": wm.AbsURL(wm.Str(in["host"]), wm.Str(f["url"]))`)
+	// The hosted package store's catalog: here it is whatever INKDESK_PKG_CATALOG names (none: no packages offered).
+	s = regexp.MustCompile(`const catalogURL = "https?://[^"]+/apps/catalog\.json"`).
+		ReplaceAllString(s, `var catalogURL = wm.PkgCatalogURL()`)
 	if !strings.Contains(s, "wm.") {
 		s = regexp.MustCompile(`(?m)^\s*"inkdesk/internal/wm"\n`).ReplaceAllString(s, "")
 		s = strings.Replace(s, `import "inkdesk/internal/wm"`, "", 1)

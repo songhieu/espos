@@ -59,7 +59,7 @@ var layoutSkins = map[string]bool{"": true, "card": true, "line": true, "bare": 
 func photoOpt(opt string) bool {
 	head, ids, ok := strings.Cut(opt, "|")
 	if !ok || len(head) != 6 || !strings.ContainsRune("rsf", rune(head[0])) || !strings.ContainsRune("vhd", rune(head[1])) ||
-		!strings.ContainsRune("cn", rune(head[2])) || !strings.ContainsRune("at", rune(head[3])) {
+		!strings.ContainsRune("cn", rune(head[2])) || !strings.ContainsRune("atj", rune(head[3])) {
 		return false
 	}
 	if head[4] < '0' || head[4] > '9' || head[5] < '0' || head[5] > '9' {
@@ -264,8 +264,13 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 	if name == "" {
 		name = "Xteink X4"
 	}
+	kind := wm.Str(pr["kind"])
+	if kind != "s3" {
+		kind = "x4"
+	}
 	dev, err := wm.Insert("devices", map[string]any{
 		"user_id": uid, "user_email": email, "name": name, "token_hash": wm.Str(pr["token_hash"]), "revoked": false,
+		"kind": kind,
 	})
 	if err != nil {
 		return wm.Fail(err)

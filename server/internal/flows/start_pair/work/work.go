@@ -23,6 +23,10 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 	if name == "" || len([]rune(name)) > 40 {
 		name = "Xteink X4"
 	}
+	kind := wm.Str(body["kind"])
+	if kind != "s3" {
+		kind = "x4"
+	}
 	now := time.Now().UnixMilli()
 	// Free a code (or token) left by an expired attempt.
 	for _, f := range []map[string]any{{"column": "code", "op": "eq", "value": code}, {"column": "token_hash", "op": "eq", "value": hash}} {
@@ -40,7 +44,7 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 		}
 	}
 	if _, err := wm.Insert("pairings", map[string]any{
-		"code": code, "token_hash": hash, "name": name, "status": "pending", "expires_ms": now + 600000,
+		"code": code, "token_hash": hash, "name": name, "status": "pending", "expires_ms": now + 600000, "kind": kind,
 	}); err != nil {
 		return wm.Fail(err)
 	}

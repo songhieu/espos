@@ -1,5 +1,25 @@
 [
   {
+    "method": "GET",
+    "path": "/v1/admin/me",
+    "auth": "end_user",
+    "guards": [
+      "require_admin"
+    ],
+    "workflow": "admin_me",
+    "rate_limit_per_min": 60
+  },
+  {
+    "method": "POST",
+    "path": "/v1/admin/store/upload-url",
+    "auth": "end_user",
+    "guards": [
+      "require_admin"
+    ],
+    "workflow": "admin_sign",
+    "rate_limit_per_min": 120
+  },
+  {
     "method": "POST",
     "path": "/v1/books/confirm",
     "auth": "end_user",
@@ -46,6 +66,46 @@
   },
   {
     "method": "GET",
+    "path": "/v1/device/news/:id/img/:n",
+    "auth": "public",
+    "guards": [
+      "require_device"
+    ],
+    "workflow": "device_news_img",
+    "rate_limit_per_min": 120
+  },
+  {
+    "method": "GET",
+    "path": "/v1/device/news/:id/thumb",
+    "auth": "public",
+    "guards": [
+      "require_device"
+    ],
+    "workflow": "device_news_thumb",
+    "rate_limit_per_min": 120
+  },
+  {
+    "method": "GET",
+    "path": "/v1/device/news/:id",
+    "auth": "public",
+    "guards": [
+      "require_device"
+    ],
+    "workflow": "device_news_article",
+    "rate_limit_per_min": 60
+  },
+  {
+    "method": "GET",
+    "path": "/v1/device/news",
+    "auth": "public",
+    "guards": [
+      "require_device"
+    ],
+    "workflow": "device_news",
+    "rate_limit_per_min": 30
+  },
+  {
+    "method": "GET",
     "path": "/v1/device/photos/:id/:dim/:p",
     "auth": "public",
     "guards": [
@@ -53,6 +113,16 @@
     ],
     "workflow": "device_photo",
     "rate_limit_per_min": 120
+  },
+  {
+    "method": "POST",
+    "path": "/v1/device/remote",
+    "auth": "public",
+    "guards": [
+      "require_device"
+    ],
+    "workflow": "device_remote",
+    "rate_limit_per_min": 600
   },
   {
     "method": "POST",
@@ -97,6 +167,20 @@
     "auth": "end_user",
     "workflow": "device_firmware",
     "rate_limit_per_min": 30
+  },
+  {
+    "method": "POST",
+    "path": "/v1/devices/:id/remote/input",
+    "auth": "end_user",
+    "workflow": "remote_input",
+    "rate_limit_per_min": 300
+  },
+  {
+    "method": "GET",
+    "path": "/v1/devices/:id/remote",
+    "auth": "end_user",
+    "workflow": "remote_view",
+    "rate_limit_per_min": 600
   },
   {
     "method": "GET",
@@ -242,6 +326,34 @@
     "auth": "end_user",
     "workflow": "get_stats",
     "rate_limit_per_min": 60
+  },
+  {
+    "method": "POST",
+    "path": "/v1/user-pkgs/confirm",
+    "auth": "end_user",
+    "workflow": "confirm_user_pkg",
+    "rate_limit_per_min": 20
+  },
+  {
+    "method": "POST",
+    "path": "/v1/user-pkgs/delete",
+    "auth": "end_user",
+    "workflow": "delete_user_pkg",
+    "rate_limit_per_min": 30
+  },
+  {
+    "method": "POST",
+    "path": "/v1/user-pkgs/upload",
+    "auth": "end_user",
+    "workflow": "start_user_pkg_upload",
+    "rate_limit_per_min": 20
+  },
+  {
+    "method": "GET",
+    "path": "/v1/user-pkgs",
+    "auth": "end_user",
+    "workflow": "list_user_pkgs",
+    "rate_limit_per_min": 120
   },
   {
     "method": "POST",

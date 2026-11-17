@@ -4,6 +4,7 @@ package work
 import (
 	"inkdesk/internal/wm"
 	"strings"
+	"time"
 )
 
 var slugs = map[string]bool{}
@@ -54,6 +55,7 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 	if _, err := wm.Upsert("news_prefs", []string{"user_id"}, map[string]any{
 		"user_id": uid, "enabled": b["enabled"] == true, "sections": strings.Join(picked, ","),
 		"hour": hour, "per_section": per, "images": b["images"] == true, "keep": keep,
+		"updated_ms": time.Now().UnixMilli(), // a colour desk's own change wins only when newer (device_sync)
 	}, nil); err != nil {
 		return wm.Fail(err)
 	}

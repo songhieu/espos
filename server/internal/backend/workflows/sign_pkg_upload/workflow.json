@@ -1,0 +1,25 @@
+{
+  "code": "sign_pkg_upload",
+  "name": "Store: signed upload URL for a big package file (scripts/publish_pkg.py)",
+  "draft": {
+    "nodes": [
+      { "id": "in", "type": "http_in" },
+      { "id": "check", "type": "code", "config": { "source": { "$file": "nodes/check.go" }, "input": { "body": "{{ input.body }}" } } },
+      { "id": "isok", "type": "branch", "config": { "rules": [ { "left": "{{ check.ok }}", "op": "eq", "right": true } ] } },
+      { "id": "sign", "type": "storage_sign", "config": { "key": "{{ check.key }}", "method": "PUT", "visibility": "public", "max_bytes": 67108864, "ttl_seconds": 900 } },
+      { "id": "out", "type": "respond", "config": { "status": 201, "body": { "key": "{{ check.key }}", "url": "{{ sign.url }}", "expires_at": "{{ sign.expires_at }}" } } },
+      { "id": "bad", "type": "respond", "config": { "status": 422, "body": { "error": "{{ check.why }}" } } },
+      { "id": "fail", "type": "respond", "config": { "status": 500, "body": { "error": "{{ check.error }}" } } },
+      { "id": "fail2", "type": "respond", "config": { "status": 422, "body": { "error": "{{ sign.error }}" } } }
+    ],
+    "edges": [
+      { "from": "in", "to": "check" },
+      { "from": "check", "to": "isok" },
+      { "from": "check", "to": "fail", "port": "error" },
+      { "from": "isok", "to": "sign", "port": "true" },
+      { "from": "isok", "to": "bad", "port": "false" },
+      { "from": "sign", "to": "out" },
+      { "from": "sign", "to": "fail2", "port": "error" }
+    ]
+  }
+}

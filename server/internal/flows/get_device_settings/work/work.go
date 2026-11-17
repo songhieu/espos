@@ -244,8 +244,23 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 	}
 	_ = strings.TrimSpace
 	d := devs[0]
+	device := map[string]any{"id": id, "name": wm.Str(d["name"]), "last_sync": wm.Str(d["last_sync"]), "battery": d["battery"], "fw": wm.Str(d["fw"]), "fonts": d["fonts"]}
+	// The colour desk's packages report from its last sync (app store; docs/ecosystem.md §6): null until it sends one.
+	if wm.Str(d["kind"]) == "s3" || strings.HasPrefix(wm.Str(d["fw"]), "inkdesk-s3-") {
+		device["pkgs"] = d["pkgs"]
+		device["pkgs_at"] = wm.Int(d["pkgs_at"])
+	} else {
+		// An X4's Lite packages (s3desk/docs/profiles.md §9): what is on its card, and what it can run (caps, rt,
+		// screen); both null until its firmware sends them. x4.pkgs, what the user wants, is "" until set.
+		device["pkgs"] = d["pkgs"]
+		device["pkgs_at"] = wm.Int(d["pkgs_at"])
+		if _, set := settings["x4.pkgs"]; !set {
+			settings["x4.pkgs"] = map[string]any{"v": "", "source": "default", "ms": 0}
+		}
+	}
+	device["caps"] = d["caps"]
 	return map[string]any{"status": 200, "body": map[string]any{
-		"device":   map[string]any{"id": id, "name": wm.Str(d["name"]), "last_sync": wm.Str(d["last_sync"]), "battery": d["battery"], "fw": wm.Str(d["fw"]), "fonts": d["fonts"]},
+		"device":   device,
 		"settings": settings,
 	}}
 }

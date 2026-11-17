@@ -101,6 +101,20 @@
       "required": false,
       "type": "text",
       "unique": false
+    },
+    {
+      "code": "kind",
+      "default": null,
+      "help": "board this release is for: x4 or s3 (empty = x4)",
+      "indexed": false,
+      "label": "Kind",
+      "options": [],
+      "position": 8,
+      "read_only": false,
+      "ref_table": null,
+      "required": false,
+      "type": "text",
+      "unique": false
     }
   ]
 }

@@ -68,6 +68,15 @@ func StoragePut(key string, data []byte, mime, visibility string) (map[string]an
 // StorageDelete removes a stored file.
 func StorageDelete(key string) error { return wm.StorageDelete(key) }
 
+// StorageSign returns a link that reads one stored file until it expires (this server's /files/
+// link, signed like the nodes' own links).
+func StorageSign(key string, ttl time.Duration) (string, error) {
+	if key == "" {
+		return "", errors.New("storage sign: empty key")
+	}
+	return wm.SignURL(wm.PublicBase(""), key, "GET", ttl, 0), nil
+}
+
 // Enqueued is a started job.
 type Enqueued struct {
 	JobID     int64  `json:"job_id"`

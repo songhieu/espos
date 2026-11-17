@@ -59,6 +59,7 @@ INKDESK_PASSWORD='a long password' ./inkdesk
 | `INKDESK_ADDR` | `:8080` | Where the server listens. |
 | `INKDESK_DATA` | `./data` | Database, files and the link-signing key. |
 | `INKDESK_PUBLIC_URL` | (none) | The address the browser and the reader use, e.g. `https://inkdesk.example.com`. Set it behind a reverse proxy. Without it the server uses the Host of each request. |
+| `INKDESK_PKG_CATALOG` | (none) | The package catalog (a v2 `apps/catalog.json`) the X4 gets its sleep faces and widgets from. Any public URL works, e.g. the catalog of the hosted InkDesk store. Without it the X4 is offered no packages; `.inkp` files copied to its card still install. |
 
 ## Connecting the X4
 

@@ -114,6 +114,9 @@ type Block struct {
 	ImgURL  string
 	Caption string
 	ImgFile string // set once the picture is stored in the EPUB
+	ImgC    string // in the server's cache: the storage key of the colour desk's copy ("" when none)
+	ImgCW   int    // and its size in pixels (0 when none)
+	ImgCH   int
 }
 
 // Article is one story ready for the EPUB.

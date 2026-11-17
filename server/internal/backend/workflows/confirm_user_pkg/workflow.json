@@ -1,0 +1,33 @@
+{
+  "code": "confirm_user_pkg",
+  "name": "Web: keep the user's uploaded Java game (checks the .inkp, a new version replaces the old)",
+  "draft": {
+    "nodes": [
+      { "id": "in", "type": "http_in" },
+      { "id": "chk", "type": "code", "config": { "source": { "$file": "nodes/chk.go" }, "timeout_ms": 10000,
+          "input": { "body": "{{ input.body }}", "uid": "{{ input.user.id }}" } } },
+      { "id": "isok", "type": "branch", "config": { "rules": [ { "left": "{{ chk.ok }}", "op": "eq", "right": true } ] } },
+      { "id": "get", "type": "storage_get", "config": { "key": "{{ chk.key }}" } },
+      { "id": "save", "type": "code", "config": { "source": { "$file": "nodes/save.go" }, "timeout_ms": 20000, "memory_mb": 512,
+          "input": { "b64": "{{ get.content_base64 }}", "uid": "{{ chk.uid }}", "pkg_id": "{{ chk.pkg_id }}", "key": "{{ chk.key }}",
+            "dir": "{{ chk.dir }}", "icon_key": "{{ chk.icon_key }}", "thumb": "{{ chk.thumb }}", "screen": "{{ chk.screen }}",
+            "old_id": "{{ chk.old_id }}", "old_code": "{{ chk.old_code }}" } } },
+      { "id": "out", "type": "respond", "config": { "status": "{{ save.status }}", "body": "{{ save.body }}" } },
+      { "id": "bad", "type": "respond", "config": { "status": "{{ chk.status }}", "body": { "error": "{{ chk.why }}" } } },
+      { "id": "nofile", "type": "respond", "config": { "status": 409, "body": { "error": "Máy chủ chưa đọc được file. Thử tải lại." } } },
+      { "id": "fail", "type": "respond", "config": { "status": 500, "body": { "error": "{{ chk.error }}" } } },
+      { "id": "fail2", "type": "respond", "config": { "status": 500, "body": { "error": "{{ save.error }}" } } }
+    ],
+    "edges": [
+      { "from": "in", "to": "chk" },
+      { "from": "chk", "to": "isok" },
+      { "from": "chk", "to": "fail", "port": "error" },
+      { "from": "isok", "to": "get", "port": "true" },
+      { "from": "isok", "to": "bad", "port": "false" },
+      { "from": "get", "to": "save" },
+      { "from": "get", "to": "nofile", "port": "error" },
+      { "from": "save", "to": "out" },
+      { "from": "save", "to": "fail2", "port": "error" }
+    ]
+  }
+}

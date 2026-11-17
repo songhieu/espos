@@ -82,3 +82,50 @@ func TestRunBranchAndRespond(t *testing.T) {
 		t.Fatalf("error edge: %+v", r)
 	}
 }
+
+func TestRunForEach(t *testing.T) {
+	fsys := fstest.MapFS{"workflows/loop/workflow.json": {Data: []byte(`{"code":"loop","draft":{
+		"nodes":[{"id":"in","type":"http_in"},
+			{"id":"list","type":"code","config":{"source":{"$file":"nodes/list.go"},"input":{}}},
+			{"id":"each","type":"for_each","config":{"items":"{{ list.items }}"}},
+			{"id":"dbl","type":"code","config":{"source":{"$file":"nodes/dbl.go"},"input":{"n":"{{ each.item }}","i":"{{ each.index }}"}}},
+			{"id":"out","type":"respond","config":{"status":200,"body":{"r":"{{ each.results }}","total":"{{ each.total }}"}}}],
+		"edges":[{"from":"in","to":"list"},{"from":"list","to":"each"},{"from":"each","to":"dbl","port":"item"},
+			{"from":"dbl","to":"each"},{"from":"each","to":"out","port":"done"}]}}`)}}
+	nodes := map[string]NodeFunc{
+		// a typed Go slice, as code nodes here return
+		"loop/list": func(in, ctx map[string]any) map[string]any { return map[string]any{"items": []int{1, 2, 3}} },
+		"loop/dbl": func(in, ctx map[string]any) map[string]any {
+			n, _ := in["n"].(float64)
+			return map[string]any{"v": n * 2, "i": in["i"]}
+		},
+	}
+	e, err := Load(fsys, "workflows", nodes)
+	if err != nil {
+		t.Fatal(err)
+	}
+	res, err := e.Run("loop", map[string]any{}, nil, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	body, _ := res.Body.(map[string]any)
+	r, _ := body["r"].([]any)
+	if len(r) != 3 || body["total"] != 3 {
+		t.Fatalf("results %#v", body)
+	}
+	for i, x := range r {
+		m, _ := x.(map[string]any)
+		if m["v"] != float64(2*(i+1)) || m["i"] != i {
+			t.Fatalf("result %d = %#v", i, m)
+		}
+	}
+	// an empty list goes straight to done
+	nodes["loop/list"] = func(in, ctx map[string]any) map[string]any { return map[string]any{"items": nil} }
+	res, err = e.Run("loop", map[string]any{}, nil, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if b, _ := res.Body.(map[string]any); len(b["r"].([]any)) != 0 {
+		t.Fatalf("empty list: %#v", b)
+	}
+}

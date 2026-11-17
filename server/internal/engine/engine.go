@@ -4,6 +4,8 @@
 package engine
 
 import (
+	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -12,6 +14,7 @@ import (
 	"path"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"inkdesk/internal/wm"
 )
@@ -137,10 +140,21 @@ func (e *Engine) Run(code string, input map[string]any, ctx map[string]any, base
 		base = e.Base
 	}
 	vars := map[string]any{"input": input}
-	cur := f.Start
-	for steps := 0; steps < 500; steps++ {
+	loops := map[string]*loop{}
+	cur, prev := f.Start, ""
+	for steps := 0; steps < maxSteps; steps++ {
 		n := f.Nodes[cur]
-		port, failed, res, err := e.step(f, n, vars, ctx, base)
+		var (
+			port   string
+			failed bool
+			res    *Result
+			err    error
+		)
+		if n.Type == "for_each" {
+			port = forEach(n, loops, vars, prev)
+		} else {
+			port, failed, res, err = e.step(f, n, vars, ctx, base)
+		}
 		if err != nil {
 			return nil, err
 		}
@@ -166,9 +180,68 @@ func (e *Engine) Run(code string, input map[string]any, ctx map[string]any, base
 			}
 			return &Result{Status: 204}, nil
 		}
-		cur = next
+		prev, cur = cur, next
 	}
 	return nil, fmt.Errorf("%s: too many steps", code)
+}
+
+const (
+	maxSteps     = 5000 // node runs in one run, loop bodies included
+	maxLoopItems = 500  // elements a for_each walks
+)
+
+// loop is a for_each node's walk through its list.
+type loop struct {
+	items   []any
+	next    int
+	results []any
+}
+
+// forEach runs a for_each node, as the hosted platform does: the first visit takes the list
+// ({"items": "{{ … }}"}) and leaves by "item" with {{ id.item }}, {{ id.index }}, {{ id.total }};
+// the body's last node draws an edge back, and each return records that node's output; once the
+// list is walked it leaves by "done" with {{ id.results }} (every body result, in order).
+func forEach(n Node, loops map[string]*loop, vars map[string]any, prev string) string {
+	l := loops[n.ID]
+	if l == nil {
+		l = &loop{items: asList(eval(n.Config["items"], vars)), results: []any{}}
+		if len(l.items) > maxLoopItems {
+			log.Printf("%s: %d items, only the first %d walked", n.ID, len(l.items), maxLoopItems)
+			l.items = l.items[:maxLoopItems]
+		}
+		loops[n.ID] = l
+	} else {
+		l.results = append(l.results, vars[prev])
+	}
+	if l.next < len(l.items) {
+		i := l.next
+		l.next++
+		vars[n.ID] = map[string]any{"item": l.items[i], "index": i, "total": len(l.items), "results": l.results}
+		return "item"
+	}
+	delete(loops, n.ID)
+	vars[n.ID] = map[string]any{"results": l.results, "total": len(l.items)}
+	return "done"
+}
+
+// asList is a list value as []any: code nodes here hand over typed Go slices
+// ([]map[string]any, …) where the hosted platform passes JSON.
+func asList(v any) []any {
+	switch t := v.(type) {
+	case nil:
+		return nil
+	case []any:
+		return t
+	}
+	b, err := json.Marshal(v)
+	if err != nil {
+		return nil
+	}
+	var out []any
+	if json.Unmarshal(b, &out) != nil {
+		return nil
+	}
+	return out
 }
 
 // step runs one node: the port it leaves by, whether it failed, or the run's end.
@@ -239,6 +312,25 @@ func (e *Engine) step(f *Flow, n Node, vars, ctx map[string]any, base string) (s
 		}
 		u := wm.SignURL(base, key, method, time.Duration(ttl)*time.Second, int64(wm.Num(eval(cfg["max_bytes"], vars))))
 		vars[n.ID] = map[string]any{"url": u, "method": method, "key": key}
+		return "", false, nil, nil
+
+	case "storage_get":
+		// As the hosted node: content_base64 always, content only when the file is text.
+		key := wm.Str(eval(cfg["key"], vars))
+		b, mime, err := wm.StorageGet(key)
+		if key == "" || err != nil {
+			msg := "no key to read"
+			if err != nil {
+				msg = err.Error()
+			}
+			vars[n.ID] = map[string]any{"error": msg}
+			return "", true, nil, nil
+		}
+		out := map[string]any{"key": key, "mime": mime, "size": len(b), "content_base64": base64.StdEncoding.EncodeToString(b)}
+		if utf8.Valid(b) && !bytes.ContainsRune(b, 0) {
+			out["content"] = string(b)
+		}
+		vars[n.ID] = out
 		return "", false, nil, nil
 
 	case "call_workflow":
