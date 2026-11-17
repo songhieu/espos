@@ -1,0 +1,23 @@
+{"decl": 1,
+ "lists": {"quotes": [
+   {"q": "Đường đi khó không khó vì ngăn sông cách núi, mà khó vì lòng người ngại núi e sông.", "a": "Nguyễn Bá Học"},
+   {"q": "Học, học nữa, học mãi.", "a": "Lênin"},
+   {"q": "Không có việc gì khó, chỉ sợ lòng không bền.", "a": "Hồ Chí Minh"},
+   {"q": "Một cuốn sách hay là một người bạn tốt.", "a": "Tục ngữ"},
+   {"q": "Đọc sách là để mở mang trí óc, không phải để lấp đầy nó.", "a": "Khuyết danh"},
+   {"q": "Mỗi ngày một trang sách, mỗi năm một kho tri thức.", "a": "Khuyết danh"},
+   {"q": "Có công mài sắt, có ngày nên kim.", "a": "Tục ngữ"}]},
+ "layouts": [
+  {"size": [456, 210], "items": [
+   {"t": "text", "x": 8, "y": 6, "w": 300, "h": 26, "text": "CÂU HAY · {date.dm}", "size": 24, "font": "ui", "bold": true},
+   {"t": "list", "of": "pkg.quotes", "pick": "day", "x": 8, "y": 38, "items": [
+     {"t": "text", "x": 0, "y": 0, "w": 432, "h": 128, "text": "{item.q}", "size": 33, "bold": true, "lines": 4, "valign": "middle"},
+     {"t": "text", "x": 0, "y": 134, "w": 432, "h": 28, "text": "{item.a}", "size": 25, "align": "right"}]}
+  ]},
+  {"size": [220, 210], "items": [
+   {"t": "text", "x": 6, "y": 4, "w": 208, "h": 26, "text": "CÂU HAY", "size": 24, "font": "ui", "bold": true},
+   {"t": "list", "of": "pkg.quotes", "pick": "day", "x": 6, "y": 34, "items": [
+     {"t": "text", "x": 0, "y": 0, "w": 208, "h": 140, "text": "{item.q}", "size": 29, "bold": true, "lines": 5, "valign": "middle"},
+     {"t": "text", "x": 0, "y": 144, "w": 208, "h": 26, "text": "{item.a}", "size": 24, "font": "ui", "align": "right"}]}
+  ]}
+ ]}

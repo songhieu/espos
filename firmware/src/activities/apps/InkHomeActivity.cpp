@@ -117,7 +117,7 @@ void InkHomeActivity::runAutoSync() {
   const bool joined = inkdesk::net::joinSaved(8000);
   if (joined) {
     const auto outcome = inkdesk::sync::run();
-    if (outcome.result == inkdesk::client::Result::Ok) inkdesk::sync::downloadWalls(outcome);
+    if (outcome.result == inkdesk::client::Result::Ok) inkdesk::sync::downloadFiles(outcome);
   }
   inkdesk::net::off();
   // Linked but never synced and the saved WiFi does not answer: ask instead of staying silent.

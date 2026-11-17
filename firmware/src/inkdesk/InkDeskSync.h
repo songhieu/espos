@@ -5,6 +5,7 @@
 #include <vector>
 
 #include "InkDeskClient.h"
+#include "inkdesk/Pkgs.h"
 
 // The data half of a sync: build the request from local state, apply the
 // response (settings, tasks, dashboard, clock, device info) and return what is
@@ -33,14 +34,17 @@ struct Outcome {
   std::vector<WallDownload> walls;     // sleep-screen pictures to fetch
   int wifiApplied = 0;                 // WiFi networks added or removed from the web
   std::string fontWanted;              // reading font chosen on the web, not on the card yet
+  std::vector<pkgs::Download> pkgs;    // packages x4.pkgs asks for that are missing or older
 };
 
 // POST /v1/device/sync and apply everything except the book files.
 // Heavy JSON is freed before returning.
 Outcome run();
 
-// Fetches the sleep-screen pictures the outcome lists and the photo widgets' pictures. Returns how many failed.
-int downloadWalls(const Outcome& outcome, const bool* cancel = nullptr);
+// The files a sync names besides the books: photo-widget pictures, sleep-screen pictures, then the
+// packages to install. Returns how many failed. Called by the sync screen and, with nobody watching, by
+// Home's automatic sync and by the timer-wake loop in main.cpp (through downloadAll): keep it free of UI.
+int downloadFiles(const Outcome& outcome, const bool* cancel = nullptr);
 // Applies book deletions and fetches books and pictures without any UI (sleep loop, Home).
 // Returns how many downloads failed.
 int downloadAll(const Outcome& outcome, const bool* cancel = nullptr);

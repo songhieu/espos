@@ -25,6 +25,8 @@
 #include "ReadingStats.h"
 #include "inkdesk/Wallpapers.h"
 #include "inkdesk/DashDraw.h"
+#include "inkdesk/DeclGfx.h"
+#include "inkdesk/Pkgs.h"
 #include "inkdesk/Widgets.h"
 #include "RecentBooksStore.h"
 #include "fontIds.h"
@@ -798,6 +800,11 @@ bool draw(GfxRenderer& renderer, const WakePlan& plan) {
     return wallpapers::draw(renderer, plan.clock && INKDESK.get("sleep.clock", "1") != "0");
   }
   const std::string chosen = INKDESK.get("dash.layout", "desk");
+  {
+    // A face from a package (pkg:<id>[@WxH]) owns the whole screen; a missing one falls back to "desk".
+    pkgs::FaceRef face;
+    if (pkgs::FaceRef::parse(chosen, face) && inkdesk::decl::drawFace(renderer, face, plan.clock)) return true;
+  }
   if (chosen == "wl" || chosen == "wp") {
     // Widgets arranged on the web (sleep.wl / sleep.wp), or the built-in widget layout.
     namespace wg = inkdesk::widgets;
@@ -951,7 +958,16 @@ WakePlan planWake(const bool usbPowered) {
 
   // Minute clock: off at night, on a low battery, or when switched off on the web.
   const char* clockKey = images ? "sleep.clock" : "dash.clock";
-  const bool clockOn = now > 0 && InkDeskStore::clockValid() && !quietNow && INKDESK.get(clockKey, "1") != "0";
+  // A package face asks how often it wants to be redrawn (profiles.md §4.9): never more than that.
+  const std::string faceRefresh = images ? std::string() : pkgs::faceRefresh();
+  const bool clockOn = now > 0 && InkDeskStore::clockValid() && !quietNow && INKDESK.get(clockKey, "1") != "0" &&
+                       (faceRefresh.empty() || faceRefresh == "minute");
+  if (now > 0 && !quietNow && (faceRefresh == "hour" || faceRefresh == "day")) {
+    const int64_t localSec = now / 1000 + static_cast<int64_t>(INKDESK.tzMin) * 60;
+    const int64_t period = faceRefresh == "hour" ? 3600 : 86400;
+    const int64_t toNext = (localSec / period + 1) * period - localSec + 1;
+    if (toNext < secs) secs = toNext;
+  }
   if (clockOn) {
     const int64_t localSec = now / 1000 + static_cast<int64_t>(INKDESK.tzMin) * 60;
     // Wake one second into the minute after the one on screen.

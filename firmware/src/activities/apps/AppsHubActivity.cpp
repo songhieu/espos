@@ -10,6 +10,7 @@
 #include "InkStatsActivity.h"
 #include "InkDeskSyncActivity.h"
 #include "PairActivity.h"
+#include "PkgListActivity.h"
 #include "activities/ActivityManager.h"
 #include "components/icons/blocks.h"
 #include "components/icons/book.h"
@@ -20,10 +21,11 @@
 #include "components/icons/wifi.h"
 #include "inkdesk/InkDeskStore.h"
 #include "inkdesk/InkOta.h"
+#include "inkdesk/Pkgs.h"
 #include "inkdesk/ReadingStats.h"
 
 namespace {
-enum Row { ROW_NEWS = 0, ROW_STATS, ROW_DASHBOARD, ROW_SYNC, ROW_UPDATE, ROW_LINK, ROW_FILES, ROW_TRANSFER, ROW_COUNT };
+enum Row { ROW_NEWS = 0, ROW_STATS, ROW_DASHBOARD, ROW_PKGS, ROW_SYNC, ROW_UPDATE, ROW_LINK, ROW_FILES, ROW_TRANSFER, ROW_COUNT };
 }
 
 const char* AppsHubActivity::title() const { return tr(STR_ID_APPS); }
@@ -63,6 +65,16 @@ void AppsHubActivity::refresh() {
     snprintf(buf, sizeof(buf), tr(STR_ID_DASH_SUB_ON_FMT), INKDESK.getInt("dash.interval_min", 30));
     items_[ROW_DASHBOARD] = {tr(STR_ID_DASHBOARD), buf, "", BlocksIcon};
   }
+  {
+    int faces = 0, widgets = 0, themes = 0;
+    for (const auto& p : inkdesk::pkgs::list()) (p.type == "face" ? faces : p.type == "widget" ? widgets : themes)++;
+    if (faces + widgets + themes > 0) {
+      snprintf(buf, sizeof(buf), tr(STR_IK_PKGS_SUB_FMT), faces, widgets, themes);
+      items_[ROW_PKGS] = {tr(STR_IK_PKGS), buf, "", BlocksIcon};
+    } else {
+      items_[ROW_PKGS] = {tr(STR_IK_PKGS), tr(STR_IK_PKGS_NONE), "", BlocksIcon};
+    }
+  }
   if (INKDESK.lastSyncMs > 0) {
     char clock[8];
     INKDESK.formatClock(INKDESK.lastSyncMs, clock, sizeof(clock));
@@ -99,6 +111,9 @@ void AppsHubActivity::activate(const int index) {
       break;
     case ROW_DASHBOARD:
       startActivityForResult(std::make_unique<DashboardSettingsActivity>(renderer, mappedInput), onBack);
+      break;
+    case ROW_PKGS:
+      startActivityForResult(std::make_unique<PkgListActivity>(renderer, mappedInput), onBack);
       break;
     case ROW_SYNC:
       if (INKDESK.isLinked()) {

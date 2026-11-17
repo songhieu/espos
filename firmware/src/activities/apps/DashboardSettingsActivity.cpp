@@ -4,12 +4,15 @@
 
 #include <cstdio>
 #include <cstdlib>
+#include <string>
+#include <vector>
 
 #include "InkDeskSyncActivity.h"
 #include "components/UITheme.h"
 #include "fontIds.h"
 #include "inkdesk/DashboardView.h"
 #include "inkdesk/InkDeskStore.h"
+#include "inkdesk/Pkgs.h"
 
 
 namespace {
@@ -20,20 +23,52 @@ const char* const ROW_KEYS[DashboardSettingsActivity::ROW_COUNT] = {
 constexpr int SAVE_LEVELS[] = {0, 10, 20, 30};
 constexpr int INTERVALS[] = {5, 15, 30, 60};
 
-// dash.layout values in the order the row cycles through; "landscape" is the old name of "desk".
-const char* layoutLabel(const std::string& v) {
+// dash.layout values in the order the row cycles through: the built-in styles, then each installed face
+// (one value per shape when it has both). "landscape" is the old name of "desk".
+std::vector<std::string> layoutValues() {
+  std::vector<std::string> v = {"desk", "calendar", "portrait", "wl", "wp"};
+  for (const auto& p : inkdesk::pkgs::list()) {
+    if (p.type != "face") continue;
+    inkdesk::pkgs::FaceRef ref;
+    ref.id = p.id;
+    if (p.screens.size() <= 1) {
+      v.push_back(ref.format());
+      continue;
+    }
+    for (const auto& s : p.screens) {
+      if (inkdesk::pkgs::FaceRef::parseSize(s, ref.w, ref.h)) v.push_back(ref.format());
+    }
+  }
+  return v;
+}
+std::string layoutLabel(const std::string& v) {
   if (v == "calendar") return tr(STR_IK_LAYOUT_CAL);
   if (v == "portrait") return tr(STR_ID_PORTRAIT);
   if (v == "wl") return tr(STR_IK_LAYOUT_WL);
   if (v == "wp") return tr(STR_IK_LAYOUT_WP);
+  inkdesk::pkgs::FaceRef ref;
+  inkdesk::pkgs::Info info;
+  if (inkdesk::pkgs::FaceRef::parse(v, ref)) {
+    if (!inkdesk::pkgs::get(ref.id, info)) return tr(STR_IK_PKG_MISSING);
+    if (ref.w == 0 || info.screens.size() <= 1) return info.name;
+    return info.name + " · " + (ref.portrait() ? tr(STR_IK_PKG_PORTRAIT) : tr(STR_IK_PKG_LANDSCAPE));
+  }
   return tr(STR_IK_LAYOUT_DESK);
 }
-const char* nextLayout(const std::string& v) {
-  if (v == "calendar") return "portrait";
-  if (v == "portrait") return "wl";
-  if (v == "wl") return "wp";
-  if (v == "wp") return "desk";
-  return "calendar";
+std::string nextLayout(const std::string& v) {
+  const auto all = layoutValues();
+  const std::string cur = v == "landscape" ? "desk" : v;
+  // A face matches its own value, or (set without a size, or from the web) its first one.
+  inkdesk::pkgs::FaceRef face, each;
+  const bool isFace = inkdesk::pkgs::FaceRef::parse(cur, face);
+  int at = -1;
+  for (size_t i = 0; i < all.size() && at < 0; i++) {
+    if (all[i] == cur) at = static_cast<int>(i);
+  }
+  for (size_t i = 0; i < all.size() && at < 0 && isFace; i++) {
+    if (inkdesk::pkgs::FaceRef::parse(all[i], each) && each.id == face.id) at = static_cast<int>(i);
+  }
+  return at < 0 ? all.front() : all[(at + 1) % all.size()];
 }
 }  // namespace
 

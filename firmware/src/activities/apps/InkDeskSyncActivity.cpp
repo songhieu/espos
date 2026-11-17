@@ -221,7 +221,7 @@ void InkDeskSyncActivity::runSync() {
     }
   }
 
-  if (!cancel_ && inkdesk::sync::downloadWalls(outcome, &cancel_) > 0) anyFailed = true;
+  if (!cancel_ && inkdesk::sync::downloadFiles(outcome, &cancel_) > 0) anyFailed = true;
   cancellable_ = false;
 
   // The Library list reads a prebuilt index: rebuild it on the next visit.

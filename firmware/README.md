@@ -11,6 +11,9 @@ reading engine and adds:
 - the sleep screen wakes on a timer to refresh its data and keep a minute clock, with quiet
   hours and a battery-saving level (`dash.save_pct`);
 - setup over USB from the web app (WiFi, server address, device token), or linking with a code;
+- packages: supports declarative faces, widgets and themes (data, no code), installed through the sync from
+  the InkDesk store or from an `.inkp` file copied to `/InkDesk/pkgs` on the card; a face can be used as the
+  sleep screen (Apps > Installed packages; format in the InkDesk docs, `s3desk/docs/profiles.md`);
 - firmware updates over WiFi, with rollback.
 
 InkDesk code lives in `src/inkdesk/` and `src/activities/apps/`; smaller changes touch

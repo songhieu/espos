@@ -18,7 +18,7 @@ namespace inkdesk::widgets {
 
 enum class Kind : uint8_t {
   Clock, Date, Month, Events, Countdown, Weather, Reading, Stats, News, Notify, Battery, App,
-  Gold, Stocks, Fx, Crypto, Books, Photo, Overview, Setup, Unknown,
+  Gold, Stocks, Fx, Crypto, Books, Photo, Overview, Pkg, Setup, Unknown,  // Pkg: a widget package, opt = its id
 };
 
 // Frame style of a screen: rounded cards, ruled paper, bare, bold squares, cards with a shadow.

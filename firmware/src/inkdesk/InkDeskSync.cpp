@@ -176,6 +176,8 @@ Outcome run() {
       o["ok"] = a.ok;
       if (!a.why.empty()) o["why"] = a.why;
     }
+    // What this reader can run and the packages on its card (s3desk/docs/profiles.md §9.3).
+    pkgs::addToSyncBody(req.as<JsonObject>());
     serializeJson(req, body);
   }
 
@@ -247,6 +249,9 @@ Outcome run() {
   }
 
   outcome.fontWanted = fonts::missing();
+  // Packages: x4.pkgs (just merged) says what is wanted, the answer's "pkgs" where to get it.
+  pkgs::applyRemovals();
+  outcome.pkgs = pkgs::plan(doc["pkgs"].as<JsonArrayConst>(), !doc["pkgs"].isNull());
 
   // Left over from the removed task board.
   if (Storage.exists(LEGACY_TASKS_FILE)) Storage.remove(LEGACY_TASKS_FILE);
@@ -388,20 +393,22 @@ int syncPhotos(const bool* cancel) {
   return failed;
 }
 
-int downloadWalls(const Outcome& outcome, const bool* cancel) {
+int downloadFiles(const Outcome& outcome, const bool* cancel) {
   // Photo widget pictures first (they follow the layouts the sync just brought).
   int failed = syncPhotos(cancel);
-  if (outcome.walls.empty()) return failed;
-  Storage.mkdir(wallpapers::DIR);
-  const std::vector<HttpDownloader::Header> headers = {{"Authorization", INKDESK.authHeader()}};
-  for (const auto& w : outcome.walls) {
-    if (cancel && *cancel) break;
-    const auto r = HttpDownloader::downloadToFile(w.url, wallpapers::pathFor(w.id), nullptr, cancel, "", "", headers);
-    if (r != HttpDownloader::OK) {
-      LOG_ERR("INKD", "Picture %d download failed: %d", static_cast<int>(w.id), static_cast<int>(r));
-      failed++;
+  if (!outcome.walls.empty()) {
+    Storage.mkdir(wallpapers::DIR);
+    const std::vector<HttpDownloader::Header> headers = {{"Authorization", INKDESK.authHeader()}};
+    for (const auto& w : outcome.walls) {
+      if (cancel && *cancel) break;
+      const auto r = HttpDownloader::downloadToFile(w.url, wallpapers::pathFor(w.id), nullptr, cancel, "", "", headers);
+      if (r != HttpDownloader::OK) {
+        LOG_ERR("INKD", "Picture %d download failed: %d", static_cast<int>(w.id), static_cast<int>(r));
+        failed++;
+      }
     }
   }
+  if (!(cancel && *cancel)) failed += pkgs::install(outcome.pkgs, cancel);
   return failed;
 }
 
@@ -410,7 +417,7 @@ int downloadAll(const Outcome& outcome, const bool* cancel) {
   for (const auto& path : outcome.deletions) {
     if (Storage.exists(path.c_str())) libraryChanged = Storage.remove(path.c_str()) || libraryChanged;
   }
-  int failed = downloadWalls(outcome, cancel);
+  int failed = downloadFiles(outcome, cancel);
   if (!outcome.fontWanted.empty() && !fonts::install(outcome.fontWanted, nullptr, cancel)) failed++;
   if (!outcome.downloads.empty()) Storage.mkdir(BOOKS_DIR);
   const std::vector<HttpDownloader::Header> headers = {{"Authorization", INKDESK.authHeader()}};

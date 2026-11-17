@@ -28,6 +28,7 @@
 #include "components/icons/book.h"
 #include "components/icons/transfer.h"
 #include "inkdesk/DashDraw.h"
+#include "inkdesk/DeclGfx.h"
 #include "inkdesk/InkDeskStore.h"
 #include "inkdesk/InkUi.h"
 #include "inkdesk/Lunar.h"
@@ -56,7 +57,7 @@ constexpr KindName KINDS[] = {
     {"countdown", Kind::Countdown}, {"weather", Kind::Weather}, {"reading", Kind::Reading}, {"stats", Kind::Stats},
     {"news", Kind::News},       {"notify", Kind::Notify}, {"battery", Kind::Battery}, {"app", Kind::App},
     {"gold", Kind::Gold},       {"stocks", Kind::Stocks}, {"fx", Kind::Fx},         {"crypto", Kind::Crypto},
-    {"books", Kind::Books},     {"photo", Kind::Photo},   {"overview", Kind::Overview},
+    {"books", Kind::Books},     {"photo", Kind::Photo},   {"overview", Kind::Overview}, {"pkg", Kind::Pkg},
 };
 
 // A widget's chosen codes ("SJC,N24K"), or `def` when it chose none.
@@ -2562,6 +2563,9 @@ void drawContent(GfxRenderer& r, const Item& it, const Box& b, const Data& d) {
       break;
     case Kind::Overview:
       drawOverview(r, it, b, d);
+      break;
+    case Kind::Pkg:
+      inkdesk::decl::drawWidget(r, it.opt, b, d);
       break;
     default:
       break;
