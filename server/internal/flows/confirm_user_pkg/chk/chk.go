@@ -2,17 +2,17 @@
 package chk
 
 import (
+	"espos/internal/wm"
 	"fmt"
-	"inkdesk/internal/wm"
 	"regexp"
 	"strings"
 )
 
 // The upload start_user_pkg_upload signed is there: the keys are the caller's own (upkg/u<caller>/<pkg id>/<ms>/),
-// the .inkp and the icon are within their limits (the same as in start_user_pkg_upload). The next nodes read the
-// .inkp and check what is inside.
+// the .espk and the icon are within their limits (the same as in start_user_pkg_upload). The next nodes read the
+// .espk and check what is inside.
 const (
-	maxInkp  = 2306867
+	maxEspk  = 2306867
 	maxIcon  = 65536
 	maxGames = 30
 )
@@ -47,10 +47,10 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 	}
 	b, _ := wmIn["body"].(map[string]any)
 	key := wm.Str(b["key"])
-	// upkg/u<uid>/<pkg id>/<digits>/core.inkp
+	// upkg/u<uid>/<pkg id>/<digits>/core.espk
 	parts := strings.Split(key, "/")
 	if len(parts) != 5 || parts[0] != "upkg" || parts[1] != fmt.Sprintf("u%d", uid) || !userPkgID(parts[2]) ||
-		parts[3] == "" || len(parts[3]) > 16 || strings.Trim(parts[3], "0123456789") != "" || parts[4] != "core.inkp" {
+		parts[3] == "" || len(parts[3]) > 16 || strings.Trim(parts[3], "0123456789") != "" || parts[4] != "core.espk" {
 		return no(422, "Đường dẫn file không hợp lệ")
 	}
 	pkgID := parts[2]
@@ -88,7 +88,7 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 	if size <= 0 {
 		return no(409, "Máy chủ chưa nhận được file. Thử tải lại.")
 	}
-	if size > maxInkp {
+	if size > maxEspk {
 		return no(422, "Gói game lớn hơn 2,2 MB")
 	}
 	if iconKey != "" && (iconSize <= 0 || iconSize > maxIcon) {

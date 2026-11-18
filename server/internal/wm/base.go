@@ -8,13 +8,13 @@ import (
 // The address the device and the browser reach this server at, for the links the nodes
 // write into answers (a book's download URL, …).
 
-var publicURL string // INKDESK_PUBLIC_URL, when set
+var publicURL string // ESPOS_PUBLIC_URL, when set
 
 // PkgCatalogURL is the package store catalog (a v2 apps/catalog.json) that X4 readers get their
-// faces and widgets from: INKDESK_PKG_CATALOG, or "" for none (the sync answer then offers no packages).
-func PkgCatalogURL() string { return strings.TrimSpace(os.Getenv("INKDESK_PKG_CATALOG")) }
+// faces and widgets from: ESPOS_PKG_CATALOG, or "" for none (the sync answer then offers no packages).
+func PkgCatalogURL() string { return strings.TrimSpace(os.Getenv("ESPOS_PKG_CATALOG")) }
 
-// SetPublicURL fixes the server's public address ("https://inkdesk.example.com").
+// SetPublicURL fixes the server's public address ("https://espos.example.com").
 func SetPublicURL(u string) { publicURL = strings.TrimRight(u, "/") }
 
 // PublicBase is "scheme://host" for links to this server: the configured public URL, else

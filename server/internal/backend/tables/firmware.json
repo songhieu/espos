@@ -7,7 +7,7 @@
     {
       "code": "version",
       "default": null,
-      "help": "inkdesk-X.Y.Z",
+      "help": "espos-x4-X.Y.Z",
       "indexed": false,
       "label": "Version",
       "options": [],

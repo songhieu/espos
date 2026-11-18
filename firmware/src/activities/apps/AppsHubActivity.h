@@ -2,13 +2,13 @@
 
 #include <string>
 
-#include "InkMenuActivity.h"
+#include "EspOSMenuActivity.h"
 
-// Home > Ứng dụng: every InkDesk app plus the file tools, one row each with a status line.
-class AppsHubActivity final : public InkMenuActivity {
+// Home > Ứng dụng: every EspOS app plus the file tools, one row each with a status line.
+class AppsHubActivity final : public EspOSMenuActivity {
  public:
   explicit AppsHubActivity(GfxRenderer& renderer, MappedInputManager& mappedInput)
-      : InkMenuActivity("AppsHub", renderer, mappedInput) {}
+      : EspOSMenuActivity("AppsHub", renderer, mappedInput) {}
 
  private:
   const char* title() const override;

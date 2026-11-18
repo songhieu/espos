@@ -2,7 +2,7 @@
 package find
 
 import (
-	"inkdesk/internal/wm"
+	"espos/internal/wm"
 	"strings"
 )
 

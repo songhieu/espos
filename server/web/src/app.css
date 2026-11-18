@@ -1,4 +1,4 @@
-/* InkDesk web app — full-screen, light, matching mockups/x4-ui-mockup.html (section 7). */
+/* EspOS web app — full-screen, light, matching mockups/x4-ui-mockup.html (section 7). */
 .ik {
   --bg: #f6f5f1;
   --panel: #ffffff;
@@ -4692,12 +4692,12 @@
 }
 /* The device's Vietnamese letters for Ubuntu (the firmware merges the same supplement; UFL, see fonts/UFL.txt). */
 @font-face {
-  font-family: "InkUbuntuVi";
+  font-family: "EspOSUbuntuVi";
   src: url("./fonts/Ubuntu-Vietnamese-Regular.ttf") format("truetype");
   font-weight: 400;
 }
 @font-face {
-  font-family: "InkUbuntuVi";
+  font-family: "EspOSUbuntuVi";
   src: url("./fonts/Ubuntu-Vietnamese-Bold.ttf") format("truetype");
   font-weight: 700;
 }

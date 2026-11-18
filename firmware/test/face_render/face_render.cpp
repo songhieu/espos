@@ -38,20 +38,27 @@ bool isDir(const std::string& p) {
 
 int main(int argc, char** argv) {
   if (argc < 2) {
-    fprintf(stderr, "usage: face_render PKG_DIR|LAYOUT.json [--size WxH] [--layout N] [--data F] [--out F] "
-                    "[--widget WxH] [--perms a,b]\n");
+    fprintf(stderr,
+            "usage: face_render PKG_DIR|LAYOUT.json [--size WxH] [--layout N] [--data F] [--out F] "
+            "[--widget WxH] [--perms a,b]\n");
     return 2;
   }
   std::string src = argv[1], dataPath, out = "face.png", permArg;
   int sw = 800, sh = 480, layout = -1, ww = 0, wh = 0;
   for (int i = 2; i + 1 < argc; i += 2) {
     const std::string k = argv[i], v = argv[i + 1];
-    if (k == "--size") sscanf(v.c_str(), "%dx%d", &sw, &sh);
-    else if (k == "--layout") layout = atoi(v.c_str());
-    else if (k == "--data") dataPath = v;
-    else if (k == "--out") out = v;
-    else if (k == "--widget") sscanf(v.c_str(), "%dx%d", &ww, &wh);
-    else if (k == "--perms") permArg = v;
+    if (k == "--size")
+      sscanf(v.c_str(), "%dx%d", &sw, &sh);
+    else if (k == "--layout")
+      layout = atoi(v.c_str());
+    else if (k == "--data")
+      dataPath = v;
+    else if (k == "--out")
+      out = v;
+    else if (k == "--widget")
+      sscanf(v.c_str(), "%dx%d", &ww, &wh);
+    else if (k == "--perms")
+      permArg = v;
   }
 
   std::string dir = ".", layoutPath = src;
@@ -96,7 +103,7 @@ int main(int argc, char** argv) {
   }
   JsonData data(fixture.as<JsonVariantConst>());
 
-  inkdesk::decl::Stats st;
+  espos::decl::Stats st;
   bool ok;
   int cw = sw, ch = sh;
   if (ww > 0) {
@@ -106,19 +113,19 @@ int main(int argc, char** argv) {
   HostCanvas canvas(cw, ch);
   if (ww > 0) {
     // A Home card: the OS frame (Card skin: 2 px, radius 12), the layout inside it.
-    canvas.strokeRect(20, 20, ww, wh, 12, 2, inkdesk::decl::Col::Ink);
-    ok = inkdesk::decl::render(doc.as<JsonVariantConst>(), layout, canvas, data, perms, dir, 26, 26, ww - 12,
-                               wh - 12, &st);
+    canvas.strokeRect(20, 20, ww, wh, 12, 2, espos::decl::Col::Ink);
+    ok = espos::decl::render(doc.as<JsonVariantConst>(), layout, canvas, data, perms, dir, 26, 26, ww - 12, wh - 12,
+                             &st);
   } else {
-    ok = inkdesk::decl::render(doc.as<JsonVariantConst>(), layout, canvas, data, perms, dir, 0, 0, sw, sh, &st);
+    ok = espos::decl::render(doc.as<JsonVariantConst>(), layout, canvas, data, perms, dir, 0, 0, sw, sh, &st);
   }
   if (!ok) {
-    fprintf(stderr, "%s: not a level-%d layout file\n", layoutPath.c_str(), inkdesk::decl::LEVEL);
+    fprintf(stderr, "%s: not a level-%d layout file\n", layoutPath.c_str(), espos::decl::LEVEL);
     return 1;
   }
   canvas.writePng(out);
-  printf("%s: layout %dx%d on %dx%d, %d drawn, %d skipped, %ld px outside\n", out.c_str(), st.w, st.h,
-         ww > 0 ? ww : sw, ww > 0 ? wh : sh, st.drawn, st.skipped, canvas.outside());
+  printf("%s: layout %dx%d on %dx%d, %d drawn, %d skipped, %ld px outside\n", out.c_str(), st.w, st.h, ww > 0 ? ww : sw,
+         ww > 0 ? wh : sh, st.drawn, st.skipped, canvas.outside());
   for (const auto& t : canvas.texts()) {
     if (t.find("\xE2\x80\xA6") != std::string::npos) {
       fprintf(stderr, "text with an ellipsis: %s\n", t.c_str());

@@ -2,7 +2,7 @@
 package chk
 
 import (
-	"inkdesk/internal/wm"
+	"espos/internal/wm"
 	"strconv"
 	"strings"
 )

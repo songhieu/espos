@@ -2,12 +2,12 @@
 package check
 
 import (
-	"inkdesk/internal/wm"
+	"espos/internal/wm"
 	"strings"
 )
 
 // The store's files only (the route's guard require_admin lets admins in): apps-s3/<name>, a plain lowercase name
-// ending in .inkp (packages, Java games wrapped by the page), .jpg (icons, screenshots) or .json (the catalog, its
+// ending in .espk (packages, Java games wrapped by the page), .jpg (icons, screenshots) or .json (the catalog, its
 // backups, the admin's drafts).
 func Run(wmIn, wmCtx map[string]any) map[string]any {
 	b, _ := wmIn["body"].(map[string]any)
@@ -22,8 +22,8 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 			return map[string]any{"ok": false, "why": "key: lowercase letters, digits, . _ - only"}
 		}
 	}
-	if strings.Contains(name, "..") || !(strings.HasSuffix(name, ".inkp") || strings.HasSuffix(name, ".jpg") || strings.HasSuffix(name, ".json")) {
-		return map[string]any{"ok": false, "why": "key: a .inkp, .jpg or .json file"}
+	if strings.Contains(name, "..") || !(strings.HasSuffix(name, ".espk") || strings.HasSuffix(name, ".jpg") || strings.HasSuffix(name, ".json")) {
+		return map[string]any{"ok": false, "why": "key: a .espk, .jpg or .json file"}
 	}
 	return map[string]any{"ok": true, "key": key, "why": ""}
 }

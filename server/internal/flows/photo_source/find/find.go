@@ -1,7 +1,7 @@
 // Workflow photo_source, node find (imported by tools/importer).
 package find
 
-import "inkdesk/internal/wm"
+import "espos/internal/wm"
 
 // The original of one of my pictures, for the browser to render it again at a new widget size.
 func Run(wmIn, wmCtx map[string]any) map[string]any {

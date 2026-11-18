@@ -2,7 +2,7 @@
 package work
 
 import (
-	"inkdesk/internal/wm"
+	"espos/internal/wm"
 	"sort"
 	"strconv"
 	"strings"
@@ -133,7 +133,7 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 			run = 0
 		}
 	}
-	// This month's books, most read first, with progress for InkDesk books.
+	// This month's books, most read first, with progress for EspOS books.
 	needProgress := false
 	for _, b := range books {
 		needProgress = needProgress || b.id > 0

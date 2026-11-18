@@ -3,16 +3,16 @@ package work
 
 import (
 	"encoding/json"
+	"espos/internal/wm"
 	"fmt"
-	"inkdesk/internal/wm"
 	"strconv"
 	"strings"
 	"time"
 )
 
-// Keys the device may read and change, with their defaults (docs/inkdesk-api.md).
+// Keys the device may read and change, with their defaults (docs/device-api.md).
 var deviceDefaults = map[string]string{
-	"sys.lang": "vi", "sys.sleep_min": "10",
+	"sys.lang": "en", "sys.sleep_min": "10",
 	"read.font": "LexicaUltralegible", "read.size": "medium", "read.spacing": "1.4",
 	"dash.enabled": "1", "dash.layout": "desk", "dash.interval_min": "30", "dash.clock": "1",
 	"dash.charging_min": "1", "dash.save_pct": "20", "dash.quiet_from": "23:00", "dash.quiet_to": "06:00",
@@ -649,7 +649,7 @@ func pkgsReport(v any, lite bool) (map[string]any, string, []string) {
 	return map[string]any{"vols": volsOut, "installed": installed, "job": job}, "", dropped
 }
 
-// ---- custom saver: s3.saver_pages (s3desk/docs/saver.md §2) ----
+// ---- custom saver: s3.saver_pages (s3desk/docs/saver.md §2; bands, shadows and slideshows since 2026-11-17) ----
 // The same check is in device_sync and save_device_settings: change both. Light: the shape and the ranges the
 // device relies on; unknown keys are kept (a newer editor's). "" when good, else the reason (Vietnamese).
 var saverBg = map[string]bool{"black": true, "color": true, "grad": true, "wall": true, "photo": true}
@@ -720,6 +720,7 @@ func checkSaverPage(p any, where string) string {
 	if len(list) > 24 {
 		return where + ": tối đa 24 phần tử"
 	}
+	slides := 0
 	for _, it := range list {
 		e, ok := it.(map[string]any)
 		t := wm.Str(e["t"])
@@ -762,6 +763,58 @@ func checkSaverPage(p any, where string) string {
 				}
 			}
 		}
+		// text over pictures: a band behind the text and a soft shadow (saver.md §2)
+		if v, has := e["bg"]; has && !hex6(v) {
+			return where + ": màu nền chữ của phần tử " + t + " không hợp lệ"
+		}
+		if !inRange(e, "bo", 10, 100) || !inRange(e, "sh", 0, 1) {
+			return where + ": nền hoặc bóng chữ của phần tử " + t + " không hợp lệ"
+		}
+		// a photo's slideshow: the device's pictures (all) or up to 12 ids, seconds per picture, order, transition, offset
+		if t == "photo" {
+			if why := checkSlideshow(e); why != "" {
+				return where + ": " + why
+			}
+			if e["all"] == float64(1) || len(asList(e["ids"])) > 1 {
+				slides++
+				if slides > 3 {
+					return where + ": tối đa 3 khung ảnh tự đổi mỗi trang"
+				}
+			}
+		}
+	}
+	return ""
+}
+
+func asList(v any) []any {
+	l, _ := v.([]any)
+	return l
+}
+
+func checkSlideshow(e map[string]any) string {
+	if !inRange(e, "all", 0, 1) || !inRange(e, "of", 0, 11) {
+		return "ảnh tự đổi không hợp lệ"
+	}
+	if v, has := e["ids"]; has {
+		l, ok := v.([]any)
+		if !ok || len(l) > 12 {
+			return "tối đa 12 ảnh trong một khung"
+		}
+		for _, x := range l {
+			n, ok := x.(float64)
+			if !ok || n < 1 || n > 2e9 || n != float64(int64(n)) {
+				return "mã ảnh không hợp lệ"
+			}
+		}
+	}
+	if v, has := e["iv"]; has && v != float64(10) && v != float64(30) && v != float64(60) && v != float64(300) && v != float64(900) {
+		return "đổi ảnh mỗi 10, 30, 60, 300 hoặc 900 giây"
+	}
+	if v, has := e["ord"]; has && v != "s" && v != "r" {
+		return "thứ tự ảnh phải là s hoặc r"
+	}
+	if v, has := e["tr"]; has && v != "c" && v != "f" {
+		return "chuyển ảnh phải là c hoặc f"
 	}
 	return ""
 }
@@ -831,7 +884,7 @@ func kindOf(row map[string]any, fw string) string {
 	if k := wm.Str(row["kind"]); k != "" {
 		return k
 	}
-	if strings.HasPrefix(fw, "inkdesk-s3-") {
+	if strings.HasPrefix(fw, "espos-s3-") {
 		return "s3"
 	}
 	return "x4"
@@ -845,7 +898,7 @@ func list(v any) []any {
 	return a
 }
 
-// "inkdesk-1.2.3" -> 10203 (0 when unreadable), as the device computes it.
+// "espos-x4-1.2.3" -> 10203 (0 when unreadable), as the device computes it.
 func versionCode(v string) int {
 	if i := strings.LastIndex(v, "-"); i >= 0 {
 		v = v[i+1:]

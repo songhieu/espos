@@ -4,7 +4,7 @@ import { defineConfig } from "vite";
 // The Go server embeds the build (../internal/server/dist) and serves index.html with the
 // app's config filled in. `npm run dev` proxies the API to a server on :8080.
 const env = (globalThis as { process?: { env: Record<string, string | undefined> } }).process?.env ?? {};
-const api = env.INKDESK_DEV_API ?? "http://localhost:8080";
+const api = env.ESPOS_DEV_API ?? "http://localhost:8080";
 
 export default defineConfig({
   plugins: [react()],

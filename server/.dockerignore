@@ -1,6 +1,6 @@
 .git
 data
-inkdesk
+espos
 web/node_modules
 internal/server/dist
 .env

@@ -1,12 +1,12 @@
 // Widget catalogue and e-ink previews for the layout editor. The previews follow the X4's own
-// drawing (firmware src/inkdesk/Widgets.cpp) closely enough to arrange a screen; the device
+// drawing (firmware src/espos/Widgets.cpp) closely enough to arrange a screen; the device
 // redraws everything natively in 1-bit.
 import { useMemo } from "react";
 
 import { Renderer } from "./ink/render";
-import { drawWidget, type InkData } from "./ink/widgets";
+import { drawWidget, type EspOSData } from "./ink/widgets";
 import { fromSolar, yearName } from "./lunar";
-import type { Dash, LayoutItem, Markets, NewsIssue, Stats } from "./inkdesk";
+import type { Dash, LayoutItem, Markets, NewsIssue, Stats } from "./espos";
 
 export type Kind =
   | "clock" | "date" | "month" | "events" | "countdown" | "weather" | "reading" | "stats" | "news" | "notify"
@@ -167,7 +167,7 @@ export interface PreviewData {
 }
 
 /** The preview data in the device's terms (what loadData/readDashboard fill on the X4). */
-export function inkDataOf(data: PreviewData): InkData {
+export function inkDataOf(data: PreviewData): EspOSData {
   const { now, dash } = data;
   const l = fromSolar(now.getDate(), now.getMonth() + 1, now.getFullYear());
   const wx = dash?.weather;
@@ -246,7 +246,7 @@ export function WidgetView({ it, w, h, data, focused, skin = "card" }: { it: Lay
   return <div className="w-ink" style={{ width: w, height: h }} dangerouslySetInnerHTML={{ __html: svg }} />;
 }
 
-/** Pixel boxes of a layout's items, exactly as the device places them (src/inkdesk/Widgets.cpp place()). */
+/** Pixel boxes of a layout's items, exactly as the device places them (src/espos/Widgets.cpp place()). */
 export function placeItems(items: LayoutItem[], cols: number, rows: number, left: number, top: number, right: number, bottom: number, gap: number) {
   const cw = (right - left - gap * (cols - 1)) / cols;
   const rh = (bottom - top - gap * (rows - 1)) / rows;

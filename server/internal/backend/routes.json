@@ -115,6 +115,16 @@
     "rate_limit_per_min": 120
   },
   {
+    "method": "GET",
+    "path": "/v1/device/ping",
+    "auth": "public",
+    "guards": [
+      "require_device"
+    ],
+    "workflow": "device_ping",
+    "rate_limit_per_min": 30
+  },
+  {
     "method": "POST",
     "path": "/v1/device/remote",
     "auth": "public",

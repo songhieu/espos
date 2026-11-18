@@ -1,7 +1,7 @@
 // Workflow get_markets, node work (imported by tools/importer).
 package work
 
-import "inkdesk/internal/wm"
+import "espos/internal/wm"
 
 // The cached gold prices, stock indices, stock quotes and exchange rates (market_tick keeps them
 // fresh), for the widget previews on the web.

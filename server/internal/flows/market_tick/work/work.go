@@ -3,14 +3,14 @@ package work
 
 import (
 	"encoding/json"
+	"espos/internal/wm"
 	"fmt"
-	"inkdesk/internal/wm"
 	"strconv"
 	"strings"
 	"time"
 )
 
-// Public market data for the InkDesk widgets, cached in market_cache:
+// Public market data for the EspOS widgets, cached in market_cache:
 //   gold  — PNJ's price board (SJC bars, 9999 rings), million VND per tael, change vs the day before
 //   index — VPS datafeed: VN-Index, VN30, HNX, UPCoM
 //   stk   — VPS datafeed: the stock symbols readers put in their stocks widgets
@@ -18,7 +18,7 @@ import (
 //   fx    — Vietcombank's rate list (asks for one request per 5 minutes at most: hourly here)
 // Devices and the web only ever read this cache.
 
-var headers = map[string]any{"User-Agent": "Mozilla/5.0 (InkDesk e-ink dashboard)", "Accept": "*/*"}
+var headers = map[string]any{"User-Agent": "Mozilla/5.0 (EspOS e-ink dashboard)", "Accept": "*/*"}
 
 func get(u string) (any, error) {
 	res, err := wm.FetchWith("GET", u, nil, headers)

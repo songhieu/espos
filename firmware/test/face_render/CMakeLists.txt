@@ -1,4 +1,4 @@
-# The declarative face/widget renderer (src/inkdesk/Decl.cpp) on a computer, drawn with the X4's own
+# The declarative face/widget renderer (src/espos/Decl.cpp) on a computer, drawn with the X4's own
 # fonts: FaceRenderTest (gtest) and face_render, a tool that turns a package into a PNG.
 # Needs zlib (PNG output) and ArduinoJson (the copy PlatformIO fetches for the firmware, or one installed on
 # the computer). Without them only these targets are skipped; the other suites still configure.
@@ -16,7 +16,7 @@ add_library(face_render_core STATIC
   HostCanvas.cpp
   stubs/FontAlloc.cpp
   stubs/uzlib_checksums.c
-  ${REPO_ROOT}/src/inkdesk/Decl.cpp
+  ${REPO_ROOT}/src/espos/Decl.cpp
   ${REPO_ROOT}/lib/Utf8/Utf8.cpp
   ${REPO_ROOT}/lib/EpdFont/EpdFont.cpp
   ${REPO_ROOT}/lib/EpdFont/FontDecompressor.cpp

@@ -1,7 +1,7 @@
 // Workflow device_news_article, node merge (imported by tools/importer).
 package merge
 
-import "inkdesk/internal/wm"
+import "espos/internal/wm"
 
 // Puts the signed address of each colour picture into its block, in order; a picture that could
 // not be signed is left out.

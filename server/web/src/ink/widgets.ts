@@ -1,5 +1,5 @@
 /**
- * The X4's widget drawing (firmware src/inkdesk/Widgets.cpp), line for line, onto the SVG renderer: the
+ * The X4's widget drawing (firmware src/espos/Widgets.cpp), line for line, onto the SVG renderer: the
  * web previews are the device's screens. Keep the two in step: a change to a widget there is made here too.
  */
 import { daysToTet, fromSolar, julianDay } from "../lunar";
@@ -20,7 +20,7 @@ export type Skin = "card" | "line" | "bare" | "bold" | "shadow";
 export interface Box { x: number; y: number; w: number; h: number }
 export interface Item { kind: string; style: string; opt: string; inverted: boolean; x: number; y: number }
 
-export interface InkData {
+export interface EspOSData {
   timeValid: boolean;
   showTime: boolean;
   now: { hour: number; min: number; mday: number; mon: number; year: number; wday: number };
@@ -77,7 +77,7 @@ const fmt = (f: string, ...a: (string | number)[]) => {
 const S = {
   EVENTS_CAPS: "LỊCH HÔM NAY", NOTES_CAPS: "THÔNG BÁO", READING: "ĐANG ĐỌC", NO_BOOK: "Chưa có sách đang đọc",
   PROGRESS: "%d%% đã đọc", NO_WEATHER: "Đồng bộ để có thời tiết", NO_EVENTS: "Hôm nay không có lịch.",
-  EVENTS_OLD: "Chưa có lịch của hôm nay. Máy lấy ở lần đồng bộ tới.", NEWS_NONE: "Chưa có số báo nào trên máy. Bật Báo sáng trên web InkDesk.",
+  EVENTS_OLD: "Chưa có lịch của hôm nay. Máy lấy ở lần đồng bộ tới.", NEWS_NONE: "Chưa có số báo nào trên máy. Bật Báo sáng trên web EspOS.",
   STATS_NOCLOCK: "Đồng bộ một lần để bắt đầu đếm", STATS_TODAY_CAPS: "HÔM NAY", STATS_OF_GOAL: "/ %d phút", STATS_WEEK_CAPS: "7 NGÀY",
   DUR_HM: "%d giờ %d phút", DUR_M: "%d phút", TODAY_READ: "Hôm nay %d/%d phút", STREAK_SUFFIX: " · chuỗi %d ngày",
   DASH_STREAK: "CHUỖI %d", MONTH: "THÁNG %d", WEATHER_RANGE: "Thấp %d° · cao %d° · mưa %d%%",
@@ -86,11 +86,11 @@ const S = {
   NEWS_READY: "Số mới đã về máy. Bấm OK để đọc.", NO_NOTES: "Chưa có thông báo.", SYNC_AT: "Đồng bộ %s", NO_DATA: "Chưa có số liệu. Máy lấy ở lần đồng bộ tới.",
   MORE_EVENTS: "+%d sự kiện khác", MORE_NOTES: "+%d thông báo khác", BOOKS_CAPS: "THƯ VIỆN", BOOKS_RECENT: "đọc gần đây",
   BOOKS_EMPTY: "Sách bạn mở gần đây sẽ hiện ở đây.", MORE_BOOKS: "+%d cuốn khác", BOOK_DONE: "xong", BOOK_NEW: "mới",
-  PHOTO_EMPTY: "Thêm ảnh cho ô này trên web InkDesk (Giao diện máy).", PHOTO_WAIT: "Ảnh sẽ tải về máy ở lần đồng bộ tới.",
+  PHOTO_EMPTY: "Thêm ảnh cho ô này trên web EspOS (Giao diện máy).", PHOTO_WAIT: "Ảnh sẽ tải về máy ở lần đồng bộ tới.",
   GOLD_CAPS: "GIÁ VÀNG · %s", BUY: "Mua", SELL: "Bán", GOLD_UNIT: "triệu/lượng", STOCKS_CAPS: "CHỨNG KHOÁN",
   FX_CAPS: "TỶ GIÁ · VIETCOMBANK", FX_SHORT: "TỶ GIÁ", NEWS_CAPS: "BÁO SÁNG", CRYPTO_CAPS: "TIỀN SỐ", BILLION: "tỷ", MILLION: "tr",
   LUNAR_WORD: "Âm", DAYS_WORD: "ngày", DAYS_MORE: "ngày nữa", IS_TET: "LÀ TẾT", LOW_CAPS: "THẤP", HIGH_CAPS: "CAO", RAIN_CAPS: "MƯA", MIN_CAPS: "%d PHÚT",
-  THIS_WEEK_CAPS: "TUẦN NÀY", NOTES_HINT: "Gửi từ CI hay Home Assistant qua InkDesk", NO_MORE_EVENTS: "Hôm nay không còn lịch",
+  THIS_WEEK_CAPS: "TUẦN NÀY", NOTES_HINT: "Gửi từ CI hay Home Assistant qua EspOS", NO_MORE_EVENTS: "Hôm nay không còn lịch",
 };
 const APPS: Record<string, { label: string; icon: string }> = {
   library: { label: "Thư viện", icon: "M5 4h3v16H5zM10 4h3v16h-3zM15.5 4.6l2.9-.8 3.9 15.3-2.9.8z" },
@@ -187,7 +187,7 @@ function heroNumber(r: Renderer, text: string, x: number, top: number, w: number
   r.drawText(tf, x, top, text, true, kBold);
   return lineHeight(tf);
 }
-function timeText(d: InkData) {
+function timeText(d: EspOSData) {
   if (!d.timeValid) return "--:--";
   if (!d.showTime) return `${d.now.mday}/${d.now.mon + 1}`;
   let h = d.now.hour;
@@ -246,12 +246,12 @@ function drawFirstFit(r: Renderer, font: FontId, x: number, y: number, texts: st
   }
   if (texts.length) drawFit(r, font, x, y, texts[texts.length - 1], w, style);
 }
-function lunarLine(r: Renderer, d: InkData, x: number, y: number, w: number) {
+function lunarLine(r: Renderer, d: EspOSData, x: number, y: number, w: number) {
   const full = fmt(S.LUNAR, d.lunar, d.lunarYear);
   const tiny = fmt(S.LUNAR_SHORT_CAPS, d.lunar);
   drawFirstFit(r, CAPS_FONT, x, y, [full, `${tiny} · ${d.lunarYear}`, tiny], w);
 }
-function dateColumn(r: Renderer, d: InkData, x: number, y: number, w: number, h: number) {
+function dateColumn(r: Renderer, d: EspOSData, x: number, y: number, w: number, h: number) {
   if (!d.timeValid || w < 60) return;
   const capsH = lineHeight(CAPS_FONT);
   const date = `${d.now.mday}/${d.now.mon + 1}`;
@@ -285,7 +285,7 @@ const centerText = (r: Renderer, font: FontId, x: number, y: number, w: number, 
   wrapCentered(r, font, x, y, w, h, text, true, style);
 
 // ---- clock ---------------------------------------------------------------------------------
-function drawClock(r: Renderer, it: Item, b: Box, d: InkData) {
+function drawClock(r: Renderer, it: Item, b: Box, d: EspOSData) {
   const tm = timeText(d);
   const st = it.style;
   if (st === "analog" || st === "analog_min") {
@@ -431,7 +431,7 @@ function drawClock(r: Renderer, it: Item, b: Box, d: InkData) {
 }
 
 // ---- calendar ------------------------------------------------------------------------------
-function drawDate(r: Renderer, it: Item, b: Box, d: InkData) {
+function drawDate(r: Renderer, it: Item, b: Box, d: EspOSData) {
   if (!d.timeValid) return;
   const capsH = lineHeight(CAPS_FONT);
   if (it.style === "compact") {
@@ -500,7 +500,7 @@ function drawDate(r: Renderer, it: Item, b: Box, d: InkData) {
   }
 }
 
-function drawMonth(r: Renderer, it: Item, b: Box, d: InkData) {
+function drawMonth(r: Renderer, it: Item, b: Box, d: EspOSData) {
   if (!d.timeValid) return;
   const year = d.now.year, month = d.now.mon + 1, today = d.now.mday;
   caps(r, b.x + P, b.y + P, fmt(S.MONTH_YEAR, month, year));
@@ -557,7 +557,7 @@ function linesOf(font: FontId, titleW: number, title: string) {
   return lines;
 }
 
-function drawEvents(r: Renderer, _it: Item, b: Box, d: InkData) {
+function drawEvents(r: Renderer, _it: Item, b: Box, d: EspOSData) {
   caps(r, b.x + P + 6, b.y + P, d.eventCount > 0 ? `${S.EVENTS_CAPS} · ${d.eventCount}` : S.EVENTS_CAPS);
   let y = b.y + P + lineHeight(CAPS_FONT) + 6;
   const w = b.w - 2 * P - 12;
@@ -613,7 +613,7 @@ function drawEvents(r: Renderer, _it: Item, b: Box, d: InkData) {
   if (hidden > 0) drawFit(r, CAPS_FONT, x, Math.min(y + 2, bottom - moreH), fmt(S.MORE_EVENTS, hidden), w, kBold);
 }
 
-function drawCountdown(r: Renderer, it: Item, b: Box, d: InkData) {
+function drawCountdown(r: Renderer, it: Item, b: Box, d: EspOSData) {
   if (!d.timeValid) return;
   const y0 = d.now.year, m0 = d.now.mon + 1, d0 = d.now.mday;
   let days = -1;
@@ -658,7 +658,7 @@ function drawCountdown(r: Renderer, it: Item, b: Box, d: InkData) {
 }
 
 // ---- weather -------------------------------------------------------------------------------
-function weatherCells(r: Renderer, d: InkData, days: boolean, x: number, y: number, w: number, h: number) {
+function weatherCells(r: Renderer, d: EspOSData, days: boolean, x: number, y: number, w: number, h: number) {
   const n = days ? Math.min(d.days.length, 3) : Math.min(d.hours.length, 4);
   if (n === 0 || h < 30) return;
   const cw = t(w / n);
@@ -683,7 +683,7 @@ function weatherCells(r: Renderer, d: InkData, days: boolean, x: number, y: numb
     }
   }
 }
-function weatherNow(r: Renderer, d: InkData, x: number, y: number, h: number, maxW: number, maxIcon = 64) {
+function weatherNow(r: Renderer, d: EspOSData, x: number, y: number, h: number, maxW: number, maxIcon = 64) {
   const temp = `${d.temp}°`;
   const s = Math.min(h, maxIcon);
   const f = digitsFontOr0(temp, maxW - s - 8, h) || I30;
@@ -691,7 +691,7 @@ function weatherNow(r: Renderer, d: InkData, x: number, y: number, h: number, ma
   drawDigits(r, f, x + s + 8, y + t((h - digitHeight(f)) / 2), temp);
   return x + s + 8 + textWidth(f, temp, kBold);
 }
-function drawWeather(r: Renderer, it: Item, b: Box, d: InkData) {
+function drawWeather(r: Renderer, it: Item, b: Box, d: EspOSData) {
   if (!d.hasWeather) {
     centerText(r, SMALL_FONT, b.x + P, b.y + P, b.w - 2 * P, b.h - 2 * P, S.NO_WEATHER);
     return;
@@ -816,7 +816,7 @@ export function readingCoverH(it: Item, b: Box) {
   const maxW = t(((b.w - 2 * P - 10) * (b.h >= H_HUGE ? 50 : 36)) / 100);
   return Math.min(b.h - 2 * P, t((maxW * 3) / 2));
 }
-function drawReading(r: Renderer, it: Item, b: Box, d: InkData) {
+function drawReading(r: Renderer, it: Item, b: Box, d: EspOSData) {
   const cover = it.style !== "text";
   if (b.w < 300 && cover) {
     const ch = readingCoverH(it, b);
@@ -893,7 +893,7 @@ function ring(r: Renderer, cx: number, cy: number, rad: number, thick: number, p
   strokeCircle(r, cx, cy, rad - thick, 2);
 }
 
-function drawStats(r: Renderer, it: Item, b: Box, d: InkData) {
+function drawStats(r: Renderer, it: Item, b: Box, d: EspOSData) {
   const s = d.stats;
   if (!s.dated) {
     centerText(r, SMALL_FONT, b.x + P, b.y + P, b.w - 2 * P, b.h - 2 * P, S.STATS_NOCLOCK);
@@ -966,7 +966,7 @@ function drawStats(r: Renderer, it: Item, b: Box, d: InkData) {
   drawFitCentered(r, CAPS_FONT, cx, b.y + b.h - P - capsH, line, b.w - 2 * P, kBold);
 }
 
-function drawNews(r: Renderer, _it: Item, b: Box, d: InkData) {
+function drawNews(r: Renderer, _it: Item, b: Box, d: EspOSData) {
   caps(r, b.x + P + 6, b.y + P, d.newsDay ? fmt(S.NEWS_CAPS_FMT, d.newsDay) : S.NEWS_CAPS);
   if (d.newsCount > 0) drawRight(r, CAPS_FONT, b.x + b.w - P, b.y + P, fmt(S.NEWS_COUNT, d.newsCount), kBold);
   const x = b.x + P + 6;
@@ -995,7 +995,7 @@ function drawNews(r: Renderer, _it: Item, b: Box, d: InkData) {
   }
 }
 
-function drawNotify(r: Renderer, _it: Item, b: Box, d: InkData) {
+function drawNotify(r: Renderer, _it: Item, b: Box, d: EspOSData) {
   caps(r, b.x + P + 6, b.y + P, d.notes.length ? `${S.NOTES_CAPS} · ${d.notes.length}` : S.NOTES_CAPS);
   let y = b.y + P + lineHeight(CAPS_FONT) + 4;
   const x = b.x + P + 6;
@@ -1030,7 +1030,7 @@ function drawNotify(r: Renderer, _it: Item, b: Box, d: InkData) {
   if (shown < n) drawFit(r, CAPS_FONT, x, Math.min(y, bottom - moreH), fmt(S.MORE_NOTES, n - shown), w, kBold);
 }
 
-function drawBattery(r: Renderer, _it: Item, b: Box, d: InkData) {
+function drawBattery(r: Renderer, _it: Item, b: Box, d: EspOSData) {
   const buf = `${d.battery}%`;
   const capsH = lineHeight(CAPS_FONT);
   const sync = !!d.lastSync;
@@ -1112,7 +1112,7 @@ function pairList(r: Renderer, x: number, y: number, w: number, avail: number, r
 }
 const noData = (r: Renderer, b: Box, y: number) => wrap(r, SMALL_FONT, b.x + P + 6, y, b.w - 2 * P - 12, S.NO_DATA, 2);
 
-function drawGold(r: Renderer, it: Item, b: Box, d: InkData) {
+function drawGold(r: Renderer, it: Item, b: Box, d: EspOSData) {
   const list = chosen(d.gold, codes(it.opt, "SJC,N24K"), (x) => x.code);
   const title = fmt(S.GOLD_CAPS, d.goldSrc || "PNJ");
   if (b.w >= 300 && b.h < H_LOW) {
@@ -1150,7 +1150,7 @@ function drawGold(r: Renderer, it: Item, b: Box, d: InkData) {
   if (!anyData(list)) return void noData(r, b, y0);
   const x = b.x + P + 6;
   const w = b.w - 2 * P - 12;
-  const nameOf = (p: Pick<InkData["gold"][number]>) => (p.v ? p.v.name : p.code);
+  const nameOf = (p: Pick<EspOSData["gold"][number]>) => (p.v ? p.v.name : p.code);
   if (b.w < 300 && list.length === 1) {
     const q = list[0].v!;
     drawFit(r, SMALL_FONT, x, y0, q.name, w, kBold);
@@ -1190,7 +1190,7 @@ function drawGold(r: Renderer, it: Item, b: Box, d: InkData) {
   }
 }
 
-function drawStocks(r: Renderer, it: Item, b: Box, d: InkData) {
+function drawStocks(r: Renderer, it: Item, b: Box, d: EspOSData) {
   marketHeader(r, b, S.STOCKS_CAPS, d.stocksAt);
   const y0 = b.y + P + lineHeight(CAPS_FONT) + 4;
   const list = chosen(d.stocks, codes(it.opt, "VNINDEX,VN30,HNX"), (x) => x.sym);
@@ -1225,14 +1225,14 @@ function drawStocks(r: Renderer, it: Item, b: Box, d: InkData) {
   }
 }
 
-function drawFx(r: Renderer, it: Item, b: Box, d: InkData) {
+function drawFx(r: Renderer, it: Item, b: Box, d: EspOSData) {
   marketHeader(r, b, b.w < 300 ? S.FX_SHORT : S.FX_CAPS, "");
   const y0 = b.y + P + lineHeight(CAPS_FONT) + 4;
   const list = chosen(d.fx, codes(it.opt, "USD,EUR,JPY,CNY"), (x) => x.code);
   if (!anyData(list)) return void noData(r, b, y0);
   const x = b.x + P + 6;
   const w = b.w - 2 * P - 12;
-  const codeOf = (p: Pick<InkData["fx"][number]>) => p.code || p.v!.code;
+  const codeOf = (p: Pick<EspOSData["fx"][number]>) => p.code || p.v!.code;
   const f2 = (v: number) => num(v, v < 1000 ? 2 : 0);
   if (b.w < 300) {
     pairList(r, x, y0 + 2, w, b.y + b.h - t(P / 2) - y0, list.map((p) => ({ left: codeOf(p), right: p.v ? f2(p.v.sell) : kDash, sign: 0 })));
@@ -1257,14 +1257,14 @@ function drawFx(r: Renderer, it: Item, b: Box, d: InkData) {
 const usd = (v: number) => num(v, v >= 1000 ? 0 : v >= 1 ? 2 : 4);
 const vnd = (v: number) => (v >= 1e9 ? `${num(v / 1e9, 2)} ${S.BILLION}` : v >= 1e6 ? `${num(v / 1e6, 1)} ${S.MILLION}` : num(v, 0));
 
-function drawCrypto(r: Renderer, it: Item, b: Box, d: InkData) {
+function drawCrypto(r: Renderer, it: Item, b: Box, d: EspOSData) {
   marketHeader(r, b, S.CRYPTO_CAPS, d.cryptoAt);
   const y0 = b.y + P + lineHeight(CAPS_FONT) + 4;
   const list = chosen(d.crypto, codes(it.opt, "BTC,ETH"), (x) => x.sym);
   if (!anyData(list)) return void noData(r, b, y0);
   const x = b.x + P + 6;
   const w = b.w - 2 * P - 12;
-  const symOf = (p: Pick<InkData["crypto"][number]>) => p.code || p.v!.sym;
+  const symOf = (p: Pick<EspOSData["crypto"][number]>) => p.code || p.v!.sym;
   if (b.w < 300 && list.length === 1) {
     const c = list[0].v!;
     drawFit(r, SMALL_FONT, x, y0, c.sym, w, kBold);
@@ -1316,11 +1316,11 @@ export function shelfOf(b: Box, count: number): Shelf {
   return s;
 }
 const bookState = (p: number) => (p >= 100 ? S.BOOK_DONE : p <= 0 ? S.BOOK_NEW : `${p}%`);
-export function booksOf(it: Item, d: InkData) {
+export function booksOf(it: Item, d: EspOSData) {
   const skip = it.opt.includes("s");
   return d.library.filter((bk, i) => !(skip && i === 0 && d.hasBook && bk.path === d.bookPath));
 }
-function drawBooks(r: Renderer, it: Item, b: Box, d: InkData) {
+function drawBooks(r: Renderer, it: Item, b: Box, d: EspOSData) {
   const x = b.x + P + 6;
   const w = b.w - 2 * P - 12;
   const list = booksOf(it, d);
@@ -1443,7 +1443,7 @@ function photoIds(opt: string): number[] {
   if (bar !== 6) return [];
   return opt.slice(bar + 1).split(",").map((s) => parseInt(s, 10)).filter((n) => n > 0);
 }
-function drawPhoto(r: Renderer, it: Item, b: Box, d: InkData) {
+function drawPhoto(r: Renderer, it: Item, b: Box, d: EspOSData) {
   const ids = photoIds(it.opt);
   const src = ids.map((id) => d.photos[id]).find(Boolean);
   if (src) {
@@ -1453,7 +1453,7 @@ function drawPhoto(r: Renderer, it: Item, b: Box, d: InkData) {
   wrapIn(r, SMALL_FONT, b.x + P + 6, b.y + P + 4, b.w - 2 * P - 12, b.h - 2 * P, ids.length ? S.PHOTO_WAIT : S.PHOTO_EMPTY, true, kBold);
 }
 
-function drawOverview(r: Renderer, _it: Item, b: Box, d: InkData) {
+function drawOverview(r: Renderer, _it: Item, b: Box, d: EspOSData) {
   const tm = timeText(d);
   const capsH = lineHeight(CAPS_FONT);
   const tall = b.h >= H_LOW;
@@ -1513,7 +1513,7 @@ function drawOverview(r: Renderer, _it: Item, b: Box, d: InkData) {
   } else drawFit(r, SMALL_FONT, ex, by + t((bh - lineHeight(SMALL_FONT)) / 2), S.NO_MORE_EVENTS, ew, kBold);
 }
 
-function drawContent(r: Renderer, it: Item, b: Box, d: InkData) {
+function drawContent(r: Renderer, it: Item, b: Box, d: EspOSData) {
   switch (it.kind) {
     case "clock": return drawClock(r, it, b, d);
     case "date": return drawDate(r, it, b, d);
@@ -1538,7 +1538,7 @@ function drawContent(r: Renderer, it: Item, b: Box, d: InkData) {
 
 let clipSeq = 0;
 /** One widget as the device draws it (Widgets.cpp draw()). */
-export function drawWidget(r: Renderer, it: Item, b: Box, d: InkData, focused: boolean, skin: Skin) {
+export function drawWidget(r: Renderer, it: Item, b: Box, d: EspOSData, focused: boolean, skin: Skin) {
   gSkin = skin;
   if (skin === "shadow") {
     r.fillRect(b.x + SHADOW, b.y + SHADOW, b.w, b.h, true);
@@ -1575,7 +1575,7 @@ export function drawWidget(r: Renderer, it: Item, b: Box, d: InkData, focused: b
 }
 
 // ---- screen chrome (DashboardView.cpp drawStatusBar / drawFooter, Home's status and hints) --------
-export function drawStatusBar(r: Renderer, w: number, d: InkData, clock: boolean, opts: { battery: number; side?: number }) {
+export function drawStatusBar(r: Renderer, w: number, d: EspOSData, clock: boolean, opts: { battery: number; side?: number }) {
   const H = 40;
   const side = opts.side ?? 20;
   const x = side + 4;

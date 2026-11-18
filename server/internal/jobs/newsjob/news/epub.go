@@ -159,7 +159,7 @@ func EPUB(title string, date time.Time, articles []Article, cover []byte, images
 		ncx.WriteString("</navPoint>\n")
 	}
 
-	uid := "urn:inkdesk:bao-sang:" + date.Format("2006-01-02")
+	uid := "urn:espos:bao-sang:" + date.Format("2006-01-02")
 	if err := add("OEBPS/nav.xhtml", xhtml("Mục lục", `<nav epub:type="toc" id="toc"><h1>Mục lục</h1><ol>
 `+nav.String()+`</ol></nav>`)); err != nil {
 		return nil, err
@@ -180,7 +180,7 @@ func EPUB(title string, date time.Time, articles []Article, cover []byte, images
 <dc:identifier id="uid">` + uid + `</dc:identifier>
 <dc:title>` + html.EscapeString(title) + `</dc:title>
 <dc:creator>VnExpress</dc:creator>
-<dc:publisher>InkDesk</dc:publisher>
+<dc:publisher>EspOS</dc:publisher>
 <dc:language>vi</dc:language>
 <dc:date>` + date.Format("2006-01-02") + `</dc:date>
 <meta property="dcterms:modified">` + time.Now().UTC().Format("2006-01-02T15:04:05Z") + `</meta>

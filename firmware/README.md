@@ -1,24 +1,24 @@
-# InkDesk firmware for the Xteink X4
+# EspOS firmware for the Xteink X4
 
-This folder is the reader side of [InkDesk](../README.md): a fork of
+This folder is the reader side of [EspOS](../README.md): a fork of
 [CrossPoint Reader](https://github.com/crosspoint-reader/crosspoint-reader) that keeps its
 reading engine and adds:
 
 - a home screen and a sleep screen made of widgets (clock, calendar, weather, reading, books,
   news, markets, photos and more), laid out on the web;
-- sync with an InkDesk server: books sent from the web, device settings both ways, reading
+- sync with an EspOS server: books sent from the web, device settings both ways, reading
   statistics, notifications, sleep-screen pictures;
 - the sleep screen wakes on a timer to refresh its data and keep a minute clock, with quiet
   hours and a battery-saving level (`dash.save_pct`);
 - setup over USB from the web app (WiFi, server address, device token), or linking with a code;
 - packages: supports declarative faces, widgets and themes (data, no code), installed through the sync from
-  the InkDesk store or from an `.inkp` file copied to `/InkDesk/pkgs` on the card; a face can be used as the
-  sleep screen (Apps > Installed packages; format in the InkDesk docs, `s3desk/docs/profiles.md`);
+  the EspOS store or from an `.espk` file copied to `/EspOS/pkgs` on the card; a face can be used as the
+  sleep screen (Apps > Installed packages; format in the EspOS docs, `s3desk/docs/profiles.md`);
 - firmware updates over WiFi, with rollback.
 
-InkDesk code lives in `src/inkdesk/` and `src/activities/apps/`; smaller changes touch
+EspOS code lives in `src/espos/` and `src/activities/apps/`; smaller changes touch
 `lib/hal` (timer wake), `lib/GfxRenderer`, the home and sleep activities and the translations
-(`STR_IK_*`). The device API is described in [docs/device-api.md](../docs/device-api.md).
+(`STR_EO_*`). The device API is described in [docs/device-api.md](../docs/device-api.md).
 
 ## Build
 
@@ -30,11 +30,11 @@ pip install https://github.com/pioarduino/platformio-core/archive/refs/tags/v6.1
 git submodule update --init --recursive
 cd firmware
 pio run -e default                                  # .pio/build/default/firmware.bin
-scripts/inkdesk_bundle.sh default ../bundle         # bootloader, partitions, app + manifest.json
+scripts/espos_bundle.sh default ../bundle         # bootloader, partitions, app + manifest.json
 ```
 
-Add the bundle to your server with `./inkdesk firmware add ../bundle -notes "…"`. The web app's
-**Thiết bị** page then installs it over USB, and linked readers are offered it as an update.
+Add the bundle to your server with `./espos firmware add ../bundle -notes "…"`. The web app's
+**Thiết bị** (Devices) page then installs it over USB, and linked readers are offered it as an update.
 
 ## Server address
 
@@ -46,19 +46,19 @@ it in `platformio.local.ini` next to `platformio.ini` (git ignores that file):
 ```ini
 [env:default]
 build_src_flags =
-  '-DINKDESK_DEFAULT_API="https://inkdesk.example.com"'
+  '-DESPOS_DEFAULT_API="https://espos.example.com"'
 ```
 
 | Flag | Default | |
 |---|---|---|
-| `INKDESK_DEFAULT_API` | empty | The InkDesk server the reader calls (`/v1/...`). |
-| `INKDESK_DEFAULT_WEB` | same as the API | The web app's address, used for QR codes and pairing links. Set it only when the web app is not served by the API host. |
+| `ESPOS_DEFAULT_API` | empty | The EspOS server the reader calls (`/v1/...`). |
+| `ESPOS_DEFAULT_WEB` | same as the API | The web app's address, used for QR codes and pairing links. Set it only when the web app is not served by the API host. |
 
 A reader set up over USB keeps the address the installer gave it, whatever was built in.
 
 ## Firmware version
 
-`FW_VERSION` in `src/inkdesk/InkDeskStore.h` (`inkdesk-X.Y.Z`). The server offers a bundle as an
+`FW_VERSION` in `src/espos/EspOSStore.h` (`espos-x4-X.Y.Z`). The server offers a bundle as an
 update when its version is newer than the reader's.
 
 ---

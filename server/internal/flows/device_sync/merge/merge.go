@@ -2,7 +2,7 @@
 package merge
 
 import (
-	"inkdesk/internal/wm"
+	"espos/internal/wm"
 	"time"
 )
 

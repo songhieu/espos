@@ -1,7 +1,7 @@
 # data folder of a local run
 /data/
 # built binaries
-/inkdesk
+/espos
 /bin/
 # the web build is embedded at compile time; only the placeholder is kept
 /internal/server/dist/*

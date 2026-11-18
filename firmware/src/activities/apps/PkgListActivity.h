@@ -4,16 +4,16 @@
 #include <utility>
 #include <vector>
 
-#include "InkMenuActivity.h"
+#include "EspOSMenuActivity.h"
 #include "activities/Activity.h"
-#include "inkdesk/Pkgs.h"
+#include "espos/Pkgs.h"
 
 // Ứng dụng › Gói đã cài: the faces and widgets on the card (s3desk/docs/profiles.md §5).
-// Opening it first unpacks .inkp files copied into /InkDesk/pkgs (with a "please wait" screen).
-class PkgListActivity final : public InkMenuActivity {
+// Opening it first unpacks .espk files copied into /EspOS/pkgs (with a "please wait" screen).
+class PkgListActivity final : public EspOSMenuActivity {
  public:
   explicit PkgListActivity(GfxRenderer& renderer, MappedInputManager& mappedInput)
-      : InkMenuActivity("PkgList", renderer, mappedInput) {}
+      : EspOSMenuActivity("PkgList", renderer, mappedInput) {}
   void onEnter() override;
   void loop() override;
   void render(RenderLock&& lock) override;
@@ -25,15 +25,15 @@ class PkgListActivity final : public InkMenuActivity {
   std::string noteText() const override;
   const char* emptyText() const override;
 
-  std::vector<inkdesk::pkgs::Info> pkgs_;
-  bool unpacking_ = false;  // copied .inkp files wait: the next loop unpacks them
+  std::vector<espos::pkgs::Info> pkgs_;
+  bool unpacking_ = false;  // copied .espk files wait: the next loop unpacks them
 };
 
 // One package: preview it, use a face as the sleep screen, remove it (OK twice).
-class PkgActivity final : public InkMenuActivity {
+class PkgActivity final : public EspOSMenuActivity {
  public:
   PkgActivity(GfxRenderer& renderer, MappedInputManager& mappedInput, std::string id)
-      : InkMenuActivity("Pkg", renderer, mappedInput), id_(std::move(id)) {}
+      : EspOSMenuActivity("Pkg", renderer, mappedInput), id_(std::move(id)) {}
 
  private:
   enum class Action : uint8_t { Preview, Use, Remove };
@@ -43,8 +43,8 @@ class PkgActivity final : public InkMenuActivity {
   std::string noteText() const override;
 
   std::string id_;
-  inkdesk::pkgs::Info info_;
-  std::vector<std::pair<Action, inkdesk::pkgs::FaceRef>> actions_;  // per row; Use carries its face
+  espos::pkgs::Info info_;
+  std::vector<std::pair<Action, espos::pkgs::FaceRef>> actions_;  // per row; Use carries its face
   bool confirmRemove_ = false;
 };
 

@@ -1,7 +1,7 @@
 // Workflow get_device_dashboard, node own (imported by tools/importer).
 package own
 
-import "inkdesk/internal/wm"
+import "espos/internal/wm"
 
 func Run(wmIn, wmCtx map[string]any) map[string]any {
 	uid := wm.Int(wmCtx["end_user_id"])

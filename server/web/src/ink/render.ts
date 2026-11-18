@@ -79,7 +79,7 @@ export class Renderer {
     if (!chars.length) return;
     const base = y + f.asc;
     this.parts.push(
-      `<text x="${xs.map((v) => v + x).join(" ")}" y="${base}" font-family="${f.family === "Ubuntu" ? "'Ubuntu','InkUbuntuVi'" : `'${f.family}'`}" font-size="${f.em}" font-weight="${f.weight}"` +
+      `<text x="${xs.map((v) => v + x).join(" ")}" y="${base}" font-family="${f.family === "Ubuntu" ? "'Ubuntu','EspOSUbuntuVi'" : `'${f.family}'`}" font-size="${f.em}" font-weight="${f.weight}"` +
         `${f.style === "italic" ? ' font-style="italic"' : ""} fill="${this.col(black)}">${esc(chars.join(""))}</text>`,
     );
   }
@@ -153,7 +153,7 @@ export class Renderer {
   }
 }
 
-// ---- InkUi text helpers (src/inkdesk/InkUi.cpp) -------------------------------------------------
+// ---- EspOSUi text helpers (src/espos/EspOSUi.cpp) -------------------------------------------------
 
 export function smallerFont(font: FontId): FontId | 0 {
   switch (font) {
@@ -294,7 +294,7 @@ export function fitText(r: Renderer, font: FontId, x: number, y: number, text: s
   return maxW;
 }
 
-// ---- DashDraw helpers (src/inkdesk/DashDraw.cpp) ------------------------------------------------
+// ---- DashDraw helpers (src/espos/DashDraw.cpp) ------------------------------------------------
 
 export const drawFit = (r: Renderer, font: FontId, x: number, y: number, text: string, maxW: number, style: St = St.Reg, black = true) =>
   fitText(r, font, x, y, text, maxW, black, style);

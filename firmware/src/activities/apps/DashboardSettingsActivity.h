@@ -2,15 +2,15 @@
 
 #include <string>
 
+#include "EspOSMenuActivity.h"
 #include "activities/Activity.h"
-#include "InkMenuActivity.h"
 
 // Apps > Dashboard: the device side of the dash.* settings. Changes are kept
-// as InkDesk dirty keys and sent on the next sync ("• chờ gửi").
-class DashboardSettingsActivity final : public InkMenuActivity {
+// as EspOS dirty keys and sent on the next sync ("• chờ gửi").
+class DashboardSettingsActivity final : public EspOSMenuActivity {
  public:
   explicit DashboardSettingsActivity(GfxRenderer& renderer, MappedInputManager& mappedInput)
-      : InkMenuActivity("DashboardSettings", renderer, mappedInput) {}
+      : EspOSMenuActivity("DashboardSettings", renderer, mappedInput) {}
   static constexpr int ROW_COUNT = 7;
 
  private:

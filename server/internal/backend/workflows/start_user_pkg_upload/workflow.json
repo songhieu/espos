@@ -1,6 +1,6 @@
 {
   "code": "start_user_pkg_upload",
-  "name": "Web: start uploading the user's own Java game (signed PUT URLs for the .inkp and its icon)",
+  "name": "Web: start uploading the user's own Java game (signed PUT URLs for the .espk and its icon)",
   "draft": {
     "nodes": [
       { "id": "in", "type": "http_in" },

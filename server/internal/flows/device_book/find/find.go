@@ -1,7 +1,7 @@
 // Workflow device_book, node find (imported by tools/importer).
 package find
 
-import "inkdesk/internal/wm"
+import "espos/internal/wm"
 
 func Run(wmIn, wmCtx map[string]any) map[string]any {
 	in := wmIn

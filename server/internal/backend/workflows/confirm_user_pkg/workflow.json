@@ -1,6 +1,6 @@
 {
   "code": "confirm_user_pkg",
-  "name": "Web: keep the user's uploaded Java game (checks the .inkp, a new version replaces the old)",
+  "name": "Web: keep the user's uploaded Java game (checks the .espk, a new version replaces the old)",
   "draft": {
     "nodes": [
       { "id": "in", "type": "http_in" },

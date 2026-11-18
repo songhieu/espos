@@ -1,4 +1,4 @@
-// The declarative renderer (src/inkdesk/Decl.cpp, s3desk/docs/profiles.md §4) drawn with the X4's fonts.
+// The declarative renderer (src/espos/Decl.cpp, s3desk/docs/profiles.md §4) drawn with the X4's fonts.
 
 #include <ArduinoJson.h>
 #include <gtest/gtest.h>
@@ -11,7 +11,7 @@
 
 #include "HostCanvas.h"
 
-using inkdesk::decl::render;
+using espos::decl::render;
 
 namespace {
 
@@ -57,21 +57,21 @@ std::string readFixture(const char* name) {
 }  // namespace
 
 TEST(FaceRender, VietnameseCase) {
-  EXPECT_EQ(inkdesk::decl::upper("thứ ba, chủ nhật"), "THỨ BA, CHỦ NHẬT");
-  EXPECT_EQ(inkdesk::decl::upper("ơ ư đ ạ ỹ"), "Ơ Ư Đ Ạ Ỹ");
-  EXPECT_EQ(inkdesk::decl::lower("BÍNH NGỌ Ư"), "bính ngọ ư");
-  EXPECT_EQ(inkdesk::decl::title("THÁNG 11"), "Tháng 11");
-  EXPECT_EQ(inkdesk::decl::title("CHỦ NHẬT"), "Chủ Nhật");
+  EXPECT_EQ(espos::decl::upper("thứ ba, chủ nhật"), "THỨ BA, CHỦ NHẬT");
+  EXPECT_EQ(espos::decl::upper("ơ ư đ ạ ỹ"), "Ơ Ư Đ Ạ Ỹ");
+  EXPECT_EQ(espos::decl::lower("BÍNH NGỌ Ư"), "bính ngọ ư");
+  EXPECT_EQ(espos::decl::title("THÁNG 11"), "Tháng 11");
+  EXPECT_EQ(espos::decl::title("CHỦ NHẬT"), "Chủ Nhật");
 }
 
 TEST(FaceRender, PicksTheClosestShape) {
   JsonDocument doc;
   deserializeJson(doc, R"({"decl": 1, "layouts": [{"size": [800, 480]}, {"size": [480, 800]}, {"size": [456, 210]}]})");
   const auto v = doc.as<JsonVariantConst>();
-  EXPECT_EQ(inkdesk::decl::pick(v, 800, 480), 0);
-  EXPECT_EQ(inkdesk::decl::pick(v, 480, 800), 1);
-  EXPECT_EQ(inkdesk::decl::pick(v, 320, 480), 1);
-  EXPECT_EQ(inkdesk::decl::pick(v, 444, 198), 2);
+  EXPECT_EQ(espos::decl::pick(v, 800, 480), 0);
+  EXPECT_EQ(espos::decl::pick(v, 480, 800), 1);
+  EXPECT_EQ(espos::decl::pick(v, 320, 480), 1);
+  EXPECT_EQ(espos::decl::pick(v, 444, 198), 2);
 }
 
 TEST(FaceRender, RefusesOtherLevels) {
@@ -128,7 +128,8 @@ TEST(FaceRender, TextIsNeverCut) {
 }
 
 TEST(FaceRender, DigitsFallBackToLettersFont) {
-  Fixture f(one(R"({"t": "text", "x": 0, "y": 0, "w": 800, "h": 200, "size": 125, "font": "digits", "text": "{date.dm}"},
+  Fixture f(
+      one(R"({"t": "text", "x": 0, "y": 0, "w": 800, "h": 200, "size": 125, "font": "digits", "text": "{date.dm}"},
                    {"t": "text", "x": 0, "y": 200, "w": 800, "h": 200, "size": 125, "font": "digits", "text": "{date.wd}"})"));
   HostCanvas c(800, 480);
   EXPECT_EQ(f.draw(c), (std::vector<std::string>{"17/11", "Thứ Ba"}));
@@ -181,7 +182,7 @@ TEST(FaceRender, HugeGeometryStaysBounded) {
     Fixture f(one(item));
     HostCanvas c(800, 480);
     JsonData d(f.data.as<JsonVariantConst>());
-    inkdesk::decl::Stats st;
+    espos::decl::Stats st;
     const auto t0 = std::chrono::steady_clock::now();
     ASSERT_TRUE(render(f.doc.as<JsonVariantConst>(), -1, c, d, {}, ".", 0, 0, 800, 480, &st)) << item;
     const auto ms =
@@ -200,7 +201,7 @@ TEST(FaceRender, ManyItemsStopAtTheStepLimit) {
   Fixture f(R"({"decl": 1, )" + list + R"(, "layouts": [{"size": [800, 480], "items": [)" + row + "]}]}");
   HostCanvas c(800, 480);
   JsonData d(f.data.as<JsonVariantConst>());
-  inkdesk::decl::Stats st;
+  espos::decl::Stats st;
   ASSERT_TRUE(render(f.doc.as<JsonVariantConst>(), -1, c, d, {}, ".", 0, 0, 800, 480, &st));
   EXPECT_LE(st.steps, 4000);
   EXPECT_EQ(st.drawn, 0);
@@ -239,7 +240,7 @@ TEST(FaceRender, TextFittingIsBounded) {
   Fixture f(one(items));
   HostCanvas c(800, 480);
   JsonData d(f.data.as<JsonVariantConst>());
-  inkdesk::decl::Stats st;
+  espos::decl::Stats st;
   const auto t0 = std::chrono::steady_clock::now();
   ASSERT_TRUE(render(f.doc.as<JsonVariantConst>(), -1, c, d, {}, ".", 0, 0, 800, 480, &st));
   const auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - t0).count();
@@ -255,7 +256,7 @@ TEST(FaceRender, AtMostEightPictures) {
             items + "]}]}");
   HostCanvas c(800, 480);
   JsonData d(f.data.as<JsonVariantConst>());
-  inkdesk::decl::Stats st;
+  espos::decl::Stats st;
   ASSERT_TRUE(render(f.doc.as<JsonVariantConst>(), -1, c, d, {}, ".", 0, 0, 800, 480, &st));
   EXPECT_EQ(st.images, 8);
   EXPECT_EQ(st.imagesSkipped, 4);

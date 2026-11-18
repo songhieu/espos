@@ -2,7 +2,7 @@
 package keep
 
 import (
-	"inkdesk/internal/wm"
+	"espos/internal/wm"
 	"time"
 )
 

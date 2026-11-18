@@ -2,7 +2,7 @@
 package work
 
 import (
-	"inkdesk/internal/wm"
+	"espos/internal/wm"
 	"strings"
 	"time"
 )
@@ -13,7 +13,7 @@ func devKind(r map[string]any) string {
 	if k := wm.Str(r["kind"]); k != "" {
 		return k
 	}
-	if strings.HasPrefix(wm.Str(r["fw"]), "inkdesk-s3-") {
+	if strings.HasPrefix(wm.Str(r["fw"]), "espos-s3-") {
 		return "s3"
 	}
 	return "x4"

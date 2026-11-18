@@ -44,7 +44,7 @@ class HalPowerManager {
   // wakeOnHeldButton: arm the wake without waiting for the power button's
   // release, so a press that is still down wakes the device straight back up
   // through the normal power-button wake path.
-  // timerWakeSec > 0 also arms an RTC timer wake (InkDesk dashboard). On the
+  // timerWakeSec > 0 also arms an RTC timer wake (EspOS dashboard). On the
   // C3 Xteink boards that keeps the battery latch (GPIO13) HIGH through sleep
   // instead of cutting battery power, so the board keeps drawing sleep current.
   void startDeepSleep(HalGPIO& gpio, bool wakeOnHeldButton = false, uint32_t timerWakeSec = 0) const;

@@ -23,16 +23,16 @@
 #include <cstring>
 #include <fstream>
 
-#include "inkdesk/fonts/ink_24_bold.h"
-#include "inkdesk/fonts/ink_30_digits.h"
-#include "inkdesk/fonts/ink_44_digits.h"
-#include "inkdesk/fonts/ink_60_digits.h"
-#include "inkdesk/DeclFonts.h"
-#include "inkdesk/fonts/ink_serif_36.h"
+#include "espos/DeclFonts.h"
+#include "espos/fonts/espos_24_bold.h"
+#include "espos/fonts/espos_30_digits.h"
+#include "espos/fonts/espos_44_digits.h"
+#include "espos/fonts/espos_60_digits.h"
+#include "espos/fonts/espos_serif_36.h"
 
-using inkdesk::decl::Col;
-using inkdesk::decl::Family;
-using inkdesk::decl::Font;
+using espos::decl::Col;
+using espos::decl::Family;
+using espos::decl::Font;
 
 namespace {
 
@@ -44,9 +44,9 @@ struct HostFont {
   int px;  // point size at the converter's 150 dpi
 };
 
-// The same fonts as the device's table (src/inkdesk/DeclFonts.h).
+// The same fonts as the device's table (src/espos/DeclFonts.h).
 #define HOST_FONT(id, data, regular, family, bold, px) {&data, &regular, Family::family, bold, px},
-const HostFont kFonts[] = {INKDESK_DECL_FONTS(HOST_FONT)};
+const HostFont kFonts[] = {ESPOS_DECL_FONTS(HOST_FONT)};
 #undef HOST_FONT
 
 FontDecompressor& decompressor() {
@@ -165,7 +165,7 @@ void HostCanvas::invert(const int x, const int y, const int w, const int h) {
   }
 }
 
-// A port of DashDraw::drawIcon (src/inkdesk/DashDraw.cpp) on this canvas.
+// A port of DashDraw::drawIcon (src/espos/DashDraw.cpp) on this canvas.
 void HostCanvas::icon(const char* name, const int cx, const int cy, const int s, const Col c) {
   if (c == Col::Paper) fillRect(cx - s / 2, cy - s / 2, s, s, 0, Col::Paper);
   const int lw = s >= 40 ? 3 : 2;
@@ -179,7 +179,8 @@ void HostCanvas::icon(const char* name, const int cx, const int cy, const int s,
   auto cloudShape = [&](int x, int y, int inset, bool black) {
     const int baseW = s * 80 / 100 - inset * 2, baseH = s * 34 / 100 - inset * 2;
     const int baseX = x - s * 40 / 100 + inset, baseY = y + inset;
-    if (baseW > 0 && baseH > 0) fillRect(baseX, baseY, baseW, baseH, std::max(1, baseH / 2), black ? Col::Ink : Col::Paper);
+    if (baseW > 0 && baseH > 0)
+      fillRect(baseX, baseY, baseW, baseH, std::max(1, baseH / 2), black ? Col::Ink : Col::Paper);
     circle(x - s * 10 / 100, y + s * 2 / 100, s * 22 / 100 - inset, black);
     circle(x + s * 16 / 100, y + s * 8 / 100, s * 15 / 100 - inset, black);
   };
@@ -207,7 +208,8 @@ void HostCanvas::icon(const char* name, const int cx, const int cy, const int s,
     auto shape = [&](int inset, bool black) {
       const int baseW = s2 * 80 / 100 - inset * 2, baseH = s2 * 34 / 100 - inset * 2;
       if (baseW > 0 && baseH > 0)
-        fillRect(x - s2 * 40 / 100 + inset, y + inset, baseW, baseH, std::max(1, baseH / 2), black ? Col::Ink : Col::Paper);
+        fillRect(x - s2 * 40 / 100 + inset, y + inset, baseW, baseH, std::max(1, baseH / 2),
+                 black ? Col::Ink : Col::Paper);
       circle(x - s2 * 10 / 100, y + s2 * 2 / 100, s2 * 22 / 100 - inset, black);
       circle(x + s2 * 16 / 100, y + s2 * 8 / 100, s2 * 15 / 100 - inset, black);
     };
@@ -218,7 +220,8 @@ void HostCanvas::icon(const char* name, const int cx, const int cy, const int s,
     circle(cx, cy, rad, true);
     circle(cx + rad * 55 / 100, cy - rad * 35 / 100, rad, false);
   } else if (!strcmp(name, "fog")) {
-    for (int i = -1; i <= 1; i++) line(cx - s * 35 / 100, cy + i * s / 6, cx + s * 35 / 100, cy + i * s / 6, lw, Col::Ink);
+    for (int i = -1; i <= 1; i++)
+      line(cx - s * 35 / 100, cy + i * s / 6, cx + s * 35 / 100, cy + i * s / 6, lw, Col::Ink);
   } else if (!strcmp(name, "battery")) {
     strokeRect(cx - s * 40 / 100, cy - s * 20 / 100, s * 74 / 100, s * 40 / 100, 3, lw, Col::Ink);
     fillRect(cx + s * 34 / 100, cy - s * 8 / 100, s * 6 / 100 + 1, s * 16 / 100, 0, Col::Ink);
@@ -260,7 +263,8 @@ bool HostCanvas::image(const std::string& path, const int x, const int y, const 
   const size_t stride = ((static_cast<size_t>(bw) * bpp + 31) / 32) * 4;
   if (off + stride * bh > b.size()) return false;
   const size_t pal = 14 + hdr;
-  const double sc = std::min({1.0, static_cast<double>(w) / bw, static_cast<double>(h) / bh});  // like drawBitmap: never enlarged
+  const double sc =
+      std::min({1.0, static_cast<double>(w) / bw, static_cast<double>(h) / bh});  // like drawBitmap: never enlarged
   const int dw = std::max(1, static_cast<int>(bw * sc)), dh = std::max(1, static_cast<int>(bh * sc));
   const int x0 = x + (w - dw) / 2, y0 = y + (h - dh) / 2;
   static const int bayer[4][4] = {{0, 8, 2, 10}, {12, 4, 14, 6}, {3, 11, 1, 9}, {15, 7, 13, 5}};
@@ -325,7 +329,8 @@ void HostCanvas::text(const Font& f, const int x, const int y, const char* utf8,
     for (int yy = 0; yy < g->height; yy++) {
       for (int xx = 0; xx < g->width; xx++) {
         const int pos = yy * g->width + xx;
-        const int v = hf.data->is2Bit ? (bmp[pos >> 2] >> (6 - (pos & 3) * 2)) & 3 : (bmp[pos >> 3] >> (7 - (pos & 7))) & 1;
+        const int v =
+            hf.data->is2Bit ? (bmp[pos >> 2] >> (6 - (pos & 3) * 2)) & 3 : (bmp[pos >> 3] >> (7 - (pos & 7))) & 1;
         if (v) put(gx + xx, gy + yy, c == Col::Paper ? Col::Paper : Col::Ink);
       }
     }
@@ -358,11 +363,19 @@ bool HostCanvas::writePng(const std::string& path) const {
     out.write(reinterpret_cast<const char*>(cb), 4);
   };
   out.write("\x89PNG\r\n\x1a\n", 8);
-  std::vector<unsigned char> ihdr = {static_cast<unsigned char>(w_ >> 24), static_cast<unsigned char>(w_ >> 16),
-                                     static_cast<unsigned char>(w_ >> 8),  static_cast<unsigned char>(w_),
-                                     static_cast<unsigned char>(h_ >> 24), static_cast<unsigned char>(h_ >> 16),
-                                     static_cast<unsigned char>(h_ >> 8),  static_cast<unsigned char>(h_),
-                                     8, 0, 0, 0, 0};
+  std::vector<unsigned char> ihdr = {static_cast<unsigned char>(w_ >> 24),
+                                     static_cast<unsigned char>(w_ >> 16),
+                                     static_cast<unsigned char>(w_ >> 8),
+                                     static_cast<unsigned char>(w_),
+                                     static_cast<unsigned char>(h_ >> 24),
+                                     static_cast<unsigned char>(h_ >> 16),
+                                     static_cast<unsigned char>(h_ >> 8),
+                                     static_cast<unsigned char>(h_),
+                                     8,
+                                     0,
+                                     0,
+                                     0,
+                                     0};
   chunk("IHDR", ihdr);
   chunk("IDAT", z);
   chunk("IEND", {});
@@ -372,10 +385,14 @@ bool HostCanvas::writePng(const std::string& path) const {
 bool JsonData::value(const char* name, std::string& out) const {
   JsonVariantConst v = root_["values"][name];
   if (v.isNull()) return false;
-  if (v.is<const char*>()) out = v.as<const char*>();
-  else if (v.is<long long>()) out = std::to_string(v.as<long long>());
-  else if (v.is<bool>()) out = v.as<bool>() ? "1" : "";
-  else return false;
+  if (v.is<const char*>())
+    out = v.as<const char*>();
+  else if (v.is<long long>())
+    out = std::to_string(v.as<long long>());
+  else if (v.is<bool>())
+    out = v.as<bool>() ? "1" : "";
+  else
+    return false;
   return true;
 }
 
@@ -384,8 +401,11 @@ int JsonData::count(const char* list) const { return static_cast<int>(root_["lis
 bool JsonData::field(const char* list, const int index, const char* name, std::string& out) const {
   JsonVariantConst v = root_["lists"][list][index][name];
   if (v.isNull()) return false;
-  if (v.is<const char*>()) out = v.as<const char*>();
-  else if (v.is<long long>()) out = std::to_string(v.as<long long>());
-  else return false;
+  if (v.is<const char*>())
+    out = v.as<const char*>();
+  else if (v.is<long long>())
+    out = std::to_string(v.as<long long>());
+  else
+    return false;
   return true;
 }

@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	"inkdesk/internal/wm"
+	"espos/internal/wm"
 )
 
 // Values in a node's config may hold {{ path.to.value }} references to the run's input and

@@ -28,12 +28,12 @@
 #include "CrossPointState.h"
 #include "activities/reader/ReaderUtils.h"
 #include "components/UITheme.h"
+#include "espos/DashboardView.h"
+#include "espos/EspOSStore.h"
+#include "espos/Wallpapers.h"
 #include "fontIds.h"
 #include "images/Logo120.h"
 #include "images/MoonIcon.h"
-#include "inkdesk/DashboardView.h"
-#include "inkdesk/Wallpapers.h"
-#include "inkdesk/InkDeskStore.h"
 
 namespace {
 // Metalio: B/W sleep images use the full 0xF7 waveform instead of HALF (two
@@ -690,30 +690,30 @@ void releaseSdFontCachesForDecode(const GfxRenderer& renderer) {
 void SleepActivity::onEnter() {
   Activity::onEnter();
 
-  // InkDesk sleep screen: the book cover (cover/auto mode while a book is open), a picture
+  // EspOS sleep screen: the book cover (cover/auto mode while a book is open), a picture
   // (a new one each sleep unless they change on a timer) or the dashboard.
-  if (INKDESK.isLinked() && inkdesk::dashboard::ownsSleepScreen()) {
-    const auto mode = inkdesk::dashboard::effectiveMode();
-    if (mode == inkdesk::dashboard::Mode::Cover) {
+  if (ESPOS.isLinked() && espos::dashboard::ownsSleepScreen()) {
+    const auto mode = espos::dashboard::effectiveMode();
+    if (mode == espos::dashboard::Mode::Cover) {
       display.setInverted(false);
       return renderCoverSleepScreen();
     }
-    if (mode == inkdesk::dashboard::Mode::Images && inkdesk::wallpapers::rotateMinutes() == 0) {
-      inkdesk::wallpapers::advance();
+    if (mode == espos::dashboard::Mode::Images && espos::wallpapers::rotateMinutes() == 0) {
+      espos::wallpapers::advance();
     }
   }
-  if (inkdesk::dashboard::sleepScreenEnabled()) {
+  if (espos::dashboard::sleepScreenEnabled()) {
     display.setInverted(false);
     GUI.drawPopup(renderer, tr(STR_ENTERING_SLEEP));
-    const bool drawn = inkdesk::dashboard::draw(renderer, inkdesk::dashboard::planWake(gpio.isUsbConnected()));
+    const bool drawn = espos::dashboard::draw(renderer, espos::dashboard::planWake(gpio.isUsbConnected()));
     if (drawn) renderer.displayBuffer(kSleepClean);
     renderer.setOrientation(GfxRenderer::Orientation::Portrait);
     if (drawn) return;
   }
-  // Not linked yet or nothing downloaded: still show an InkDesk screen that says how to set up.
-  if (inkdesk::dashboard::ownsSleepScreen()) {
+  // Not linked yet or nothing downloaded: still show an EspOS screen that says how to set up.
+  if (espos::dashboard::ownsSleepScreen()) {
     display.setInverted(false);
-    inkdesk::dashboard::drawPlaceholder(renderer);
+    espos::dashboard::drawPlaceholder(renderer);
     renderer.displayBuffer(kSleepClean);
     return;
   }

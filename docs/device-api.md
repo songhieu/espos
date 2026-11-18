@@ -1,8 +1,8 @@
-# InkDesk device ⇄ server contract (v1)
+# EspOS device ⇄ server contract (v1)
 
-API base: the InkDesk server's address (the device takes it from USB provisioning, field `api`, or
-from the `INKDESK_DEFAULT_API` build flag; see firmware/README.md). Examples use
-`https://inkdesk.example.com`.
+API base: the EspOS server's address (the device takes it from USB provisioning, field `api`, or
+from the `ESPOS_DEFAULT_API` build flag; see firmware/README.md). Examples use
+`https://espos.example.com`.
 
 All bodies are UTF-8 JSON. Strings shown on the e-ink screen are Vietnamese, already formatted by
 the server (dates "15/11", times "09:00"), so the device does no locale work.
@@ -22,7 +22,7 @@ the server (dates "15/11", times "09:00"), so the device does no locale work.
 Request:
 ```json
 {
-  "fw": "inkdesk-0.1.0",
+  "fw": "espos-0.1.0",
   "battery": 78,
   "settings_rev": 0,
   "settings": [{"k": "dash.clock", "v": "1", "age_s": 120}],
@@ -33,7 +33,7 @@ Request:
 ```
 - `settings`: settings the user changed ON THE DEVICE since the last successful sync; `age_s` =
   seconds since that change (0 if unknown). Values are strings.
-- `have_books`: ids of InkDesk books already on the SD card.
+- `have_books`: ids of EspOS books already on the SD card.
 - `have_sizes` (fw 0.3.2+): byte size of each of those files. When a size equals the uploaded
   size, the server deletes the stored original and stamps `books.delivered_at` (Send to Kindle:
   the web keeps only the history). Without it nothing is deleted.
@@ -59,7 +59,7 @@ Response 200:
   header; it answers `302` with a `Location` to a short-lived signed storage URL (no auth needed
   there). Follow the redirect (do not send the Authorization header to the storage host).
   `404 {"error":"not_found"}` if the book is gone. Books missing from the list were deleted on the web: the device
-  deletes `/InkDesk/<file>` for ids it has that are no longer listed.
+  deletes `/EspOS/<file>` for ids it has that are no longer listed.
 - `now_ms` / `tz_min`: wall clock for the device (it has no RTC). Stamped as the response is built,
   after the dashboard; the device adopts it when its own clock is 3 s or more off.
 
@@ -100,17 +100,17 @@ Light call used on every timer wake.
 
 Line protocol, one message per line (`\n`), max 8 KB per line. The device must listen whenever it
 is awake (main loop) and ignore anything else on the line. Its own log lines also go to the same
-port; the browser ignores lines that do not start with `INKDESK:`.
+port; the browser ignores lines that do not start with `ESPOS:`.
 
 ```
-browser → INKDESK:HELLO <epoch ms>     (the browser's clock; the X4 has no RTC)
-device  → INKDESK:READY {"fw":"inkdesk-0.1.0","linked":false}
-browser → INKDESK:PROVISION {"api":"https://inkdesk.example.com","token":"<64 hex>",
+browser → ESPOS:HELLO <epoch ms>     (the browser's clock; the X4 has no RTC)
+device  → ESPOS:READY {"fw":"espos-0.1.0","linked":false}
+browser → ESPOS:PROVISION {"api":"https://espos.example.com","token":"<64 hex>",
            "device":{"id":3,"name":"X4 phòng ngủ","user":"you@example.com"},
            "wifi":[{"ssid":"NhaMinh","pass":"…"}],
            "settings":{"sys.lang":"vi","read.font":"LexicaUltralegible"},"settings_rev":1794631999000,
            "now_ms":1794631999000}
-device  → INKDESK:OK            (or INKDESK:ERR <reason>)
+device  → ESPOS:OK            (or ESPOS:ERR <reason>)
 ```
 After `OK` the device saves everything, then shows the welcome screen (or reboots into it).
 The WiFi password typed in the installer never goes to the server. (WiFi added later on the web
@@ -153,7 +153,7 @@ Web-only keys (never sent to the device): `dash.city`, `dash.lat`, `dash.lon`, `
 **Sync response** also carries:
 - `wallpapers`: `[{"id","orient":"p|l","url"}]` — `url` only for pictures the device lacks; it
   answers 302 to signed storage (`GET /v1/device/wallpaper/:id`, device auth). Files are 1-bit BMPs
-  at panel size, dithered in the browser; stored as `/.crosspoint/inkdesk/wall/<id>.bmp`. Pictures
+  at panel size, dithered in the browser; stored as `/.crosspoint/espos/wall/<id>.bmp`. Pictures
   no longer listed are deleted.
 - `wifi_ops`: `[{"id","op":"add|remove","ssid","pass"}]` queued on the web. The device applies them
   and acks on the next sync; the server then clears the password.
@@ -171,17 +171,17 @@ Where these differ from the sections above, this is what the device does.
 - **USB provisioning**: the device's serial RX buffer is 2 KB. Send `PROVISION` only after `READY`, as one line under 2 KB. The device answers `OK` and opens the welcome screen without rebooting. It must be awake (any screen); after a flash it boots normally into Home. Its log lines share the port.
 - **Settings from the device**: changes are found by comparing against the last applied set, so `age_s` is always `0` (if both sides changed a key between syncs, the device value wins). Keys the device applies: `sys.lang` (`vi`/`en`), `sys.sleep_min`, `read.size` (12/14/16/18 pt), `read.spacing`. `read.font` names the reader font; a family not on the SD card is downloaded from the catalogue (manifest over TLS, files checked by CRC32) and selected once installed. Keys the device can change itself: those four plus `dash.enabled`, `dash.interval_min`, `dash.charging_min`, `dash.save_pct`, `dash.layout`.
 - **Quiet hours**: read from `dash.quiet_from` / `dash.quiet_to` in the merged `settings`, so send them there (defaults 23:00 / 06:00).
-- **progress**: sent only for InkDesk books in the device's recent-books list (at most 10).
+- **progress**: sent only for EspOS books in the device's recent-books list (at most 10).
 - **Dashboard**: `next_s` is ignored. The device wakes every `dash.interval_min` (every 60 s on USB power when `dash.charging_min` is `1`), skipping quiet hours, and fetches `GET /v1/device/dashboard` on each wake. `layout` in the dashboard object wins over `dash.layout` when present. No live clock is drawn.
 - **Battery**: X4 normally cuts battery power in sleep. While the dashboard is enabled and the device is linked, sleep keeps the battery connected so the timer can fire, which drains it faster.
 - **Pairing**: `name` is `"Xteink X4"`; up to 3 codes are tried on `409`.
 
 ## Firmware updates over WiFi
 
-- Table `firmware` (one row per release): `version` ("inkdesk-X.Y.Z"), `code` (X*10000+Y*100+Z),
+- Table `firmware` (one row per release): `version` ("espos-X.Y.Z"), `code` (X*10000+Y*100+Z),
   `url` (public storage, content-hashed), `sha256`, `size`, `notes` (one item per line), `released` ("DD/MM").
-- Release: build, collect the bundle with `firmware/scripts/inkdesk_bundle.sh`, then
-  `inkdesk firmware add <bundle> -notes "…"` on the server. It stores the files, writes
+- Release: build, collect the bundle with `firmware/scripts/espos_bundle.sh`, then
+  `espos firmware add <bundle> -notes "…"` on the server. It stores the files, writes
   `/firmware/latest.json` for the web installer and inserts the `firmware` row.
 - `devices` gains `fw_req` (version code the web asked for, 0 = none), `fw_auto` (install while
   charging) and `ota_state` (`{state: requested|ok|failed, version, why, at}`).
@@ -202,7 +202,7 @@ Where these differ from the sections above, this is what the device does.
 
 - Device: active reading only. A page counts from when it is shown until the next forward turn,
   2 s to 10 min per page; sessions under 10 s are dropped. Sessions go to
-  `/.crosspoint/inkdesk_reading.log`, folded into `/.crosspoint/inkdesk_reading.json`
+  `/.crosspoint/espos_reading.log`, folded into `/.crosspoint/espos_reading.json`
   (60 days; per-book detail for 14 days and while unsent). Sessions read without a clock land on
   the day the clock returns.
 - Sync request: `reading: [{d: "YYYY-MM-DD", k: "id:<book>"|path, id?, t, s, p}]`, absolute
@@ -245,7 +245,7 @@ Where these differ from the sections above, this is what the device does.
   `{id,dim:"456x298",p:"ca50",size}` → `{exists:true}` or `{exists:false,url}` (PUT the 1-bit BMP, ≤ 100 KB).
   On save the web renders every picture of every photo widget at its box size. The device downloads
   `GET /v1/device/photos/:id/:dim/:p` (302 to storage; 404 when not rendered) into
-  `/.crosspoint/inkdesk/photos/<id>_<dim>_<p>.bmp` at each sync and removes the files no layout uses.
+  `/.crosspoint/espos/photos/<id>_<dim>_<p>.bmp` at each sync and removes the files no layout uses.
 - The server checks layouts (known kinds, inside the grid, no overlap, ≤ 20 items, Home keeps the
   `app/apps` tile, no `app` on the sleep screens, frame style, photo options) and answers 422 with the reason.
 - Text on the device is never cut with an ellipsis: fonts shrink (18 → … → 8 pt) or wrap.

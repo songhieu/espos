@@ -8,7 +8,7 @@
 #include "EndOfBookOptions.h"
 #include "ReaderSession.h"
 #include "activities/Activity.h"
-#include "inkdesk/ReadingStats.h"
+#include "espos/ReadingStats.h"
 
 class ReaderActivity : public Activity {
   friend class ActivityManager;  // turns pages for a Bluetooth remote (ActivityManager::remoteTurn)
@@ -21,7 +21,7 @@ class ReaderActivity : public Activity {
   std::unique_ptr<EndOfBookOptions> endOfBookOptions;
   std::atomic<bool> endOfBookOptionsReady{false};
   ReaderSession readerSession;
-  inkdesk::stats::Tracker readingStats;  // InkDesk reading time per day
+  espos::stats::Tracker readingStats;  // EspOS reading time per day
   std::atomic<bool> pageRendered{false};
   bool bookRemembered = false;
   void markPageRendered() { pageRendered.store(true, std::memory_order_release); }

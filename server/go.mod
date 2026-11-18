@@ -1,4 +1,4 @@
-module inkdesk
+module espos
 
 go 1.26.0
 

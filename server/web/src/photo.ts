@@ -1,6 +1,6 @@
 // Photo widget: the option string, rendering a picture for one widget box (1-bit BMP the device draws
 // as it is) and the uploads. The original is kept on the server so a resized widget can be rendered again.
-import type { Ink } from "./inkdesk";
+import type { Ink } from "./espos";
 import { toBmp } from "./wallpaper";
 
 export type PhotoMode = "r" | "s" | "f"; // random, in turn, keep one

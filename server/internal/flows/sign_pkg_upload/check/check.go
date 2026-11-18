@@ -2,12 +2,12 @@
 package check
 
 import (
-	"inkdesk/internal/wm"
+	"espos/internal/wm"
 	"strings"
 )
 
 // The store's files only: apps-s3/<name> (or apps-s3-test/ for checking the web page) and apps/<name> (the v2
-// catalog), a plain lowercase name ending in .inkp, .jpg, .png (the X4's black-and-white previews) or .json. A
+// catalog), a plain lowercase name ending in .espk, .jpg, .png (the X4's black-and-white previews) or .json. A
 // public /files upload must be JSON (8 MiB), so a package part bigger than ~6 MB goes up through the signed PUT URL
 // this route answers (api_key route: callers hold a bbk_ key).
 func Run(wmIn, wmCtx map[string]any) map[string]any {
@@ -24,8 +24,8 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 			return map[string]any{"ok": false, "why": "key: lowercase letters, digits, . _ - only"}
 		}
 	}
-	if strings.Contains(name, "..") || !(strings.HasSuffix(name, ".inkp") || strings.HasSuffix(name, ".jpg") || strings.HasSuffix(name, ".json") || strings.HasSuffix(name, ".png")) {
-		return map[string]any{"ok": false, "why": "key: a .inkp, .jpg, .png or .json file"}
+	if strings.Contains(name, "..") || !(strings.HasSuffix(name, ".espk") || strings.HasSuffix(name, ".jpg") || strings.HasSuffix(name, ".json") || strings.HasSuffix(name, ".png")) {
+		return map[string]any{"ok": false, "why": "key: a .espk, .jpg, .png or .json file"}
 	}
 	return map[string]any{"ok": true, "key": key, "why": ""}
 }

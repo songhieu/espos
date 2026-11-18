@@ -1,5 +1,5 @@
-# make            build the web app, then the server binary (./inkdesk)
-# make run        build and run with ./data (set INKDESK_PASSWORD first)
+# make            build the web app, then the server binary (./espos)
+# make run        build and run with ./data (set ESPOS_PASSWORD first)
 # make test       Go tests
 # make import FROM=../path/to/hosted/backend    re-import the workflows
 
@@ -12,10 +12,10 @@ web:
 	touch internal/server/dist/.keep
 
 server:
-	CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o inkdesk ./cmd/inkdesk
+	CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o espos ./cmd/espos
 
 run: all
-	./inkdesk
+	./espos
 
 test:
 	go test ./...
@@ -26,5 +26,5 @@ import:
 	gofmt -l internal || true
 
 clean:
-	rm -f inkdesk
+	rm -f espos
 	find internal/server/dist -mindepth 1 ! -name .keep -delete

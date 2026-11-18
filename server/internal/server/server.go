@@ -20,8 +20,8 @@ import (
 	"strings"
 	"time"
 
-	"inkdesk/internal/engine"
-	"inkdesk/internal/wm"
+	"espos/internal/engine"
+	"espos/internal/wm"
 )
 
 // Config is what the server needs to know.
@@ -387,12 +387,12 @@ func (s *Server) appFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	conf, _ := json.Marshal(map[string]any{
-		"app": "inkdesk", "version": nil, "ref": "self", "entry": "", "base": "/", "root": "app-inkdesk",
-		"store": map[string]any{"id": "1", "slug": "inkdesk"}, "locale": "vi", "locale_default": "vi",
+		"app": "espos", "version": nil, "ref": "self", "entry": "", "base": "/", "root": "app-espos",
+		"store": map[string]any{"id": "1", "slug": "espos"}, "locale": "vi", "locale_default": "vi",
 		"api": s.base(r), "base_path": "/", "preview": false,
 	})
-	html := strings.Replace(string(page), "<!--INKDESK_CONFIG-->",
-		`<script type="application/json" id="app-inkdesk-config">`+string(conf)+`</script>`, 1)
+	html := strings.Replace(string(page), "<!--ESPOS_CONFIG-->",
+		`<script type="application/json" id="app-espos-config">`+string(conf)+`</script>`, 1)
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-store")
 	io.WriteString(w, html)

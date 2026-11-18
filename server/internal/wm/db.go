@@ -358,6 +358,25 @@ func QueryPage(table string, opts map[string]any) ([]map[string]any, int, error)
 	return out, total, nil
 }
 
+// QueryMany runs several reads in one call, like the hosted wm.QueryMany: each entry is
+// {table, filters, match, order_by, desc, limit, offset, with_total}; each answer is
+// {"rows", "total", "next"} in the same order ("next" is the next offset, or nil at the end).
+func QueryMany(qs []map[string]any) ([]map[string]any, error) {
+	out := make([]map[string]any, 0, len(qs))
+	for _, q := range qs {
+		rows, total, err := QueryPage(Str(q["table"]), q)
+		if err != nil {
+			return nil, err
+		}
+		var next any
+		if end := Int(q["offset"]) + len(rows); end < total {
+			next = end
+		}
+		out = append(out, map[string]any{"rows": rows, "total": total, "next": next})
+	}
+	return out, nil
+}
+
 // Query reads rows matching filters.
 func Query(table string, filters []map[string]any) ([]map[string]any, error) {
 	return QueryOpts(table, map[string]any{"filters": filters, "limit": 5000})

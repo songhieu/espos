@@ -12,13 +12,13 @@ COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
 COPY --from=web /src/internal/server/dist ./internal/server/dist
-RUN CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o /inkdesk ./cmd/inkdesk
+RUN CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o /espos ./cmd/espos
 
 FROM alpine:3.20
-RUN apk add --no-cache ca-certificates tzdata && adduser -D -H -u 10001 inkdesk && mkdir /data && chown inkdesk /data
-COPY --from=server /inkdesk /usr/local/bin/inkdesk
-USER inkdesk
-ENV INKDESK_DATA=/data INKDESK_ADDR=:8080
+RUN apk add --no-cache ca-certificates tzdata && adduser -D -H -u 10001 espos && mkdir /data && chown espos /data
+COPY --from=server /espos /usr/local/bin/espos
+USER espos
+ENV ESPOS_DATA=/data ESPOS_ADDR=:8080
 VOLUME /data
 EXPOSE 8080
-ENTRYPOINT ["inkdesk"]
+ENTRYPOINT ["espos"]

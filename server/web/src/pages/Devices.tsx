@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import { downloadBlob, flashFirmware, loadManifest, pickPort, provisionDevice, serialSupported } from "../flash";
-import { ago, randomHex, sha256Hex, shortVersion, type Device, type FirmwareInfo, type Ink } from "../inkdesk";
+import { ago, randomHex, sha256Hex, shortVersion, type Device, type FirmwareInfo, type Ink } from "../espos";
 import { DeviceSession, type WifiNet } from "../serialSession";
 import { ESPRESSIF_VID } from "esptool-js";
 import { CityPicker, TzSelect } from "../PlacePickers";
@@ -214,7 +214,7 @@ function PairBox({ ink, code, onDone }: { ink: Ink; code: string | null; onDone:
         setMsg(null);
         try {
           const r = await ink.confirmPair(String(f.get("code")).replace(/\D/g, ""), String(f.get("name") || ""));
-          sessionStorage.removeItem("inkdesk_pair");
+          sessionStorage.removeItem("espos_pair");
           setMsg(`✓ Đã liên kết “${r.device.name}”. Máy sẽ tự đồng bộ trong vài giây.`);
           onDone();
         } catch (x) {
@@ -248,20 +248,20 @@ function PairBox({ ink, code, onDone }: { ink: Ink; code: string | null; onDone:
 type DevState =
   | { kind: "none" }
   | { kind: "asking" }
-  | { kind: "inkdesk"; fw: string; linked: boolean }
+  | { kind: "espos"; fw: string; linked: boolean }
   | { kind: "stock" };
 type WifiTry = { ssid: string; status: "testing" | "ok" | "fail"; msg: string };
 type Step = "connect" | "firmware" | "wifi" | "link" | "done";
 
 const STEP_INFO: { id: Step; title: string }[] = [
   { id: "connect", title: "Kết nối máy" },
-  { id: "firmware", title: "Cài firmware InkDesk" },
+  { id: "firmware", title: "Cài firmware EspOS" },
   { id: "wifi", title: "WiFi" },
   { id: "link", title: "Liên kết" },
 ];
 
 /**
- * USB setup as a wizard: connect → (stock firmware) install InkDesk → the device reboots and
+ * USB setup as a wizard: connect → (stock firmware) install EspOS → the device reboots and
  * the page asks it again → WiFi from the device's own scan → link to the account. Every step
  * starts by itself when the previous one ends; nothing is typed that the device can tell us.
  */
@@ -307,7 +307,7 @@ function Installer({ ink, apiBase, me, onDone }: { ink: Ink; apiBase: string; me
   if (!serialSupported()) {
     return (
       <div className="ik-panel">
-        <h3>Cài InkDesk lên Xteink X4</h3>
+        <h3>Cài EspOS lên Xteink X4</h3>
         <div className="ik-warn">
           <Icon name="alert" />
           <span>Trình duyệt này không cài qua USB được. Hãy mở trang này bằng Chrome hoặc Edge trên máy tính.</span>
@@ -316,7 +316,7 @@ function Installer({ ink, apiBase, me, onDone }: { ink: Ink; apiBase: string; me
     );
   }
 
-  /** Asks the device what it runs; an InkDesk device also lists the WiFi it sees. Picks the next step. */
+  /** Asks the device what it runs; an EspOS device also lists the WiFi it sees. Picks the next step. */
   async function probe(p: SerialPort, helloMs = 12000) {
     if (serial.current) return;
     serial.current = true;
@@ -330,7 +330,7 @@ function Installer({ ink, apiBase, me, onDone }: { ink: Ink; apiBase: string; me
       } catch {
         setDev({ kind: "stock" });
         setStep("firmware");
-        add("• Máy đang chạy firmware khác (chưa có InkDesk). Bước kế tiếp: cài firmware.");
+        add("• Máy đang chạy firmware khác (chưa có EspOS). Bước kế tiếp: cài firmware.");
         return;
       }
       let info = { fw: "", linked: false };
@@ -339,8 +339,8 @@ function Installer({ ink, apiBase, me, onDone }: { ink: Ink; apiBase: string; me
       } catch {
         /* older firmware */
       }
-      setDev({ kind: "inkdesk", fw: info.fw, linked: info.linked });
-      add(`✓ Máy chạy ${info.fw || "InkDesk"}${info.linked ? ", đã liên kết tài khoản" : ", chưa liên kết"}. Máy đã có giờ.`);
+      setDev({ kind: "espos", fw: info.fw, linked: info.linked });
+      add(`✓ Máy chạy ${info.fw || "EspOS"}${info.linked ? ", đã liên kết tài khoản" : ", chưa liên kết"}. Máy đã có giờ.`);
       setStep(info.linked ? "done" : "wifi");
       setScanning(true);
       const found = await session.scanWifi();
@@ -375,14 +375,14 @@ function Installer({ ink, apiBase, me, onDone }: { ink: Ink; apiBase: string; me
       const saved = await flashFirmware(port, manifest, {
         backup,
         log: add,
-        progress: (s, f) => setStage({ name: s === "backup" ? "Sao lưu firmware gốc" : "Ghi InkDesk " + manifest.version, pct: f }),
+        progress: (s, f) => setStage({ name: s === "backup" ? "Sao lưu firmware gốc" : "Ghi EspOS " + manifest.version, pct: f }),
       });
       if (saved) {
         downloadBlob(saved, `x4-firmware-goc-${new Date().toISOString().slice(0, 10)}.bin`);
         add("✓ Đã tải file sao lưu firmware gốc về máy tính. Hãy giữ file này.");
       }
-      setStage({ name: "Máy đang khởi động InkDesk", pct: 1 });
-      add("… Máy đang khởi động lại vào InkDesk");
+      setStage({ name: "Máy đang khởi động EspOS", pct: 1 });
+      add("… Máy đang khởi động lại vào EspOS");
       setBusy(false);
       // Give it time to boot, then ask again: it now answers and scans WiFi.
       await new Promise((r) => setTimeout(r, 4000));
@@ -422,7 +422,7 @@ function Installer({ ink, apiBase, me, onDone }: { ink: Ink; apiBase: string; me
       await session?.close();
       serial.current = false;
     }
-    if (ok && dev.kind === "inkdesk" && !dev.linked) setStep("link");
+    if (ok && dev.kind === "espos" && !dev.linked) setStep("link");
   }
 
   /** Links over the cable: a device token, the settings, and the WiFi chosen above. */
@@ -461,7 +461,7 @@ function Installer({ ink, apiBase, me, onDone }: { ink: Ink; apiBase: string; me
       );
       setStage(null);
       add("✓ Xong! Máy hiện màn chào mừng rồi tự đồng bộ lần đầu.");
-      setDev({ kind: "inkdesk", fw: dev.kind === "inkdesk" ? dev.fw : "", linked: true });
+      setDev({ kind: "espos", fw: dev.kind === "espos" ? dev.fw : "", linked: true });
       setStep("done");
       onDone();
     } catch (e) {
@@ -475,7 +475,7 @@ function Installer({ ink, apiBase, me, onDone }: { ink: Ink; apiBase: string; me
   const order: Step[] = ["connect", "firmware", "wifi", "link", "done"];
   const at = order.indexOf(step);
   const stepState = (id: Step) => {
-    if (id === "firmware" && dev.kind === "inkdesk" && at > 0) return "ok";
+    if (id === "firmware" && dev.kind === "espos" && at > 0) return "ok";
     const i = order.indexOf(id);
     return i < at ? "ok" : i === at ? "now" : "";
   };
@@ -486,7 +486,7 @@ function Installer({ ink, apiBase, me, onDone }: { ink: Ink; apiBase: string; me
     <div className="ik-installer">
       <header className="ik-head">
         <div>
-          <h2>Cài InkDesk lên Xteink X4</h2>
+          <h2>Cài EspOS lên Xteink X4</h2>
           <p>Cắm máy vào máy tính bằng cáp USB-C có truyền dữ liệu và bật máy. Trang tự làm từng bước. Dùng Chrome hoặc Edge.</p>
         </div>
       </header>
@@ -496,8 +496,8 @@ function Installer({ ink, apiBase, me, onDone }: { ink: Ink; apiBase: string; me
             <span className="n">{stepState(s.id) === "ok" ? "✓" : i + 1}</span>
             <div>
               <b>{s.title}</b>
-              {s.id === "connect" && (dev.kind === "asking" ? "Đang hỏi máy…" : dev.kind === "inkdesk" ? `Máy chạy ${dev.fw || "InkDesk"}` : dev.kind === "stock" ? "Máy chạy firmware khác" : "Cắm cáp, bật máy")}
-              {s.id === "firmware" && (dev.kind === "inkdesk" ? "Đã có InkDesk" : stage ? `${stage.name}…` : "Sao lưu, ghi firmware")}
+              {s.id === "connect" && (dev.kind === "asking" ? "Đang hỏi máy…" : dev.kind === "espos" ? `Máy chạy ${dev.fw || "EspOS"}` : dev.kind === "stock" ? "Máy chạy firmware khác" : "Cắm cáp, bật máy")}
+              {s.id === "firmware" && (dev.kind === "espos" ? "Đã có EspOS" : stage ? `${stage.name}…` : "Sao lưu, ghi firmware")}
               {s.id === "wifi" && (wifi ? `Đã vào “${wifi.ssid}”` : "Máy tự quét, bạn chọn mạng")}
               {s.id === "link" && (step === "done" ? "Hoàn tất" : "Thêm vào tài khoản")}
             </div>
@@ -530,8 +530,8 @@ function Installer({ ink, apiBase, me, onDone }: { ink: Ink; apiBase: string; me
 
           {step === "firmware" && (
             <>
-              <h3>Cài firmware InkDesk</h3>
-              <p className="ik-muted">Máy đang chạy firmware khác. Cài InkDesk trước, máy sẽ tự khởi động lại; sau đó trang tự chuyển sang bước WiFi.</p>
+              <h3>Cài firmware EspOS</h3>
+              <p className="ik-muted">Máy đang chạy firmware khác. Cài EspOS trước, máy sẽ tự khởi động lại; sau đó trang tự chuyển sang bước WiFi.</p>
               <label className="ik-check">
                 <input type="checkbox" checked={backup} onChange={(e) => setBackup(e.target.checked)} disabled={busy} />
                 Sao lưu firmware đang có về máy tính trước khi ghi (khuyên dùng, thêm khoảng 3 phút)
@@ -547,13 +547,13 @@ function Installer({ ink, apiBase, me, onDone }: { ink: Ink; apiBase: string; me
               )}
               <div className="ik-actions">
                 <button type="button" className="ik-btn" disabled={busy || dev.kind === "asking"} onClick={() => void installFirmware()}>
-                  {busy ? "Đang cài… đừng rút cáp" : "Cài InkDesk"}
+                  {busy ? "Đang cài… đừng rút cáp" : "Cài EspOS"}
                 </button>
               </div>
             </>
           )}
 
-          {(step === "wifi" || (step === "done" && dev.kind === "inkdesk")) && (
+          {(step === "wifi" || (step === "done" && dev.kind === "espos")) && (
             <div className="ik-wifibox">
               <div className="ik-labelrow">
                 <h3>{step === "done" ? "WiFi của máy" : "Chọn WiFi cho máy"}</h3>
@@ -660,7 +660,7 @@ function Installer({ ink, apiBase, me, onDone }: { ink: Ink; apiBase: string; me
                 <label>
                   Màn hình khi ngủ
                   <select value={form.dash} onChange={(e) => setForm((f) => ({ ...f, dash: e.target.value }))}>
-                    <option value="1">InkDesk (dashboard, ảnh, bìa sách)</option>
+                    <option value="1">EspOS (dashboard, ảnh, bìa sách)</option>
                     <option value="0">Như CrossPoint</option>
                   </select>
                 </label>
@@ -701,10 +701,10 @@ function Installer({ ink, apiBase, me, onDone }: { ink: Ink; apiBase: string; me
               ))
             )}
           </div>
-          {step === "done" && dev.kind === "inkdesk" && (
+          {step === "done" && dev.kind === "espos" && (
             <div className="ik-actions">
               <button type="button" className="ik-link" onClick={() => setStep("firmware")}>
-                Cài lại firmware InkDesk
+                Cài lại firmware EspOS
               </button>
             </div>
           )}

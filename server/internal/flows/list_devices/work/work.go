@@ -3,13 +3,13 @@ package work
 
 import (
 	"encoding/json"
-	"inkdesk/internal/wm"
+	"espos/internal/wm"
 	"strconv"
 	"strings"
 	"time"
 )
 
-// "inkdesk-1.2.3" -> 10203 (0 when unreadable), as the device computes it.
+// "espos-x4-1.2.3" -> 10203 (0 when unreadable), as the device computes it.
 func versionCode(v string) int {
 	if i := strings.LastIndex(v, "-"); i >= 0 {
 		v = v[i+1:]
@@ -35,7 +35,7 @@ func devKind(r map[string]any) string {
 	if k := wm.Str(r["kind"]); k != "" {
 		return k
 	}
-	if strings.HasPrefix(wm.Str(r["fw"]), "inkdesk-s3-") {
+	if strings.HasPrefix(wm.Str(r["fw"]), "espos-s3-") {
 		return "s3"
 	}
 	return "x4"
@@ -65,6 +65,22 @@ func boardOf(r map[string]any) string {
 		return b
 	}
 	return ""
+}
+
+// pingOf: how often (seconds) the device asks whether the web changed something (GET /v1/device/ping, S3 firmware
+// from 2026-11-17 on, told in every sync as diag.ping), so the web can say a change arrives within that; 0 when its
+// firmware does not ask (it gets changes at its next sync).
+func pingOf(r map[string]any) int {
+	d, ok := r["diag"].(map[string]any)
+	if !ok {
+		if s, isStr := r["diag"].(string); isStr && s != "" {
+			_ = json.Unmarshal([]byte(s), &d)
+		}
+	}
+	if p := wm.Int(d["ping"]); p > 0 && p <= 600 {
+		return p
+	}
+	return 0
 }
 
 func remoteOf(r map[string]any, sess map[string]any, now int64) map[string]any {
@@ -141,7 +157,7 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 			"fw_req": wm.Int(r["fw_req"]), "fw_auto": r["fw_auto"] == true, "ota_state": r["ota_state"],
 			"created_at": wm.Str(r["created_at"]),
 			"kind":       devKind(r), "firmware": latestBy[devKind(r)], "remote": remoteOf(r, sessBy[wm.Int(r["id"])], now),
-			"board": boardOf(r),
+			"board": boardOf(r), "ping": pingOf(r),
 		})
 	}
 	return map[string]any{"status": 200, "body": map[string]any{"devices": out, "firmware": latest}}

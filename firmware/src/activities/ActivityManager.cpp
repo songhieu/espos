@@ -15,6 +15,7 @@
 #include "CrossPointSettings.h"
 #include "HapticFeedback.h"
 #include "OpdsServerStore.h"
+#include "apps/EspOSHomeActivity.h"
 #include "boot_sleep/BootActivity.h"
 #include "boot_sleep/SleepActivity.h"
 #include "browser/OpdsBookBrowserActivity.h"
@@ -22,7 +23,6 @@
 #include "home/CrashActivity.h"
 #include "home/FileBrowserActivity.h"
 #include "home/HomeActivity.h"
-#include "apps/InkHomeActivity.h"
 #include "library/LibraryListActivity.h"
 #include "network/CrossPointWebServerActivity.h"
 #include "network/UsbDriveActivity.h"
@@ -378,9 +378,9 @@ void ActivityManager::goHome(HomeMenuItem initialMenuItem, bool cleanInitialRefr
       initialMenuItem = HomeMenuItem::SETTINGS_MENU;
     }
   }
-  // InkDesk replaces CrossPoint's Home; the old one stays reachable from nowhere but is kept for upstream merges.
+  // EspOS replaces CrossPoint's Home; the old one stays reachable from nowhere but is kept for upstream merges.
   (void)cleanInitialRefresh;
-  replaceActivity(std::make_unique<InkHomeActivity>(renderer, mappedInput));
+  replaceActivity(std::make_unique<EspOSHomeActivity>(renderer, mappedInput));
 }
 void ActivityManager::goToCrashReport() { replaceActivity(std::make_unique<CrashActivity>(renderer, mappedInput)); }
 

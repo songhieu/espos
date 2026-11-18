@@ -1,7 +1,7 @@
 // Workflow confirm_photo, node work (imported by tools/importer).
 package work
 
-import "inkdesk/internal/wm"
+import "espos/internal/wm"
 
 func Run(wmIn, wmCtx map[string]any) map[string]any {
 	uid := wm.Int(wmCtx["end_user_id"])

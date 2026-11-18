@@ -7,10 +7,10 @@
 // comes back exactly as it was, regardless of the Restore Light on Wake
 // preference.
 
-void silentRestart();            // home screen
-void silentRestartToReader();    // currently-open EPUB (APP_STATE.openEpubPath)
-void silentRestartToSettings();  // settings screen
-void silentRestartToFontDownload();  // InkDesk: the reading-font download screen, on a fresh heap
+void silentRestart();                // home screen
+void silentRestartToReader();        // currently-open EPUB (APP_STATE.openEpubPath)
+void silentRestartToSettings();      // settings screen
+void silentRestartToFontDownload();  // EspOS: the reading-font download screen, on a fresh heap
 // Reboot into the File Transfer > Join Network flow on a pristine heap, so the
 // WiFi + TLS working set has the contiguous RAM it needs on tight boards. A
 // no-op on touch boards (a soft reset would cycle their externally-powered

@@ -2,7 +2,7 @@
 // next page turn), per day, against a daily goal that the device also shows.
 import { useEffect, useMemo, useState } from "react";
 
-import { type Device, type Ink, type Stats as StatsData } from "../inkdesk";
+import { type Device, type Ink, type Stats as StatsData } from "../espos";
 import { Seg } from "../ui";
 
 const GOALS = ["10", "15", "20", "30", "45", "60"] as const;

@@ -1,4 +1,4 @@
-// The InkDesk "news" worker.
+// The EspOS "news" worker.
 //
 //	{"mode":"refresh"}             every 15 minutes: fetch new VnExpress stories into the server's cache
 //	{"mode":"due"}                 hourly tick: enqueue one job per reader whose hour has come
@@ -15,8 +15,8 @@ import (
 	"strings"
 	"time"
 
-	"inkdesk/internal/jobs/newsjob/news"
-	"inkdesk/internal/wmjob"
+	"espos/internal/jobs/newsjob/news"
+	"espos/internal/wmjob"
 )
 
 type Input struct {

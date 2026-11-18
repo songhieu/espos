@@ -1,7 +1,7 @@
 // Settings → Sleep screen (mode cards, my pictures with the in-browser converter) and Settings → WiFi.
 import { useEffect, useRef, useState } from "react";
 
-import type { Ink, Wallpaper, WifiOp, WifiSaved } from "../inkdesk";
+import type { Ink, Wallpaper, WifiOp, WifiSaved } from "../espos";
 import { Icon, Seg } from "../ui";
 import { dither, drawBits, loadImage, panelSize, thumbDataUrl, toBmp, type Crop } from "../wallpaper";
 

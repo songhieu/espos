@@ -16,8 +16,8 @@ if (!document.getElementById("ik-fonts")) {
 }
 
 // ONE module for every mount: a page may mount this app more than once
-// ({% app 'inkdesk', root: 'second' %}), and each root has its own config.
-for (const el of document.querySelectorAll<HTMLElement>('[data-wm-app="inkdesk"]')) {
+// ({% app 'espos', root: 'second' %}), and each root has its own config.
+for (const el of document.querySelectorAll<HTMLElement>('[data-wm-app="espos"]')) {
   createRoot(el).render(
     <StrictMode>
       <App config={readConfig(el)} />

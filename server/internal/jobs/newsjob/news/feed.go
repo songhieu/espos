@@ -1,4 +1,4 @@
-// Package news builds the InkDesk morning paper: VnExpress RSS → articles → an EPUB with
+// Package news builds the EspOS morning paper: VnExpress RSS → articles → an EPUB with
 // small grayscale pictures for the X4. Plain Go (no SDK) so it runs and tests natively.
 package news
 
@@ -49,7 +49,7 @@ func sectionBySlug(slug string) (Section, bool) {
 }
 
 // UserAgent identifies the digest politely.
-const UserAgent = "Mozilla/5.0 (compatible; InkDesk/1.0; personal e-reader digest)"
+const UserAgent = "Mozilla/5.0 (compatible; EspOS/1.0; personal e-reader digest)"
 
 func get(c *http.Client, url string, limit int64) ([]byte, error) {
 	req, err := http.NewRequest("GET", url, nil)

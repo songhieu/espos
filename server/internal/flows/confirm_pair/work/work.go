@@ -3,17 +3,17 @@ package work
 
 import (
 	"encoding/json"
+	"espos/internal/wm"
 	"fmt"
-	"inkdesk/internal/wm"
 	"net/url"
 	"strconv"
 	"strings"
 	"time"
 )
 
-// Device-visible keys and their defaults (docs/inkdesk-api.md); web-only keys never reach the device.
+// Device-visible keys and their defaults (docs/device-api.md); web-only keys never reach the device.
 var deviceDefaults = map[string]string{
-	"sys.lang": "vi", "sys.sleep_min": "10",
+	"sys.lang": "en", "sys.sleep_min": "10",
 	"read.font": "LexicaUltralegible", "read.size": "medium", "read.spacing": "1.4",
 	"dash.enabled": "1", "dash.layout": "desk", "dash.interval_min": "30", "dash.clock": "1",
 	"dash.charging_min": "1", "dash.save_pct": "20", "dash.quiet_from": "23:00", "dash.quiet_to": "06:00",
@@ -29,7 +29,9 @@ var webDefaults = map[string]string{
 	"dash.blocks": "weather,lunar,calendar,notes",
 }
 var allowed = map[string][]string{
-	"sys.lang": {"vi", "en"}, "sys.sleep_min": {"5", "10", "15", "30"},
+	// sys.lang: every language either device carries (the X4 reader's lib/I18n, s3desk/i18n/languages.json); a
+	// device ignores a language it does not have.
+	"sys.lang": {"en", "vi", "ar", "az", "be", "bg", "bs", "ca", "ca-valencia", "cs", "da", "de", "es", "fa", "fi", "fr", "he", "hu", "id", "it", "ja", "kk", "ko", "lt", "nb", "nl", "ook", "pl", "pt-BR", "pt-PT", "ro", "ru", "sk", "sl", "sv", "tr", "uk", "zh-Hans"}, "sys.sleep_min": {"5", "10", "15", "30"},
 	"read.font": {"notosans", "Literata", "Merriweather", "Bitter", "Lora", "SourceSerif4", "Vollkorn", "NotoSerif", "NotoSerifExtended", "GentiumBookPlus", "IBMPlexSerif", "Alegreya", "Libron", "Inter", "SourceSans3", "IBMPlexSans", "NotoSansExtended", "LexicaUltralegible", "OpenDyslexic", "IBMPlexMono", "SourceCodePro"}, "read.size": {"small", "medium", "large", "xlarge"},
 	"read.spacing": {"1.0", "1.1", "1.2", "1.3", "1.4", "1.6", "1.75"}, "dash.enabled": {"0", "1"}, "dash.layout": {"desk", "calendar", "portrait", "landscape", "wl", "wp"},
 	"dash.interval_min": {"5", "15", "30", "60"}, "dash.clock": {"0", "1"}, "dash.charging_min": {"0", "1"}, "dash.save_pct": {"0", "10", "20", "30"},

@@ -1,9 +1,9 @@
-// Install InkDesk on an Xteink X4 from the browser (Web Serial), then hand the
+// Install EspOS on an Xteink X4 from the browser (Web Serial), then hand the
 // device its token, WiFi and settings over the same USB cable
-// (docs/inkdesk-api.md, "USB provisioning").
+// (docs/device-api.md, "USB provisioning").
 import { ESPLoader, ESPRESSIF_VID, Transport } from "esptool-js";
 
-// The bundle this server offers (`inkdesk firmware add`, see README).
+// The bundle this server offers (`espos firmware add`, see README).
 export const FW_MANIFEST_URL = "/firmware/latest.json";
 const FLASH_16MB = 16 * 1024 * 1024;
 
@@ -113,7 +113,7 @@ async function reacquire(prev: SerialPort | null, log: Log): Promise<SerialPort>
   throw new Error("Không thấy máy. Rút cáp, cắm lại rồi bấm “Chỉ liên kết lại”.");
 }
 
-/** Send the provisioning line and wait for INKDESK:OK. */
+/** Send the provisioning line and wait for ESPOS:OK. */
 export async function provisionDevice(
   portHint: SerialPort | null,
   payload: ProvisionPayload,
@@ -146,7 +146,7 @@ export async function provisionDevice(
       while ((i = buf.indexOf("\n")) >= 0) {
         const line = buf.slice(0, i).replace(/\r$/, "");
         buf = buf.slice(i + 1);
-        if (line.startsWith("INKDESK:")) lines.push(line);
+        if (line.startsWith("ESPOS:")) lines.push(line);
       }
     }
   })();
@@ -168,8 +168,8 @@ export async function provisionDevice(
     log("… Chờ máy sẵn sàng nhận cài đặt");
     progress("provision", 0.2);
     // The X4 has no RTC: every HELLO carries our clock, so the device knows the time at once.
-    const ready = await waitFor(["INKDESK:READY"], 40000, () => "INKDESK:HELLO " + Date.now());
-    if (!ready) throw new Error("Máy không trả lời. Kiểm tra máy đã bật và đang chạy firmware InkDesk.");
+    const ready = await waitFor(["ESPOS:READY"], 40000, () => "ESPOS:HELLO " + Date.now());
+    if (!ready) throw new Error("Máy không trả lời. Kiểm tra máy đã bật và đang chạy firmware EspOS.");
     let fw = "";
     try {
       fw = String((JSON.parse(ready.slice(ready.indexOf("{"))) as { fw?: string }).fw ?? "");
@@ -179,10 +179,10 @@ export async function provisionDevice(
     log(`✓ Máy sẵn sàng${fw ? ` (${fw})` : ""}`);
     progress("provision", 0.5);
     lines.length = 0;
-    await writer.write(enc.encode("INKDESK:PROVISION " + JSON.stringify({ ...payload, now_ms: Date.now() }) + "\n"));
-    const ans = await waitFor(["INKDESK:OK", "INKDESK:ERR"], 20000);
+    await writer.write(enc.encode("ESPOS:PROVISION " + JSON.stringify({ ...payload, now_ms: Date.now() }) + "\n"));
+    const ans = await waitFor(["ESPOS:OK", "ESPOS:ERR"], 20000);
     if (!ans) throw new Error("Máy không xác nhận đã nhận cài đặt.");
-    if (ans.startsWith("INKDESK:ERR")) throw new Error("Máy báo lỗi: " + ans.slice("INKDESK:ERR".length).trim());
+    if (ans.startsWith("ESPOS:ERR")) throw new Error("Máy báo lỗi: " + ans.slice("ESPOS:ERR".length).trim());
     progress("provision", 1);
     log("✓ Máy đã nhận mã thiết bị, WiFi và cài đặt");
   } finally {

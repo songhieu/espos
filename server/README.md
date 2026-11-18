@@ -1,11 +1,11 @@
-# InkDesk server (self-hosted)
+# EspOS server (self-hosted)
 
-The server side of [InkDesk](../README.md): the web app and the API the Xteink X4 reader
+The server side of [EspOS](../README.md): the web app and the API the Xteink X4 reader
 talks to. One Go binary, one account, all data in one folder. No cloud service, no sign-up.
 The reader's firmware is in [../firmware](../firmware/README.md).
 
-> **Tiếng Việt:** Máy chủ InkDesk tự host cho máy đọc Xteink X4. Một file chạy duy nhất,
-> một tài khoản (đặt bằng `INKDESK_USER` / `INKDESK_PASSWORD`), dữ liệu nằm trong một thư
+> **Tiếng Việt:** Máy chủ EspOS tự host cho máy đọc Xteink X4. Một file chạy duy nhất,
+> một tài khoản (đặt bằng `ESPOS_USER` / `ESPOS_PASSWORD`), dữ liệu nằm trong một thư
 > mục. Đủ tính năng như bản hosted: gửi sách (như Send to Kindle), giao diện widget cho màn
 > chính và màn chờ, Báo sáng từ VnExpress, thời tiết, lịch âm dương, lịch Google/iCloud,
 > giá vàng, chứng khoán, tỷ giá, tiền số, thống kê đọc, thông báo qua API, cập nhật
@@ -34,7 +34,7 @@ The reader's firmware is in [../firmware](../firmware/README.md).
 ### Docker
 
 ```sh
-cp .env.example .env          # set INKDESK_PASSWORD
+cp .env.example .env          # set ESPOS_PASSWORD
 mkdir -p data && sudo chown 10001 data   # the container runs as uid 10001
 docker compose up -d --build
 ```
@@ -46,29 +46,29 @@ Open http://localhost:8080 and sign in.
 Needs Go 1.26+ and Node 22+. Run these in this `server/` folder.
 
 ```sh
-make                          # builds the web app, then ./inkdesk
-INKDESK_PASSWORD='a long password' ./inkdesk
+make                          # builds the web app, then ./espos
+ESPOS_PASSWORD='a long password' ./espos
 ```
 
 ## Configuration
 
 | Variable | Default | |
 |---|---|---|
-| `INKDESK_PASSWORD` | (required) | The account's password, 8 characters or more. |
-| `INKDESK_USER` | `admin` | The account's user name. |
-| `INKDESK_ADDR` | `:8080` | Where the server listens. |
-| `INKDESK_DATA` | `./data` | Database, files and the link-signing key. |
-| `INKDESK_PUBLIC_URL` | (none) | The address the browser and the reader use, e.g. `https://inkdesk.example.com`. Set it behind a reverse proxy. Without it the server uses the Host of each request. |
-| `INKDESK_PKG_CATALOG` | (none) | The package catalog (a v2 `apps/catalog.json`) the X4 gets its sleep faces and widgets from. Any public URL works, e.g. the catalog of the hosted InkDesk store. Without it the X4 is offered no packages; `.inkp` files copied to its card still install. |
+| `ESPOS_PASSWORD` | (required) | The account's password, 8 characters or more. |
+| `ESPOS_USER` | `admin` | The account's user name. |
+| `ESPOS_ADDR` | `:8080` | Where the server listens. |
+| `ESPOS_DATA` | `./data` | Database, files and the link-signing key. |
+| `ESPOS_PUBLIC_URL` | (none) | The address the browser and the reader use, e.g. `https://espos.example.com`. Set it behind a reverse proxy. Without it the server uses the Host of each request. |
+| `ESPOS_PKG_CATALOG` | (none) | The package catalog (a v2 `apps/catalog.json`) the X4 gets its sleep faces and widgets from. Any public URL works, e.g. the catalog of the hosted EspOS store. Without it the X4 is offered no packages; `.espk` files copied to its card still install. |
 
 ## Connecting the X4
 
 1. **Get a firmware bundle.** Build the firmware in [../firmware](../firmware/README.md);
-   `scripts/inkdesk_bundle.sh` collects `bootloader.bin`, `partitions.bin`, `boot_app0.bin`
+   `scripts/espos_bundle.sh` collects `bootloader.bin`, `partitions.bin`, `boot_app0.bin`
    and `firmware.bin` in a folder with a `manifest.json`:
 
    ```json
-   {"version": "inkdesk-0.3.3", "chip": "esp32c3", "flash_size": "16MB",
+   {"version": "espos-x4-0.4.0", "chip": "esp32c3", "flash_size": "16MB",
     "parts": [{"file": "bootloader.bin", "offset": 0}, {"file": "partitions.bin", "offset": 32768},
               {"file": "boot_app0.bin", "offset": 57344}, {"file": "firmware.bin", "offset": 65536}]}
    ```
@@ -76,16 +76,16 @@ INKDESK_PASSWORD='a long password' ./inkdesk
    Then add it to the server (it is also offered to linked readers as an update):
 
    ```sh
-   ./inkdesk firmware add path/to/bundle -notes "What changed"
+   ./espos firmware add path/to/bundle -notes "What changed"
    ```
 
 2. **Install from the browser.** Open the web app in Chrome or Edge on a computer, go to
    **Thiết bị** and follow the steps. The installer backs up the reader's original firmware,
-   flashes InkDesk and gives the reader this server's address, a device token and your WiFi.
+   flashes EspOS and gives the reader this server's address, a device token and your WiFi.
    Web Serial only works on a secure page: open the app at `http://localhost:8080` on the
    computer that runs the server, or serve it over HTTPS.
 
-3. **No cable?** A reader that is already on InkDesk can be linked with the code it shows
+3. **No cable?** A reader that is already on EspOS can be linked with the code it shows
    (Thiết bị → "Liên kết lại bằng mã"). It asks the server it was built for, so build the
    firmware with your server's address: see "Server address" in the
    [firmware README](../firmware/README.md#server-address).
@@ -95,14 +95,18 @@ server is reachable from outside your network.
 
 ## Data and backups
 
-Everything is in `INKDESK_DATA`:
+Everything is in `ESPOS_DATA`:
 
-- `inkdesk.db`: the database (SQLite; every table is a set of JSON documents).
+- `espos.db`: the database (SQLite; every table is a set of JSON documents).
 - `files/`: books waiting for the reader, pictures, morning papers.
 - `firmware/`: install bundles.
 - `secret.key`: signs file links. Keep it private.
 
-Stop the server (or use `sqlite3 inkdesk.db ".backup backup.db"`) and copy the folder.
+Stop the server (or use `sqlite3 espos.db ".backup backup.db"`) and copy the folder.
+
+A server set up before the project was renamed keeps working: its database is renamed to
+`espos.db` on the first start, and settings still under their former `*_` names are read
+(the log says which to rename).
 
 ## Services it calls
 
@@ -114,7 +118,7 @@ switched on.
 
 ## How it is built
 
-- `cmd/inkdesk`: the binary (server and `firmware add`).
+- `cmd/espos`: the binary (server and `firmware add`).
 - `internal/server`: the web app, sign-in, the `/v1` API, signed file links.
 - `internal/backend`: routes, tables and workflow graphs (JSON). Each route runs a workflow:
   a small graph such as http_in → code → branch → respond.
@@ -123,7 +127,7 @@ switched on.
 - `internal/wm`: what the nodes call: tables on SQLite, files on disk, outbound HTTP.
 - `internal/jobs/newsjob`: the morning paper builder, run as a background job.
 - `web/`: the React web app, embedded into the binary at build time.
-- `tools/importer`: re-imports the workflows from the hosted InkDesk backend
+- `tools/importer`: re-imports the workflows from the hosted EspOS backend
   (`make import FROM=…`), so both stay the same.
 
 ```sh
@@ -134,7 +138,7 @@ cd web && npm run dev    # the web app with hot reload, using a server on :8080
 ## Security
 
 - One account. Sign-in sessions last 60 days; signing out ends one, and changing
-  `INKDESK_USER` or `INKDESK_PASSWORD` ends all of them.
+  `ESPOS_USER` or `ESPOS_PASSWORD` ends all of them.
 - After a failed sign-in the address waits 1 s, then 2 s, 4 s and so on (up to 15 minutes).
   Open routes (pairing, notifications) are limited per address per minute.
 - Device tokens and notification keys are stored as SHA-256 hashes; the data folder is
@@ -142,7 +146,7 @@ cd web && npm run dev    # the web app with hot reload, using a server on :8080
 - Files are reached only through short-lived signed links.
 - Calendar links you add are fetched by the server (https only, no redirect to plain http).
 - Put the server behind HTTPS (Caddy, nginx, Traefik) before exposing it to the internet,
-  and set `INKDESK_PUBLIC_URL`.
+  and set `ESPOS_PUBLIC_URL`.
 
 ## License
 

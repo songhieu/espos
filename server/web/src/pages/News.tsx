@@ -1,7 +1,7 @@
 // The morning paper: VnExpress sections made into an EPUB each morning and synced to the X4.
 import { useEffect, useRef, useState } from "react";
 
-import { ago, bytes, type Ink, type NewsIssue, type NewsPrefs } from "../inkdesk";
+import { ago, bytes, type Ink, type NewsIssue, type NewsPrefs } from "../espos";
 import { Icon, Seg, Toggle } from "../ui";
 
 const SECTIONS: { id: string; label: string }[] = [

@@ -1,8 +1,6 @@
 #include <Arduino.h>
 #include <BlePageTurner.h>
 #include <BoardConfig.h>
-#include <driver/gpio.h>
-#include <esp_sleep.h>
 #include <Epub.h>
 #include <FontCacheManager.h>
 #include <FontDecompressor.h>
@@ -24,14 +22,9 @@
 #include <WiFi.h>
 #include <XteinkDetect.h>
 #include <builtinFonts/all.h>
-
-#include "inkdesk/InkFonts.h"
-#include "inkdesk/fonts/ink_24_bold.h"
-#include "inkdesk/fonts/ink_44_digits.h"
-#include "inkdesk/fonts/ink_60_digits.h"
-#include "inkdesk/fonts/ink_30_digits.h"
-#include "inkdesk/fonts/ink_serif_36.h"
+#include <driver/gpio.h>
 #include <esp_heap_caps.h>
+#include <esp_sleep.h>
 #include <esp_wifi.h>
 #include <time.h>
 
@@ -51,20 +44,26 @@
 #include "WifiCredentialStore.h"
 #include "activities/Activity.h"
 #include "activities/ActivityManager.h"
+#include "activities/apps/EspOSOtaActivity.h"
+#include "activities/apps/EspOSSyncActivity.h"
+#include "activities/apps/EspOSWelcomeActivity.h"
 #include "activities/settings/SdFirmwareUpdateActivity.h"
-#include "activities/apps/InkDeskSyncActivity.h"
-#include "activities/apps/InkDeskWelcomeActivity.h"
 #include "components/UITheme.h"
+#include "espos/DashboardView.h"
+#include "espos/EspOSDebug.h"
+#include "espos/EspOSFonts.h"
+#include "espos/EspOSNet.h"
+#include "espos/EspOSOta.h"
+#include "espos/EspOSSerial.h"
+#include "espos/EspOSStore.h"
+#include "espos/EspOSSync.h"
+#include "espos/Wallpapers.h"
+#include "espos/fonts/espos_24_bold.h"
+#include "espos/fonts/espos_30_digits.h"
+#include "espos/fonts/espos_44_digits.h"
+#include "espos/fonts/espos_60_digits.h"
+#include "espos/fonts/espos_serif_36.h"
 #include "fontIds.h"
-#include "inkdesk/DashboardView.h"
-#include "inkdesk/Wallpapers.h"
-#include "inkdesk/InkDeskDebug.h"
-#include "inkdesk/InkNet.h"
-#include "inkdesk/InkDeskSerial.h"
-#include "inkdesk/InkDeskStore.h"
-#include "inkdesk/InkOta.h"
-#include "activities/apps/InkOtaActivity.h"
-#include "inkdesk/InkDeskSync.h"
 #include "platform/UsbSerialJtagHandoff.h"
 #include "util/ButtonNavigator.h"
 #include "util/PluginEvents.h"
@@ -123,16 +122,16 @@ EpdFontFamily notosans18FontFamily(18, &notosans18RegularFont, &notosans18BoldFo
 
 #endif  // OMIT_FONTS
 
-EpdFont ink24Font(&ink_24_bold);
-EpdFontFamily ink24FontFamily(24, &ink24Font, &ink24Font);
-EpdFont ink44Font(&ink_44_digits);
-EpdFontFamily ink44FontFamily(44, &ink44Font, &ink44Font);
-EpdFont ink60Font(&ink_60_digits);
-EpdFontFamily ink60FontFamily(60, &ink60Font, &ink60Font);
-EpdFont ink30Font(&ink_30_digits);
-EpdFontFamily ink30FontFamily(30, &ink30Font, &ink30Font);
-EpdFont inkSerif36Font(&ink_serif_36);
-EpdFontFamily inkSerif36FontFamily(36, &inkSerif36Font, &inkSerif36Font);
+EpdFont espos24Font(&espos_24_bold);
+EpdFontFamily espos24FontFamily(24, &espos24Font, &espos24Font);
+EpdFont espos44Font(&espos_44_digits);
+EpdFontFamily espos44FontFamily(44, &espos44Font, &espos44Font);
+EpdFont espos60Font(&espos_60_digits);
+EpdFontFamily espos60FontFamily(60, &espos60Font, &espos60Font);
+EpdFont espos30Font(&espos_30_digits);
+EpdFontFamily espos30FontFamily(30, &espos30Font, &espos30Font);
+EpdFont esposSerif36Font(&espos_serif_36);
+EpdFontFamily esposSerif36FontFamily(36, &esposSerif36Font, &esposSerif36Font);
 EpdFont smallFont(&ubuntu_8_regular);
 EpdFontFamily smallFontFamily(8, &smallFont);
 
@@ -153,7 +152,7 @@ constexpr uint32_t SILENT_REBOOT_TARGET_HOME = 0;
 constexpr uint32_t SILENT_REBOOT_TARGET_READER = 1;
 constexpr uint32_t SILENT_REBOOT_TARGET_SETTINGS = 2;
 constexpr uint32_t SILENT_REBOOT_TARGET_JOIN_NETWORK = 3;
-constexpr uint32_t SILENT_REBOOT_TARGET_FONT = 4;  // InkDesk font download
+constexpr uint32_t SILENT_REBOOT_TARGET_FONT = 4;  // EspOS font download
 constexpr uint32_t SILENT_REBOOT_TARGET_MAX = SILENT_REBOOT_TARGET_FONT;
 constexpr uint32_t SILENT_REBOOT_LIGHT_ON = 1U << 0;
 
@@ -534,8 +533,8 @@ void enterDeepSleep(bool fromTimeout = false) {
   const bool wakeOnHeldButton = false;
 #endif
 
-  // InkDesk dashboard: wake on a timer to refresh it (0 = button wake only).
-  const uint32_t dashboardWakeSec = inkdesk::dashboard::nextWakeSeconds(gpio.isUsbConnected());
+  // EspOS dashboard: wake on a timer to refresh it (0 = button wake only).
+  const uint32_t dashboardWakeSec = espos::dashboard::nextWakeSeconds(gpio.isUsbConnected());
 
   halTiltSensor.deepSleep();
   display.deepSleep();
@@ -579,11 +578,11 @@ void setupDisplayAndFonts(bool seamless = false) {
   renderer.insertFont(UI_10_FONT_ID, ui10FontFamily);
   renderer.insertFont(UI_12_FONT_ID, ui12FontFamily);
   renderer.insertFont(SMALL_FONT_ID, smallFontFamily);
-  renderer.insertFont(INK_24_FONT_ID, ink24FontFamily);
-  renderer.insertFont(INK_44_FONT_ID, ink44FontFamily);
-  renderer.insertFont(INK_60_FONT_ID, ink60FontFamily);
-  renderer.insertFont(INK_30_FONT_ID, ink30FontFamily);
-  renderer.insertFont(INK_SERIF_36_FONT_ID, inkSerif36FontFamily);
+  renderer.insertFont(ESPOS_24_FONT_ID, espos24FontFamily);
+  renderer.insertFont(ESPOS_44_FONT_ID, espos44FontFamily);
+  renderer.insertFont(ESPOS_60_FONT_ID, espos60FontFamily);
+  renderer.insertFont(ESPOS_30_FONT_ID, espos30FontFamily);
+  renderer.insertFont(ESPOS_SERIF_36_FONT_ID, esposSerif36FontFamily);
 
   // Discover and load SD card fonts
   sdFontSystem.begin(renderer);
@@ -655,56 +654,56 @@ DashIdleWake dashboardIdle(const uint32_t sec, const bool usbPowered) {
 }
 }  // namespace
 
-// InkDesk sleep screen after an RTC timer wake. Stays here (the UI is never started):
+// EspOS sleep screen after an RTC timer wake. Stays here (the UI is never started):
 // downloads fresh data when it is due, redraws the dashboard (fast refresh for the
 // minute clock, a clean refresh after new data and every hour), then light-sleeps
 // until the next minute. Long quiet gaps use deep sleep. The power button restarts
 // into the normal UI. Never returns.
 static void runDashboardTimerWake() {
-  LOG_INF("INKD", "Dashboard timer wake");
+  LOG_INF("ESPOS", "Dashboard timer wake");
   setupDisplayAndFonts(true);
   bool firstPaint = true;
   int fastPaints = 0;
-  inkdesk::dashboard::WakePlan plan;
+  espos::dashboard::WakePlan plan;
   for (;;) {
     const bool usbPowered = gpio.isUsbConnected();
     bool fresh = false;
-    if (inkdesk::dashboard::sleepScreenEnabled() && inkdesk::dashboard::fetchDue(usbPowered) &&
+    if (espos::dashboard::sleepScreenEnabled() && espos::dashboard::fetchDue(usbPowered) &&
         (usbPowered || powerManager.getBatteryPercentage() >= 10)) {
-      inkdesk::dashboard::noteFetchAttempt();
-      if (inkdesk::net::joinSaved(8000)) {
+      espos::dashboard::noteFetchAttempt();
+      if (espos::net::joinSaved(8000)) {
         // A full sync: dashboard, settings, tasks, WiFi changes, and new pictures and books
         // (the morning paper) land while the device sleeps.
-        const auto outcome = inkdesk::sync::run();
-        fresh = outcome.result == inkdesk::client::Result::Ok;
-        if (fresh) inkdesk::sync::downloadAll(outcome);
+        const auto outcome = espos::sync::run();
+        fresh = outcome.result == espos::client::Result::Ok;
+        if (fresh) espos::sync::downloadAll(outcome);
       }
-      inkdesk::net::off();
+      espos::net::off();
       // The web asked for a firmware update: Home installs it from a clean boot.
-      if (fresh && InkOtaActivity::installWanted()) {
-        LOG_INF("INKD", "Firmware update requested, restarting to install");
+      if (fresh && EspOSOtaActivity::installWanted()) {
+        LOG_INF("ESPOS", "Firmware update requested, restarting to install");
         delay(20);
         esp_restart();
       }
-      if (!fresh && !INKDESK.dashOffline) {
-        INKDESK.dashOffline = true;
-        INKDESK.saveToFile();
+      if (!fresh && !ESPOS.dashOffline) {
+        ESPOS.dashOffline = true;
+        ESPOS.saveToFile();
       }
     }
     // Pictures on a timer: the next one when its time has come.
-    if (inkdesk::dashboard::effectiveMode() == inkdesk::dashboard::Mode::Images &&
-        inkdesk::wallpapers::rotateMinutes() > 0 && inkdesk::wallpapers::secondsToRotate() == 0) {
-      inkdesk::wallpapers::advance();
+    if (espos::dashboard::effectiveMode() == espos::dashboard::Mode::Images && espos::wallpapers::rotateMinutes() > 0 &&
+        espos::wallpapers::secondsToRotate() == 0) {
+      espos::wallpapers::advance();
       fresh = true;
     }
-    plan = inkdesk::dashboard::planWake(usbPowered);
-    if (inkdesk::dashboard::sleepScreenEnabled()) {
+    plan = espos::dashboard::planWake(usbPowered);
+    if (espos::dashboard::sleepScreenEnabled()) {
       RenderLock lock;
-      if (inkdesk::dashboard::draw(renderer, plan)) {
+      if (espos::dashboard::draw(renderer, plan)) {
         const bool clean = firstPaint || fresh || fastPaints >= 60;
         renderer.displayBuffer(clean ? HalDisplay::HALF_REFRESH : HalDisplay::FAST_REFRESH);
         display.controllerIdle();  // panel analog off until the next paint; its RAM is kept
-        inkdesk::ota::confirmRunning();
+        espos::ota::confirmRunning();
         fastPaints = clean ? 0 : fastPaints + 1;
         firstPaint = false;
       }
@@ -714,7 +713,7 @@ static void runDashboardTimerWake() {
     if (plan.sleepSec == 0 || (!plan.clock && plan.sleepSec > 600)) break;
     const DashIdleWake wake = dashboardIdle(plan.sleepSec, usbPowered);
     if (wake != DashIdleWake::Timer) {
-      LOG_INF("INKD", "Dashboard idle ended by %s", wake == DashIdleWake::Button ? "button" : "host");
+      LOG_INF("ESPOS", "Dashboard idle ended by %s", wake == DashIdleWake::Button ? "button" : "host");
       dashButtonWakeMagic = DASH_BUTTON_WAKE_MAGIC;
       delay(20);
       esp_restart();
@@ -735,7 +734,7 @@ void setup() {
   // enumeration proceed asynchronously so users do not pay this startup cost.
   delay(250);
 #endif
-  // InkDesk USB provisioning sends one JSON line of up to a few KB.
+  // EspOS USB provisioning sends one JSON line of up to a few KB.
   logSerial.setRxBufferSize(2048);
   Serial.begin(115200);
 #if LOG_SERIAL_HAS_TX_TIMEOUT
@@ -783,8 +782,7 @@ void setup() {
   // only SD state survives to the next boot.
   // The Metalio boots after the button is released, so it skips the check.
   const bool wakeHoldVerified = dashButtonWake || wakeupReason != HalGPIO::WakeupReason::PowerButton ||
-                                BoardConfig::isMetalioEInk4() ||
-                                gpio.verifyPowerButtonWakeup();
+                                BoardConfig::isMetalioEInk4() || gpio.verifyPowerButtonWakeup();
 
   // X4 Pro and X4 Classic both map BTN_UP to GPIO0 — an ESP32-S3 boot strap — so
   // gate recovery on the non-strap Down key (GPIO7) to avoid a stuck-in-recovery loop.
@@ -840,8 +838,8 @@ void setup() {
   OPDS_STORE.loadFromFile();
   OPDS_TOKENS.loadFromFile();
   LCP_PASSPHRASES.loadFromFile();
-  INKDESK.loadFromFile();
-  inkdesk::ota::checkAfterBoot();
+  ESPOS.loadFromFile();
+  espos::ota::checkAfterBoot();
   UITheme::getInstance().reload();
   ButtonNavigator::setMappedInputManager(mappedInputManager);
   pluginevents::refreshSubscriptions();
@@ -902,9 +900,9 @@ void setup() {
       // the device in a USB-replug boot loop (or sleep right after a flash).
       break;
 #else
-      // InkDesk: with the dashboard as the sleep screen, run it instead of powering off.
+      // EspOS: with the dashboard as the sleep screen, run it instead of powering off.
       // On USB it stays awake, so the serial port keeps answering the web installer.
-      if (inkdesk::dashboard::sleepScreenEnabled()) runDashboardTimerWake();  // does not return
+      if (espos::dashboard::sleepScreenEnabled()) runDashboardTimerWake();  // does not return
       Storage.prepareForDeepSleep();
       powerManager.startDeepSleep(gpio);
       break;
@@ -985,7 +983,7 @@ void setup() {
   } else if (resume == BootResume::Silent && snapshotTarget == SILENT_REBOOT_TARGET_FONT) {
     // The reading font picked on the web needs the fresh heap for its TLS download.
     activityManager.replaceActivity(
-        std::make_unique<InkDeskSyncActivity>(renderer, mappedInputManager, InkDeskSyncActivity::Mode::Font));
+        std::make_unique<EspOSSyncActivity>(renderer, mappedInputManager, EspOSSyncActivity::Mode::Font));
   } else if (resume == BootResume::Silent && snapshotTarget == SILENT_REBOOT_TARGET_SETTINGS) {
     // Back out of the WiFi rows and the user is where they left off, not on Home.
     activityManager.goToSettings(SettingsSection::Network);
@@ -1030,7 +1028,7 @@ void setup() {
 
 void loop() {
   // Running steadily for a while (any screen, e.g. a book resumed at boot): keep this firmware.
-  if (millis() > 20000) inkdesk::ota::confirmRunning();
+  if (millis() > 20000) espos::ota::confirmRunning();
   static unsigned long maxLoopDuration = 0;
   const unsigned long loopStartTime = millis();
   static unsigned long lastMemPrint = 0;
@@ -1101,10 +1099,10 @@ void loop() {
   // nb: we use logSerial from logging to avoid deprecation warnings
   if (logSerial.available() > 0) {
     String line = logSerial.readStringUntil('\n');
-    if (line.startsWith("INKDESK:")) {
+    if (line.startsWith("ESPOS:")) {
       line.trim();
-      if (inkdesk::serial::handleLine(line.c_str() + 8)) {
-        activityManager.replaceActivity(std::make_unique<InkDeskWelcomeActivity>(renderer, mappedInputManager));
+      if (espos::serial::handleLine(line.c_str() + 8)) {
+        activityManager.replaceActivity(std::make_unique<EspOSWelcomeActivity>(renderer, mappedInputManager));
       }
     } else if (line.startsWith("CMD:")) {
       String cmd = line.substring(4);
@@ -1121,10 +1119,14 @@ void loop() {
         static const struct {
           const char* name;
           MappedInputManager::Button button;
-        } kKeys[] = {{"confirm", MappedInputManager::Button::Confirm}, {"back", MappedInputManager::Button::Back},
-                     {"left", MappedInputManager::Button::Left},       {"right", MappedInputManager::Button::Right},
-                     {"up", MappedInputManager::Button::Up},           {"down", MappedInputManager::Button::Down},
-                     {"next", MappedInputManager::Button::NavNext},    {"prev", MappedInputManager::Button::NavPrevious},
+        } kKeys[] = {{"confirm", MappedInputManager::Button::Confirm},
+                     {"back", MappedInputManager::Button::Back},
+                     {"left", MappedInputManager::Button::Left},
+                     {"right", MappedInputManager::Button::Right},
+                     {"up", MappedInputManager::Button::Up},
+                     {"down", MappedInputManager::Button::Down},
+                     {"next", MappedInputManager::Button::NavNext},
+                     {"prev", MappedInputManager::Button::NavPrevious},
                      {"pageback", MappedInputManager::Button::PageBack},
                      {"pagefwd", MappedInputManager::Button::PageForward}};
         const String name = cmd.substring(4);
@@ -1169,7 +1171,8 @@ void loop() {
             delay(250);
           }
           if (st == WL_CONNECTED) {
-            logSerial.printf("WIFITEST_OK %s rssi=%d\n", WiFi.localIP().toString().c_str(), static_cast<int>(WiFi.RSSI()));
+            logSerial.printf("WIFITEST_OK %s rssi=%d\n", WiFi.localIP().toString().c_str(),
+                             static_cast<int>(WiFi.RSSI()));
           } else {
             logSerial.printf("WIFITEST_FAIL status=%d\n", static_cast<int>(st));
           }
@@ -1179,24 +1182,30 @@ void loop() {
           logSerial.printf("WIFITEST_FAIL format\n");
         }
       } else if (cmd.startsWith("LANG ")) {
-        const auto lang = I18n::languageFromCode(cmd.substring(5) == "en" ? "EN" : "VI");
-        SETTINGS.language = static_cast<uint8_t>(lang);
-        I18N.setLanguage(lang);
-        SETTINGS.saveToFile();
-        logSerial.printf("LANG_OK\n");
+        String tag = cmd.substring(5);
+        tag.trim();
+        Language lang;
+        if (I18n::languageFromTag(tag.c_str(), lang)) {
+          SETTINGS.language = static_cast<uint8_t>(lang);
+          I18N.setLanguage(lang);
+          SETTINGS.saveToFile();
+          logSerial.printf("LANG_OK\n");
+        } else {
+          logSerial.printf("LANG_ERR unknown\n");
+        }
       } else if (cmd.startsWith("OPEN ")) {
-        inkdesk::debugOpen(cmd.substring(5).c_str(), renderer, mappedInputManager);
+        espos::debugOpen(cmd.substring(5).c_str(), renderer, mappedInputManager);
         logSerial.printf("OPEN_OK\n");
       } else if (cmd.startsWith("TIME ")) {
         // CMD:TIME <epoch ms>: set the clock from the host (the X4 has no RTC).
-        inkdesk::sync::adoptServerClock(strtoll(cmd.substring(5).c_str(), nullptr, 10));
-        logSerial.printf("TIME_OK %d\n", InkDeskStore::clockValid() ? 1 : 0);
+        espos::sync::adoptServerClock(strtoll(cmd.substring(5).c_str(), nullptr, 10));
+        logSerial.printf("TIME_OK %d\n", EspOSStore::clockValid() ? 1 : 0);
       } else if (cmd.startsWith("SET ")) {
-        // CMD:SET <inkdesk key> <value>: a local setting change, synced like one made on the device.
+        // CMD:SET <espos key> <value>: a local setting change, synced like one made on the device.
         const int sp = cmd.indexOf(' ', 4);
         if (sp > 4) {
-          INKDESK.setLocal(cmd.substring(4, sp).c_str(), cmd.substring(sp + 1).c_str());
-          INKDESK.saveToFile();
+          ESPOS.setLocal(cmd.substring(4, sp).c_str(), cmd.substring(sp + 1).c_str());
+          ESPOS.saveToFile();
           logSerial.printf("SET_OK\n");
         } else {
           logSerial.printf("SET_FAIL format\n");

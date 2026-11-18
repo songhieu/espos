@@ -3,8 +3,8 @@ package dash
 
 import (
 	"encoding/json"
+	"espos/internal/wm"
 	"fmt"
-	"inkdesk/internal/wm"
 	"math"
 	"net/url"
 	"sort"
@@ -165,9 +165,165 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 		}
 		d["stocks"] = q
 	}
+	// The colour desk's reading widgets: what the person reads on their e-readers (the X4 has it itself).
+	if s3 {
+		r, rerr := readingFor(userID, local)
+		if rerr != nil {
+			wm.Log("reading: ", rerr.Error())
+		} else {
+			d["reading"] = r
+		}
+	}
 	// Stamped last: the device sets its clock from it, so the time spent building must not count.
 	d["now_ms"] = time.Now().UnixMilli()
 	return map[string]any{"dashboard": d}
+}
+
+// readingFor: what the person reads on their EspOS e-readers, for the colour desk's widgets (s3desk/src/wid/read.cpp):
+// today's seconds, the goal (read.goal_min of their readers, 30), the streak and the best one (days in a row at the
+// goal, as the web's Stats page counts them), the last 7 days' seconds (oldest first) and the 8 books read lately (title,
+// author, percent when known, the last day read), the one being read first.
+func readingFor(userID int, local time.Time) (map[string]any, error) {
+	devs, err := wm.QueryOpts("devices", map[string]any{"filters": []map[string]any{
+		{"column": "user_id", "op": "eq", "value": userID}, {"column": "revoked", "op": "eq", "value": false}},
+		"order_by": "id", "limit": 20})
+	if err != nil {
+		return nil, err
+	}
+	goal := 30
+	ids := []any{}
+	for _, dv := range devs {
+		ids = append(ids, wm.Int(dv["id"]))
+	}
+	if len(ids) > 0 {
+		set, serr := wm.QueryOpts("device_settings", map[string]any{"filters": []map[string]any{
+			{"column": "device_id", "op": "in", "value": ids}, {"column": "skey", "op": "eq", "value": "read.goal_min"}},
+			"order_by": "updated_ms", "limit": 50})
+		if serr != nil {
+			return nil, serr
+		}
+		for _, st := range set { // ascending: the last one wins
+			if n, e := strconv.Atoi(wm.Str(st["svalue"])); e == nil && n >= 5 && n <= 240 {
+				goal = n
+			}
+		}
+	}
+	const dayFmt = "2006-01-02"
+	rows, rerr := wm.QueryOpts("reading_days", map[string]any{"filters": []map[string]any{
+		{"column": "user_id", "op": "eq", "value": userID}, {"column": "day", "op": "gte", "value": local.AddDate(0, 0, -400).Format(dayFmt)}},
+		"order_by": "day", "limit": 5000})
+	if rerr != nil {
+		return nil, rerr
+	}
+	type bookAgg struct {
+		title, last string
+		id, sec     int
+	}
+	days := map[string]int{}
+	byKey := map[string]*bookAgg{}
+	for _, r := range rows {
+		day := wm.Str(r["day"])
+		days[day] += wm.Int(r["seconds"])
+		key := wm.Str(r["book_key"])
+		if key == "" {
+			continue
+		}
+		b := byKey[key]
+		if b == nil {
+			b = &bookAgg{}
+			byKey[key] = b
+		}
+		b.sec += wm.Int(r["seconds"])
+		if t := wm.Str(r["title"]); t != "" {
+			b.title = t
+		}
+		if id := wm.Int(r["book_id"]); id > 0 {
+			b.id = id
+		}
+		if day > b.last {
+			b.last = day
+		}
+	}
+	week := make([]any, 7)
+	for i := 0; i < 7; i++ {
+		week[i] = days[local.AddDate(0, 0, i-6).Format(dayFmt)]
+	}
+	// Streaks: days in a row at or above the goal; today counts once it is reached.
+	reached := func(t time.Time) bool { return days[t.Format(dayFmt)] >= goal*60 }
+	streak := 0
+	t := local
+	if !reached(t) {
+		t = t.AddDate(0, 0, -1)
+	}
+	for reached(t) {
+		streak++
+		t = t.AddDate(0, 0, -1)
+	}
+	best, run := 0, 0
+	for dd := local.AddDate(0, 0, -400); !dd.After(local); dd = dd.AddDate(0, 0, 1) {
+		if reached(dd) {
+			run++
+			if run > best {
+				best = run
+			}
+		} else {
+			run = 0
+		}
+	}
+	list := make([]*bookAgg, 0, len(byKey))
+	for _, b := range byKey {
+		list = append(list, b)
+	}
+	sort.Slice(list, func(i, j int) bool {
+		if list[i].last != list[j].last {
+			return list[i].last > list[j].last
+		}
+		return list[i].sec > list[j].sec
+	})
+	// Author and progress of EspOS books (a book from the reader's own card has neither).
+	type bookRow struct {
+		title, author string
+		progress      any
+	}
+	known := map[int]bookRow{}
+	for _, b := range list {
+		if b.id > 0 {
+			brows, berr := wm.QueryOpts("books", map[string]any{"filters": []map[string]any{
+				{"column": "user_id", "op": "eq", "value": userID}}, "limit": 500})
+			if berr != nil {
+				return nil, berr
+			}
+			for _, br := range brows {
+				known[wm.Int(br["id"])] = bookRow{wm.Str(br["title"]), wm.Str(br["author"]), br["progress"]}
+			}
+			break
+		}
+	}
+	books := []any{}
+	for _, b := range list {
+		if len(books) == 8 {
+			break
+		}
+		k, ok := known[b.id]
+		title := b.title
+		if title == "" && ok {
+			title = k.title
+		}
+		if title == "" {
+			continue
+		}
+		item := map[string]any{"t": clip(title, 120), "d": b.last}
+		if ok && k.author != "" {
+			item["a"] = clip(k.author, 80)
+		}
+		if ok && k.progress != nil {
+			if p := wm.Int(k.progress); p >= 0 && p <= 100 {
+				item["p"] = p
+			}
+		}
+		books = append(books, item)
+	}
+	return map[string]any{"today": days[local.Format(dayFmt)], "goal": goal, "streak": streak, "best": best, "week": week, "books": books}, nil
 }
 
 func orDefault(v, def string) string {
@@ -667,6 +823,10 @@ func marketNeeds(st map[string]string, kind string) needs {
 // firmware's built-in mix, which the always-lists cover.
 func s3MarketOpts(st map[string]string) []string {
 	out := s3WidgetOpts(st, "markets")
+	// The one-market widgets (gold, stocks, fx, crypto) hold the same "kind:code" tokens.
+	for _, k := range []string{"gold", "stocks", "fx", "crypto"} {
+		out = append(out, s3WidgetOpts(st, k)...)
+	}
 	// The Markets app's own list (s3.markets, set on the web or the device), after the widgets' picks.
 	if v := strings.TrimSpace(st["s3.markets"]); v != "" {
 		out = append(out, v)

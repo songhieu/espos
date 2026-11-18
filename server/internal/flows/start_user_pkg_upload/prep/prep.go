@@ -2,16 +2,16 @@
 package prep
 
 import (
+	"espos/internal/wm"
 	"fmt"
-	"inkdesk/internal/wm"
 	"time"
 )
 
-// The user's own Java games (the S3's "Game Java" tab): the browser packs the .jar into a .inkp and uploads it, and
+// The user's own Java games (the S3's "Game Java" tab): the browser packs the .jar into a .espk and uploads it, and
 // its icon, straight into the user's private storage through the two signed PUT URLs this route answers. Nothing is
 // stored here: confirm_user_pkg checks the uploaded file and keeps it. The same limits are in confirm_user_pkg.
 const (
-	maxInkp  = 2306867 // 2.2 MB: a 2 MB .jar plus its manifest and icon
+	maxEspk  = 2306867 // 2.2 MB: a 2 MB .jar plus its manifest and icon
 	maxJar   = 2097152 // 2 MB
 	maxIcon  = 65536
 	maxGames = 30
@@ -49,7 +49,7 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 	if jarSize <= 0 || jarSize > maxJar {
 		return map[string]any{"ok": false, "status": 422, "why": "File .jar lớn hơn 2 MB. Mỗi game tối đa 2 MB."}
 	}
-	if size < 16 || size > maxInkp {
+	if size < 16 || size > maxEspk {
 		return map[string]any{"ok": false, "status": 422, "why": "Gói game lớn hơn 2,2 MB"}
 	}
 	if iconSize < 0 || iconSize > maxIcon {
@@ -71,5 +71,5 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 	}
 	// One folder per upload: a new version never overwrites the one a device may be downloading.
 	dir := fmt.Sprintf("upkg/u%d/%s/%d/", uid, id, time.Now().UnixMilli())
-	return map[string]any{"ok": true, "status": 200, "why": "", "key": dir + "core.inkp", "icon_key": dir + "icon.jpg"}
+	return map[string]any{"ok": true, "status": 200, "why": "", "key": dir + "core.espk", "icon_key": dir + "icon.jpg"}
 }

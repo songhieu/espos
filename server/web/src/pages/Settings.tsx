@@ -4,7 +4,7 @@ import { DashPreview, normLayout } from "../DashPreview";
 import { WifiPanel } from "./SleepScreen";
 import { CityPicker, TzSelect } from "../PlacePickers";
 import { FontPicker, PagePreview } from "../ReadingPrefs";
-import { ago, randomHex, sha256Hex, type Dash, type Device, type Ink, type SettingCell } from "../inkdesk";
+import { ago, randomHex, sha256Hex, type Dash, type Device, type Ink, type SettingCell } from "../espos";
 import { Icon, Seg, Toggle } from "../ui";
 
 type Tab = "read" | "sys" | "dash" | "wifi" | "notify";
@@ -81,7 +81,7 @@ export function Settings({ ink }: { ink: Ink }) {
         <header className="ik-head">
           <div>
             <h2>Cài đặt máy</h2>
-            <p>Chưa có máy nào. Vào "Thiết bị" để cài InkDesk lên Xteink X4.</p>
+            <p>Chưa có máy nào. Vào "Thiết bị" để cài EspOS lên Xteink X4.</p>
           </div>
         </header>
       </section>

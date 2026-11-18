@@ -16,7 +16,7 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"inkdesk/internal/wm"
+	"espos/internal/wm"
 )
 
 // NodeFunc is a code node: its input map and the run's context ({end_user_id}).

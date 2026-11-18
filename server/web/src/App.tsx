@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { ApiError, createApi, type Api } from "./api";
 import type { AppConfig } from "./config";
-import { ago, ink, type Device } from "./inkdesk";
+import { ago, ink, type Device } from "./espos";
 import { Devices } from "./pages/Devices";
 import { Library } from "./pages/Library";
 import { News } from "./pages/News";
@@ -49,7 +49,7 @@ export function App({ config }: { config: AppConfig }) {
   useEffect(() => {
     // A pairing link opened before signing in: keep the code across the sign-in round trip.
     const code = loc.query.get("pair");
-    if (code) sessionStorage.setItem("inkdesk_pair", code);
+    if (code) sessionStorage.setItem("espos_pair", code);
   }, [loc]);
 
   useEffect(() => {
@@ -63,7 +63,7 @@ export function App({ config }: { config: AppConfig }) {
       (u) => {
         setMe(toMe(u));
         setChecked(true);
-        const code = sessionStorage.getItem("inkdesk_pair");
+        const code = sessionStorage.getItem("espos_pair");
         if (code) location.hash = `#/devices?pair=${code}`;
       },
       () => setChecked(true),
@@ -130,7 +130,7 @@ function Shell({
     <div className="ik ik-app">
       <aside className="ik-side">
         <div className="ik-brand">
-          <span className="ik-mark">I</span>InkDesk
+          <span className="ik-mark">E</span>EspOS
         </div>
         <nav className="ik-nav">
           {nav.map((n) => (
@@ -169,7 +169,7 @@ function Shell({
           <span className="ik-avatar">{(me.email || "?").slice(0, 1).toUpperCase()}</span>
           <div title={me.email}>
             <b>{me.email.split("@")[0]}</b>
-            <span>Tài khoản InkDesk</span>
+            <span>Tài khoản EspOS</span>
           </div>
           <button type="button" className="ik-link" onClick={signOut}>
             Thoát
@@ -211,7 +211,7 @@ function Login({ api, error, onIn }: { api: Api; error: string | null; onIn: (m:
     <div className="ik ik-login">
       <div className="ik-art">
         <div className="ik-brand light">
-          <span className="ik-mark">I</span>InkDesk
+          <span className="ik-mark">E</span>EspOS
         </div>
         <div>
           <h1>
@@ -251,7 +251,7 @@ function Login({ api, error, onIn }: { api: Api; error: string | null; onIn: (m:
             </button>
           </form>
           {msg && <p className="ik-err">{msg}</p>}
-          <p className="ik-fine">Máy chủ tự host: một tài khoản duy nhất, đặt bằng INKDESK_USER và INKDESK_PASSWORD.</p>
+          <p className="ik-fine">Máy chủ tự host: một tài khoản duy nhất, đặt bằng ESPOS_USER và ESPOS_PASSWORD.</p>
         </div>
       </div>
     </div>

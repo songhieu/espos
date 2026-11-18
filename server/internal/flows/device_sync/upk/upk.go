@@ -3,7 +3,7 @@ package upk
 
 import (
 	"encoding/json"
-	"inkdesk/internal/wm"
+	"espos/internal/wm"
 	"strings"
 	"time"
 )
@@ -18,7 +18,7 @@ func kindOf(row map[string]any, fw string) string {
 	if k := wm.Str(row["kind"]); k != "" {
 		return k
 	}
-	if strings.HasPrefix(fw, "inkdesk-s3-") {
+	if strings.HasPrefix(fw, "espos-s3-") {
 		return "s3"
 	}
 	return "x4"

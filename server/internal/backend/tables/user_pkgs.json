@@ -96,7 +96,7 @@
     {
       "code": "size",
       "default": 0,
-      "help": "bytes of the .inkp",
+      "help": "bytes of the .espk",
       "indexed": false,
       "label": "Size (bytes)",
       "options": [],
@@ -110,7 +110,7 @@
     {
       "code": "sha256",
       "default": null,
-      "help": "of the .inkp, computed by the server",
+      "help": "of the .espk, computed by the server",
       "indexed": false,
       "label": "SHA-256",
       "options": [],
@@ -124,7 +124,7 @@
     {
       "code": "file_key",
       "default": null,
-      "help": "the .inkp in the user's private storage: upkg/u<user>/<pkg_id>/<ms>/core.inkp",
+      "help": "the .espk in the user's private storage: upkg/u<user>/<pkg_id>/<ms>/core.espk",
       "indexed": false,
       "label": "Storage key",
       "options": [],
@@ -138,7 +138,7 @@
     {
       "code": "icon_key",
       "default": null,
-      "help": "120x120 JPEG next to the .inkp; empty when the game has no icon",
+      "help": "120x120 JPEG next to the .espk; empty when the game has no icon",
       "indexed": false,
       "label": "Icon key",
       "options": [],
@@ -180,7 +180,7 @@
     {
       "code": "url",
       "default": null,
-      "help": "signed GET of the .inkp handed to the devices (device_sync renews it)",
+      "help": "signed GET of the .espk handed to the devices (device_sync renews it)",
       "indexed": false,
       "label": "Download URL (signed)",
       "options": [],

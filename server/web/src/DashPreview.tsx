@@ -2,7 +2,7 @@
 // JSON the device downloads. Used as a live preview on the web.
 import { useEffect, useState } from "react";
 
-import type { Dash } from "./inkdesk";
+import type { Dash } from "./espos";
 
 const ICON: Record<string, string> = {
   sun: "M12 4v2M12 18v2M4 12h2M18 12h2M6.3 6.3l1.4 1.4M16.3 16.3l1.4 1.4M6.3 17.7l1.4-1.4M16.3 7.7l1.4-1.4M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8z",

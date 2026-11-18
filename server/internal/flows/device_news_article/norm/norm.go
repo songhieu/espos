@@ -3,7 +3,7 @@ package norm
 
 import (
 	"encoding/json"
-	"inkdesk/internal/wm"
+	"espos/internal/wm"
 	"strings"
 	"time"
 )

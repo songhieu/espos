@@ -49,7 +49,7 @@
     {
       "code": "book_key",
       "default": null,
-      "help": "id:<book id> for InkDesk books, else the path on the card",
+      "help": "id:<book id> for EspOS books, else the path on the card",
       "indexed": false,
       "label": "Book key",
       "options": [],

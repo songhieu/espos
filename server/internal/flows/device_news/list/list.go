@@ -2,7 +2,7 @@
 package list
 
 import (
-	"inkdesk/internal/wm"
+	"espos/internal/wm"
 	"sort"
 	"strings"
 	"time"

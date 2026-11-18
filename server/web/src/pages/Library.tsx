@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 
-import { bytes, type Book, type Ink } from "../inkdesk";
+import { bytes, type Book, type Ink } from "../espos";
 import { Icon } from "../ui";
 
 interface Upload {
@@ -65,7 +65,7 @@ export function Library({ ink }: { ink: Ink }) {
       <header className="ik-head">
         <div>
           <h2>Thư viện</h2>
-          <p>Gửi sách lên đây, máy tải về thư mục InkDesk trên thẻ nhớ ở lần đồng bộ sau. Máy tải đủ rồi thì bản gốc trên server tự xoá, ở đây chỉ giữ lịch sử gửi.</p>
+          <p>Gửi sách lên đây, máy tải về thư mục EspOS trên thẻ nhớ ở lần đồng bộ sau. Máy tải đủ rồi thì bản gốc trên server tự xoá, ở đây chỉ giữ lịch sử gửi.</p>
         </div>
         <div className="ik-usage">{bytes(used)} đang chờ trên server</div>
       </header>

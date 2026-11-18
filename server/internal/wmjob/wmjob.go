@@ -12,7 +12,7 @@ import (
 	"sync"
 	"time"
 
-	"inkdesk/internal/wm"
+	"espos/internal/wm"
 )
 
 // ErrAbort ends the current job early (the worker's fail()).

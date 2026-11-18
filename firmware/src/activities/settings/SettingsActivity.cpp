@@ -26,13 +26,13 @@
 #include "LanguageSelectActivity.h"
 #include "MappedInputManager.h"
 #include "OpdsServerListActivity.h"
-#include "activities/apps/InkOtaActivity.h"
 #include "SdCardFontSystem.h"
 #include "SdFirmwareUpdateActivity.h"
 #include "SettingsList.h"
 #include "SilentRestart.h"
 #include "StatusBarSettingsActivity.h"
 #include "TextSettingsActivity.h"
+#include "activities/apps/EspOSOtaActivity.h"
 #include "activities/network/WifiSelectionActivity.h"
 #include "activities/util/IntervalSelectionActivity.h"
 #include "components/UITheme.h"
@@ -201,8 +201,8 @@ void SettingsActivity::rebuildSettings() {
   // stock layout has one app slot (partitions_picco.csv), so it cannot update
   // itself either way.
   if (!BoardConfig::isPicco()) {
-    // InkDesk: the CrossPoint OTA check would offer upstream CrossPoint over
-    // InkDesk, so it stays hidden. TODO: point OTA at an InkDesk release feed.
+    // EspOS: the CrossPoint OTA check would offer upstream CrossPoint over
+    // EspOS, so it stays hidden. TODO: point OTA at an EspOS release feed.
     addAction(SettingsSection::General, StrId::STR_SD_FIRMWARE_UPDATE, SettingAction::SdFirmwareUpdate);
   }
   addAction(SettingsSection::General, StrId::STR_ABOUT, SettingAction::About);
@@ -448,8 +448,8 @@ void SettingsActivity::toggleSelectedSetting() {
         startActivityForResult(std::make_unique<ClearCacheActivity>(renderer, mappedInput), resultHandler);
         break;
       case SettingAction::CheckForUpdates:
-        // InkDesk updates come from the InkDesk server: the CrossPoint release would replace InkDesk.
-        startActivityForResult(std::make_unique<InkOtaActivity>(renderer, mappedInput, false), resultHandler);
+        // EspOS updates come from the EspOS server: the CrossPoint release would replace EspOS.
+        startActivityForResult(std::make_unique<EspOSOtaActivity>(renderer, mappedInput, false), resultHandler);
         break;
       case SettingAction::SdFirmwareUpdate:
         startActivityForResult(std::make_unique<SdFirmwareUpdateActivity>(renderer, mappedInput), resultHandler);

@@ -7,13 +7,13 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
-	"inkdesk/internal/wm"
+	"espos/internal/wm"
 	"strings"
 	"time"
 	"unicode/utf8"
 )
 
-// Reads the uploaded .inkp (s3desk/docs/ecosystem.md §2, built in the browser like the admin's Java games) and
+// Reads the uploaded .espk (s3desk/docs/ecosystem.md §2, built in the browser like the admin's Java games) and
 // keeps it only when it is one Java game for this id: the header, the manifest (id, kind native, engine j2me,
 // version, code newer than the last upload), the file table (game.jar, optional icon.jpg, nothing else) with each
 // CRC-32. What the devices get (device_sync's user_pkgs) comes from this manifest and the sha256 computed here,
@@ -114,23 +114,23 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 		return bad("Không đọc được file đã tải lên")
 	}
 	n := len(raw)
-	if n < 16 || string(raw[:4]) != "INKP" || binary.LittleEndian.Uint16(raw[4:]) != 1 {
-		return bad("File tải lên không phải gói .inkp")
+	if n < 16 || string(raw[:4]) != "ESPK" || binary.LittleEndian.Uint16(raw[4:]) != 1 {
+		return bad("File tải lên không phải gói .espk")
 	}
 	mlen := int(binary.LittleEndian.Uint32(raw[8:]))
 	nfiles := int(binary.LittleEndian.Uint32(raw[12:]))
 	if mlen < 2 || mlen > 8192 || 16+mlen > n || nfiles < 1 || nfiles > 2 {
-		return bad("Gói .inkp hỏng (phần đầu)")
+		return bad("Gói .espk hỏng (phần đầu)")
 	}
 	var man map[string]any
 	if json.Unmarshal(raw[16:16+mlen], &man) != nil || man == nil {
-		return bad("Gói .inkp hỏng (manifest)")
+		return bad("Gói .espk hỏng (manifest)")
 	}
 
 	// ---- the file table: game.jar and maybe icon.jpg, each inside the file with its CRC ----
 	t := 16 + pad16(mlen)
 	if t+64*nfiles > n {
-		return bad("Gói .inkp hỏng (mục lục)")
+		return bad("Gói .espk hỏng (mục lục)")
 	}
 	jarSize := -1
 	iconIn := false
@@ -151,11 +151,11 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 		size := int(binary.LittleEndian.Uint32(raw[t+56:]))
 		crc := binary.LittleEndian.Uint32(raw[t+60:])
 		if off < 16+pad16(mlen)+64*nfiles || off%16 != 0 || size < 4 || off+size > n {
-			return bad("Gói .inkp hỏng (" + name + " nằm ngoài file)")
+			return bad("Gói .espk hỏng (" + name + " nằm ngoài file)")
 		}
 		data := raw[off : off+size]
 		if crc32(data) != crc {
-			return bad("Gói .inkp hỏng (" + name + " sai CRC)")
+			return bad("Gói .espk hỏng (" + name + " sai CRC)")
 		}
 		switch {
 		case name == "game.jar" && jarSize < 0:

@@ -1,6 +1,6 @@
 {
   "code": "require_admin",
-  "name": "Guard: an InkDesk admin (variable admin_users)",
+  "name": "Guard: an EspOS admin (variable admin_users)",
   "draft": {
     "nodes": [
       { "id": "in", "type": "function_in" },

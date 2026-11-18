@@ -1,7 +1,7 @@
 // Workflow device_sync, node pk (imported by tools/importer).
 package pk
 
-import "inkdesk/internal/wm"
+import "espos/internal/wm"
 
 // The answer's "user_pkgs": the owner's Java games as store catalog entries (s3desk/docs/ecosystem.md §5), with
 // signed URLs (valid 3 to 7 days) instead of public ones. A game without a working URL this time is left out.

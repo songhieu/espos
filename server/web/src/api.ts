@@ -1,5 +1,5 @@
 /**
- * The InkDesk server's API, from the browser.
+ * The EspOS server's API, from the browser.
  *
  *  - The API is `config.api`: the server this page came from.
  *  - Signing in returns a session token; this file keeps it in localStorage and sends

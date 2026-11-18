@@ -24,7 +24,7 @@ var client = &http.Client{
 }
 
 // UserAgent is sent with every outbound request.
-var UserAgent = "InkDesk (self-hosted)"
+var UserAgent = "EspOS (self-hosted)"
 
 // Fetch makes an HTTP request. opts may hold "headers" (map) and "body" (a string, bytes,
 // or any value sent as JSON). The result is {status, headers, body}; a JSON answer comes

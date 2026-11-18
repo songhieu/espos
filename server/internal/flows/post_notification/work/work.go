@@ -4,7 +4,7 @@ package work
 import (
 	"crypto/sha256"
 	"encoding/hex"
-	"inkdesk/internal/wm"
+	"espos/internal/wm"
 	"strings"
 )
 

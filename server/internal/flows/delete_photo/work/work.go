@@ -2,7 +2,7 @@
 package work
 
 import (
-	"inkdesk/internal/wm"
+	"espos/internal/wm"
 	"strings"
 )
 

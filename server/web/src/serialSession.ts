@@ -1,5 +1,5 @@
-// A line-based session with InkDesk firmware over Web Serial: hello, WiFi scan/test, provisioning.
-// Opening the port can reset the ESP32-C3, so every session starts by waiting for INKDESK:READY.
+// A line-based session with EspOS firmware over Web Serial: hello, WiFi scan/test, provisioning.
+// Opening the port can reset the ESP32-C3, so every session starts by waiting for ESPOS:READY.
 import { ESPRESSIF_VID } from "esptool-js";
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -91,10 +91,10 @@ export class DeviceSession {
     return null;
   }
 
-  /** Waits until the InkDesk firmware answers (it may be booting after the port opened). */
+  /** Waits until the EspOS firmware answers (it may be booting after the port opened). */
   async hello(ms = 40000): Promise<string> {
     // Every HELLO carries our clock (the X4 has no RTC).
-    const ready = await this.waitFor(["INKDESK:READY"], ms, () => "INKDESK:HELLO " + Date.now());
+    const ready = await this.waitFor(["ESPOS:READY"], ms, () => "ESPOS:HELLO " + Date.now());
     if (!ready) throw new Error("Máy không trả lời. Bật màn hình máy (bấm nút nguồn) rồi thử lại.");
     this.lines.length = 0;
     return ready;
@@ -144,10 +144,10 @@ export class DeviceSession {
 
   async provision(payload: unknown): Promise<void> {
     this.lines.length = 0;
-    await this.send("INKDESK:PROVISION " + JSON.stringify({ ...(payload as object), now_ms: Date.now() }));
-    const ans = await this.waitFor(["INKDESK:OK", "INKDESK:ERR"], 20000);
+    await this.send("ESPOS:PROVISION " + JSON.stringify({ ...(payload as object), now_ms: Date.now() }));
+    const ans = await this.waitFor(["ESPOS:OK", "ESPOS:ERR"], 20000);
     if (!ans) throw new Error("Máy không xác nhận đã nhận cài đặt.");
-    if (ans.startsWith("INKDESK:ERR")) throw new Error("Máy báo lỗi: " + ans.slice(11).trim());
+    if (ans.startsWith("ESPOS:ERR")) throw new Error("Máy báo lỗi: " + ans.slice(11).trim());
   }
 
   /** Releases the port even when a write is stuck, so the flasher can open it next. */

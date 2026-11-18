@@ -9,13 +9,13 @@
 
 #include <cstdio>
 
-#include "InkDeskSyncActivity.h"
+#include "EspOSSyncActivity.h"
 #include "SilentRestart.h"
 #include "activities/network/WifiSelectionActivity.h"
 #include "components/UITheme.h"
+#include "espos/EspOSClient.h"
+#include "espos/EspOSStore.h"
 #include "fontIds.h"
-#include "inkdesk/InkDeskClient.h"
-#include "inkdesk/InkDeskStore.h"
 #include "util/QrUtils.h"
 
 namespace {
@@ -46,7 +46,7 @@ int bigTextWidth(const GfxRenderer& r, const char* text, const int scale256) {
 
 void PairActivity::onEnter() {
   Activity::onEnter();
-  if (INKDESK.isLinked()) {
+  if (ESPOS.isLinked()) {
     state_ = State::Info;
     requestUpdate();
     return;
@@ -85,10 +85,10 @@ void PairActivity::connectThenStart() {
 }
 
 void PairActivity::startPairing() {
-  pendingToken_ = inkdesk::client::randomTokenHex();
-  const std::string tokenHash = inkdesk::client::sha256Hex(pendingToken_);
-  inkdesk::client::Result result = inkdesk::client::Result::Conflict;
-  for (int attempt = 0; attempt < 3 && result == inkdesk::client::Result::Conflict; attempt++) {
+  pendingToken_ = espos::client::randomTokenHex();
+  const std::string tokenHash = espos::client::sha256Hex(pendingToken_);
+  espos::client::Result result = espos::client::Result::Conflict;
+  for (int attempt = 0; attempt < 3 && result == espos::client::Result::Conflict; attempt++) {
     snprintf(code_, sizeof(code_), "%06u", static_cast<unsigned>(100000 + esp_random() % 900000));
     JsonDocument req;
     req["code"] = code_;
@@ -97,16 +97,16 @@ void PairActivity::startPairing() {
     std::string body;
     serializeJson(req, body);
     std::string response;
-    result = inkdesk::client::postJson("/v1/pair/start", body, response, false, 1024);
+    result = espos::client::postJson("/v1/pair/start", body, response, false, 1024);
   }
   {
     RenderLock lock(*this);
-    if (result == inkdesk::client::Result::Ok) {
+    if (result == espos::client::Result::Ok) {
       state_ = State::Waiting;
       startedAt_ = millis();
       lastPoll_ = millis();
     } else {
-      LOG_ERR("INKD", "Pair start failed (%d)", inkdesk::client::lastStatus());
+      LOG_ERR("ESPOS", "Pair start failed (%d)", espos::client::lastStatus());
       state_ = State::Failed;
     }
   }
@@ -115,11 +115,11 @@ void PairActivity::startPairing() {
 
 void PairActivity::poll() {
   std::string response;
-  const auto result = inkdesk::client::getJsonWithToken("/v1/device/whoami", response, pendingToken_);
-  if (result == inkdesk::client::Result::NotLinked || result == inkdesk::client::Result::Network) return;
-  if (result != inkdesk::client::Result::Ok) {
-    LOG_ERR("INKD", "whoami failed (%d)", inkdesk::client::lastStatus());
-    if (result == inkdesk::client::Result::Unauthorized) {
+  const auto result = espos::client::getJsonWithToken("/v1/device/whoami", response, pendingToken_);
+  if (result == espos::client::Result::NotLinked || result == espos::client::Result::Network) return;
+  if (result != espos::client::Result::Ok) {
+    LOG_ERR("ESPOS", "whoami failed (%d)", espos::client::lastStatus());
+    if (result == espos::client::Result::Unauthorized) {
       RenderLock lock(*this);
       state_ = State::Failed;
     }
@@ -129,14 +129,14 @@ void PairActivity::poll() {
   JsonDocument doc;
   if (deserializeJson(doc, response)) return;
   JsonObjectConst device = doc["device"];
-  INKDESK.clearLink();
-  if (INKDESK.api.empty()) INKDESK.api = inkdesk::DEFAULT_API;
-  INKDESK.token = pendingToken_;
-  INKDESK.deviceId = device["id"] | 0;
-  INKDESK.deviceName = device["name"] | "";
-  INKDESK.user = device["user"] | "";
-  INKDESK.syncedMapped.clear();
-  INKDESK.saveToFile();
+  ESPOS.clearLink();
+  if (ESPOS.api.empty()) ESPOS.api = espos::DEFAULT_API;
+  ESPOS.token = pendingToken_;
+  ESPOS.deviceId = device["id"] | 0;
+  ESPOS.deviceName = device["name"] | "";
+  ESPOS.user = device["user"] | "";
+  ESPOS.syncedMapped.clear();
+  ESPOS.saveToFile();
   {
     RenderLock lock(*this);
     state_ = State::Linked;
@@ -163,7 +163,7 @@ void PairActivity::loop() {
         connectThenStart();
         return;
       case State::Linked:
-        startActivityForResult(std::make_unique<InkDeskSyncActivity>(renderer, mappedInput),
+        startActivityForResult(std::make_unique<EspOSSyncActivity>(renderer, mappedInput),
                                [](const ActivityResult&) { finish(); });
         return;
       default:
@@ -201,7 +201,7 @@ void PairActivity::render(RenderLock&&) {
     case State::Info: {
       char buf[128];
       snprintf(buf, sizeof(buf), tr(STR_ID_LINKED_TO_FMT),
-               INKDESK.user.empty() ? INKDESK.deviceName.c_str() : INKDESK.user.c_str());
+               ESPOS.user.empty() ? ESPOS.deviceName.c_str() : ESPOS.user.c_str());
       renderer.drawText(NOTOSANS_14_FONT_ID, left, y, buf, true, EpdFontFamily::BOLD);
       confirmLabel = tr(STR_ID_PAIR_NEW_CODE);
       break;
@@ -225,19 +225,18 @@ void PairActivity::render(RenderLock&&) {
       drawBigText(renderer, spaced, (w - codeW) / 2, y + ascent, scale);
       y += ascent + 30;
       const int qrSize = 190;
-      const std::string url = INKDESK.pairUrl(code_);
+      const std::string url = ESPOS.pairUrl(code_);
       QrUtils::drawQrCode(renderer, Rect{(w - qrSize) / 2, y, qrSize, qrSize}, url);
       y += qrSize + 14;
       const char* waiting = tr(STR_ID_PAIR_WAITING);
-      renderer.drawText(NOTOSANS_12_FONT_ID, (w - renderer.getTextWidth(NOTOSANS_12_FONT_ID, waiting)) / 2, y,
-                        waiting);
+      renderer.drawText(NOTOSANS_12_FONT_ID, (w - renderer.getTextWidth(NOTOSANS_12_FONT_ID, waiting)) / 2, y, waiting);
       confirmLabel = tr(STR_ID_PAIR_NEW_CODE);
       break;
     }
     case State::Linked:
       renderer.drawText(NOTOSANS_18_FONT_ID, left, y, tr(STR_ID_PAIR_DONE), true, EpdFontFamily::BOLD);
       y += renderer.getLineHeight(NOTOSANS_18_FONT_ID) + 8;
-      renderer.drawText(NOTOSANS_14_FONT_ID, left, y, INKDESK.user.c_str());
+      renderer.drawText(NOTOSANS_14_FONT_ID, left, y, ESPOS.user.c_str());
       confirmLabel = tr(STR_ID_SYNC_NOW);
       break;
     case State::Failed:

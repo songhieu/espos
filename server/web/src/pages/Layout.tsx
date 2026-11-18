@@ -3,7 +3,7 @@
 // picks them up at its next sync and draws them itself.
 import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as RPointerEvent } from "react";
 
-import type { Device, Ink, LayoutDoc, LayoutItem, Photo, Wallpaper } from "../inkdesk";
+import type { Device, Ink, LayoutDoc, LayoutItem, Photo, Wallpaper } from "../espos";
 import { bitsDataUrl, ensureRenders, formatPhotoOpt, original, parsePhotoOpt, PHOTO_MAX, renderBits, uploadPhoto, type PhotoOpt } from "../photo";
 import { CATS, COINS, DEFAULT_CODES, DEFAULT_LAYOUT, gridArea, inkDataOf, KINDS, SCREENS, SHADOW, SKINS, TEMPLATES, WidgetView, placeItems, type Kind, type PreviewData, type Screen, type Skin, type Template } from "../widgets";
 import { Renderer } from "../ink/render";
@@ -733,8 +733,8 @@ export function LayoutPage({ ink }: { ink: Ink }) {
           <div className="lay-sleepmain">
             <h4>Màn ngủ gốc của máy</h4>
             <p className="ik-muted">
-              Khi ngủ, máy hiện màn ngủ có sẵn của CrossPoint (chỉnh kiểu trên máy: Cài đặt › Màn hình ngủ). InkDesk không đánh thức máy để cập
-              nhật nên đỡ pin nhất. Chọn một kiểu khác ở trên để dùng lại màn chờ InkDesk.
+              Khi ngủ, máy hiện màn ngủ có sẵn của CrossPoint (chỉnh kiểu trên máy: Cài đặt › Màn hình ngủ). EspOS không đánh thức máy để cập
+              nhật nên đỡ pin nhất. Chọn một kiểu khác ở trên để dùng lại màn chờ EspOS.
             </p>
           </div>
         </div>

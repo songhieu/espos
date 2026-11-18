@@ -3,7 +3,7 @@ package work
 
 import (
 	"encoding/json"
-	"inkdesk/internal/wm"
+	"espos/internal/wm"
 )
 
 // The caller's games for the web's list (the fields it shows; never the storage keys or the signed URLs).

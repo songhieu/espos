@@ -1,11 +1,11 @@
-# InkDesk
+# EspOS
 
-InkDesk turns the **Xteink X4** e-ink reader into a reader plus a small desk display: a home
+EspOS turns the **Xteink X4** e-ink reader into a reader plus a small desk display: a home
 screen and a sleep screen made of widgets, books sent from your browser, and settings that
 stay in sync between the reader and a web app. It is self-hosted: one Go binary, one account,
 your data in one folder.
 
-> **Tiếng Việt:** InkDesk biến máy đọc Xteink X4 thành máy đọc sách kiêm màn hình để bàn:
+> **Tiếng Việt:** EspOS biến máy đọc Xteink X4 thành máy đọc sách kiêm màn hình để bàn:
 > màn chính và màn chờ ghép từ widget (đồng hồ, lịch âm dương, thời tiết, sách đang đọc,
 > Báo sáng, giá vàng, chứng khoán, tỷ giá, ảnh…), gửi sách từ trình duyệt như Send to
 > Kindle, cài đặt đồng bộ hai chiều giữa máy và web, thống kê đọc, cập nhật firmware qua
@@ -42,9 +42,9 @@ your data in one folder.
 
    ```sh
    cd server
-   cp .env.example .env            # set INKDESK_PASSWORD
+   cp .env.example .env            # set ESPOS_PASSWORD
    mkdir -p data && sudo chown 10001 data
-   docker compose up -d --build    # or: make && INKDESK_PASSWORD='…' ./inkdesk
+   docker compose up -d --build    # or: make && ESPOS_PASSWORD='…' ./espos
    ```
 
    Open http://localhost:8080 and sign in. Details and settings:
@@ -56,8 +56,8 @@ your data in one folder.
    git submodule update --init --recursive
    cd firmware
    pio run -e default
-   scripts/inkdesk_bundle.sh default ../bundle
-   cd ../server && ./inkdesk firmware add ../bundle -notes "First install"
+   scripts/espos_bundle.sh default ../bundle
+   cd ../server && ./espos firmware add ../bundle -notes "First install"
    ```
 
    See [firmware/README.md](firmware/README.md) for the toolchain.
@@ -73,11 +73,11 @@ your data in one folder.
 
 | Variable | Default | |
 |---|---|---|
-| `INKDESK_PASSWORD` | (required) | The account's password, 8 characters or more. |
-| `INKDESK_USER` | `admin` | The account's user name. |
-| `INKDESK_ADDR` | `:8080` | Where the server listens. |
-| `INKDESK_DATA` | `./data` | Database, files and the link-signing key. |
-| `INKDESK_PUBLIC_URL` | (none) | The public address, e.g. `https://inkdesk.example.com`. Set it behind a reverse proxy. |
+| `ESPOS_PASSWORD` | (required) | The account's password, 8 characters or more. |
+| `ESPOS_USER` | `admin` | The account's user name. |
+| `ESPOS_ADDR` | `:8080` | Where the server listens. |
+| `ESPOS_DATA` | `./data` | Database, files and the link-signing key. |
+| `ESPOS_PUBLIC_URL` | (none) | The public address, e.g. `https://espos.example.com`. Set it behind a reverse proxy. |
 
 **Firmware: your server's domain.** The USB installer always tells the reader where the server
 is, so the default firmware build has no server address in it. To link readers with a code
@@ -87,15 +87,15 @@ your domain. Create `firmware/platformio.local.ini` (git ignores it):
 ```ini
 [env:default]
 build_src_flags =
-  '-DINKDESK_DEFAULT_API="https://inkdesk.example.com"'
+  '-DESPOS_DEFAULT_API="https://espos.example.com"'
   ; only if the web app has a different address than the API:
-  ; '-DINKDESK_DEFAULT_WEB="https://app.example.com"'
+  ; '-DESPOS_DEFAULT_WEB="https://app.example.com"'
 ```
 
 | Flag | Default | |
 |---|---|---|
-| `INKDESK_DEFAULT_API` | empty | The server the reader calls. |
-| `INKDESK_DEFAULT_WEB` | same as `INKDESK_DEFAULT_API` | The web app's address, for QR codes and pairing links. |
+| `ESPOS_DEFAULT_API` | empty | The server the reader calls. |
+| `ESPOS_DEFAULT_WEB` | same as `ESPOS_DEFAULT_API` | The web app's address, for QR codes and pairing links. |
 
 ## Development
 
@@ -116,4 +116,4 @@ MIT, see [LICENSE](LICENSE). The firmware is built on
 [FreeInk SDK](https://github.com/Free-Ink/freeink-sdk) (MIT). Weather and place search from
 [Open-Meteo](https://open-meteo.com). Bundled fonts keep their own licenses (OFL, UFL).
 
-InkDesk is not affiliated with Xteink.
+EspOS is not affiliated with Xteink.

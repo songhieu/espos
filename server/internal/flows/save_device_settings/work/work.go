@@ -3,17 +3,17 @@ package work
 
 import (
 	"encoding/json"
+	"espos/internal/wm"
 	"fmt"
-	"inkdesk/internal/wm"
 	"net/url"
 	"strconv"
 	"strings"
 	"time"
 )
 
-// Device-visible keys and their defaults (docs/inkdesk-api.md); web-only keys never reach the device.
+// Device-visible keys and their defaults (docs/device-api.md); web-only keys never reach the device.
 var deviceDefaults = map[string]string{
-	"sys.lang": "vi", "sys.sleep_min": "10",
+	"sys.lang": "en", "sys.sleep_min": "10",
 	"read.font": "LexicaUltralegible", "read.size": "medium", "read.spacing": "1.4",
 	"dash.enabled": "1", "dash.layout": "desk", "dash.interval_min": "30", "dash.clock": "1",
 	"dash.charging_min": "1", "dash.save_pct": "20", "dash.quiet_from": "23:00", "dash.quiet_to": "06:00",
@@ -324,7 +324,9 @@ var webDefaults = map[string]string{
 	"dash.blocks": "weather,lunar,calendar,notes",
 }
 var allowed = map[string][]string{
-	"sys.lang": {"vi", "en"}, "sys.sleep_min": {"5", "10", "15", "30"},
+	// sys.lang: every language either device carries (the X4 reader's lib/I18n, s3desk/i18n/languages.json); a
+	// device ignores a language it does not have.
+	"sys.lang": {"en", "vi", "ar", "az", "be", "bg", "bs", "ca", "ca-valencia", "cs", "da", "de", "es", "fa", "fi", "fr", "he", "hu", "id", "it", "ja", "kk", "ko", "lt", "nb", "nl", "ook", "pl", "pt-BR", "pt-PT", "ro", "ru", "sk", "sl", "sv", "tr", "uk", "zh-Hans"}, "sys.sleep_min": {"5", "10", "15", "30"},
 	"read.font": {"notosans", "Literata", "Merriweather", "Bitter", "Lora", "SourceSerif4", "Vollkorn", "NotoSerif", "NotoSerifExtended", "GentiumBookPlus", "IBMPlexSerif", "Alegreya", "Libron", "Inter", "SourceSans3", "IBMPlexSans", "NotoSansExtended", "LexicaUltralegible", "OpenDyslexic", "IBMPlexMono", "SourceCodePro"}, "read.size": {"small", "medium", "large", "xlarge"},
 	"read.spacing": {"1.0", "1.1", "1.2", "1.3", "1.4", "1.6", "1.75"}, "dash.enabled": {"0", "1"}, "dash.layout": {"desk", "calendar", "portrait", "landscape", "wl", "wp"},
 	"dash.interval_min": {"5", "15", "30", "60"}, "dash.clock": {"0", "1"}, "dash.charging_min": {"0", "1"}, "dash.save_pct": {"0", "10", "20", "30"},
@@ -470,7 +472,7 @@ func checkLayout(k, v string) string {
 	return ""
 }
 
-// ---- custom saver: s3.saver_pages (s3desk/docs/saver.md §2) ----
+// ---- custom saver: s3.saver_pages (s3desk/docs/saver.md §2; bands, shadows and slideshows since 2026-11-17) ----
 // The same check is in device_sync and save_device_settings: change both. Light: the shape and the ranges the
 // device relies on; unknown keys are kept (a newer editor's). "" when good, else the reason (Vietnamese).
 var saverBg = map[string]bool{"black": true, "color": true, "grad": true, "wall": true, "photo": true}
@@ -541,6 +543,7 @@ func checkSaverPage(p any, where string) string {
 	if len(list) > 24 {
 		return where + ": tối đa 24 phần tử"
 	}
+	slides := 0
 	for _, it := range list {
 		e, ok := it.(map[string]any)
 		t := wm.Str(e["t"])
@@ -583,6 +586,58 @@ func checkSaverPage(p any, where string) string {
 				}
 			}
 		}
+		// text over pictures: a band behind the text and a soft shadow (saver.md §2)
+		if v, has := e["bg"]; has && !hex6(v) {
+			return where + ": màu nền chữ của phần tử " + t + " không hợp lệ"
+		}
+		if !inRange(e, "bo", 10, 100) || !inRange(e, "sh", 0, 1) {
+			return where + ": nền hoặc bóng chữ của phần tử " + t + " không hợp lệ"
+		}
+		// a photo's slideshow: the device's pictures (all) or up to 12 ids, seconds per picture, order, transition, offset
+		if t == "photo" {
+			if why := checkSlideshow(e); why != "" {
+				return where + ": " + why
+			}
+			if e["all"] == float64(1) || len(asList(e["ids"])) > 1 {
+				slides++
+				if slides > 3 {
+					return where + ": tối đa 3 khung ảnh tự đổi mỗi trang"
+				}
+			}
+		}
+	}
+	return ""
+}
+
+func asList(v any) []any {
+	l, _ := v.([]any)
+	return l
+}
+
+func checkSlideshow(e map[string]any) string {
+	if !inRange(e, "all", 0, 1) || !inRange(e, "of", 0, 11) {
+		return "ảnh tự đổi không hợp lệ"
+	}
+	if v, has := e["ids"]; has {
+		l, ok := v.([]any)
+		if !ok || len(l) > 12 {
+			return "tối đa 12 ảnh trong một khung"
+		}
+		for _, x := range l {
+			n, ok := x.(float64)
+			if !ok || n < 1 || n > 2e9 || n != float64(int64(n)) {
+				return "mã ảnh không hợp lệ"
+			}
+		}
+	}
+	if v, has := e["iv"]; has && v != float64(10) && v != float64(30) && v != float64(60) && v != float64(300) && v != float64(900) {
+		return "đổi ảnh mỗi 10, 30, 60, 300 hoặc 900 giây"
+	}
+	if v, has := e["ord"]; has && v != "s" && v != "r" {
+		return "thứ tự ảnh phải là s hoặc r"
+	}
+	if v, has := e["tr"]; has && v != "c" && v != "f" {
+		return "chuyển ảnh phải là c hoặc f"
 	}
 	return ""
 }
