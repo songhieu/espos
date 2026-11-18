@@ -1,0 +1,67 @@
+{
+ "id": "dev.espos.dice",
+ "name": "Dice",
+ "version": "1.1.0",
+ "desc": "Roll dice, or draw lots for who does the dishes",
+ "icon": {
+  "bg": [
+   "#a78bfa",
+   "#6d28d9"
+  ],
+  "glyph": "grid"
+ },
+ "permissions": [
+  "sound"
+ ],
+ "part": "core",
+ "code": 10100,
+ "kind": "js",
+ "engine": "js",
+ "min_fw": 300,
+ "category": "game",
+ "perms": [
+  "sound"
+ ],
+ "i18n": {
+  "vi": {
+   "name": "Xúc xắc",
+   "desc": "Tung xúc xắc, bốc thăm ai rửa bát"
+  },
+  "zh-Hans": {
+   "name": "色子",
+   "desc": "掷色子，或抽签决定谁洗碗"
+  },
+  "es": {
+   "name": "Dados",
+   "desc": "Tira los dados o sortea quién lava los platos"
+  },
+  "fr": {
+   "name": "Dés",
+   "desc": "Lancez les dés ou tirez au sort qui fait la vaisselle"
+  },
+  "de": {
+   "name": "Würfel",
+   "desc": "Würfeln oder auslosen, wer abwäscht"
+  },
+  "ja": {
+   "name": "サイコロ",
+   "desc": "サイコロを振る、くじで皿洗い当番を決める"
+  },
+  "ko": {
+   "name": "주사위",
+   "desc": "주사위 굴리기, 설거지 당번 제비뽑기"
+  },
+  "pt-BR": {
+   "name": "Dados",
+   "desc": "Jogue dados ou sorteie quem lava a louça"
+  },
+  "ru": {
+   "name": "Кубики",
+   "desc": "Кубики и жребий: кто моет посуду"
+  },
+  "id": {
+   "name": "Dadu",
+   "desc": "Lempar dadu atau undi siapa yang cuci piring"
+  }
+ }
+}

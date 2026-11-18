@@ -1,0 +1,103 @@
+---
+title: Set up your tools
+description: 'Install the toolchain, set up the espos CLI from the firmware repository, and check everything with espos doctor.'
+---
+
+import { Steps, Aside } from '@astrojs/starlight/components';
+import Status from '../../../components/Status.astro';
+
+You need two things to build an app: a way to **package** it and a way to **run** it. Both come from the firmware repository: the `s3/` folder of the public repository, [github.com/songhieu/espos](https://github.com/songhieu/espos), next to the server (`server/`) and the X4 firmware (`firmware/`). The commands on these pages run from that folder.
+
+| Tool | What it is | Status |
+|---|---|---|
+| **The `espos` CLI** (`sdk/`) | One command to create, check, build and inspect packages, run them in the simulator or QEMU, talk to a board over USB, and publish. It drives the tools below for you. | <Status s="preview" /> |
+| **The repository tools** | `tools/espk.py` (package builder and checker), the SDL simulator, the QEMU scripts, `tools/s3cli.py`. | <Status s="available" /> |
+
+Both write the same package format: `espos build` on a plain folder produces a file byte for byte identical to `tools/espk.py`'s. Every page in these docs shows both ways.
+
+## Requirements
+
+The simulator and QEMU run on **macOS** today; the CLI's device commands also run on Linux. Linux and Windows builds of the simulator are part of the SDK work on the [roadmap](/roadmap/).
+
+| Tool | For | Install |
+|---|---|---|
+| Xcode command line tools | `make`, a C++ compiler, Python 3 | `xcode-select --install` |
+| SDL2 | the live simulator's window | `brew install sdl2` |
+| [PlatformIO](https://platformio.org/install/cli) | the firmware, QEMU builds, and the libraries the simulator compiles | see its site |
+| Node.js 20 or newer | the `espos` CLI | [nodejs.org](https://nodejs.org) |
+| A JDK (17) | only for Java engine work | optional |
+| Espressif QEMU | only for [QEMU](/guides/qemu/) | optional |
+
+## Set up
+
+<Steps>
+
+1. **Get the sources.**
+
+   ```sh
+   git clone https://github.com/songhieu/espos
+   cd espos/s3
+   ```
+
+2. **Fetch the libraries the simulator builds against, and make its data folders.** The repository holds no simulator data: an empty folder is a new device that is not linked to an account.
+
+   ```sh
+   pio pkg install -e s3desk
+   mkdir -p sim/data sim/data-live
+   ```
+
+3. **Install the CLI's dependencies.** The CLI lives in the repository's `sdk/` folder; `npm install` also builds it.
+
+   ```sh
+   cd sdk
+   npm install
+   cd ..
+   ```
+
+4. **Make the command available.** The packages are not on npm yet, so run the CLI from the repository. Either link it, which puts `espos` on your PATH:
+
+   ```sh
+   cd sdk && npm link -w @espos/cli && cd ..
+   ```
+
+   or use an alias (add it to your shell profile, with the full path, to keep it):
+
+   ```sh
+   alias espos="node $PWD/sdk/packages/cli/bin/espos.js"
+   ```
+
+   From inside `sdk/`, `npm run espos -- doctor` works too.
+
+5. **Check your machine:**
+
+   ```sh
+   espos doctor
+   ```
+
+   `doctor` checks Node.js and the CLI's packages, the repository, Python, the JDK, `make` and the compiler, SDL2, PlatformIO and its libraries, both simulator builds, QEMU and the firmware's size. It prints an install hint for anything missing. Part of its output:
+
+   ```txt
+   espos doctor (darwin-arm64)
+   ok    node                      v22.20.0  [everything]
+   ok    SDL2                      /opt/homebrew/bin/sdl2-config 2.32.8  [sim --live, qemu viewer]
+   ok    LVGL/ArduinoJson libdeps  .pio/libdeps/s3desk  [sim]
+   ok    simulator (build-live)    sim/build-live/espos-live  [sim --live]
+   ```
+
+</Steps>
+
+The CLI finds the repository by walking up from the current folder. Your app's folder can live anywhere if you set `ESPOS_ROOT` to the repository (or pass `--root`).
+
+<Aside type="note" title="Without the CLI">
+Everything also works with the repository tools alone. Build the simulator with `make -C sim -j10` (scripted) and `make -C sim -j10 BUILD=build-live live` (the window), and package with `python3 tools/espk.py FOLDER OUT.espk`. `espos sim` builds the simulator for you when it is out of date.
+</Aside>
+
+## Planned: one npm install<Status s="planned" />
+
+Once `@espos/cli` and `@espos/sdk` are published to npm, setup becomes one `npm install`. A prebuilt simulator for macOS, Linux and Windows is planned with it, so building apps will not need the firmware repository.
+
+## A device (optional)
+
+You can build and test an app without hardware. To try it on a board you need an ES3C35P (3.5") or ES3C28P (2.8") running EspOS 0.5.0 or newer, linked to an EspOS account, and a USB-C cable for the dev console. See [Work with a real device](/guides/device/).
+
+Next: [Your first app](/getting-started/first-app/).

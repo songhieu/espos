@@ -1,0 +1,14 @@
+# EspOS S3 with PawBoop's packs (docs/pawboop.md). 16 MB flash. A partition table cannot change by
+# OTA: it was written once over USB (2026-11-16). nvs stays at 0x9000 (link token, WiFi, PawBoop's save).
+# Apps: 3.75 MiB each (firmware with PawBoop 3.26 MB -> ~670 KB free for growth, e.g. an app runtime).
+# Packs: their exact sizes rounded up to 4 KB. LittleFS 1.2 MB: settings, dashboard cache, 8 photos.
+# Name,   Type, SubType,   Offset,   Size,     Flags
+nvs,      data, nvs,       0x9000,   0x5000,
+otadata,  data, ota,       0xe000,   0x2000,
+app0,     app,  ota_0,     0x10000,  0x3C0000,
+app1,     app,  ota_1,     0x3D0000, 0x3C0000,
+pb_dog,   data, undefined, 0x790000, 0x51A000,
+pb_ui,    data, undefined, 0xCAA000, 0x1E3000,
+pb_voice, data, undefined, 0xE8D000, 0x31000,
+spiffs,   data, spiffs,    0xEBE000, 0x132000,
+coredump, data, coredump,  0xFF0000, 0x10000,

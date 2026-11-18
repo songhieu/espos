@@ -1,0 +1,166 @@
+---
+title: Declarative faces and widgets
+description: 'The decl format, level 1: one JSON file of layouts, items, data bindings and conditions that the firmware draws itself, for faces, widgets and themes on every profile.'
+---
+
+import Status from '../../../components/Status.astro';
+import { Aside } from '@astrojs/starlight/components';
+
+<Aside type="caution" title="In progress">
+<Status s="preview" label="In progress" /> This is design v1 of the declarative format. The level-1 renderer is built in the Xteink X4 firmware (not yet flashed to a device); the S3 renderer, the store's catalog for these packages and the web editor are not built yet. Field names may still change.
+</Aside>
+
+A declarative package is **data**: a JSON file that describes a picture with boxes, lines, text, icons, images and bars, filled in from **data bindings** (the time, the weather, the calendar). The firmware draws it. It cannot loop, allocate or use the network, so it is safe to install from anywhere and runs even on a device with no room for a script runtime. Faces, widgets and themes use it. See [Hardware profiles](/hardware/profiles/).
+
+## The manifest
+
+A declarative package uses manifest v2. It is an ordinary `.espk` file.
+
+```json title="manifest.json"
+{"id": "dev.espos.face.bigclock", "name": "Big clock", "version": "1.0.0", "code": 10000,
+ "type": "face", "runtime": "decl", "api": {"min": 1, "target": 1}, "requires": [],
+ "screens": ["800x480", "480x800"], "refresh": "minute", "perms": [],
+ "author": "EspOS", "desc": "Large time, the day and the lunar date", "entry": {"face": "face.json"}, "part": "core"}
+```
+
+| Field | Rule |
+|---|---|
+| `type` | `face`, `widget` or `theme` |
+| `runtime` | `"decl"` |
+| `api` | `{"min": 1, "target": 1}`: the declarative format level |
+| `requires` | capability flags the package needs; `[]` for almost every declarative package. A face that only makes sense in colour adds `screen.color`. |
+| `screens` | the layouts it carries, such as `800x480` and `480x800` |
+| `refresh` | how often it wants to be redrawn: `minute`, `hour`, `data` (the default) or `day` |
+| `perms` | the data it reads: `data:weather`, `data:calendar`, `data:news`, `data:reading` |
+| `entry` | the file to draw, such as `{"face": "face.json"}` |
+
+## The file
+
+```json
+{"decl": 1,
+ "layouts": [
+   {"size": [800, 480], "bg": "paper", "items": []},
+   {"size": [480, 800], "bg": "paper", "items": []}]}
+```
+
+- `decl` is the format level. A device refuses a file whose level is above what it has.
+- `layouts` holds one layout per screen shape. `size` is the design size in pixels; every coordinate in the layout is in that space.
+
+### Picking a layout and scaling
+
+The target is the screen (a face) or the widget's box (a widget, 6 px inside the OS's frame).
+
+1. Take the layout of the same size; else the one whose width-to-height ratio is closest (a tie goes to the bigger one).
+2. Scale it uniformly by `min(targetW / w, targetH / h)` and centre it. Line widths and radii scale too, never below 1 px. Text sizes scale, then snap to a font the device has.
+
+So a face designed for 800 × 480 also runs on a 320 × 480 colour board (at 0.4) and in a small Home box.
+
+## Items
+
+Every item has `t`, its type, and may have `if`, a condition. Coordinates are integers.
+
+| `t` | Fields | Draws |
+|---|---|---|
+| `box` | `x y w h`, `fill`, `stroke`, `lw` (1), `r` (radius, 0) | a rectangle, filled and/or outlined |
+| `line` | `x y x2 y2`, `stroke` (ink), `lw` (1) | a straight line |
+| `circle` | `x y` (the centre), `r`, `fill`, `stroke`, `lw` | a circle |
+| `text` | `x y w h`, `text`, `size` (24), `font` (`sans`), `bold` (false), `align` (`left`, `center`, `right`), `valign` (`top`, `middle`, `bottom`), `lines` (1), `color` (ink) | text that always fits its box |
+| `icon` | `x y w h`, `name`, `color` | a system icon centred in the box |
+| `image` | `x y w h`, `src` (a file of the package) | a picture fitted inside the box |
+| `bar` | `x y w h`, `value`, `max` (100), `fill`, `stroke`, `r` | a progress bar |
+| `list` | `of`, `max`, `x y`, `dx dy` (the step between rows), `items` | its `items` once per entry of a data list |
+| `group` | `x y`, `items` | its `items` shifted by `x, y`, sharing one `if` |
+
+Icons in level 1: the weather set (`sun`, `cloudsun`, `cloud`, `rain`, `storm`, `snow`, `fog`, `moon`) and `battery`. Lists and groups nest 3 deep at most, and a layout draws at most 160 things once lists are expanded. Unknown item types and fields are skipped, so a device still draws a file that has a few newer optional fields.
+
+## Data bindings
+
+Text, icon names, image paths, bar values and conditions can contain `{name}` or `{name|filter}`. `{{` is a literal `{`. A name with no value gives an empty string. Filters: `upper`, `lower`.
+
+| Name | Example | Permission |
+|---|---|---|
+| `time.hm`, `time.h`, `time.m`, `time.ampm` | `07:45`, `07`, `45`, and on a 12-hour clock `SA` or `CH` (morning, afternoon; not translated yet) | |
+| `time.live` | `1` when the screen is redrawn every minute; empty otherwise (show the date, not a stale time) | |
+| `date.d`, `date.dd`, `date.m`, `date.mm`, `date.y` | `7`, `07`, `11`, `11`, `2026` | |
+| `date.wd`, `date.wds`, `date.month`, `date.dm`, `date.full` | `Tuesday`, `Tu`, `Month 11`, `17/11`, `Tuesday, 17/11/2026` | |
+| `lunar.d`, `lunar.m`, `lunar.dm`, `lunar.year` | `6`, `10`, `6/10`, `Bính Ngọ` (the year's name, in Vietnamese in every language today) | |
+| `battery.pct`, `sync.hm` | `82`, `07:40` (when data was last downloaded) | |
+| `weather.ok`, `weather.temp`, `weather.min`, `weather.max`, `weather.rain`, `weather.desc`, `weather.icon`, `weather.city` | `1`, `28`, `24`, `31`, `40`, `Cloudy`, `cloudsun`, `Hanoi` | `data:weather` |
+| list `weather.hours`: `item.h`, `item.t`, `item.icon` | 4 entries | `data:weather` |
+| list `weather.days`: `item.d`, `item.min`, `item.max`, `item.icon` | 3 entries | `data:weather` |
+| `cal.count`, `cal.next.time`, `cal.next.title` | `3`, `09:00`, `Team meeting` | `data:calendar` |
+| list `cal.events`: `item.time`, `item.title` | up to 10 | `data:calendar` |
+| `read.ok`, `read.title`, `read.author`, `read.pct`, `read.today_min`, `read.goal_min`, `read.streak` | `1`, `The Alchemist`, `Paulo Coelho`, `42`, `18`, `30`, `5` | `data:reading` |
+| `news.count`, `news.day`; list `news.top`: `item.title` | `12`, `17/11` | `data:news` |
+| inside a list: `item.<field>`, `i` (1, 2, 3), `last` (`1` on the last row) | | |
+
+Words such as weekday and month names follow the X4's language (English shown). Text from the server (the weather's words, city names, events, book titles) arrives as it is.
+
+A binding whose permission the manifest does not list gives an empty string, and the package still draws.
+
+## Conditions
+
+`if` is one comparison: `"weather.ok"` (true when not empty, `"0"` or `"false"`), `"!cal.count"`, `"weather.temp >= 30"`, `"cal.count > 3"`, `"i == 1"`. Operators: `==`, `!=`, `>`, `>=`, `<`, `<=`. When both sides read as numbers they compare as numbers; otherwise `==` and `!=` compare text. The left side is a binding name, the right side a number or a word.
+
+## Text and fonts
+
+- `size` is the line height in design pixels. `font` is `sans`, `serif`, `digits` (numbers and `:%+,-./°` only) or `ui` (the system's small label font).
+- The device takes the biggest font of that family whose line height fits the scaled size. When the text is too wide, it tries the next smaller font, then wraps to at most `lines` lines. It never cuts a word short with an ellipsis. A `digits` text that holds a letter falls back to `sans`.
+- `align` and `valign` place the text block inside its box.
+
+## Colours
+
+Values are tokens (`ink` for text, `paper` for the background, `muted`, `accent`, `card`, `none`) or `#rrggbb`.
+
+| | Colour screen | Grey screen | Black-and-white e-ink |
+|---|---|---|---|
+| Tokens | from the current theme, light or dark | grey levels of the theme | `ink`, `accent`: black; `paper`, `card`: white; `muted`: black text, a 50 % dithered fill |
+| `#rrggbb` | as it is | the nearest grey | under 35 % brightness: black; over 75 %: white; between: a dithered fill, with black text and thin lines |
+
+Text is always solid. Packages that use tokens look right on every screen; hex colours are for colour faces and degrade by brightness.
+
+## Pictures
+
+`image` reads a BMP from the package (1, 2, 4, 8 or 24 bits). On e-ink it is dithered. Colour boards will also take PNG and baseline JPEG. A missing or broken picture draws nothing.
+
+## Refresh
+
+`refresh` in the manifest is the most often the package wants to be redrawn:
+
+| `refresh` | A sleep face on the X4 | A Home widget on the X4 |
+|---|---|---|
+| `minute` | woken every minute, with a partial refresh, when the clock switch is on and the battery is not low | drawn with Home |
+| `hour` | woken at the top of every hour, and on data downloads | drawn with Home |
+| `data` | redrawn when data is downloaded (every 15 to 60 minutes) | drawn with Home |
+| `day` | redrawn at midnight and on data downloads | drawn with Home |
+
+The device may draw less often (battery saving, quiet hours), never more often. A full refresh against e-ink ghosting stays the system's choice.
+
+## Example
+
+A big clock with the weekday and the weather:
+
+```json title="face.json"
+{"decl": 1, "layouts": [{"size": [800, 480], "items": [
+  {"t": "text", "if": "time.live", "x": 0, "y": 40, "w": 800, "h": 140, "text": "{time.hm}", "size": 125,
+   "font": "digits", "bold": true, "align": "center"},
+  {"t": "text", "if": "!time.live", "x": 0, "y": 40, "w": 800, "h": 140, "text": "{date.dm}", "size": 125,
+   "font": "digits", "bold": true, "align": "center"},
+  {"t": "text", "x": 0, "y": 200, "w": 800, "h": 56, "text": "{date.wd|upper}", "size": 50, "bold": true,
+   "align": "center"},
+  {"t": "line", "x": 200, "y": 286, "x2": 600, "y2": 286, "lw": 3},
+  {"t": "group", "if": "weather.ok", "items": [
+    {"t": "icon", "x": 250, "y": 310, "w": 80, "h": 80, "name": "{weather.icon}"},
+    {"t": "text", "x": 350, "y": 318, "w": 220, "h": 70, "text": "{weather.temp}°", "size": 62, "font": "digits",
+     "bold": true}]}]}]}
+```
+
+This face needs `data:weather` in its manifest's `perms` to show the weather; without it, the weather group's condition is false and the face still draws the time and date.
+
+## Themes
+
+A theme package is data too (`theme.json`): colour tokens for the light and dark looks, and an `eink` part for black-and-white screens (a widget frame style, plain or inverted bars, sleep-screen wallpapers). Themes on the X4 are <Status s="planned" />.
+
+## Planned for level 2 <Status s="planned" />
+
+Market data bindings, a settings schema, more icons, and inputs: tap or OK targets that open an app or switch a value, mapped to the focus ring on devices with buttons.

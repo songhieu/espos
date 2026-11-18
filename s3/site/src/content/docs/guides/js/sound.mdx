@@ -1,0 +1,43 @@
+---
+title: Sound
+description: 'Play the system sounds from a JavaScript app with the sound permission.'
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+An app can play three system sounds. Each needs the `sound` permission in the manifest:
+
+```json
+"perms": ["sound"]
+```
+
+| Call | Sound | Good for |
+|---|---|---|
+| `sound.chime()` | a short chime | something finished, a goal reached |
+| `sound.beep()` | the alarm beep | a timer that ran out |
+| `sound.click()` | the touch click | a tick, a step |
+
+```js
+function roll() {
+  dice = 1 + Math.floor(Math.random() * 6);
+  sound.click();
+}
+```
+
+Without the permission, each call throws `TypeError: app has no "sound" permission`.
+
+## What the user hears
+
+| Call | Volume at 0 | Do Not Disturb on | Touch sound off |
+|---|---|---|---|
+| `sound.chime()` | silent | silent | plays |
+| `sound.click()` | silent | silent | silent |
+| `sound.beep()` | plays | **plays** | plays |
+
+- `sound.beep()` is the alarm sound. It plays at 70 % volume or more, even when the volume is at 0 or Do Not Disturb is on. Use it only for something the user asked to be alerted about, such as a timer they started.
+- Sounds play at the system volume (Settings › Sound, or the Control Center).
+- Buttons and list rows already play the click sound when tapped. You do not need to call `sound.click()` in a button handler.
+
+<Aside type="note">
+API level 1 has no way to play your own audio file or a tone sequence. Java games are the exception: the `j2me` engine plays MIDP tones. See [Java (J2ME) games](/guides/java-games/).
+</Aside>

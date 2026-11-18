@@ -1,0 +1,67 @@
+---
+title: Timers
+description: 'Run code after a delay or on a period with timer.after and timer.every, and keep time correctly across closes.'
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+Timers call your function later, while the app is open. They replace `setTimeout` and `setInterval`, which do not exist in API level 1.
+
+## `timer.after(ms, fn)`
+
+Calls `fn` once, after `ms` milliseconds. Returns the timer's id.
+
+```js
+function save() {
+  store.set('draft', draft);
+  toast('Saved');
+}
+// Save two seconds after the last change.
+let pending = 0;
+function changed() {
+  if (pending) timer.cancel(pending);
+  pending = timer.after(2000, () => { pending = 0; save(); });
+}
+```
+
+## `timer.every(ms, fn)`
+
+Calls `fn` every `ms` milliseconds until you cancel it. Returns the timer's id.
+
+```js
+let seconds = 0;
+const id = timer.every(1000, () => { seconds++; });
+
+app.render = () => ui.column([ui.big(String(seconds))]);
+```
+
+## `timer.cancel(id)`
+
+Stops a timer. An unknown id, or `0`, is ignored, so it is safe to call twice.
+
+## Rules
+
+| Rule | Detail |
+|---|---|
+| Shortest period | 50 ms. A smaller `ms` is raised to 50. |
+| At most 8 timers | The ninth `timer.every` or `timer.after` throws `RangeError: too many timers`. A `timer.after` stops counting once it has fired. |
+| The screen is redrawn after each tick | You do not need `app.refresh()` in a timer. |
+| Each tick has 1.5 s | A tick that runs longer is stopped and shows an error toast. |
+| Only while the app is open | Back or Home closes the app and stops all its timers. |
+
+<Aside type="caution" title="Count time with the clock, not with ticks">
+A tick can arrive late, and timers stop when the app closes. Store the moment something started or ends (`Date.now()`), and compute what you show from the clock:
+
+```js
+let endsAt = Date.now() + 5 * 60 * 1000;
+const left = () => Math.max(0, Math.ceil((endsAt - Date.now()) / 1000));
+timer.every(1000, () => {});   // only to redraw once a second
+app.render = () => ui.column([ui.big(String(left()))]);
+```
+
+Save `endsAt` with `store.set` and the countdown survives a close. The [tutorial](/getting-started/first-app/) builds a full example.
+</Aside>
+
+## Doing something at a time, with the app closed
+
+Timers cannot do this. Schedule a notification instead: it fires at the time you give, even when the app is closed or the device restarted. See [Notifications and badges](/guides/js/notifications/#schedule-a-notification).

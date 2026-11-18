@@ -1,0 +1,80 @@
+---
+title: Error messages
+description: 'What each error means and what to do: JavaScript exceptions, the messages the device shows, installer errors and package tool errors.'
+---
+
+The device's messages are listed in English, as the firmware writes them; a device set to another language shows them translated.
+
+## In your app's JavaScript
+
+These are thrown as exceptions you can catch. Uncaught, they show as a toast "App error: " plus the message, or replace the screen when they come from `render`.
+
+| Message | Cause | Fix |
+|---|---|---|
+| `TypeError: app has no "sound" permission` | `sound.*` without `sound` in `perms` | Add `"sound"` to `perms`. |
+| `TypeError: app has no "notify" permission` | `notify`, `notify.schedule`, `notify.cancel` or `app.badge` without `notify` | Add `"notify"` to `perms`. |
+| `RangeError: too many timers` | A ninth timer | Cancel timers you no longer need. |
+| `TypeError: timer(ms, fn)` | `timer.every` or `timer.after` without a function | Pass a function. |
+| `RangeError: store keys are 1-14 characters` | An empty or long key in `store.set` | Shorten the key. |
+| `RangeError: store values are at most 3000 characters` | The value's JSON is over 3000 bytes | Split it over several keys. |
+| `InternalError: interrupted` | A call ran longer than 1.5 s | Do less per call; move work out of `render`. |
+| `InternalError: out of memory` | The 1.5 MB heap is full | Keep less data in memory. |
+| `RangeError: Maximum call stack size exceeded` | Deep recursion or a deeply nested expression (on the board; the simulator has no stack limit) | Split the screen into helper functions; avoid deep recursion; test in QEMU. |
+| `SyntaxError: invalid property name` on a correct line | Can also mean the parser ran out of stack | Same as above. |
+| `ReferenceError: console is not defined` (or `setTimeout`, `fetch`) | Not in API level 1 | Use `toast`, `timer`; see [Not in level 1](/reference/js-api/#not-in-level-1). |
+
+## On the device's screen
+
+| Message | Meaning | What to do |
+|---|---|---|
+| App error: *error* | A tap handler or a timer threw. | Read the error on the dev console's `TRACE`. |
+| App error while drawing: *error* | `render` threw. | Fix `render`; it must return one node. |
+| The app cannot run: *error* | `main.js` threw, or took over 3 s at start. | Check the top-level code. |
+| The device is busy. Open it again in a moment. | Not enough internal RAM for the app's stack right now. | Open it again in a moment. |
+| This app is not on the device. Install it again from the Store. | The app's files are missing. | Reinstall it. |
+| This app is not installed. Get it from the Store. | The app is not installed. | Install it from the store. |
+| This app is being installed or moved | A job is running for it. | Wait for the job to finish. |
+| Needs the memory card | The app is on a card that is out. | Put the card in. |
+| Needs a software update | The package needs an engine or a `min_fw` the firmware lacks. | Update the firmware. |
+
+## Installer
+
+Shown in the store and sent to the web desk in the sync report (`job.err`).
+
+| Message | Meaning |
+|---|---|
+| Not enough room on the device | The chosen place is full. The store lists what to remove or move. |
+| Needs the memory card | The chosen place is the card and no card is in. |
+| Install *app* first | An add-on needs its main app first. |
+| No part chosen to download | No part was chosen. |
+| Already in the queue | The same job is already waiting. |
+| Something else is being done with this app | Another job is running for this app. |
+| Getting the Java game runtime, try again soon | The Java runtime is downloading. |
+| No new version | An update was asked for, but the catalog has nothing newer. |
+| It is already there | A move to the place the package is in. |
+| The app is not installed | A remove or move of a package that is not installed. |
+| Insert the memory card with this app to remove it | The package is on a card that is out. |
+| cannot download, cannot open a connection | The download did not start. |
+| the network dropped midway, the network is too slow | The download stopped part way. |
+| a downloaded file has the wrong size | The part's size is not the catalog's. |
+| a downloaded file is wrong (SHA-256) | The part does not match the catalog's SHA-256. |
+| a downloaded file is wrong (CRC) | A file does not match its CRC32. |
+| the package is broken (manifest) | The package's manifest is not valid JSON. |
+| the package is for another app | The manifest's `id` is not the package that was asked for. |
+| two parts have files with the same name | Two parts hold a file with the same name. |
+| not an .espk package | The file does not start with `ESPK`. |
+| a newer package format: update the software | The format is not 1. |
+| the package header is broken | The manifest or the table is too big. |
+| the package's file table is broken | Offsets not aligned or not increasing, or a file too big. |
+| a file name in the package is not valid | A name breaks the [name rules](/reference/espk/#rules-the-device-checks). |
+| the package has two files with the same name | Two files with the same name in one part. |
+| the package is cut short | The file ends before its last file does. |
+| not enough memory | Out of memory while reading the package. |
+| cannot write a file, cannot write the flash, cannot erase the flash, writing to the flash failed | Writing to the internal flash failed. |
+| cannot write to the memory card, cannot read the memory card | Writing to or reading the card failed. |
+| cannot write the app list | The package index could not be written. |
+| cannot replace the old version | An update could not swap the new version in. |
+
+## Package tool
+
+`tools/espk.py` lists every problem it finds, then exits. The messages are in [Packaging](/guides/packaging/#what-the-checker-rejects). The `espos check` rules, with their codes, are in the [CLI reference](/reference/cli/).

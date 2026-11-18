@@ -8,17 +8,14 @@
         "type": "http_in"
       },
       {
-        "id": "work",
-        "type": "code",
+        "id": "put",
+        "type": "call_workflow",
         "config": {
-          "source": {
-            "$file": "nodes/work.go"
-          },
-          "timeout_ms": 10000,
+          "workflow": "put_device_settings",
           "input": {
-            "params": "{{ input.params }}",
-            "body": "{{ input.body }}",
-            "uid": "{{ input.user.id }}"
+            "uid": "{{ input.user.id }}",
+            "device_id": "{{ input.params.id }}",
+            "changes": "{{ input.body.changes }}"
           }
         }
       },
@@ -26,8 +23,8 @@
         "id": "out",
         "type": "respond",
         "config": {
-          "status": "{{ work.status }}",
-          "body": "{{ work.body }}"
+          "status": "{{ put.status }}",
+          "body": "{{ put.body }}"
         }
       },
       {
@@ -36,7 +33,7 @@
         "config": {
           "status": 500,
           "body": {
-            "error": "{{ work.error }}"
+            "error": "{{ put.error }}"
           }
         }
       }
@@ -44,14 +41,14 @@
     "edges": [
       {
         "from": "in",
-        "to": "work"
+        "to": "put"
       },
       {
-        "from": "work",
+        "from": "put",
         "to": "out"
       },
       {
-        "from": "work",
+        "from": "put",
         "to": "fail",
         "port": "error"
       }

@@ -1,0 +1,184 @@
+---
+title: Port to a new board
+description: 'Add a board to EspOS step by step, following how the 2.8-inch ES3C28P was added: the descriptor, detection at boot, a display driver, scaling, touch, audio, card and battery, QEMU and the size budget.'
+---
+
+import { Aside, Steps, FileTree } from '@astrojs/starlight/components';
+import Status from '../../../components/Status.astro';
+
+The same guide is in the repository as `docs/porting.md`, next to the code. It adds a board the way the **ES3C28P** (2.8", ILI9341 240 × 320, FT6336G touch) was added next to the ES3C35P (3.5", ST77922 320 × 480). Everything above the board layer, and every package, stays the same.
+
+<Aside type="caution" title="The board layer is being reorganised">
+<Status s="preview" label="In progress" /> The steps below use the board folders and the HAL that are in the tree now (`src/hal/`, `src/boards/`). File names and descriptor fields may still change while that work finishes; [Board support packages](/hardware/bsp/) tracks it.
+</Aside>
+
+## Before you start
+
+Check your board against the **Full** [hardware profile](/hardware/profiles/), the one that runs everything today:
+
+| Need | Why |
+|---|---|
+| ESP32-S3 | The firmware, QuickJS and the engines are built for it. |
+| 8 MB PSRAM | JavaScript heaps (1.5 MB per app), engine data and big buffers live there. The build expects octal PSRAM (`qio_opi`); a quad-PSRAM module needs its own environment. |
+| 16 MB flash | The partition table: a 3.75 MB firmware slot, the internal app area, LittleFS and NVS. Other sizes need their own table. |
+| A colour panel from 240 × 320 up to 320 × 480, portrait | The interface is 320 × 480. A smaller panel shows it scaled. |
+| Capacitive touch | Every screen is touch-driven. |
+| Optional: a codec and speaker, an SD slot, a battery | The OS runs without them, with less. |
+
+Gather the board's schematic or the vendor's demo code. You need every pin, the panel controller and its init sequence, and the touch controller and its I2C address. Check each pin on the board before you trust it: the 2.8" board's pins came from the vendor's page and are still being confirmed on hardware.
+
+## The steps
+
+<Steps>
+
+1. **Copy the template.**
+
+   For a board called `mygadget`:
+
+   ```sh
+   cp -R src/boards/_template src/boards/mygadget
+   mv src/boards/mygadget/myboard.h src/boards/mygadget/mygadget.h
+   ```
+
+   <FileTree>
+   - src/boards/mygadget/
+     - mygadget.h the descriptor
+     - bsp.cpp how to recognise the board
+     - display.cpp the panel driver
+     - touch.cpp the touch driver
+   </FileTree>
+
+   Rename the `myboard` namespace to `mygadget` everywhere in the folder. The template compiles as it is, and nothing lists it, so it adds nothing to the firmware until you register it.
+
+2. **Fill in the descriptor** (`myboard.h`).
+
+   Name, chip, capability flags, the panel, where the interface lands on it, and every pin. The ES3C28P's, as an example of a panel smaller than the interface:
+
+   ```cpp
+   // src/boards/es3c28p/es3c28p.h (part)
+   .name = "es3c28p",
+   .caps = hal::PROFILE_FULL,
+   .display = {.panel = {.w = 240, .h = 320, .type = hal::PanelType::TFT, .format = hal::ColorFormat::RGB565,
+                         .bits = 16, .refresh = hal::Refresh::INSTANT, .rotations = 0b1111},
+               .ui = {.num = 2, .den = 3, .x = 13, .y = 0},    // 320 x 480 at 2/3 = 213 x 320, from x 13
+               .pins = {.cs = 10, .sclk = 12, .d0 = 11, .d1 = 13, .d2 = -1, .d3 = -1, .dc = 46, .rst = -1, .bl = 45,
+                        .te = -1}},
+   .i2c = {.sda = 16, .scl = 15},
+   .input = {.kind = hal::InputKind::TOUCH, .addr = 0x38, .rst = 18, .irq = 17},
+   ```
+
+   - `name` is what the server sees in every sync and what firmware updates are matched to. Use the vendor's model number, in lower case, and never change it once devices are out.
+   - `caps` lists what the board has; each flag has a package-facing name (see [Capabilities](/hardware/profiles/#capabilities)). It gates the OS's drivers: no `CAP_AUDIO_OUT` keeps `sound::` quiet, no `CAP_SDCARD` skips the card, no `CAP_BATTERY` reports a steady 85 %. Both boards are exactly `hal::PROFILE_FULL`; a board that lacks a part removes its flags: a board without a codec has neither speaker nor microphone, so it is `hal::PROFILE_FULL & ~(hal::CAP_AUDIO_OUT | hal::CAP_AUDIO_IN)`. The template starts from Full without a codec, battery or LED; an S3 with an e-paper panel would be Full minus `CAP_COLOR | CAP_FAST | CAP_TOUCH`, plus `CAP_EINK | CAP_BUTTONS`.
+   - `rotations` is a bit per rotation your driver can do (bit 0 is portrait, bit 1 is LVGL's 90). Both boards do all four (`0b1111`). In landscape the interface is 480 × 320; on a smaller panel it is scaled the same way as in portrait (the ES3C28P shows 320 × 213 across its turned panel). A driver that can only do portrait sets `0b0001`; a rotation the driver cannot do stays portrait.
+
+3. **Detect it at boot** (`bsp.cpp`, then `src/boards/boards.cpp`).
+
+   `probe()` returns a non-zero value when this is your board. Look for a chip only your board has, at its I2C address on your board's pins:
+
+   ```cpp
+   // src/boards/es3c28p/bsp.cpp
+   uint8_t probe() {
+     pinMode(BOARD.input.rst, OUTPUT);
+     digitalWrite(BOARD.input.rst, HIGH);   // the FT6336 answers ~300 ms after its reset goes high
+     return hal::i2cAnswer(BOARD.i2c.sda, BOARD.i2c.scl, {BOARD.audio.addr, BOARD.input.addr}, 400);
+   }
+   ```
+
+   Then list your BSP in `src/boards/boards.cpp`, in the `BSPS` array, and include your header there.
+
+   - **Order is safety.** Probes run in list order until one answers. A probe that drives a pin (a reset or enable line) goes **after** every board on which that pin is an output. The ES3C28P drives GPIO 18, an I2S clock on the ES3C35P, so it is asked second.
+   - **Be quick** (a few milliseconds; up to about 400 ms if a chip needs time after reset) and leave every pin as you found it. `hal::i2cAnswer` releases its two pins.
+   - **Can't tell it apart safely?** Build a firmware for your board only: list just your BSP behind a build flag, as `-DBOARD_ES3C28P` does.
+
+4. **Write the display driver** (`display.cpp`).
+
+   The template is a working shape for a 320 × 480 SPI panel with a D/C line (ST7796, ILI9488 class). Fill in your panel's init sequence and keep the rules every driver follows:
+
+   - LVGL draws the **320 × 480** interface in RGB565, in bands, into two buffers in internal RAM (DMA capable). Internal RAM is tight: two bands of 40 rows (50 KB) are a fair start; the 3.5" driver uses 80.
+   - `flush` sends a band and calls `lv_display_flush_ready` once the buffer may be drawn into again.
+   - `begin()` leaves the backlight off; the OS turns it on after the first screen.
+   - Check the panel's **colour order** (RGB or BGR, in the controller's `MADCTL` register) and **byte order** (most SPI panels take RGB565 high byte first, so the band is byte-swapped).
+   - `direct()` may return `false` in a first port: full-screen games then draw through LVGL, slower but correct.
+   - `mirror()` and `frame()` keep a 320 × 480 copy in PSRAM while remote control watches.
+
+   Two working drivers to copy from: `src/boards/es3c35p/display.cpp` (QSPI, tear sync, four rotations) and `src/boards/es3c28p/display.cpp` (SPI, scaled).
+
+5. **Scale when the panel is smaller than 320 × 480.**
+
+   Set `ui` in the descriptor, and shrink each band in `flush` with `src/scale.h`: `scale::down32` for 2/3, `scale::down43` for 3/4. They average by area, so text stays readable. As the ES3C28P driver does:
+
+   - render bands whose height is a multiple of the step (78 rows for 2/3);
+   - widen LVGL's redraw areas to whole rows aligned to the step, in an `LV_EVENT_INVALIDATE_AREA` handler;
+   - paint the panel black once at start, then send each scaled band at its offset (x 13 on the 240-pixel panel);
+   - in `direct()`, align the first row to the step.
+
+   A 320 × 480 panel needs no scaling. Bigger or landscape panels are not covered by today's scaler.
+
+6. **Write the touch driver** (`touch.cpp`).
+
+   `begin()` runs after `touch::begin()` has made the board's I2C bus: reset the controller, check that it answers (return `false` if not), and start a task that reads it about 100 times a second. Hand every report to `touch::report(x, y, down, ms)`, in the interface's portrait coordinates:
+
+   ```cpp
+   // the panel's point back to the interface (BOARD.display.ui)
+   x = constrain((px - UI.x) * UI.den / UI.num, 0, hal::UI_W - 1);
+   y = constrain((py - UI.y) * UI.den / UI.num, 0, hal::UI_H - 1);
+   touch::report(x, y, true, millis());
+   ```
+
+   `touch.cpp` does the rest for every board: the queue, the system gestures, the 20 px slop and the click. The template reads a FocalTech FT6x36; GT911 and CST816 controllers differ only in reading the point.
+
+7. **Audio, card and battery: usually descriptor values only.**
+
+   - An **ES8311** codec: fill in `audio` (address 0x18, the I2S pins, the amplifier pin and its "on" level). Another codec needs its register setup added to `src/sound.cpp` and a value in `hal::Codec`.
+   - An **SD_MMC** card slot: fill in `card`. Set `try1bit` while the 4-bit wiring is unchecked. SD over SPI is planned.
+   - A **battery** on an ADC pin: fill in `power` with your divider and the voltages for 0 % and 100 %.
+
+8. **Run it in QEMU.**
+
+   The 2.8" board was checked in QEMU before any hardware arrived:
+
+   ```sh
+   tools/qemu/run.sh --board 28     # the model to copy
+   ```
+
+   - Add an environment that extends `s3desk-qemu` with your build flag, as `s3desk-28-qemu` adds `-DBOARD_ES3C28P`.
+   - Add your board to `src/boards/qemu/` (it uses the real descriptor minus what QEMU does not emulate), and teach `src/boards/qemu/display.cpp` your panel size and scale.
+   - Add it to `tools/qemu/run.sh` (its own image, card, console port and web port, so it runs beside the others) and to the viewer, `tools/qemu/view.cpp` (the window size, where the interface sits, and the panel's pixel pitch for the real-size view).
+
+   Then check Home, the App Library, Settings, a JavaScript app, PawBoop, the run game from the card, the black bars, and touch through the viewer.
+
+9. **Stay inside the size budget.**
+
+   The firmware image must be under **3,932,160 bytes**, and it is close to that today. Report what your board adds:
+
+   ```sh
+   espos firmware build
+   espos firmware size
+   ```
+
+   Keep the drawing path fast (it runs for every frame) and build cold set-up code small.
+
+10. **Bring it up on the board.**
+
+    On the dev console, `TRACE` shows the `board:` line from detection. Confirm, in this order: the panel's init and colour order, the touch axes, the codec, the card in 4-bit mode, the battery reading, and the frame rate (`BENCH 0`). `tools/qa.py` records frame rate, heap and reboots over a scripted session. Write down where every pin came from and what you checked, as `docs/boards.md` does.
+
+</Steps>
+
+## How the 2.8" board was added, in the current layout
+
+| Part | Where it is now |
+|---|---|
+| Pins, panel, scale, capabilities | `src/boards/es3c28p/es3c28p.h` |
+| Detection: the FT6336 or codec on 16/15, asked after the 3.5" board | `src/boards/es3c28p/bsp.cpp`, `src/boards/boards.cpp` |
+| The ILI9341 driver at 2/3 | `src/boards/es3c28p/display.cpp`, using `src/scale.h` |
+| The FT6336 and the mapping back to 320 × 480 | `src/boards/es3c28p/touch.cpp` |
+| QEMU | `src/boards/qemu/`, `platformio.ini` (`s3desk-28-qemu`), `tools/qemu/run.sh`, `tools/qemu/view.cpp` |
+| Notes and what was checked | `docs/boards.md` |
+
+## Updates
+
+Since 0.4.0, one firmware image serves every board listed in `boards.cpp`, and each device sends its board `name` in every sync. A board added to that list takes the same updates. A board that needs its own image (a build flag, another chip) needs its own update record on the server.
+
+<Aside type="tip" title="Share your port">
+Ports are welcome as contributions; see [How to contribute](/contributing/). The trademark policy covers the EspOS name, so check it before you publish a port under that name.
+</Aside>

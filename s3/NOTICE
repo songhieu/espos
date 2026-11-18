@@ -1,0 +1,9 @@
+EspOS for ESP32-S3 boards (firmware, simulators, tools, SDK and docs)
+Copyright 2026 EspOS contributors
+
+Licensed under the Apache License, Version 2.0 (see LICENSE).
+
+This folder also contains software and fonts by others, each under its own licence:
+QuickJS-ng, libopus, Espressif's esp_new_jpeg, ESP-IDF drivers, TJpgDec, LVGL's symbol
+glyphs (Font Awesome Free), the Ubuntu font family and Noto Sans CJK. THIRD_PARTY.md lists
+each one, the files it covers and where its licence text is.

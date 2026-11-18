@@ -1,0 +1,91 @@
+---
+title: Manifest fields
+description: 'Every manifest.json field: what it means, its rules, its default, and who reads it. Plus the fields planned for manifest v2.'
+---
+
+import Status from '../../../components/Status.astro';
+import { Aside } from '@astrojs/starlight/components';
+
+`manifest.json` sits at the root of a package folder. The core part carries the full manifest; other parts carry only `id`, `version`, `code` and `part` (plus `group`, `label`, `default` and `req`). Concepts: [The manifest](/concepts/manifest/).
+
+## Current fields
+
+| Field | Type | Required | Rules and default |
+|---|---|---|---|
+| `id` | string | yes | Never changes. At most 48 characters, no `/`, not starting with `.`. Use lowercase letters, digits, `.`, `_` and `-` in reverse-domain form: `com.example.app`. (The language packs `dev.espos.lang.pt-BR` and `dev.espos.lang.zh-Hans` keep their tag's capitals.) Keep it to 23 characters if you want to open it with the dev console's `APP` command. |
+| `name` | string | core | The display name, at most 40 characters. |
+| `version` | string | yes | What people read, such as `1.2.0`. At most 20 characters of `0-9 a-z . + -`. |
+| `code` | integer | yes | 1 or more, higher for every release. Convention: `major × 10000 + minor × 100 + patch`. |
+| `kind` | string | core | `js` (a JavaScript app) or `native` (data for an engine). |
+| `engine` | string | core | `js`, `pet`, `run`, `j2me`, `lang` or `font`. Default `js` for `kind: js`. `kind: js` must use `js`. `lang` and `font` are the OS's language and font packs. |
+| `type` | string | no | `app` (default) or `pack` (data another package or the OS needs: no icon, never opened, never listed in the store). |
+| `min_fw` | integer | yes | The oldest firmware code: `300` = 0.3.0 (packages, JavaScript apps), `400` = 0.4.0 (`j2me`), `500` = 0.5.0 (`lang` and `font`). |
+| `category` | string | yes | `game`, `tool`, `study`, `health` or `widget`. Default `tool`. |
+| `author` | string | no | At most 40 characters. |
+| `desc` | string | no | One line for the store, at most 300 characters. |
+| `i18n` | object | no | `name` and `desc` in other languages: `{"de": {"name": "Fokus", "desc": "..."}, ...}`, keyed by the exact language tags of [`app.lang`](/reference/js-api/#applang). The device shows the ones of the language it shows, and `name` and `desc` otherwise. `name` 1 to 40 characters, `desc` at most 300; `espos check` warns about keys the S3 never shows and letters it cannot draw. See [Languages and translation](/guides/languages/#your-packages-name-in-other-languages). |
+| `icon` | object | no | `{"bg": ["#rrggbb", "#rrggbb"], "glyph": "<glyph>"}`: a gradient and a glyph, used when the package has no `icon.jpg`. |
+| `perms` | string[] | no | `sound`, `notify`, `net`, `bg`. See [Permissions](/concepts/permissions/). |
+| `part` | string | yes | `core`, or a short lowercase name for another part (`roads10`). |
+| `addon_of` | string | no | The id of the package this one adds to. See [add-ons](/guides/packaging/#add-ons). |
+| `j2me` | object | for `j2me` | `{"midlet", "keypad", "profile", "config"}`. See below. |
+| `lang` | string | for `lang` and `font` | The language tag the pack is for (`"de"`). |
+| `font` | string | no | In a language pack: the id of the font pack it needs (`"dev.espos.font.jp"`). |
+
+Text fields, `i18n` included, must not contain the ellipsis character (U+2026). The device shows text in full.
+
+### Glyphs
+
+`timer`, `alarm`, `bell`, `list`, `drop`, `flag`, `globe`, `sun`, `moon`, `photo`, `edit`, `font`, `home`, `search`, `speaker`, `play`, `lap`, `pin`, `leaf`, `power`, `grid` (the default).
+
+### Fields of non-core parts
+
+| Field | Type | Meaning |
+|---|---|---|
+| `group` | string | The part is one choice of this group. An install takes one part per group. |
+| `label` | string | What the store shows for the choice, at most 40 characters. |
+| `default` | boolean | The group's default choice. At most one per group. |
+| `req` | boolean | A required part. Parts without a `group` are required anyway. |
+
+The core manifest can also list its parts for the publish script: `"parts": [{"id": "roads10", "group": "roads", "label": "Light: 10 frames a second", "default": true}]`. That list wins over the parts' own fields.
+
+### The `j2me` object
+
+| Field | Meaning |
+|---|---|
+| `midlet` | The MIDlet class. The device actually starts the class named by `MIDlet-1` in the jar's `META-INF/MANIFEST.MF`. |
+| `keypad` | `full`. `compact` and `touch` are reserved for planned keypad modes. |
+| `profile` | `MIDP-2.0` |
+| `config` | `CLDC-1.1` |
+
+### Older spellings
+
+The device also reads `permissions` instead of `perms`, and a top-level `glyph` and `bg` instead of `icon`. The store catalog does not. Use `perms` and `icon`.
+
+### Written by the device
+
+When a package is installed on the memory card, the device keeps a `manifest.json` in its folder with two more fields: `parts` (the installed part ids) and `files` (`[{"n": name, "s": size, "c": crc32}]`). Do not write these yourself; `tools/espk.py --install-sim` writes them for the simulator.
+
+## Manifest v2<Status s="planned" />
+
+Manifest v2 arrives with the permission broker. These fields are planned; the `espos` CLI accepts them already and warns that firmware does not read them yet.
+
+| Field | Values | Meaning |
+|---|---|---|
+| `type` | `app`, `widget`, `face`, `theme`, `service`, `pack`, `driver` | What the package does. Replaces `kind`. See [Package types](/concepts/package-types/#planned-package-types-in-manifest-v2). |
+| `runtime` | `js`, `decl`, `wasm`, `engine` | What runs it. `decl` is the [declarative format](/reference/decl/). |
+| `api` | `{"min": 1, "target": 1}` | The API (or format) levels it needs and was tested with. Separate from `min_fw`. |
+| `requires` | capability flags | What the device must have, such as `input.touch`, `screen.color`, `mem.psram`. See [Hardware profiles](/hardware/profiles/#capabilities). |
+| `refresh` | `minute`, `hour`, `data`, `day` | Declarative faces and widgets: how often they want to be redrawn. |
+| `screens` | `["320x480", "240x320"]` | The screen sizes it supports. |
+| `theme` | `system`, `custom` | Whether it follows the system theme tokens. |
+| `perms` | the [v1 permission list](/concepts/permissions/#permission-list-version-1) | `net:<host>`, `storage:<KB>`, `data:*`, `sensor:<channel>` and more. |
+| `entry` | a file name | The code to run, such as `main.js` or `app.wasm`. |
+| `settings` | a schema | A settings page, drawn by both the device and the web desk. |
+| `web` | a page | An optional page shown in a sandboxed frame on the web desk. |
+
+Driver packages add `match` (how the OS recognises their device), `provides` (the typed channels they publish), `power` and `rate`. See [Hardware and drivers](/roadmap/hardware/#driver-packages).
+
+<Aside type="note">
+The JSON schemas for both versions ship in `@espos/sdk` (`schemas/manifest.schema.json` and `schemas/manifest-v2.schema.json`).
+</Aside>

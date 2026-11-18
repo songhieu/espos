@@ -1,0 +1,96 @@
+---
+title: Repository layout
+description: 'Where things live in the firmware repository: the OS sources, the package system, the JavaScript runtime, the engines, the simulator, the tools and the SDK.'
+---
+
+The S3 firmware is the `s3/` folder of the public monorepo, [github.com/songhieu/espos](https://github.com/songhieu/espos). This is its layout.
+
+import { FileTree } from '@astrojs/starlight/components';
+
+<FileTree>
+- platformio.ini build environments: `s3desk`, `s3desk-net`, `s3desk-qemu`, `s3desk-28-qemu`
+- partitions_pawboop.csv the 16 MB flash layout
+- include/
+  - lv_conf.h LVGL configuration
+- src/ the OS
+  - main.cpp start-up and the main loop
+  - os.cpp, os.h screens, gestures, toasts, the screen saver
+  - home.cpp, wid.cpp, wid/ Home and its widgets
+  - apps.cpp, apps.h the app list: built-in apps and packages
+  - app_*.cpp built-in apps (clock, weather, calendar, news, markets, notes, settings, store)
+  - desk.cpp the server link: sync, settings, pairing
+  - notif.cpp, notif.h notifications
+  - sound.cpp, touch.cpp, lcd.cpp, power.cpp the OS's hardware APIs
+  - hal/ the hardware abstraction layer: the board descriptor and driver interfaces
+  - boards/ one folder per board (descriptor, probe, display and touch drivers), the registry, a template
+  - uikit.cpp, uikit.h shared UI building blocks (the `kit::` helpers)
+  - i18n.cpp, i18n.h the language shown, `T_()` and the other text marks, dates and plurals
+  - langui.cpp Settings › Language and its downloads
+  - standby.cpp StandBy, left of Home's first page in landscape
+  - devtools.cpp the USB dev console
+  - remote.cpp remote control
+  - js/
+    - jsapp.cpp JavaScript apps: the API level 1 prelude and bindings
+    - jsrt.cpp the dev console's `JS` command
+  - pkg/
+    - pkg.cpp, pkg.h installed packages, `pkg::File`, `pkg::run`
+    - store.cpp, store.h the catalog and the installer
+    - espk.cpp the streaming .espk reader
+    - area.cpp the internal app area (extents, compaction)
+    - card.cpp the memory card
+    - storage_ui.cpp the storage page
+  - j2me/ the Java VM, MIDP and the game screen
+  - pet/ the PawBoop engine
+  - run/ the run game engine
+  - fonts/ pre-rendered Ubuntu fonts (Latin-1), and the languages' own names
+- lib/
+  - quickjs/ QuickJS-ng 0.10.1, unchanged
+  - opus/ the Opus decoder, unchanged
+  - esp_new_jpeg/ Espressif's JPEG encoder and decoder
+  - qemu_eth/ Ethernet for QEMU
+- j2me/
+  - classlib/ the Java class library sources
+  - test/ VM and MIDP tests
+- apps/ the JavaScript apps in the store, `pack.py` (the catalog), and `catalog-text.json`
+- i18n/ the translations: `en.json` (the source texts), one `<tag>.json` per language, `languages.json`, `TRANSLATING.md`
+- sim/ the simulator
+  - main.cpp script commands
+  - live.cpp the live window (SDL2)
+  - stubs.cpp the hardware stand-ins
+  - data/, data-live/ the simulator's data folders (not in the repository: `mkdir -p` them; empty is a new device)
+  - scripts/ example scripts
+- tools/
+  - espk.py build, check and install packages
+  - i18n.py collect texts, check translations, build language and font packs
+  - i18n_tour.py every screen in one language (and rotation) as contact sheets
+  - sim-live.sh build and run the live simulator
+  - qemu/ QEMU runner, viewer, image builder, console
+  - s3cli.py, qa.py talk to a board over USB
+  - j2me/ the host Java runner, the runtime package builder
+  - pawboop/, pawboop_run/ engine data builders
+  - fontconv/, art/ font and picture converters
+- sdk/
+  - packages/sdk/ `@espos/sdk`: typings and JSON schemas
+  - packages/cli/ `@espos/cli`: the `espos` command
+- site/ these docs (Astro Starlight)
+- docs/ design notes and plans
+</FileTree>
+
+The scripts that publish packages and firmware live next to the repository, in `scripts/` (`publish_pkg.py`, `upload_fw.py`).
+
+## Design notes
+
+The `docs/` folder holds the working notes these pages are built from:
+
+| Note | Topic |
+|---|---|
+| `platform.md` | The platform plan and roadmap. |
+| `ecosystem.md` | The package system's contract: format, storage, catalog, sync. |
+| `packages.md`, `apps.md` | Making packages and JavaScript apps. |
+| `simulator.md` | The simulator and QEMU. |
+| `j2me.md`, `j2me-games.md` | The Java VM and Java games. |
+| `boards.md` | The two boards. |
+| `i18n.md` | Languages: the setting, the packs, fonts, marking text, translations. |
+| `remote.md` | Remote control. |
+| `widgets.md`, `saver.md`, `settings-parity.md` | Home widgets and the landscape Home pages, the screen saver, device settings. |
+| `research/` | Background research on app platforms and peripherals. |

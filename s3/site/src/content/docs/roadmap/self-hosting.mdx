@@ -1,0 +1,128 @@
+---
+title: Self-hosting
+description: 'Run your own EspOS server: the open Go server in the public repository, its settings, firmware and packages, connecting a device, and the plan for full self-hosting.'
+---
+
+import Status from '../../../components/Status.astro';
+import { Aside, Steps } from '@astrojs/starlight/components';
+
+<Aside type="note" title="What works today">
+<Status s="preview" /> The open server runs the **Xteink X4** reader today. It carries the same device workflows as the hosted service, the S3's included, but an S3 against your own server has not been checked end to end. The discovery document, the conformance suite and a server setting on the device are <Status s="planned" />.
+</Aside>
+
+## The open server
+
+The public repository, [github.com/songhieu/espos](https://github.com/songhieu/espos), holds the server in `server/` (AGPL-3.0), next to the S3 firmware and SDK in `s3/` (Apache-2.0) and the X4 firmware in `firmware/`. Releases up to commit `fac0c54` stay MIT.
+
+- **One Go binary**, `espos`, with the React web app built in.
+- **One account**, set by `ESPOS_USER` and `ESPOS_PASSWORD`. No sign-up, no email.
+- **All data in one folder**: a SQLite database, files, firmware bundles and the key that signs file links.
+- **The same workflows as the hosted service.** Each API route runs a small workflow graph, and `tools/importer` imports them again from the hosted backend, so both stay the same.
+
+## Run it
+
+With Docker:
+
+```sh
+cd server
+cp .env.example .env                       # set ESPOS_PASSWORD
+mkdir -p data && sudo chown 10001 data     # the container runs as uid 10001
+docker compose up -d --build
+```
+
+Or from source, with Go 1.26+ and Node 22+:
+
+```sh
+cd server
+make                                       # builds the web app, then ./espos
+ESPOS_PASSWORD='a long password' ./espos
+```
+
+Open `http://localhost:8080` and sign in. Put the server behind HTTPS (Caddy, nginx, Traefik) before you reach it from outside your network, and set `ESPOS_PUBLIC_URL`.
+
+## Settings
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `ESPOS_PASSWORD` | (required) | The account's password, 8 characters or more. |
+| `ESPOS_USER` | `admin` | The account's user name. |
+| `ESPOS_ADDR` | `:8080` | Where the server listens. |
+| `ESPOS_DATA` | `./data` | The database, files and the link-signing key. |
+| `ESPOS_PUBLIC_URL` | (none) | The address the browser and the devices use, such as `https://espos.example`. Set it behind a reverse proxy; without it the server uses each request's host. |
+| `ESPOS_PKG_CATALOG` | (none) | The package catalog the X4 gets its faces and widgets from: any public URL of a v2 `apps/catalog.json`, such as the hosted store's. Without it the X4 is offered no packages; `.espk` files copied to its card still install. |
+
+## Firmware
+
+A firmware bundle is a folder with the image files and a `manifest.json` that names the version:
+
+```json title="manifest.json"
+{"version": "espos-x4-0.4.0", "chip": "esp32c3", "flash_size": "16MB",
+ "parts": [{"file": "bootloader.bin", "offset": 0}, {"file": "partitions.bin", "offset": 32768},
+           {"file": "boot_app0.bin", "offset": 57344}, {"file": "firmware.bin", "offset": 65536}]}
+```
+
+```sh
+./espos firmware add path/to/bundle -notes "What changed"
+```
+
+The server offers it to linked devices as an update, and the web app's USB installer uses it. Versions are tagged by device kind: `espos-x4-X.Y.Z` for the X4 and `espos-s3-X.Y.Z` for the S3; the server tells the kinds apart by that prefix. The X4 firmware's `scripts/espos_bundle.sh` builds the bundle.
+
+## Connect a device
+
+<Steps>
+
+1. **The X4:** open the web app in Chrome or Edge on a computer, go to the devices page and follow the steps. The USB installer backs up the reader's own firmware, installs EspOS, and gives the reader this server's address, a device token and your WiFi. Web Serial needs a secure page: open the app at `http://localhost:8080` on the computer that runs the server, or serve it over HTTPS.
+2. **An X4 without a cable** links with the code it shows, but it asks the server it was built for: build its firmware with your address (`-DESPOS_DEFAULT_API="https://espos.example"`, see the firmware's README).
+3. **The S3** has its server built in: `https://api.espos.dev`, set by the build flag `ESPOS_API` in `platformio.ini`. The USB installer's setup line (`ESPOS:PROVISION`) can carry another address in `api`. Running an S3 against your own server this way is not checked yet.
+
+</Steps>
+
+## Data and backups
+
+Everything is in `ESPOS_DATA`: `espos.db` (the database), `files/`, `firmware/` and `secret.key` (it signs file links: keep it private). Stop the server, or run `sqlite3 espos.db ".backup backup.db"`, and copy the folder.
+
+## The plan<Status s="planned" />
+
+The platform plan makes **the protocol the product**: one written spec, **EspOS Protocol v1** (OpenAPI with JSON schemas), for pairing and device tokens, settings sync, data feeds, catalogs and packages, events and remote control, and OTA updates. The hosted service and the open server both implement it, and one **conformance suite** runs against both, so a device cannot tell them apart.
+
+Still to do for full self-hosting:
+
+- more engine features in the open server (`for_each`, `storage_get`, variables in templates, API-key routes, public storage with HTTP Range, expiry dates);
+- the S3 checked end to end: pairing, sync, the store, remote control and OTA;
+- several users, with passwords or OIDC.
+
+### How a device will pick its server
+
+<Steps>
+
+1. The default server is built into the firmware.
+2. The user can enter another server during setup or in Settings, or scan a QR code from a self-hosted web desk.
+3. The device reads `https://<server>/.well-known/espos.json`: the endpoints, the catalogs with their keys, and the OTA channel.
+4. The store and pairing addresses come from that document.
+5. The server's key is pinned at pairing. A custom certificate authority is optional, for servers on a home network.
+
+</Steps>
+
+An illustration of what the discovery document holds. The field names are not decided yet:
+
+```json title="https://espos.example/.well-known/espos.json"
+{
+  "protocol": 1,
+  "api": "https://espos.example/v1",
+  "web": "https://espos.example",
+  "catalogs": [
+    {"url": "https://espos.example/apps-s3/catalog.json", "key": "ed25519:<public key>"}
+  ],
+  "ota": {"channel": "stable"}
+}
+```
+
+### The store on your server
+
+A self-hosted server can **mirror the official store**, add its own catalogs, or both. Catalogs will be signed, so a device knows which source it trusts. Store content belongs to its authors and stays exportable.
+
+### How it will be checked
+
+- `docker compose up` the Go server.
+- Pair a device (in QEMU), sync, install from that server's catalog, use remote control, and take an OTA update.
+- The conformance suite passes on both servers.

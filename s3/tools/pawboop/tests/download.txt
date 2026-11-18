@@ -1,0 +1,19 @@
+# Choose a dog that is not on the device: it downloads from the store (to the card), then becomes the dog.
+# Then a map from PawBoop's store page (Run maps shelf). SIM_DATA=sim/data-dogs2 (pet, run, Biscuit, 2 maps).
+wait 2500
+pet
+wait 4500
+shot before
+tap 70 44
+wait 3000
+shot chooser
+tap 84 250
+wait 3000
+shot downloading
+wait 12000
+shot after
+home
+wait 1500
+app store vn.pawboop.map.carnival
+wait 3000
+shot store_map

@@ -1,0 +1,101 @@
+[
+ {
+  "tag": "en",
+  "name": "English",
+  "english": "English",
+  "builtin": true,
+  "pack": null,
+  "font_pack": null,
+  "min_fw": null
+ },
+ {
+  "tag": "vi",
+  "name": "Tiếng Việt",
+  "english": "Vietnamese",
+  "builtin": false,
+  "pack": "dev.espos.lang.vi",
+  "font_pack": "dev.espos.font.vi",
+  "min_fw": 500
+ },
+ {
+  "tag": "zh-Hans",
+  "name": "简体中文",
+  "english": "Chinese (Simplified)",
+  "builtin": false,
+  "pack": "dev.espos.lang.zh-Hans",
+  "font_pack": "dev.espos.font.sc",
+  "min_fw": 500
+ },
+ {
+  "tag": "es",
+  "name": "Español",
+  "english": "Spanish",
+  "builtin": false,
+  "pack": "dev.espos.lang.es",
+  "font_pack": null,
+  "min_fw": 500
+ },
+ {
+  "tag": "fr",
+  "name": "Français",
+  "english": "French",
+  "builtin": false,
+  "pack": "dev.espos.lang.fr",
+  "font_pack": null,
+  "min_fw": 500
+ },
+ {
+  "tag": "de",
+  "name": "Deutsch",
+  "english": "German",
+  "builtin": false,
+  "pack": "dev.espos.lang.de",
+  "font_pack": null,
+  "min_fw": 500
+ },
+ {
+  "tag": "ja",
+  "name": "日本語",
+  "english": "Japanese",
+  "builtin": false,
+  "pack": "dev.espos.lang.ja",
+  "font_pack": "dev.espos.font.jp",
+  "min_fw": 500
+ },
+ {
+  "tag": "ko",
+  "name": "한국어",
+  "english": "Korean",
+  "builtin": false,
+  "pack": "dev.espos.lang.ko",
+  "font_pack": "dev.espos.font.kr",
+  "min_fw": 500
+ },
+ {
+  "tag": "pt-BR",
+  "name": "Português (Brasil)",
+  "english": "Portuguese (Brazil)",
+  "builtin": false,
+  "pack": "dev.espos.lang.pt-BR",
+  "font_pack": null,
+  "min_fw": 500
+ },
+ {
+  "tag": "ru",
+  "name": "Русский",
+  "english": "Russian",
+  "builtin": false,
+  "pack": "dev.espos.lang.ru",
+  "font_pack": "dev.espos.font.cyr",
+  "min_fw": 500
+ },
+ {
+  "tag": "id",
+  "name": "Bahasa Indonesia",
+  "english": "Indonesian",
+  "builtin": false,
+  "pack": "dev.espos.lang.id",
+  "font_pack": null,
+  "min_fw": 500
+ }
+]

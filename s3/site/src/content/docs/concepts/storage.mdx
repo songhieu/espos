@@ -1,0 +1,62 @@
+---
+title: Storage
+description: 'Where packages are installed (internal flash or memory card), where app data lives, and how the device makes room.'
+---
+
+import Status from '../../../components/Status.astro';
+import { Aside } from '@astrojs/starlight/components';
+
+There are two kinds of storage to think about: where your **package** is installed, and where your app's **data** is kept.
+
+## Where packages go
+
+The user picks the place when they install, and can move a package later. The device calls the two places "Device" and "Memory card".
+
+| Place | What goes there | How it is stored |
+|---|---|---|
+| Internal flash, LittleFS | JavaScript packages | `/littlefs/pkgs/<id>/` with `manifest.json`. They are a few KB each. |
+| Internal flash, app area | Native packages (engine data) | A 7.5 MB flash range (7,528,448 bytes). Files are stored as contiguous extents in 4 KB steps and memory-mapped for reading: zero copy, any alignment. The index is in NVS. |
+| Memory card | Any package | `/sdcard/espos/pkgs/<id>/` with `manifest.json`, on a FAT32 card. Self-describing: no index. |
+
+Your app does not need to know where it is installed. Native engines read files the same way from both places through `pkg::File`; JavaScript apps do not read package files at all in API level 1.
+
+### When the card is out
+
+The device checks the card every few seconds. While it is out, apps installed on it stay on Home, greyed. Opening one says "Needs the memory card". When the card comes back, so do they.
+
+### Making room
+
+When a place is full, the store says how many MB are missing and lists the biggest packages there, each with "Remove" and "Move". If the internal app area has enough room in total but no gap big enough, the device slides files down one at a time, with a journal in NVS, so a power cut resumes the move at the next boot.
+
+Files of a package removed while it is open keep their bytes until the next restart, so a running engine never reads freed memory. The room they free is counted after the restart.
+
+## Where app data goes
+
+A JavaScript app saves data with `store.set(key, value)` and reads it with `store.get(key, default)`.
+
+- Values are JSON. Keys are 1 to 14 characters. A value is at most 3000 bytes once encoded.
+- Each app gets its own space in the device's NVS (non-volatile storage), named from a hash of the app's id. Apps cannot read each other's data.
+- Data stays in the internal flash, wherever the package is installed.
+
+The guide [Saving data](/guides/js/storage/) has patterns and examples.
+
+<Aside type="caution" title="Uninstalling keeps the data today">
+Today's firmware does not erase an app's `store` data when the app is uninstalled. Reinstalling the same `id` finds it again. The planned permission broker adds per-app quotas (`storage:<KB>`, 64 KB by default) and wipes an app's data on uninstall. <Status s="planned" />
+</Aside>
+
+### Java games
+
+A Java game's record stores (its saves and high scores) live next to the package: `/sdcard/espos/data/<id>/rms/` for a game on the card, `/littlefs/data/<id>/rms/` for a game in the internal flash.
+
+## Sizes at a glance
+
+| What | Size |
+|---|---|
+| Flash chip | 16 MB |
+| Firmware app slot | 3,932,160 bytes (3.75 MB) |
+| Internal app area for native packages | 7,528,448 bytes |
+| PSRAM | 8 MB (JavaScript heaps and big buffers live here) |
+| JavaScript heap per app | 1.5 MB |
+| `store` value | 3000 bytes |
+
+More in [Limits](/reference/limits/).

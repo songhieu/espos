@@ -1,0 +1,40 @@
+---
+// What works today, area by area, as a plain table. Keep in step with getting-started/introduction and the roadmap.
+import Status from './Status.astro';
+
+type S = 'available' | 'preview' | 'planned';
+const rows: { area: string; s: S; what: string; href: string; label?: string }[] = [
+  { area: 'JavaScript apps', s: 'available', what: 'QuickJS apps with the ui, timer, sound, notify, toast and store APIs (API level 1).', href: '/reference/js-api/' },
+  { area: 'Packages and the store', s: 'available', what: 'One .espk file per part; install to the internal flash or the memory card; parts and add-ons.', href: '/concepts/store/' },
+  { area: 'Installing on a device', s: 'available', what: 'From the store over WiFi (owner-published), from the web desk, or by copying a package to the memory card. From your computer over the network: planned.', href: '/guides/device/' },
+  { area: 'Languages', s: 'available', what: 'English built in, ten more languages as packs from the store; app.lang and translated package names for your app.', href: '/guides/languages/' },
+  { area: 'Landscape', s: 'available', what: 'Four orientations on both boards; app.screen and half cards for apps.', href: '/guides/landscape/' },
+  { area: 'Notifications', s: 'available', what: 'Banners, the Notification Center, badges, scheduled notifications that fire with the app closed.', href: '/guides/js/notifications/' },
+  { area: 'Simulators', s: 'available', what: 'The SDL simulator and the real firmware in Espressif QEMU, both scriptable.', href: '/guides/simulator/' },
+  { area: 'Java (J2ME) games', s: 'preview', what: 'MIDP 2.0 / CLDC 1.1 jars on our own VM, in portrait and landscape. Checked in the simulator and QEMU.', href: '/guides/java-games/' },
+  { area: 'Board support and ports', s: 'preview', label: 'In progress', what: 'One folder per board with a descriptor and its drivers; the Full profile today, e-ink Lite boards planned.', href: '/hardware/' },
+  { area: 'espos CLI and SDK typings', s: 'preview', what: 'One tool for create, check, build, sim, run on a device and publish.', href: '/reference/cli/' },
+  { area: 'Permission broker and consent', s: 'planned', what: 'Consent at install, per-app switches, net:, storage: and data: permissions. Today sound and notify are enforced.', href: '/concepts/permissions/' },
+  { area: 'Declarative faces and widgets', s: 'preview', label: 'In progress', what: 'Data-only packages the firmware draws, on every profile. Built for the e-ink X4; the S3 renderer is next.', href: '/reference/decl/' },
+  { area: 'Manifest v2 and themes', s: 'planned', what: 'Package types and capabilities in the manifest, colour tokens, theme packages.', href: '/concepts/package-types/' },
+  { area: 'WebAssembly apps', s: 'planned', what: 'WAMR on the same bindings as JavaScript.', href: '/roadmap/' },
+  { area: 'Signed packages', s: 'planned', what: 'SHA-256 per file and Ed25519 developer signatures; signed catalogs.', href: '/concepts/security/' },
+  { area: 'Self-hosted server', s: 'preview', what: 'The open Go server in the public repository runs the X4 today; the S3, the protocol spec and the conformance suite are next.', href: '/roadmap/self-hosting/' },
+  { area: 'Sensors and drivers', s: 'planned', what: 'Driver packages, typed sensor channels, rules and Home Assistant.', href: '/roadmap/hardware/' },
+];
+---
+
+<table class="status-board">
+  <thead>
+    <tr><th>Area</th><th>Status</th><th>What it covers</th></tr>
+  </thead>
+  <tbody>
+    {rows.map((r) => (
+      <tr>
+        <td><a href={r.href}>{r.area}</a></td>
+        <td><Status s={r.s} label={r.label} /></td>
+        <td>{r.what}</td>
+      </tr>
+    ))}
+  </tbody>
+</table>

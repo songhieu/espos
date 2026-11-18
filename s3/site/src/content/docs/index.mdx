@@ -1,0 +1,55 @@
+---
+title: Overview
+description: 'Developer documentation for EspOS, the open-source app platform for ESP32-S3 devices: apps, packages, the store, simulators and the SDK.'
+---
+
+import Status from '../../components/Status.astro';
+import StatusBoard from '../../components/StatusBoard.astro';
+
+EspOS is an open-source operating system for ESP32-S3 boards with a touch screen. The firmware is the OS. Apps, games and data are packages that you install from the store or copy onto the memory card, so a new app needs no new firmware.
+
+These docs explain how to build apps in JavaScript, test them in the simulator or in QEMU, package and publish them, and port the OS to a new board.
+
+## Where to start
+
+1. [What is EspOS](/getting-started/introduction/): the idea, what you can build today and the supported boards.
+2. [Set up your tools](/getting-started/install/): the toolchain, the `espos` CLI and `espos doctor`.
+3. [Your first app](/getting-started/first-app/): a tea timer in JavaScript with a countdown, a notification that fires with the app closed, and saved state.
+4. [The development loop](/getting-started/workflow/): create, run in the simulator, check, package, install on a device and publish.
+
+Already building an app? Go to the [JavaScript API reference](/reference/js-api/) or the [manifest fields](/reference/manifest/). New in EspOS 0.5.0: [languages](/guides/languages/) (`app.lang`) and [landscape](/guides/landscape/) (`app.screen` and half cards).
+
+## Sections
+
+| Section | What it covers |
+|---|---|
+| [Concepts](/concepts/architecture/) | The OS and packages, the manifest, permissions, storage, the store and the security model. |
+| [Guides](/guides/js/ui/) | Build screens, use timers, sound and notifications, translate your app, design for landscape, then package, test and publish. |
+| [Hardware & porting](/hardware/) | Supported boards, board-specific code, hardware profiles and porting to a new board. |
+| [Reference](/reference/js-api/) | The JavaScript API, manifest fields, the `.espk` format, the catalog and every command. |
+| [Platform roadmap](/roadmap/) | What shipped, and the platform plan: manifest v2, WebAssembly, signing, self-hosting and the hardware framework. |
+| [Contributing](/contributing/) | Licences, the repository layout, building the firmware, and code and UI style. |
+
+## Open source
+
+Everything is in one public repository, [github.com/songhieu/espos](https://github.com/songhieu/espos):
+
+| Folder | What | Licence |
+|---|---|---|
+| `s3/` | The S3 firmware (EspOS), the SDK and the `espos` CLI, the simulator, the tools and the sources of these docs | Apache-2.0 |
+| `server/` | The self-hosted server and its web app | AGPL-3.0 |
+| `firmware/` | The firmware of the Xteink X4 e-ink reader | EspOS's changes Apache-2.0, CrossPoint Reader's own code MIT |
+
+Releases up to commit `fac0c54` stay MIT. To build from the sources, see [Set up your tools](/getting-started/install/); to run your own server, [Self-hosting](/roadmap/self-hosting/).
+
+## Status labels
+
+Every page marks what it describes:
+
+- <Status s="available" /> is in the firmware today.
+- <Status s="preview" /> works today but may still change.
+- <Status s="planned" /> is agreed in the [platform plan](/roadmap/) and not built yet.
+
+## What works today
+
+<StatusBoard />

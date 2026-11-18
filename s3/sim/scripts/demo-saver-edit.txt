@@ -1,0 +1,49 @@
+# The saver editor (docs/saver.md §3, mockups/s3-saver-device.html): opens on the saver with a long press, then
+# moves the clock, styles the weather, adds a date, uses a template, the settings and the night page. Saves at the end.
+wait 2000
+saver
+wait 2500
+hold 160 300 160 300 10 1300
+wait 2500
+drag 80 240 80 260 900
+wait 1500
+tap 80 230
+wait 2000
+tap 112 387
+wait 2000
+tap 80 230
+wait 1500
+tap 85 449
+wait 2000
+tap 95 147
+wait 1500
+tap 160 147
+wait 1500
+tap 40 147
+wait 1500
+tap 160 203
+wait 1200
+tap 267 436
+wait 2500
+tap 160 152
+wait 1500
+tap 160 449
+wait 4000
+tap 240 160
+wait 2000
+tap 222 283
+wait 2500
+tap 235 449
+wait 2500
+tap 160 118
+wait 3000
+tap 110 365
+wait 2500
+tap 160 60
+wait 1500
+tap 235 449
+wait 2000
+tap 160 430
+wait 3000
+tap 285 21
+wait 2000

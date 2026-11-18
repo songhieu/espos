@@ -1,0 +1,76 @@
+---
+title: Publish to the store
+description: "Prepare a package for the store, how the store's owner publishes it today, and the developer portal, review and signing that are planned."
+---
+
+import { Aside, Steps } from '@astrojs/starlight/components';
+import Status from '../../../components/Status.astro';
+
+<Aside type="caution" title="Publishing is owner-only today">
+The official store's catalog is published by the store's owner, with a temporary upload key that is revoked right after each upload. There is no self-service developer account yet. If you have an app for the store, prepare it as described below and contact the EspOS project.
+</Aside>
+
+## Before you submit
+
+- [ ] The `id` is final. It can never change after the first release.
+- [ ] `code` is higher than the last published one.
+- [ ] `name` (at most 40 characters), `desc` (one line, at most 300) and `author` (at most 40) are short and plain, with no ellipsis.
+- [ ] `perms` lists only what the app uses.
+- [ ] The icon is a square **baseline** JPEG, 120 × 120, under 200 KB, or a gradient and glyph in the manifest.
+- [ ] Every screen was opened in the [simulator](/guides/simulator/), and the app was run in [QEMU](/guides/qemu/) or on a board.
+- [ ] Screenshots for the store are baseline JPEGs of the 320 × 480 screen.
+- [ ] The app was opened in landscape too (`rot 1` in the simulator), and in another language if it has translations.
+- [ ] For a Java game: its licence allows redistribution, and the description says which.
+- [ ] `tools/espk.py --check` (or `espos check --strict`) passes.
+
+## How a package is published
+
+<Steps>
+
+1. **Dry run.** The publish script reads every `.espk`, checks its header, manifest, file table and every CRC32, checks that the parts of one package share `id`, `version` and `code` with exactly one `core`, and prints the upload plan and the merged catalog. Nothing is uploaded.
+
+   ```sh
+   python3 scripts/publish_pkg.py --dry-run out/com.example.teatimer-1.0.0-core.espk
+   ```
+
+2. **Upload.** With a temporary key in the environment, the script uploads each part as `apps-s3/<id>-<version>-<part>.espk`, the icon as `<id>-<version>.jpg`, screenshots as `<id>-<version>-shot<n>.jpg`, and **the catalog last**, so the catalog never points at a missing file.
+
+   ```sh
+   ESPOS_BBK=<temporary key> python3 scripts/publish_pkg.py out/com.example.teatimer-1.0.0-core.espk --shot shot1.jpg
+   ```
+
+3. **Merge.** The script merges one entry per package id into `apps-s3/catalog.json` and keeps everything else.
+
+4. **Devices see it** the next time their store loads the catalog. Installed copies are offered "Update" when the new `code` is higher.
+
+</Steps>
+
+| Option | Meaning |
+|---|---|
+| `--dry-run` | Check and print the plan and merged catalog; upload nothing. No key needed. |
+| `--catalog FILE` | Merge into a local `catalog.json` instead of the live one (an offline check). |
+| `--out FILE` | Also write the merged catalog to a file. |
+| `--replace` | Allow publishing the same version again with different bytes. Devices that have it keep theirs. |
+| `--shot FILE.jpg` | A screenshot for the store. Repeat for more. |
+| `--meta FILE.json` | Part choices (group, label, default) from a build tool's catalog entry. |
+
+The `espos` CLI wraps the same script: `espos store publish dist/*.espk` is a dry run, and `--yes` uploads. <Status s="preview" />
+
+<Aside type="note" title="The key never touches the command line">
+The upload key is read only from the `ESPOS_BBK` environment variable, by the publish script itself. It is never printed, passed as an argument or stored.
+</Aside>
+
+## Parts in the catalog
+
+The core part and every part without a `group` are required. A part with a `group` is a choice: an install takes exactly one per group, its `default` unless the user picks another, and the store shows its `label`. The script takes these from, in order: the part's own manifest, a build tool's catalog entry next to the files (`<id>-<version>-catalog.json`), and the core manifest's `parts` list, which wins. See [Store catalog](/reference/catalog/).
+
+## Planned<Status s="planned" />
+
+- **A developer portal** with accounts, uploads and review.
+- **Automatic checks** on every upload: manifest schema, permissions against the APIs used, size, and a headless simulator run that captures screenshots and fails on exceptions.
+- **Human review** for `net`, `bg` and new authors.
+- **Signed packages and catalogs:** Ed25519 developer keys (updates need the same key) and store-signed catalogs with an expiry.
+- **Several catalog sources:** a self-hosted server can mirror the official store, and devices can add other catalogs.
+- **`espos publish`** to a test store, then to the official one.
+
+Store content belongs to its authors and stays exportable.

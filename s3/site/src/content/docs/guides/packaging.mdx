@@ -1,0 +1,133 @@
+---
+title: Packaging, parts and add-ons
+description: 'Build and check .espk packages, add an icon, split big packages into parts the user can choose, and ship add-ons of another app.'
+---
+
+import { Aside, FileTree, Tabs, TabItem } from '@astrojs/starlight/components';
+import Status from '../../../components/Status.astro';
+
+## The folder
+
+<FileTree>
+- myapp/
+  - manifest.json
+  - main.js for kind js
+  - icon.jpg optional
+  - data/
+    - level1.bin any other files; folders are kept in the names
+</FileTree>
+
+Every file in the folder goes into the package, except `manifest.json` itself (it is stored separately), files whose names start with a dot, and everything in hidden folders (`.git/`, `.espos/`). Keep build outputs (`*.espk`, `dist/`, `node_modules/`) out of a plain folder, or use an `espos.json` project, which lists exactly what goes in.
+
+## Build and check
+
+<Tabs syncKey="tool">
+<TabItem label="Repository tools">
+
+```sh
+python3 tools/espk.py myapp/ out/com.example.myapp-1.0.0-core.espk     # check the manifest, then build
+python3 tools/espk.py --check out/com.example.myapp-1.0.0-core.espk    # read it back: header, table, every CRC32
+python3 tools/espk.py --entry https://espos.example/apps out/com.example.myapp-1.0.0-core.espk   # its catalog entry
+```
+
+</TabItem>
+<TabItem label="espos CLI (Preview)">
+
+```sh
+espos check myapp          # the manifest, the files and the rules
+espos build myapp          # writes dist/<id>-<version>-<part>.espk
+espos inspect dist/com.example.myapp-1.0.0-core.espk
+```
+
+</TabItem>
+</Tabs>
+
+Name the file `<id>-<version>-<part>.espk`. The name is a convention: the device reads the manifest, not the file name.
+
+### What the checker rejects
+
+| Problem | Message from `tools/espk.py` |
+|---|---|
+| Bad id | `id: a reverse-domain name like vn.you.app (no '/', at most 48 characters)` |
+| No version | `version: a string like 1.0.0` |
+| Bad code | `code: a whole number >= 1, higher for every new version` |
+| Core part without name or kind | `name: missing (the core part carries the full manifest)` |
+| Unknown kind | `kind: "js" or "native"` |
+| Unknown engine | `engine: one of ['font', 'j2me', 'js', 'lang', 'pet', 'run']` |
+| `kind: js` with another engine | `kind "js" goes with engine "js"` |
+| Unknown category | `category: one of ['game', 'health', 'study', 'tool', 'widget']` |
+| Unknown permission | `perms: unknown 'x' (known: ['bg', 'net', 'notify', 'sound'])` |
+| Unknown glyph | `icon.glyph: one of [...]` |
+| Bad colour | `icon.bg: two colours like #ff6b5a` |
+| Unknown type | `type: "app" (the default) or "pack" (data for an engine, no icon)` |
+| Bad `i18n` | `i18n.de.name: text of 1 to 40 characters`, `i18n.de.desc: text of at most 300 characters`, or `i18n.de: {"name": ..., "desc": ...}` |
+| An ellipsis character (U+2026) anywhere | `no "<ellipsis>" in texts (the device never shows it)`, with the character itself in place of `<ellipsis>` |
+| A long file name | `<name>: file names (with folders) are at most 51 bytes` |
+| A JavaScript app without code | `kind "js" needs main.js` |
+| Bad icon | `icon.jpg: must be a baseline JPEG` or `must be square (120x120)` |
+
+The full list of fields is in the [manifest reference](/reference/manifest/).
+
+## The icon
+
+Two ways, in this order:
+
+1. **`icon.jpg`** in the package: a square **baseline** JPEG (not progressive), ideally 120 × 120. The device rounds the corners.
+2. **A gradient and a glyph** in the manifest, used when there is no `icon.jpg`:
+
+   ```json
+   "icon": {"bg": ["#ffb347", "#ff7a00"], "glyph": "timer"}
+   ```
+
+   `bg` is two colours, top to bottom. `glyph` is one of: `timer`, `alarm`, `bell`, `list`, `drop`, `flag`, `globe`, `sun`, `moon`, `photo`, `edit`, `font`, `home`, `search`, `speaker`, `play`, `lap`, `pin`, `leaf`, `power`, `grid`.
+
+<Aside type="tip">
+Make the JPEG baseline with any image tool. For example, with ImageMagick: `magick in.png -resize 120x120^ -gravity center -extent 120x120 -interlace none -quality 90 icon.jpg`.
+</Aside>
+
+## Big packages: parts
+
+A package can come as several `.espk` files with the same `id`. Each one is a **part**, named by `"part"` in its manifest. Use parts to let the user choose between a light and a rich download, or to keep a large asset set optional.
+
+- The **core** part holds the full manifest.
+- Other parts hold only `id`, `version`, `code` and `part`, plus `group`, `label` and `default` for the store.
+- An install takes **every required part, plus one part of each group**.
+
+The run game ships like this:
+
+| Part | Group | Label on the store | Size |
+|---|---|---|---|
+| `core` | required | | 2.0 MB |
+| `roads10` | `roads`, default | light: 10 frames a second | 5.8 MB |
+| `roads10s` | `roads` | compact: three maps, no scenes between them | 3.1 MB |
+| `roads20` | `roads` | rich: 20 frames a second | 11.5 MB |
+
+The store shows a group as a choice, with sizes.
+
+<Aside type="caution" title="No two parts may hold the same file name">
+Put each part's files in a folder of its own (`core/...`, `roads/...`). Then the engine reads the same names whichever part of a group was installed.
+</Aside>
+
+The parts and their sizes and hashes go into the catalog entry; see [Store catalog](/reference/catalog/). `tools/espk.py --entry BASE_URL core.espk roads10.espk roads10s.espk roads20.espk` writes that entry for you (core first).
+
+## Add-ons
+
+A package can extend another one. Set `addon_of` in the core manifest to the main package's id:
+
+```json
+{"id": "vn.pawboop.run", "name": "Coin Run", "addon_of": "vn.pawboop.pet", "part": "core"}
+```
+
+An add-on:
+
+- has no icon on Home, in the App Library or in search; the main app opens it;
+- is not listed in the store on its own. The main app's page shows it under "Add-ons", with its own part choice, place, install, remove and move buttons;
+- needs its main app first ("Install PawBoop first");
+- can live in another place than its main app (PawBoop in the internal flash, its run game on the card);
+- is offered for removal together with its main app.
+
+Today add-ons are used by native engines: PawBoop opens its run game with `pkg::run("vn.pawboop.run", "pet")`. JavaScript apps have no call to open another package in API level 1.
+
+## Signing<Status s="planned" />
+
+Packages are not signed yet. SHA-256 per file and Ed25519 signatures are planned; see [Security model](/concepts/security/#planned-signing).

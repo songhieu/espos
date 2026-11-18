@@ -1,0 +1,69 @@
+{
+ "id": "dev.espos.focus",
+ "name": "Focus",
+ "version": "1.2.0",
+ "desc": "Pomodoro timer, 25/5 minutes, with a chime",
+ "icon": {
+  "bg": [
+   "#ff6b5a",
+   "#e0383b"
+  ],
+  "glyph": "timer"
+ },
+ "permissions": [
+  "sound",
+  "notify"
+ ],
+ "part": "core",
+ "code": 10200,
+ "kind": "js",
+ "engine": "js",
+ "min_fw": 300,
+ "category": "tool",
+ "perms": [
+  "sound",
+  "notify"
+ ],
+ "i18n": {
+  "vi": {
+   "name": "Tập trung",
+   "desc": "Hẹn giờ Pomodoro 25/5 phút, có tiếng chuông"
+  },
+  "zh-Hans": {
+   "name": "专注",
+   "desc": "番茄钟，25/5 分钟，带提示音"
+  },
+  "es": {
+   "name": "Enfoque",
+   "desc": "Temporizador Pomodoro de 25/5 min con aviso"
+  },
+  "fr": {
+   "name": "Focus",
+   "desc": "Minuteur Pomodoro 25/5 min avec sonnerie"
+  },
+  "de": {
+   "name": "Fokus",
+   "desc": "Pomodoro-Timer, 25/5 Minuten, mit Gong"
+  },
+  "ja": {
+   "name": "集中",
+   "desc": "ポモドーロタイマー、25/5分、チャイム付き"
+  },
+  "ko": {
+   "name": "집중",
+   "desc": "뽀모도로 타이머, 25/5분, 알림음"
+  },
+  "pt-BR": {
+   "name": "Foco",
+   "desc": "Timer Pomodoro de 25/5 min com aviso sonoro"
+  },
+  "ru": {
+   "name": "Фокус",
+   "desc": "Таймер Помодоро 25/5 минут со звонком"
+  },
+  "id": {
+   "name": "Fokus",
+   "desc": "Timer Pomodoro 25/5 menit dengan bunyi"
+  }
+ }
+}

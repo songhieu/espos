@@ -1,0 +1,8 @@
+# Run after the game opens (espos sim opens it first). Commands: tap X Y, wait MS, shot NAME, ... (s3/sim/main.cpp).
+# The keypad (screen points): OK 74,416; left 35,416; right 113,416; up 74,377; down 74,455; soft left 58,339.
+wait 4000
+shot game
+# OK
+tap 74 416
+wait 2500
+shot ok

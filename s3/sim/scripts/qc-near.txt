@@ -1,0 +1,13 @@
+# QC of near obstacles (docs/run.md): the run from PawBoop, autopilot, 60 s at the board's speed, then the stats.
+# RUN_SIZES=FILE tools/sim-live.sh sim/scripts/qc-near.txt
+pet
+wait 2500
+dismiss
+wait 3500
+tap 192 44
+wait 3500
+dev god
+dev auto
+tap 160 300
+wait 60000
+dev stats

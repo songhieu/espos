@@ -1,0 +1,38 @@
+{
+  "name": "@espos/cli",
+  "version": "0.1.0",
+  "description": "The espos command: create, build, check and run EspOS packages (.espk) in the simulator, QEMU or on a board.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "bin": {
+    "espos": "bin/espos.js"
+  },
+  "files": [
+    "bin",
+    "dist",
+    "templates",
+    "commands.json",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json && node bin/espos.js help --json > commands.json",
+    "test": "node --test \"test/*.test.mjs\""
+  },
+  "dependencies": {
+    "@espos/sdk": "0.1.0",
+    "esbuild": "0.25.12",
+    "jpeg-js": "0.4.4",
+    "pngjs": "7.0.0",
+    "typescript": "5.9.3"
+  },
+  "optionalDependencies": {
+    "serialport": "13.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "22.20.5",
+    "@types/pngjs": "6.0.5"
+  }
+}

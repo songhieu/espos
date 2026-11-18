@@ -1,0 +1,84 @@
+---
+title: Hardware profiles
+description: 'Full (ESP32-S3, PSRAM, colour touch screen) and Lite (ESP32-C3, no PSRAM, e-ink, buttons, such as the Xteink X4): the capabilities and runtimes each has, and which package types run on each.'
+---
+
+import Status from '../../../components/Status.astro';
+import { Aside } from '@astrojs/starlight/components';
+
+Boards differ a lot. Some have megabytes of PSRAM and a fast colour touch screen; others have a few hundred kilobytes of RAM, an e-ink panel and buttons. EspOS describes each device by its **capabilities** and its **runtimes**, and names the two common sets **profiles**.
+
+| | Full | Lite |
+|---|---|---|
+| Status | <Status s="available" /> the S3 boards today | <Status s="preview" label="In progress" /> first device: the Xteink X4 |
+| Chip | ESP32-S3 | ESP32-C3 |
+| Memory | 8 MB PSRAM | about 380 KB of RAM, no PSRAM |
+| Screen | colour LCD, fast; the 320 × 480 interface, or 480 × 320 in landscape (scaled on smaller panels) | e-ink, 800 × 480, black and white, slow refresh |
+| Input | capacitive touch | 7 buttons |
+| Devices | ES3C35P, ES3C28P | Xteink X4 |
+| Runtimes | JavaScript (API level 1), the engines (`pet`, `run`, `j2me`); declarative to build; WebAssembly later | declarative (`decl` level 1) |
+
+## Capabilities
+
+<Status s="planned" /> A package will say what it needs in a `requires` list, and a device will report what it has. A package fits a device when every flag it requires is in the device's list and the device has the package's runtime at the needed level. The store will offer only the packages that fit, and grey out the rest with the reason, such as "Needs a touch screen".
+
+| Name | Firmware flag | Meaning | Full | Lite |
+|---|---|---|---|---|
+| `screen.color` | `CAP_COLOR` | 16-bit colour or better | yes | |
+| `screen.gray` | `CAP_GRAY` | 4 grey levels or more | yes | |
+| `screen.eink` | `CAP_EINK` | the picture stays without power; slow refresh | | yes |
+| `screen.fast` | `CAP_FAST` | 20 frames a second or more (animation, games) | yes | |
+| `input.touch` | `CAP_TOUCH` | a touch screen | yes | |
+| `input.buttons` | `CAP_BUTTONS` | at least Back, OK, Up and Down | | yes |
+| `mem.psram` | `CAP_PSRAM` | 2 MB or more of external RAM | yes | |
+| `audio.out` | `CAP_AUDIO_OUT` | a speaker | yes | |
+| `audio.in` | `CAP_AUDIO_IN` | a microphone | yes | |
+| `store.sd` | `CAP_SDCARD` | a memory card slot | yes | yes |
+| `net.wifi` | `CAP_WIFI` | WiFi | yes | yes |
+| `net.ble` | `CAP_BLE` | Bluetooth LE | yes | yes |
+| `power.battery` | `CAP_BATTERY` | a battery the firmware measures | yes | yes |
+| `led.rgb` | `CAP_RGB_LED` | an RGB LED | yes | |
+
+The screen size is not a flag: a device reports it (`"800x480"`) and whether it can turn. Packages name capabilities, never profiles, so a new board that sits between the two profiles (an S3 with an e-ink panel, a colour e-ink screen) works with existing packages on the day it ships.
+
+In the firmware, each board's descriptor carries these as `CAP_*` flags (`src/hal/caps.h`). Every flag has exactly one name and every name one flag, checked when the firmware compiles; a new capability is a flag, its name and its line in this table, added together. See [Board-specific code](/hardware/board-code/#the-descriptor).
+
+## Which packages run where
+
+| Package type | Full | Lite now | Lite later |
+|---|---|---|---|
+| `face` (clock face, sleep screen) | declarative, to build on the S3 | <Status s="preview" label="In progress" /> declarative | |
+| `widget` (home card) | declarative to build; JavaScript | <Status s="preview" label="In progress" /> declarative | |
+| `theme` | colour tokens, wallpapers | <Status s="planned" /> e-ink skin, bars, wallpapers | |
+| `app` | <Status s="available" /> JavaScript; engines | no | a very small JavaScript runtime, if it fits when measured |
+| Java (J2ME) game | <Status s="preview" /> | no: the VM needs PSRAM | |
+| `service` | <Status s="planned" /> | no: the system sync does the fetching | |
+| `pack` (engine data) | <Status s="available" /> | no | |
+| `driver` | <Status s="planned" /> | no | |
+
+### Why no code on Lite yet
+
+The X4 has about 380 KB of RAM and no PSRAM, and a TLS session needs a free block of about 70 KB. The reader, the sync and the fonts already compete for that memory. So Lite starts with **data-only packages**: the firmware draws them, and they cannot loop, allocate or use the network, so they need no code review. A small JavaScript runtime (MicroQuickJS, ES5-like, about 100 KB of code and a 24 to 32 KB heap) is a candidate for later, after it is measured on the device.
+
+## Declarative packages run on both
+
+Faces, widgets and themes are **declarative**: a JSON file of boxes, text, icons and data bindings that the firmware draws itself. One file carries a layout per screen shape and scales to the others, so a face made for the X4's 800 × 480 also runs on a 320 × 480 colour board. The format is in [Declarative faces and widgets](/reference/decl/).
+
+## Full <Status s="available" />
+
+Everything else in these docs is the Full profile: JavaScript apps with a 1.5 MB heap in PSRAM, Java games, the run game at 20 frames a second, a touch interface laid out for 320 × 480 and 480 × 320. A board in this profile needs an ESP32-S3, 8 MB of PSRAM, 16 MB of flash, a colour panel and capacitive touch; see [Port to a new board](/hardware/porting/#before-you-start).
+
+## Lite <Status s="preview" label="In progress" />
+
+The Xteink X4 is the first Lite device, and it comes first in the plan, ahead of the later phases. On the X4:
+
+- Packages live on the memory card, in `/EspOS/pkgs/<id>/`, the same layout as the S3's card, so a card can move between devices.
+- A face can be the sleep screen; a widget can sit on Home and on the sleep grids.
+- Faces say how often they need redrawing (`minute`, `hour`, `data` or `day`). E-ink takes about 0.3 to 1 second per update, so the device may draw less often than asked (battery saving, quiet hours), never more.
+- Colours collapse to black and white: theme tokens map to ink and paper, other colours by brightness, with dithered fills. Text is always solid.
+
+**Status (2026-11-17):** the declarative renderer and the package store are built in the X4 firmware but not yet flashed to a device. Themes on the X4, the server and web store parts, and the S3's declarative renderer are not built yet.
+
+<Aside type="note">
+A board can have more than its profile requires, or lack an optional part such as a speaker or a card slot. Packages must cope when a part is missing; on a board without a speaker, for example, `sound.*` calls play nothing.
+</Aside>

@@ -1,0 +1,20 @@
+# Only roads10s installed (no link files): bazaar -> construction -> carnival -> bazaar through fades.
+run
+dismiss
+wait 500
+tap 160 300
+dev auto
+dev god
+dev warp 186
+shots 14 120 fade1
+wait 800
+shot map2
+dev warp 182
+shots 14 120 fade2
+wait 800
+shot map3
+dev warp 180
+shots 16 120 fade3
+wait 800
+shot map1_again
+dev stats

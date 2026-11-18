@@ -1,0 +1,70 @@
+{
+ "_": "Store texts for packages built elsewhere (their .espk manifests are Vietnamese): English, other languages in i18n. apps/pack.py lays them over the catalog entries.",
+ "vn.pawboop.pet": {
+  "desc": "Raise a dog: feed it, bathe it, play ball. Ten dogs, each with its own character and Vietnamese voice; the chosen one is also your assistant.",
+  "i18n": {
+   "vi": {
+    "name": "PawBoop",
+    "desc": "Nuôi chó: cho ăn, tắm, chơi bóng. Mười con chó, mỗi con một tính cách, nói tiếng Việt; con bạn chọn còn là trợ lý của máy."
+   }
+  }
+ },
+ "vn.pawboop.run": {
+  "name": "Coin Run",
+  "desc": "Your dog runs through eight worlds, picking up coins for its food. Add the maps below.",
+  "i18n": {
+   "vi": {
+    "name": "Chạy lấy xu",
+    "desc": "Chó của bạn chạy qua tám thế giới, lấy xu mua đồ ăn. Thêm các màn ở dưới."
+   }
+  },
+  "parts": {
+   "roads10": {
+    "label": "Light (10 pictures a second)",
+    "labels": {
+     "vi": "Nhẹ (10 hình/giây)"
+    }
+   },
+   "roads20": {
+    "label": "Smooth (20 pictures a second)",
+    "labels": {
+     "vi": "Đẹp (20 hình/giây)"
+    }
+   },
+   "roads10s": {
+    "label": "Compact (3 maps, no gates)",
+    "labels": {
+     "vi": "Gọn (3 map, không cảnh nối)"
+    }
+   }
+  }
+ },
+ "dev.espos.j2me": {
+  "name": "Java game runtime",
+  "desc": "Lets the device run Java (J2ME) games from old phones. Installed with the first Java game.",
+  "i18n": {
+   "vi": {
+    "name": "Bộ chạy game Java",
+    "desc": "Thư viện để máy chạy game Java (J2ME) của điện thoại cũ. Tự cài cùng game Java đầu tiên."
+   }
+  }
+ },
+ "jar.megablock": {
+  "desc": "Falling blocks: fit the pieces into full rows to score. Open source, Apache-2.0 licence.",
+  "i18n": {
+   "vi": {
+    "name": "Mega Block",
+    "desc": "Xếp gạch: ghép các khối thành hàng ngang để ghi điểm. Mã nguồn mở, giấy phép Apache-2.0."
+   }
+  }
+ },
+ "jar.spaceshooter": {
+  "desc": "Fly your ship, dodge the bullets and shoot down the enemy ships. Public domain.",
+  "i18n": {
+   "vi": {
+    "name": "Space Shooter",
+    "desc": "Bắn tàu vũ trụ: lái tàu né đạn, bắn hạ tàu địch. Phạm vi công cộng."
+   }
+  }
+ }
+}

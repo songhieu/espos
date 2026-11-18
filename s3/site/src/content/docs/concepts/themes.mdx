@@ -1,0 +1,56 @@
+---
+title: Themes and design tokens
+description: 'Role-based colour tokens for the OS and apps, theme packages that are data only, and what apps can rely on today.'
+---
+
+import Status from '../../../components/Status.astro';
+import { Aside } from '@astrojs/starlight/components';
+import DeviceShots from '../../../components/DeviceShots.astro';
+import light from '../../../assets/shots/ui-input.png';
+import dark from '../../../assets/shots/ui-input-dark.png';
+
+## Today: system colours, light and dark
+
+The device has a light and a dark look. With automatic dark mode on (the default), it is light by day and dark at night. The user can also pick a look in Settings › Appearance or on the web desk.
+
+A JavaScript app follows the look without any code: text, cards, chips and list rows take the system's colours. Colours you pass yourself (`color`, `bg`) stay the same in both looks.
+
+<DeviceShots
+  shots={[
+    { src: light, alt: 'Chips and buttons in the light look', caption: 'Light' },
+    { src: dark, alt: 'The same screen in the dark look', caption: 'Dark' },
+  ]}
+/>
+
+<Aside type="tip" title="Choose colours that work on both">
+Buttons and accents with a strong colour (`#16a34a`, `#ff7a00`) read well on both looks. Avoid setting a text colour to near black or near white: it disappears in one of them. Leave text colour unset unless it carries meaning.
+</Aside>
+
+## Planned: colour tokens<Status s="planned" />
+
+The platform plan moves every hard-coded colour in the OS to **role-based tokens**, in a light and a dark set:
+
+| Role | Used for |
+|---|---|
+| background | the screen |
+| text | primary text |
+| secondary text | hints and captions |
+| accent | buttons, selection, links |
+| card | grouped content |
+| border | separators |
+| danger | destructive actions |
+
+The web desk reads the same token file, so its previews match the device.
+
+## Planned: theme packages<Status s="planned" />
+
+A `theme` package is **data only**: a token file, wallpapers, and optional icons and fonts. No code. Because it holds no code, a theme can come from any source without code review, and it can also work on other EspOS devices.
+
+Apps declare how they treat the theme in manifest v2:
+
+| `theme` | Meaning |
+|---|---|
+| `system` | The app uses the system tokens and follows the user's theme. |
+| `custom` | The app paints its own colours, like a game. |
+
+Changing the system theme from an app will need the `theme.write` permission.

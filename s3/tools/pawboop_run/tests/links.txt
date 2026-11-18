@@ -1,0 +1,32 @@
+# Map links: warp near the end of the bazaar's three loops, let her run through the gate into the next map.
+run
+dismiss
+wait 500
+tap 160 300
+wait 300
+dev god
+dev auto
+dev warp 170
+wait 1000
+shot 01_before_link
+wait 2500
+shot 02_link_start
+wait 3000
+shot 03_link_mid
+wait 3000
+shot 04_link_gate
+wait 3000
+shot 05_construction
+dev warp 175
+wait 3000
+shot 06_link2
+wait 6000
+shot 07_link2_late
+wait 4000
+shot 08_carnival
+dev warp 180
+wait 3000
+shot 09_fade_link
+wait 2500
+shot 10_back_to_bazaar
+dev stats

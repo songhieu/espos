@@ -1,0 +1,102 @@
+---
+title: Work with a real device
+description: 'Get your package onto a board, use the USB dev console for screenshots, logs, memory and taps, and see and control the screen remotely.'
+---
+
+import { Aside, Steps } from '@astrojs/starlight/components';
+import Status from '../../../components/Status.astro';
+
+## What you need
+
+- An ES3C35P (3.5") or ES3C28P (2.8") board running EspOS 0.5.0 or newer.
+- The board linked to an EspOS account (Settings › EspOS account).
+- For the dev console: a USB-C data cable and a serial terminal (115200 baud).
+
+## Get your package onto the board
+
+<Aside type="caution" title="Unpublished packages: the memory card only">
+Today a developer's own, unpublished package reaches a board **only by the memory card**. Developer mode, with installs over the local network and live reload, is <Status s="planned" />.
+</Aside>
+
+Devices install published packages from the store over HTTPS, and from the `s3.pkgs` list that the web desk edits. Today there are three ways in:
+
+| Way | For |
+|---|---|
+| **The official store** | Published packages. Publishing is done by the store's owner today; see [Publish to the store](/guides/publishing/). |
+| **A Java game upload** on the web desk | Your own `.jar` games, private to your account. See [Java games](/guides/java-games/#upload-your-own-game). |
+| **A memory card** | Copy an unpacked package to `/espos/pkgs/<id>/` on the card. The device reads card packages as they are: each folder holds the files and a `manifest.json`. |
+
+For the card, `tools/espk.py --install-sim DIR your.espk` writes exactly this layout into `DIR/sd/espos/pkgs/<id>/`. Copy that folder to the card's `espos/pkgs/`, put the card in, and the app appears on Home within a few seconds. QEMU's card image is built the same way (`espos qemu --install`), which is how the Java games were tested on the real firmware.
+
+A device does not unpack an `.espk` file dropped onto its card: copy the unpacked folder.
+
+<Aside type="caution">
+A package copied to the card skips the store's SHA-256 check. That is fine for your own tests; for anything else, install from the store. Card packages will be signature-checked once signing lands.
+</Aside>
+
+Planned: **developer mode** <Status s="planned" /> with a one-time code, unsigned "dev" packages, `espos run --device IP` to push over the local network with live reload, and logs over a WebSocket.
+
+## The dev console
+
+Over USB, the board's serial port takes one command per line and answers in plain text. Open it with any serial terminal at 115200 baud, for example:
+
+```sh
+screen /dev/cu.usbmodem101 115200    # macOS; the port name varies
+```
+
+Useful commands for app work:
+
+| Command | Does |
+|---|---|
+| `APP <id> [arg]` | Open an app, with an optional `app.arg`. The id is cut at 23 characters. |
+| `HOME` | Go to Home. |
+| `TAP X Y` | Tap at screen coordinates. |
+| `DRAG X0 Y0 X1 Y1 MS` | Drag over MS milliseconds. |
+| `SHOT` | Send the screen as raw pixels over the serial line. `tools/s3cli.py` turns it into a PNG (below). |
+| `MEM` | Free internal RAM (and its lowest since the last `MEM`), free PSRAM, LVGL memory. |
+| `TRACE` | Print the trace log: app starts, errors with their stack, notifications, installs. |
+| `JS <code>` | Evaluate one line of JavaScript in a scratch QuickJS context and print the result. The app API is not defined there. |
+| `JSSTACK <bytes> [under]` | The QuickJS stack for the next app opened (for testing stack use). |
+| `REMOTE [1\|0]` | Turn remote control on or off; prints the address and the PIN. |
+
+Every command is in the [dev console reference](/reference/dev-console/).
+
+### With the CLI<Status s="preview" />
+
+`espos device` finds the board for you and wraps the common commands (macOS and Linux):
+
+```sh
+espos device list                 # serial ports, and which one is an EspOS device
+espos device info                 # firmware, board, linked
+espos device app com.example.teatimer
+espos device shot board.png       # the screen as a PNG
+espos device logs --grep teatimer # stream the log, filtered
+espos device console              # an interactive dev console
+```
+
+For safety it opens a serial port only to ask `ESPOS:HELLO`, and uses it only if the answer says it is an EspOS device. All commands: [CLI reference](/reference/cli/#espos-device).
+
+`tools/s3cli.py` wraps the common ones (it needs `pip install pyserial`):
+
+```sh
+python3 tools/s3cli.py /dev/cu.usbmodem101 shot board.png     # screen and overlays, as a PNG
+python3 tools/s3cli.py /dev/cu.usbmodem101 tap 160 278
+python3 tools/s3cli.py /dev/cu.usbmodem101 log 30             # print the board's log for 30 seconds
+```
+
+<Aside type="tip" title="Read your app's errors">
+`TRACE` shows lines like `app com.example.teatimer: TypeError: ...` for every error in your app, and `js: stack used 2600 of 16384 bytes` when an app closes, so you can see how close you are to the stack limit.
+</Aside>
+
+## Remote control
+
+Settings › Remote control lets you see the screen and touch it from a browser. It is off until you turn it on, and each time it makes a new 6-digit PIN.
+
+- **In the home network**, the device serves a small page on port 80. `GET /frame` returns a JPEG of the screen; `POST /touch` takes `d X Y` (finger down or moved) and `u X Y` (lifted); `POST /key` takes `home` or `back`. Every request except the page needs the PIN in the `X-Pin` header. Ten wrong PINs lock it for a minute.
+- **Over the internet**, the web desk's device page opens remote control. The device sends frames through the EspOS server: half size while the screen moves, full size once it stands still.
+
+Remote control is handy for screenshots of a real board and for demos.
+
+## Firmware updates
+
+The device takes over-the-air updates from its server, for its own board only. Flashing a board over USB is covered in [Build the firmware](/contributing/firmware/).

@@ -1,0 +1,45 @@
+---
+title: API levels
+description: 'An API level is a version number for what apps can call, separate from the firmware version. Level 1 is the JavaScript API that ships today.'
+---
+
+import Status from '../../../components/Status.astro';
+import { Aside } from '@astrojs/starlight/components';
+
+An **API level** is a whole number that names a set of calls an app can make. It is separate from the firmware version: the firmware can change a lot while the API stays the same, and an app written for level 1 keeps working on every firmware that provides level 1.
+
+## API level 1
+
+API level 1 is the JavaScript API that ships with firmware 0.3.0:
+
+| Object | Calls |
+|---|---|
+| `ui` | `column`, `row`, `card` (with `half`), `title`, `text`, `big`, `button`, `chips`, `list`, `progress`, `spacer` |
+| `app` | `title`, `render`, `refresh()`, `arg`, `badge()`, `lang`, `screen` |
+| `timer` | `every`, `after`, `cancel` |
+| `sound` | `chime`, `beep`, `click` |
+| `notify` | `notify()`, `notify.schedule`, `notify.cancel` |
+| `toast` | `toast()` |
+| `store` | `get`, `set` |
+
+Every call, with its options and limits, is in the [JavaScript API reference](/reference/js-api/).
+
+Firmware 0.5.0 added three things to level 1 without changing any call: `app.lang` (the device's language), `app.screen` (the screen's size and orientation) and the card option `half`. An app written for 0.3.0 runs unchanged. 0.5.0 is also the first firmware that installs `.espk` packages, so every app installed today has them.
+
+The platform plan **freezes** level 1 as it is today: later firmware keeps these calls and their behaviour. New calls arrive in new levels.
+
+## How an app says which level it needs
+
+| | Today | With manifest v2 <Status s="planned" /> |
+|---|---|---|
+| The oldest firmware | `min_fw: 300` | `min_fw` stays for engines and firmware features |
+| The API it needs | implied by `min_fw` (300 means level 1) | `api.min`: the store and the device refuse to install on a lower level |
+| The API it was tested with | none | `api.target`: lets the OS keep old behaviour for old apps |
+
+## Checking at run time<Status s="planned" />
+
+The SDK typings mark each call with the level it arrived in (`@since`), and `app.can(...)` will let code test for a permission before it calls. Until then, an app on level 1 can rely on every call listed above.
+
+<Aside type="note" title="What comes next">
+The first additions planned on top of level 1 are Promise jobs, `console.log`, a retained UI that updates by key instead of rebuilding, and the lifecycle hooks `onOpen`, `onShow`, `onHide` and `onClose`. Which level number each one lands in is not decided yet. See the [roadmap](/roadmap/).
+</Aside>

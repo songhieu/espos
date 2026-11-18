@@ -1,0 +1,11 @@
+{
+  "name": "esp_new_jpeg",
+  "version": "1.0.2",
+  "description": "Espressif's JPEG decoder (prebuilt for the ESP32-S3), from the esp_new_jpeg component (ESPRESSIF MIT License, see LICENSE). Only the decoder header is used. The run game's road and sprite pictures: about 5x faster than TJpgDec.",
+  "frameworks": "arduino",
+  "platforms": "espressif32",
+  "build": {
+    "includeDir": "include",
+    "flags": ["-L$PROJECT_DIR/lib/esp_new_jpeg/esp32s3", "-lesp_new_jpeg"]
+  }
+}

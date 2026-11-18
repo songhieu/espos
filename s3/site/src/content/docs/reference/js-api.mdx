@@ -1,0 +1,303 @@
+---
+title: JavaScript API (level 1)
+description: 'Every global, function and option of the EspOS JavaScript API level 1, with types, defaults, limits, permissions and errors.'
+tableOfContents:
+  maxHeadingLevel: 3
+---
+
+
+API level 1 is what EspOS gives a JavaScript app. This page describes it as firmware 0.5.0 gives it, the first firmware that installs `.espk` packages; 0.5.0 added `app.lang`, `app.screen` and `ui.card`'s `half` option to the level. Each app is one classic script (`main.js`), run by QuickJS-ng (ES2023). The OS defines these globals before your script runs:
+
+| Global | Kind | Permission |
+|---|---|---|
+| [`ui`](#ui) | object: screen nodes | none |
+| [`app`](#app) | object: title, render, refresh, arg, badge, lang, screen | `badge` needs `notify` |
+| [`timer`](#timer) | object: every, after, cancel | none |
+| [`sound`](#sound) | object: chime, beep, click | `sound` |
+| [`notify`](#notify) | function with schedule and cancel | `notify` |
+| [`toast`](#toast) | function | none |
+| [`store`](#store) | object: get, set | none |
+
+TypeScript typings for all of them are in `@espos/sdk` (`espos.d.ts`). The types below are written the same way.
+
+```ts
+type EspOSColor = `#${string}`;   // "#rrggbb" only; anything else falls back to the default
+```
+
+## ui
+
+Functions that return **nodes**: plain objects that describe the screen. Build nodes only with these functions. Return one node from `app.render`. Guide: [Building the screen](/guides/js/ui/).
+
+### ui.column
+
+```ts
+ui.column(children?: EspOSNode[], opts?: {gap?: number; center?: boolean}): EspOSNode
+```
+
+Children one under the other, at the full width. `gap` is the space between children in px (default 8). `center` centres them. At most 60 children are drawn; `null`, `undefined` and `false` children are skipped.
+
+### ui.row
+
+```ts
+ui.row(children?: EspOSNode[], opts?: {gap?: number; center?: boolean}): EspOSNode
+```
+
+Children side by side, vertically centred, wrapping to a new line when full. Options as `ui.column`. At most 60 children.
+
+### ui.card
+
+```ts
+ui.card(children?: EspOSNode[], opts?: {gap?: number; center?: boolean; bg?: EspOSColor; half?: boolean}): EspOSNode
+```
+
+A column on a rounded card with 14 px padding. `bg` sets the card colour (default: the system card colour). At most 60 children.
+
+`half: true` makes the card half the line in landscape (224 px of the 456), so two half cards in a `ui.row` stand side by side; in portrait it is the whole line. Guide: [Landscape and screen size](/guides/landscape/#half-cards).
+
+### ui.title
+
+```ts
+ui.title(text: string | number, opts?: {size?: number; color?: EspOSColor; center?: boolean}): EspOSNode
+```
+
+A bold heading. `size` 12 to 24, default 20. Wraps with no line limit.
+
+### ui.text
+
+```ts
+ui.text(text: string | number, opts?: {size?: number; bold?: boolean; dim?: boolean; color?: EspOSColor; center?: boolean}): EspOSNode
+```
+
+Body text. `size` 12 to 24 (clamped), default 15. `dim` uses the system's secondary colour. `center` aligns the lines of a wrapped text; to centre a short line, set `center` on the parent. Wraps with no line limit.
+
+### ui.big
+
+```ts
+ui.big(text: string | number, opts?: {size?: number; color?: EspOSColor}): EspOSNode
+```
+
+Large digits, centred. `size`: 64 for 60 and above (default), 56 for 50 to 59, 44 below 50. The fonts hold `0`-`9`, space and `% + , - . / : ° −`; other characters fall back to the 24 px bold text font.
+
+### ui.button
+
+```ts
+ui.button(text: string | number, onTap: () => void, opts?: {bg?: EspOSColor; color?: EspOSColor; wide?: boolean}): EspOSNode
+```
+
+A 44 px high button. `bg` default `#0a84ff`, `color` default `#ffffff`, `wide` makes it full width. Plays the click sound when tapped. `onTap` gets no arguments; the screen is drawn again after it returns.
+
+### ui.chips
+
+```ts
+ui.chips(names: string[], selected: number, onPick: (index: number) => void): EspOSNode
+```
+
+A row of up to 8 choices, scrolling sideways if needed. `selected` is drawn as picked. `onPick` gets the tapped index.
+
+Several chips bars on one screen each call their own `onPick`.
+
+### ui.list
+
+```ts
+ui.list(items: {title: string; sub?: string; right?: string}[], onTap?: (index: number) => void): EspOSNode
+```
+
+Rounded rows, 46 px high, 58 px with `sub`. `right` is text on the right. With `onTap`, rows are tappable, click and show a chevron. At most 40 rows are drawn.
+
+### ui.progress
+
+```ts
+ui.progress(value: number, opts?: {color?: EspOSColor}): EspOSNode
+```
+
+A 10 px bar filled from 0 to 1 (clamped). `color` default `#34c759`.
+
+### ui.spacer
+
+```ts
+ui.spacer(height?: number): EspOSNode
+```
+
+Empty space, 0 to 200 px (clamped), default 8.
+
+## app
+
+### app.title
+
+```ts
+app.title: string
+```
+
+The title at the top of the screen. Read at every render. Default: the package's `name`.
+
+### app.render
+
+```ts
+app.render: () => EspOSNode
+```
+
+Builds the screen. Called once after `main.js` runs, then after every tap handler, every timer callback and every `app.refresh()`. It has 1.5 s. If it throws, the screen shows "App error while drawing: " and the error.
+
+### app.refresh
+
+```ts
+app.refresh(): void
+```
+
+Asks for a redraw. Calls made at the same moment are merged into one.
+
+### app.arg
+
+```ts
+app.arg: string | undefined
+```
+
+The `arg` of the notification that opened the app, or `undefined` when the app was opened another way. A non-string `arg` arrives as JSON text. Set before `main.js` runs.
+
+### app.lang
+
+```ts
+app.lang: EspOSLang   // "en" | "vi" | "zh-Hans" | "es" | "fr" | "de" | "ja" | "ko" | "pt-BR" | "ru" | "id"
+```
+
+The language the device shows, as a tag: `"en"`, `"vi"`, `"zh-Hans"`, `"es"`, `"fr"`, `"de"`, `"ja"`, `"ko"`, `"pt-BR"`, `"ru"` or `"id"`. Set before `main.js` runs; it does not change while the app is open (the OS switches language only when no app is open). Use it to pick your own texts, and fall back to English for a language you have not translated. Guide: [Languages and translation](/guides/languages/#your-apps-texts-applang).
+
+### app.screen
+
+```ts
+app.screen: {w: number; h: number; landscape: boolean}
+```
+
+The screen the app draws in: `{w: 320, h: 480, landscape: false}` in portrait, `{w: 480, h: 320, landscape: true}` in landscape, on both boards. Set before `main.js` runs. When the screen turns, the OS opens the app again, so it is never out of date. Guide: [Landscape and screen size](/guides/landscape/).
+
+### app.badge
+
+```ts
+app.badge(n?: number): void
+```
+
+**Permission:** `notify`. Sets the number on the app's icon. `0` hides it. No argument (or `null`) goes back to counting unread notifications.
+
+## timer
+
+Timers run only while the app is open; closing the app cancels them. The screen is drawn again after each callback. Guide: [Timers](/guides/js/timers/).
+
+### timer.every
+
+```ts
+timer.every(ms: number, fn: () => void): number
+```
+
+Calls `fn` every `ms` milliseconds (at least 50). Returns an id.
+
+### timer.after
+
+```ts
+timer.after(ms: number, fn: () => void): number
+```
+
+Calls `fn` once after `ms` milliseconds (at least 50). Returns an id. It counts towards the limit until it fires.
+
+### timer.cancel
+
+```ts
+timer.cancel(id: number): void
+```
+
+Stops a timer. Unknown ids are ignored.
+
+**Errors:** at most 8 timers at once; the next `every` or `after` throws `RangeError: too many timers`. A call without a function throws `TypeError: timer(ms, fn)`.
+
+## sound
+
+**Permission:** `sound`. Without it, every call throws `TypeError: app has no "sound" permission`. Guide: [Sound](/guides/js/sound/).
+
+| Call | Plays | Silent when |
+|---|---|---|
+| `sound.chime(): void` | the chime | volume 0, Do Not Disturb |
+| `sound.beep(): void` | the alarm beep, at 70 % volume or more | never |
+| `sound.click(): void` | the touch click | volume 0, Do Not Disturb, touch sound off |
+
+## notify
+
+**Permission:** `notify`. Without it, every call throws `TypeError: app has no "notify" permission`. Guide: [Notifications and badges](/guides/js/notifications/).
+
+```ts
+interface NotifyOpts {
+  arg?: unknown;            // back as app.arg when tapped; non-strings are sent as JSON text
+  tag?: string | number;    // a newer notification with the same tag replaces this one
+  sound?: boolean;          // play the chime (default true)
+  badge?: boolean;          // count it on the icon until the app is opened (default true)
+}
+```
+
+### notify()
+
+```ts
+notify(title: string, body?: string, opts?: NotifyOpts): boolean
+```
+
+Posts a notification now: banner, Notification Center, icon count, chime. Returns `false` when the user turned this app's notifications off.
+
+### notify.schedule
+
+```ts
+notify.schedule(at: Date | number, title: string, body?: string, opts?: NotifyOpts): boolean
+```
+
+Posts the notification at `at`, even if the app is closed; kept across restarts. `at` is a `Date`, milliseconds since 1970, or a number below 10⁹ read as milliseconds from now. A device keeps at most 32 waiting. Returns `false` when the app's notifications are off.
+
+### notify.cancel
+
+```ts
+notify.cancel(tag?: string | number): void
+```
+
+With a tag: removes the waiting and the shown notification of that tag. Without: removes every waiting notification of the app.
+
+**Sizes:** titles are kept to 120 bytes, bodies to 400, `arg` to 120 and `tag` to 40.
+
+## toast
+
+```ts
+toast(text: string): void
+```
+
+A short message at the top of the screen. No permission needed.
+
+## store
+
+Per-app JSON storage, kept across closes and restarts. Guide: [Saving data](/guides/js/storage/).
+
+### store.get
+
+```ts
+store.get<T>(key: string, def?: T): T
+```
+
+The value saved under `key`, or `def` when there is none, when the key is not 1 to 14 characters, or when the saved text is not valid JSON.
+
+### store.set
+
+```ts
+store.set(key: string, value: unknown): void
+```
+
+Saves `JSON.stringify(value)`. Written to flash at once.
+
+**Errors:** `RangeError: store keys are 1-14 characters`; `RangeError: store values are at most 3000 characters` (counted in UTF-8 bytes).
+
+## Run-time limits
+
+| Limit | Value |
+|---|---|
+| Heap | 1.5 MB per app, in PSRAM |
+| Time per call | 1.5 s (`InternalError: interrupted`) |
+| Time to run `main.js` | 3 s |
+| Stack | 16 KB, QuickJS may use 11 KB (`RangeError: Maximum call stack size exceeded`) |
+| `main.js` size | under 512 KB |
+| Timers | 8 |
+
+## Not in level 1
+
+`console`, `setTimeout`, `setInterval`, `fetch`, `XMLHttpRequest`, `localStorage`, `require` and `import` at run time do not exist. Promise jobs never run, so `.then()` callbacks and code after `await` never execute. There are no lifecycle hooks and no background execution. See [API levels](/concepts/api-levels/) for what comes next.

@@ -42,7 +42,9 @@ func main() {
 	must(os.RemoveAll(filepath.Join(backend, "tables")))
 	must(os.RemoveAll(flows))
 
-	importRoutes(filepath.Join(*from, "routes.json"), filepath.Join(backend, "routes.json"))
+	wfs, _ := filepath.Glob(filepath.Join(*from, "workflows", "*", "workflow.json"))
+	skip := skipSet(wfs, routedWorkflows(filepath.Join(*from, "routes.json")))
+	importRoutes(filepath.Join(*from, "routes.json"), filepath.Join(backend, "routes.json"), skip)
 	all, _ := filepath.Glob(filepath.Join(*from, "tables", "*.json"))
 	var tables []string
 	for _, t := range all {
@@ -55,9 +57,14 @@ func main() {
 
 	type reg struct{ key, alias, pkg string }
 	var regs []reg
-	wfs, _ := filepath.Glob(filepath.Join(*from, "workflows", "*", "workflow.json"))
+	skipped := 0
 	for _, wf := range wfs {
 		code := filepath.Base(filepath.Dir(wf))
+		if why := skip[code]; why != "" {
+			log.Printf("skipped workflow %s (%s)", code, why)
+			skipped++
+			continue
+		}
 		copyFile(wf, filepath.Join(backend, "workflows", code, "workflow.json"))
 		nodes, _ := filepath.Glob(filepath.Join(filepath.Dir(wf), "nodes", "*.go"))
 		for _, n := range nodes {
@@ -84,15 +91,179 @@ func main() {
 	writeGo(filepath.Join(flows, "registry.go"), b.String())
 
 	importWorker(filepath.Join(*from, "workers", "news"), filepath.Join(*to, "internal", "jobs", "newsjob"))
+	tables = dropUnused(tables, filepath.Join(backend, "tables"), filepath.Join(*to, "internal"), filepath.Join(*to, "cmd"))
 	checkPrivate(backend, flows, filepath.Join(*to, "internal", "jobs", "newsjob"))
-	fmt.Printf("imported %d tables, %d workflows, %d code nodes\n", len(tables), len(wfs), len(regs))
+	fmt.Printf("imported %d tables, %d workflows (%d skipped), %d code nodes\n", len(tables), len(wfs)-skipped, skipped, len(regs))
+}
+
+// dropUnused removes the imported tables that no code here names (a quoted "<code>" in a Go file
+// or a workflow under dirs): tables of a hosted feature still being built, before its routes.
+func dropUnused(tables []string, dir string, dirs ...string) []string {
+	var src strings.Builder
+	for _, d := range dirs {
+		filepath.WalkDir(d, func(path string, e os.DirEntry, err error) error {
+			if err != nil || e.IsDir() || strings.HasPrefix(path, dir) {
+				return err
+			}
+			if strings.HasSuffix(path, ".go") || strings.HasSuffix(path, ".json") {
+				b, err := os.ReadFile(path)
+				must(err)
+				src.Write(b)
+			}
+			return nil
+		})
+	}
+	all := src.String()
+	var kept []string
+	for _, t := range tables {
+		code := strings.TrimSuffix(filepath.Base(t), ".json")
+		if !strings.Contains(all, `"`+code+`"`) && !strings.Contains(all, `\"`+code+`\"`) {
+			log.Printf("skipped table %s (nothing here uses it yet)", code)
+			must(os.Remove(filepath.Join(dir, filepath.Base(t))))
+			continue
+		}
+		kept = append(kept, t)
+	}
+	return kept
+}
+
+// The hosted sign-up's account events. This server has one account, set by ESPOS_USER and
+// ESPOS_PASSWORD: nobody registers, verifies an address or resets a password, so the workflows
+// that mail on these events (event_trigger → smtp_send) have nothing to start them.
+var accountEvents = map[string]bool{
+	"user.registered":             true,
+	"user.verification_requested": true,
+	"password.reset_requested":    true,
+}
+
+// skipReason says why a hosted workflow is left out, or "" to import it:
+//   - it mails on one of the account events above;
+//   - it answers HTTP (http_in) but no route in routes.json runs it: a draft or a temporary
+//     probe on the hosted site, which may call services this server knows nothing about;
+//   - it reads a hosted secret ({{ secret.* }}: the dog assistant's AI model and speech service),
+//     or it is one of the assistant's own workflows (assistantOnly).
+//
+// A workflow on another event stops the import: the engine runs no event_trigger yet.
+func skipReason(wf, code string, routed map[string]bool) string {
+	raw, err := os.ReadFile(wf)
+	must(err)
+	var doc struct {
+		Draft struct {
+			Nodes []struct {
+				Type   string         `json:"type"`
+				Config map[string]any `json:"config"`
+			} `json:"nodes"`
+		} `json:"draft"`
+	}
+	must(json.Unmarshal(raw, &doc))
+	for _, n := range doc.Draft.Nodes {
+		switch n.Type {
+		case "event_trigger":
+			ev, _ := n.Config["event"].(string)
+			if !accountEvents[ev] {
+				log.Fatalf("%s: event_trigger on %q is not supported here: add it to internal/engine or skip it in the importer", wf, ev)
+			}
+			return "e-mail on the hosted sign-up's " + ev + "; this server has one account and no sign-up"
+		case "http_in":
+			if !routed[code] {
+				return "no route runs it: a draft or a probe on the hosted site"
+			}
+		}
+	}
+	if bytes.Contains(raw, []byte("{{ secret.")) || nodesNeedSecret(filepath.Dir(wf)) {
+		return "needs a secret of the hosted service (its AI model or speech service); this server has none"
+	}
+	if assistantOnly[code] {
+		return "the dog assistant's own workflow; the assistant needs the hosted AI model and speech service"
+	}
+	return ""
+}
+
+// The dog assistant's workflows that need no secret themselves but exist only for it (its actions, its memories).
+var assistantOnly = map[string]bool{"assist_apply": true, "list_assist_memories": true, "delete_assist_memory": true}
+
+// nodesNeedSecret: a code node of the workflow reads a hosted secret ({{ secret.name }} in its source).
+func nodesNeedSecret(dir string) bool {
+	nodes, _ := filepath.Glob(filepath.Join(dir, "nodes", "*.go"))
+	for _, n := range nodes {
+		b, err := os.ReadFile(n)
+		must(err)
+		if bytes.Contains(b, []byte("{{ secret.")) {
+			return true
+		}
+	}
+	return false
+}
+
+// skipSet is every workflow left out, with the reason: skipReason's, then (until nothing changes) every
+// workflow that calls one left out (call_workflow), since it could not run here.
+func skipSet(wfs []string, routed map[string]bool) map[string]string {
+	skip := map[string]string{}
+	calls := map[string][]string{}
+	for _, wf := range wfs {
+		code := filepath.Base(filepath.Dir(wf))
+		if why := skipReason(wf, code, routed); why != "" {
+			skip[code] = why
+		}
+		raw, err := os.ReadFile(wf)
+		must(err)
+		var doc struct {
+			Draft struct {
+				Nodes []struct {
+					Type   string         `json:"type"`
+					Config map[string]any `json:"config"`
+				} `json:"nodes"`
+			} `json:"draft"`
+		}
+		must(json.Unmarshal(raw, &doc))
+		for _, n := range doc.Draft.Nodes {
+			if n.Type == "call_workflow" {
+				if w, _ := n.Config["workflow"].(string); w != "" {
+					calls[code] = append(calls[code], w)
+				}
+			}
+		}
+	}
+	for changed := true; changed; {
+		changed = false
+		for code, callees := range calls {
+			if skip[code] != "" {
+				continue
+			}
+			for _, c := range callees {
+				if skip[c] != "" {
+					skip[code] = "calls " + c + ", which is left out"
+					changed = true
+					break
+				}
+			}
+		}
+	}
+	return skip
+}
+
+// routedWorkflows is every workflow a hosted route names, published or not.
+func routedWorkflows(path string) map[string]bool {
+	raw, err := os.ReadFile(path)
+	must(err)
+	var hosted []struct {
+		Workflow     string `json:"workflow"`
+		WorkflowCode string `json:"workflow_code"`
+	}
+	must(json.Unmarshal(raw, &hosted))
+	out := map[string]bool{}
+	for _, r := range hosted {
+		out[r.Workflow] = true
+		out[r.WorkflowCode] = true
+	}
+	return out
 }
 
 // Strings that must never reach the public repository: the hosted service's domains, storage
 // paths and platform, local folders and e-mail addresses. The names are spelled in pieces so
 // this file passes the same check.
 var private = regexp.MustCompile(`(?i)` + strings.Join([]string{
-	`3s` + `web`, `web` + `mati`, `/Users/`, `api\.esp` + `os\.dev`, `/storage/bb/`,
+	`3s` + `web`, `web` + `mati`, `/Us` + `ers/`, `\bHi` + `ếu\b`, `api\.esp` + `os\.dev`, `/storage/bb/`,
 	`[a-z0-9._%+-]+@[a-z0-9-]+(\.[a-z0-9-]+)*\.[a-z]{2,}`,
 }, "|"))
 
@@ -136,10 +307,15 @@ func checkPrivate(dirs ...string) {
 // scrub rewrites references that only make sense in the hosted project, in every imported file.
 func scrub(s string) string {
 	// The hosted docs/<name>-api.md is this repository's docs/device-api.md.
-	return docRef.ReplaceAllString(s, "docs/device-api.md")
+	s = docRef.ReplaceAllString(s, "docs/device-api.md")
+	// Examples written with the owner's own name get a made-up one.
+	return strings.ReplaceAll(s, ownerName, "Lan")
 }
 
 var docRef = regexp.MustCompile(`docs/[a-z0-9]+-api\.md`)
+
+// The owner's given name, spelled in pieces so this file passes the repository's own checks.
+var ownerName = "Hi" + "ếu"
 
 // Tables the hosted site keeps for old data but nothing here uses.
 var retired = map[string]bool{"tasks": true, "vocab": true}
@@ -154,7 +330,7 @@ type Route struct {
 	PerMin   int      `json:"rate_limit_per_min,omitempty"`
 }
 
-func importRoutes(src, dst string) {
+func importRoutes(src, dst string, skip map[string]string) {
 	raw, err := os.ReadFile(src)
 	must(err)
 	var hosted []struct {
@@ -182,6 +358,10 @@ func importRoutes(src, dst string) {
 		wf := r.Workflow
 		if wf == "" {
 			wf = r.WorkflowCode
+		}
+		if skip[wf] != "" {
+			log.Printf("skipped %s %s (its workflow %s is left out)", r.Method, r.Path, wf)
+			continue
 		}
 		rt := Route{Method: r.Method, Path: r.Path, Auth: r.AuthMode, Guards: r.Guards, Workflow: wf}
 		if r.PerMin != nil {

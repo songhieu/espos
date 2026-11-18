@@ -1,0 +1,1369 @@
+{
+  "name": "espos",
+  "version": "0.1.0",
+  "summary": "EspOS developer tools: make, check and run packages (.espk) in the simulator, QEMU or on a board.",
+  "usage": "espos <command> [arguments] [options]",
+  "exit_codes": {
+    "0": "success",
+    "1": "the command ran and found problems or a step failed",
+    "2": "bad arguments",
+    "3": "a tool or file the command needs is missing",
+    "4": "no EspOS S3 found, or a serial port refused for safety"
+  },
+  "output": "Human text on stdout, warnings and progress on stderr; with --json (commands marked json) stdout carries exactly one JSON document.",
+  "environment": {
+    "ESPOS_ROOT": "the s3desk firmware repo (default: found by walking up for platformio.ini + src/)",
+    "ESPOS_PYTHON": "python3 to run the repo's tools",
+    "ESPOS_PIO": "PlatformIO's pio (default: PATH, then ~/.platformio/penv/bin/pio)",
+    "QEMU": "Espressif's qemu-system-xtensa (default: ../tools-ext/qemu next to s3desk)",
+    "ESPOS_PORT": "the serial port of the EspOS S3 (it must still answer as kind s3)",
+    "ESPOS_DENY_PORTS": "serial ports never opened, comma separated (also deny_ports in config.json; none by default)",
+    "ESPOS_SIM_BUILD": "the simulator's build folder name under sim/ (default build, build-live for --live)",
+    "ESPOS_BBK": "the store upload key, read only by scripts/publish_pkg.py (store publish --yes)",
+    "ESPOS_PUBLISH_SCRIPT": "scripts/publish_pkg.py if it is not next to s3desk",
+    "ESPOS_CONFIG_DIR": "where remembered devices are kept (default ~/.config/espos)",
+    "NO_COLOR": "no colours"
+  },
+  "global_options": [
+    {
+      "name": "--help",
+      "short": "-h",
+      "type": "bool",
+      "description": "Show help for the command."
+    },
+    {
+      "name": "--json",
+      "type": "bool",
+      "description": "Machine-readable output on stdout (commands marked json)."
+    },
+    {
+      "name": "--root",
+      "type": "string",
+      "description": "The s3desk firmware repo (default: found from the current folder or the CLI's own place).",
+      "env": "ESPOS_ROOT"
+    },
+    {
+      "name": "--quiet",
+      "short": "-q",
+      "type": "bool",
+      "description": "Less output."
+    },
+    {
+      "name": "--no-color",
+      "type": "bool",
+      "description": "No colours (also NO_COLOR=1)."
+    }
+  ],
+  "commands": [
+    {
+      "name": "create",
+      "path": "create",
+      "usage": "espos create DIR [options]",
+      "summary": "Make a new package project from a template.",
+      "json": false,
+      "args": [
+        {
+          "name": "dir",
+          "description": "the folder to create (its name is the default display name)",
+          "required": true,
+          "variadic": false
+        }
+      ],
+      "options": [
+        {
+          "name": "--template",
+          "short": "-t",
+          "type": "string",
+          "placeholder": "NAME",
+          "description": "the kind of project",
+          "values": [
+            "js-app",
+            "js-app-ts",
+            "j2me-game"
+          ],
+          "default": "js-app"
+        },
+        {
+          "name": "--id",
+          "type": "string",
+          "placeholder": "ID",
+          "description": "package id, reverse domain (default com.example.<dir>, jar.<name> for games); never changes once published"
+        },
+        {
+          "name": "--name",
+          "type": "string",
+          "placeholder": "TEXT",
+          "description": "display name (at most 40 characters, no \"…\")"
+        },
+        {
+          "name": "--desc",
+          "type": "string",
+          "placeholder": "TEXT",
+          "description": "one line for the store (at most 300 characters)"
+        },
+        {
+          "name": "--author",
+          "type": "string",
+          "placeholder": "TEXT",
+          "description": "author (at most 40 characters)"
+        },
+        {
+          "name": "--category",
+          "type": "string",
+          "placeholder": "NAME",
+          "description": "store category",
+          "values": [
+            "game",
+            "tool",
+            "study",
+            "health",
+            "widget"
+          ]
+        },
+        {
+          "name": "--jar",
+          "type": "string",
+          "placeholder": "FILE",
+          "description": "j2me-game: the game's .jar (fills name, version, MIDlet, icon)"
+        },
+        {
+          "name": "--license",
+          "type": "string",
+          "placeholder": "TEXT",
+          "description": "j2me-game: where the game comes from and its licence (required with --jar)"
+        },
+        {
+          "name": "--keypad",
+          "type": "string",
+          "placeholder": "NAME",
+          "description": "j2me-game: the suggested keypad",
+          "values": [
+            "full",
+            "compact",
+            "touch"
+          ]
+        },
+        {
+          "name": "--force",
+          "type": "bool",
+          "description": "write into a folder that is not empty"
+        }
+      ],
+      "notes": [
+        "js-app: JavaScript app (main.js, API level 1): a counter that keeps its number",
+        "js-app-ts: TypeScript app (src/*.ts bundled into main.js, typed by @espos/sdk): a countdown with a reminder",
+        "j2me-game: a J2ME (Java phone) game wrapped as a package: game.jar + icon, engine j2me (firmware 0.4.0)",
+        "No widget, face, theme, service or driver templates: those package types need manifest v2 (planned, docs/platform.md), which no firmware reads yet."
+      ],
+      "examples": [
+        "espos create my-counter",
+        "espos create focus-timer --template js-app-ts --id vn.you.focus --name \"Focus timer\"",
+        "espos create megablock --template j2me-game --jar MegaBlock.jar --license \"Apache-2.0, xylophones.net\""
+      ]
+    },
+    {
+      "name": "build",
+      "path": "build",
+      "usage": "espos build [DIR] [options]",
+      "summary": "Bundle (TypeScript), check and write the .espk.",
+      "description": "A project (espos.json) packs its main (bundled with esbuild when it is TypeScript) and its files; a plain folder with manifest.json packs every file but dotfiles and hidden folders, exactly as tools/espk.py does (byte-identical output). Nothing is written when a check fails.",
+      "json": true,
+      "args": [
+        {
+          "name": "dir",
+          "description": "the project or package folder (default .)",
+          "required": false,
+          "variadic": false
+        }
+      ],
+      "options": [
+        {
+          "name": "--out",
+          "short": "-o",
+          "type": "string",
+          "placeholder": "FILE",
+          "description": "the .espk to write (default: <out>/<id>-<version>-<part>.espk; for a plain folder, next to it)"
+        },
+        {
+          "name": "--out-dir",
+          "type": "string",
+          "placeholder": "DIR",
+          "description": "the folder to write it to"
+        },
+        {
+          "name": "--typecheck",
+          "type": "bool",
+          "description": "type-check TypeScript (--no-typecheck to skip)",
+          "default": true
+        },
+        {
+          "name": "--minify",
+          "type": "bool",
+          "description": "minify the bundled main.js"
+        },
+        {
+          "name": "--strict",
+          "type": "bool",
+          "description": "warnings fail the build too"
+        }
+      ],
+      "examples": [
+        "espos build",
+        "espos build ../apps/dice --out /tmp/dice.espk",
+        "espos build --json | jq .sha256"
+      ]
+    },
+    {
+      "name": "check",
+      "path": "check",
+      "usage": "espos check [TARGETS...] [options]",
+      "summary": "Check packages: manifest, files, icon, sizes, permissions vs the APIs the code calls.",
+      "description": "The one validator: every rule of tools/espk.py, scripts/publish_pkg.py, the web admin and the device (src/pkg/espk.cpp), the strictest where they differ, plus checks of main.js (syntax, permissions, API level 1). Folders are built in memory first; .espk files with the same id are checked together as the parts of one package.",
+      "json": true,
+      "args": [
+        {
+          "name": "targets",
+          "description": "folders or .espk files (default .)",
+          "required": false,
+          "variadic": true
+        }
+      ],
+      "options": [
+        {
+          "name": "--strict",
+          "type": "bool",
+          "description": "warnings fail too"
+        },
+        {
+          "name": "--typecheck",
+          "type": "bool",
+          "description": "type-check TypeScript projects (--no-typecheck to skip)",
+          "default": true
+        },
+        {
+          "name": "--rules",
+          "type": "bool",
+          "description": "list the rules (code, level, what, where it comes from)"
+        }
+      ],
+      "examples": [
+        "espos check",
+        "espos check dist/*.espk",
+        "espos check --rules"
+      ]
+    },
+    {
+      "name": "inspect",
+      "path": "inspect",
+      "usage": "espos inspect FILE [options]",
+      "summary": "Show what is inside an .espk: manifest, files, offsets, CRCs, sha256, its catalog entry.",
+      "json": true,
+      "args": [
+        {
+          "name": "file",
+          "description": "the .espk",
+          "required": true,
+          "variadic": false
+        }
+      ],
+      "options": [
+        {
+          "name": "--base",
+          "type": "string",
+          "placeholder": "URL",
+          "description": "base URL for the catalog entry's part URLs"
+        },
+        {
+          "name": "--extract",
+          "type": "string",
+          "placeholder": "DIR",
+          "description": "also unpack the files and manifest.json into DIR"
+        }
+      ],
+      "examples": [
+        "espos inspect dist/vn.you.timer-1.0.0-core.espk",
+        "espos inspect game.espk --extract /tmp/game"
+      ]
+    },
+    {
+      "name": "jar",
+      "path": "jar",
+      "usage": "espos jar FILE [options]",
+      "summary": "Wrap a J2ME game (.jar) into a game package (engine j2me), as the web admin does.",
+      "description": "Reads META-INF/MANIFEST.MF (MIDlet-Name, -Vendor, -Version, MIDlet-1, MIDlet-Icon, profile, configuration), makes the icon a 120x120 baseline JPEG on a tile of its average colour, and writes jar.<slug>-<version>-core.espk (kind native, engine j2me, min_fw 400, perms sound). The licence text is required.",
+      "json": true,
+      "args": [
+        {
+          "name": "file",
+          "description": "the game's .jar",
+          "required": true,
+          "variadic": false
+        }
+      ],
+      "options": [
+        {
+          "name": "--license",
+          "type": "string",
+          "placeholder": "TEXT",
+          "description": "required: where the game comes from and its licence (\"GPL-3.0, github.com/a/b\", \"author's permission by email 2026-11-17\")"
+        },
+        {
+          "name": "--id",
+          "type": "string",
+          "placeholder": "ID",
+          "description": "package id (default jar.<slug of the name>)"
+        },
+        {
+          "name": "--name",
+          "type": "string",
+          "placeholder": "TEXT",
+          "description": "store name (default MIDlet-Name)"
+        },
+        {
+          "name": "--desc",
+          "type": "string",
+          "placeholder": "TEXT",
+          "description": "one line: how to play"
+        },
+        {
+          "name": "--author",
+          "type": "string",
+          "placeholder": "TEXT",
+          "description": "author (default MIDlet-Vendor)"
+        },
+        {
+          "name": "--category",
+          "type": "string",
+          "placeholder": "NAME",
+          "description": "store category",
+          "values": [
+            "game",
+            "tool",
+            "study",
+            "health",
+            "widget"
+          ],
+          "default": "game"
+        },
+        {
+          "name": "--keypad",
+          "type": "string",
+          "placeholder": "NAME",
+          "description": "suggested keypad",
+          "values": [
+            "full",
+            "compact",
+            "touch"
+          ],
+          "default": "full"
+        },
+        {
+          "name": "--version",
+          "type": "string",
+          "placeholder": "V",
+          "description": "version (default MIDlet-Version, cleaned)"
+        },
+        {
+          "name": "--code",
+          "type": "number",
+          "placeholder": "N",
+          "description": "version code (default from the version: 1.2.3 = 10203)"
+        },
+        {
+          "name": "--out",
+          "short": "-o",
+          "type": "string",
+          "placeholder": "FILE",
+          "description": "the .espk to write"
+        },
+        {
+          "name": "--out-dir",
+          "type": "string",
+          "placeholder": "DIR",
+          "description": "the folder for <id>-<version>-core.espk (default .)"
+        },
+        {
+          "name": "--project",
+          "type": "string",
+          "placeholder": "DIR",
+          "description": "write a project folder (manifest.json, espos.json, game.jar, icon.jpg) instead of an .espk"
+        },
+        {
+          "name": "--force",
+          "type": "bool",
+          "description": "with --project: write into a folder that is not empty"
+        }
+      ],
+      "examples": [
+        "espos jar MegaBlock-1.0.0.jar --license \"Apache-2.0, xylophones.net\" --desc \"Falling blocks\"",
+        "espos jar game.jar --license \"public domain\" --project games/space"
+      ]
+    },
+    {
+      "name": "types",
+      "path": "types",
+      "usage": "espos types [DIR]",
+      "summary": "Write the API level 1 typings (types/espos.d.ts) into a project, for the editor.",
+      "json": false,
+      "args": [
+        {
+          "name": "dir",
+          "description": "the project (default .)",
+          "required": false,
+          "variadic": false
+        }
+      ],
+      "options": []
+    },
+    {
+      "name": "store",
+      "path": "store",
+      "usage": "espos store <command>",
+      "summary": "Catalog entries and publishing to the store (wraps scripts/publish_pkg.py).",
+      "json": false,
+      "args": [],
+      "options": [],
+      "commands": [
+        {
+          "name": "entry",
+          "path": "store entry",
+          "usage": "espos store entry [FILES...] [options]",
+          "summary": "Print the catalog \"packages\" entry for the parts of a package (tools/espk.py --entry with publish_pkg.py's part rules).",
+          "json": true,
+          "args": [
+            {
+              "name": "files",
+              "description": ".espk parts (or project folders, built first)",
+              "required": false,
+              "variadic": true
+            }
+          ],
+          "options": [
+            {
+              "name": "--base",
+              "type": "string",
+              "placeholder": "URL",
+              "description": "required: where the .espk files will be (URLs are BASE/<file name>)"
+            },
+            {
+              "name": "--icon-url",
+              "type": "string",
+              "placeholder": "URL",
+              "description": "the store picture's URL (icon_url)"
+            },
+            {
+              "name": "--out",
+              "short": "-o",
+              "type": "string",
+              "placeholder": "FILE",
+              "description": "also write the entry to FILE"
+            }
+          ],
+          "examples": [
+            "espos store entry dist/vn.you.timer-1.0.0-core.espk --base https://example.com/apps-s3"
+          ]
+        },
+        {
+          "name": "publish",
+          "path": "store publish",
+          "usage": "espos store publish [FILES...] [options]",
+          "summary": "Check, then publish packages with scripts/publish_pkg.py. Without --yes it is a dry run.",
+          "description": "Runs the validator first (refuses on errors), then publish_pkg.py. The upload key is read only from the environment variable ESPOS_BBK by publish_pkg.py itself; espos never takes it as an argument, prints it or stores it. Without --yes, publish_pkg.py --dry-run prints the plan and the merged catalog.",
+          "json": false,
+          "args": [
+            {
+              "name": "files",
+              "description": ".espk parts (or project folders, built first)",
+              "required": false,
+              "variadic": true
+            }
+          ],
+          "options": [
+            {
+              "name": "--yes",
+              "type": "bool",
+              "description": "really upload (needs ESPOS_BBK in the environment)"
+            },
+            {
+              "name": "--dry-run",
+              "type": "bool",
+              "description": "only print the plan (the default without --yes)"
+            },
+            {
+              "name": "--catalog",
+              "type": "string",
+              "placeholder": "FILE",
+              "description": "merge into this local catalog.json instead of the live one (offline check)"
+            },
+            {
+              "name": "--out",
+              "type": "string",
+              "placeholder": "FILE",
+              "description": "also write the merged catalog to FILE"
+            },
+            {
+              "name": "--replace",
+              "type": "bool",
+              "description": "allow the same version again with other bytes"
+            },
+            {
+              "name": "--shot",
+              "type": "string",
+              "placeholder": "FILE.jpg",
+              "description": "a store screenshot (baseline JPEG)",
+              "repeatable": true
+            },
+            {
+              "name": "--meta",
+              "type": "string",
+              "placeholder": "FILE.json",
+              "description": "part choices from a build tool's catalog entry",
+              "repeatable": true
+            }
+          ],
+          "notes": [
+            "Needs python3 and ../scripts/publish_pkg.py next to s3desk (or ESPOS_PUBLISH_SCRIPT)."
+          ],
+          "examples": [
+            "espos store publish dist/*.espk --catalog catalog.json",
+            "ESPOS_BBK=bbk_... espos store publish dist/*.espk --yes"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "sim",
+      "path": "sim",
+      "usage": "espos sim [TARGETS...] [options]",
+      "summary": "Run packages in the SDL simulator: install, build the simulator if needed, open the app.",
+      "description": "Builds project folders (or takes .espk files), installs them into a simulator data folder (by default <project>/.espos/sim-data-live, a copy of s3/sim/data-live), builds the simulator with make when its sources changed, and runs it with a script that opens the first app. Headless runs write PNG screenshots and exit 1 when the app throws (\"app <id>: ...\" in the trace). JavaScript apps go to the device's flash (fs/pkgs), other packages to the card; Java games get the J2ME runtime from build-pkgs/.",
+      "json": false,
+      "args": [
+        {
+          "name": "targets",
+          "description": "project folders or .espk files (default: the current folder if it has manifest.json)",
+          "required": false,
+          "variadic": true
+        }
+      ],
+      "options": [
+        {
+          "name": "--live",
+          "type": "bool",
+          "description": "the window (the default; mouse = finger, keys, sound): sim/build-live/espos-live"
+        },
+        {
+          "name": "--headless",
+          "type": "bool",
+          "description": "no window, script time, screenshots, exit 1 on an app error (CI): sim/build/espos-sim"
+        },
+        {
+          "name": "--script",
+          "short": "-s",
+          "type": "string",
+          "placeholder": "FILE",
+          "description": "simulator commands run after the app opens (default: <project>/sim/smoke.txt)"
+        },
+        {
+          "name": "--app",
+          "type": "string",
+          "placeholder": "ID",
+          "description": "the app to open (default: the first package)"
+        },
+        {
+          "name": "--arg",
+          "type": "string",
+          "placeholder": "TEXT",
+          "description": "app.arg for the opened app"
+        },
+        {
+          "name": "--open",
+          "type": "bool",
+          "description": "open the app (--no-open: only install and boot)",
+          "default": true
+        },
+        {
+          "name": "--data",
+          "type": "string",
+          "placeholder": "DIR",
+          "description": "the simulator data folder to use (default <project>/.espos/sim-<base>)"
+        },
+        {
+          "name": "--base",
+          "type": "string",
+          "placeholder": "NAME",
+          "description": "what a new data folder is copied from: data-live, data-run, data or a folder",
+          "default": "data-live"
+        },
+        {
+          "name": "--fresh",
+          "type": "bool",
+          "description": "start from a new copy of the base data"
+        },
+        {
+          "name": "--vol",
+          "type": "string",
+          "placeholder": "VOL",
+          "description": "where to install: sd (the card) or flash (the device's flash, JavaScript only)",
+          "values": [
+            "sd",
+            "flash"
+          ]
+        },
+        {
+          "name": "--out",
+          "type": "string",
+          "placeholder": "DIR",
+          "description": "screenshots (default <project>/.espos/shots)"
+        },
+        {
+          "name": "--watch",
+          "short": "-w",
+          "type": "bool",
+          "description": "rebuild, reinstall and restart (live) or run again (headless) when a file changes"
+        },
+        {
+          "name": "--build",
+          "type": "bool",
+          "description": "build the simulator when needed (--no-build: use the last binary)",
+          "default": true
+        },
+        {
+          "name": "--sim-build",
+          "type": "string",
+          "placeholder": "NAME",
+          "description": "the simulator's build folder under sim/",
+          "env": "ESPOS_SIM_BUILD"
+        },
+        {
+          "name": "--fast",
+          "type": "bool",
+          "description": "live: the computer's speed instead of the board's"
+        },
+        {
+          "name": "--zoom",
+          "type": "number",
+          "placeholder": "N",
+          "description": "live: points per screen pixel"
+        },
+        {
+          "name": "--board",
+          "type": "string",
+          "placeholder": "N",
+          "description": "35 only: the 2.8\" board (28) runs in QEMU (espos qemu --board 28)"
+        },
+        {
+          "name": "--log",
+          "type": "bool",
+          "description": "headless: print the simulator's whole log"
+        },
+        {
+          "name": "--timeout",
+          "type": "number",
+          "placeholder": "S",
+          "description": "headless: stop after S seconds",
+          "default": 120
+        },
+        {
+          "name": "--force",
+          "type": "bool",
+          "description": "install even when the checks find errors"
+        }
+      ],
+      "notes": [
+        "--watch restarts the simulator: an app cannot be reloaded inside a running simulator yet.",
+        "Script commands (sim/main.cpp): tap X Y, long X Y, drag X0 Y0 X1 Y1 MS, swipe left|right|up|down, back, home, app ID [ARG], wait MS, shot NAME, set KEY VALUE, rot N, saver, wake, mem, quit.",
+        "macOS only today: the simulator uses malloc_zone_statistics (sim/main.cpp) and macOS frameworks (live window)."
+      ],
+      "examples": [
+        "espos sim",
+        "espos sim --watch",
+        "espos sim --headless",
+        "espos sim dist/jar.megablock-1.0.0-core.espk --script play.txt",
+        "espos sim . --headless --fresh --out shots"
+      ]
+    },
+    {
+      "name": "qemu",
+      "path": "qemu",
+      "usage": "espos qemu [options] [-- ...]",
+      "summary": "Run the real firmware in Espressif's QEMU (tools/qemu/run.sh), with packages put onto its card.",
+      "description": "Wraps tools/qemu/run.sh: builds env s3desk-qemu (s3desk-28-qemu for --board 28), puts it into build-qemu/flash.bin keeping the device's data (NVS link token, LittleFS, the card), and runs QEMU with the viewer. --install puts packages onto the card image in place (mtools, or hdiutil on macOS) before QEMU starts; with --fresh (or no image yet) the image is made first from sim/data-live, then the packages are added.",
+      "platform": "macOS (run.sh's viewer and mkimage.py's card use macOS tools); QEMU from Espressif (esp-develop-9.2.2) in ../tools-ext/qemu or $QEMU",
+      "json": false,
+      "args": [],
+      "options": [
+        {
+          "name": "--board",
+          "type": "string",
+          "placeholder": "N",
+          "description": "28 = the 2.8\" board (its own image, card, console port 5556, web 8081)"
+        },
+        {
+          "name": "--install",
+          "short": "-i",
+          "type": "string",
+          "placeholder": "PKG",
+          "description": ".espk (or project folder) to put onto the card",
+          "repeatable": true
+        },
+        {
+          "name": "--fresh",
+          "type": "bool",
+          "description": "a new image from sim/data-live (unlinked, the card made again)"
+        },
+        {
+          "name": "--keep",
+          "type": "bool",
+          "description": "the image as it is: no firmware build"
+        },
+        {
+          "name": "--card",
+          "type": "string",
+          "placeholder": "IMG",
+          "description": "the card image to change (default build-qemu/sd[-28].img)"
+        },
+        {
+          "name": "--sdl",
+          "type": "bool",
+          "description": "QEMU's own window (no mouse), the dev console on this terminal"
+        },
+        {
+          "name": "--tcp",
+          "type": "number",
+          "placeholder": "PORT",
+          "description": "QEMU's own window, the dev console on a TCP port (tools/qemu/console.py PORT \"APP id\")"
+        },
+        {
+          "name": "--headless",
+          "type": "bool",
+          "description": "no window, the dev console on port 5555 (5556 for --board 28)"
+        },
+        {
+          "name": "--run",
+          "type": "bool",
+          "description": "start QEMU (--no-run: only build/put the packages on the card)",
+          "default": true
+        },
+        {
+          "name": "--force",
+          "type": "bool",
+          "description": "install even when the checks find errors"
+        }
+      ],
+      "passthrough": "more arguments for tools/qemu/run.sh",
+      "notes": [
+        "The card image must not change while QEMU runs: --install refuses when its monitor socket answers.",
+        "Dev console in QEMU: APP <id>, TAP x y, DRAG ..., SHOT; screenshots: tools/qemu/console.py PORT shot:FILE.ppm."
+      ],
+      "examples": [
+        "espos qemu",
+        "espos qemu --install dist/vn.you.timer-1.0.0-core.espk",
+        "espos qemu --board 28 --install . --headless",
+        "espos qemu --install game.espk --no-run"
+      ]
+    },
+    {
+      "name": "device",
+      "path": "device",
+      "usage": "espos device <command>",
+      "summary": "Talk to an EspOS S3 over USB: list, info, shot, logs, app, tap, drag, home, trace, mem, js, send, console.",
+      "description": "Port safety: ports are listed from the OS without opening them; a port is opened only to ask ESPOS:HELLO and used only if it answers ESPOS:READY with kind s3; ports on the deny list are never opened. Without --port, device commands open only an S3 remembered by its USB serial number or the default /dev/cu.usbmodem1101; `device list --probe` identifies other Espressif ports (and remembers the S3). No flashing here.",
+      "platform": "macOS and Linux; needs the optional npm package serialport",
+      "json": false,
+      "args": [],
+      "options": [],
+      "commands": [
+        {
+          "name": "list",
+          "path": "device list",
+          "usage": "espos device list [options]",
+          "summary": "Serial ports and which one is an EspOS S3 (nothing is opened without --probe).",
+          "json": true,
+          "args": [],
+          "options": [
+            {
+              "name": "--probe",
+              "type": "bool",
+              "description": "open Espressif ports (not denied ones) to ask ESPOS:HELLO"
+            }
+          ]
+        },
+        {
+          "name": "info",
+          "path": "device info",
+          "usage": "espos device info [options]",
+          "summary": "The S3's answer to HELLO: firmware, board, linked (also sets its clock).",
+          "json": true,
+          "args": [],
+          "options": [
+            {
+              "name": "--port",
+              "short": "-p",
+              "type": "string",
+              "placeholder": "PATH",
+              "description": "the S3's serial port (it must answer ESPOS:READY with kind s3)",
+              "env": "ESPOS_PORT"
+            }
+          ]
+        },
+        {
+          "name": "shot",
+          "path": "device shot",
+          "usage": "espos device shot [OUT] [options]",
+          "summary": "Screenshot to PNG (screen + top layer).",
+          "json": true,
+          "args": [
+            {
+              "name": "out",
+              "description": "the PNG (default shot-<time>.png)",
+              "required": false,
+              "variadic": false
+            }
+          ],
+          "options": [
+            {
+              "name": "--port",
+              "short": "-p",
+              "type": "string",
+              "placeholder": "PATH",
+              "description": "the S3's serial port (it must answer ESPOS:READY with kind s3)",
+              "env": "ESPOS_PORT"
+            }
+          ]
+        },
+        {
+          "name": "logs",
+          "path": "device logs",
+          "usage": "espos device logs [options]",
+          "summary": "Stream the S3's serial log.",
+          "json": false,
+          "args": [],
+          "options": [
+            {
+              "name": "--port",
+              "short": "-p",
+              "type": "string",
+              "placeholder": "PATH",
+              "description": "the S3's serial port (it must answer ESPOS:READY with kind s3)",
+              "env": "ESPOS_PORT"
+            },
+            {
+              "name": "--seconds",
+              "type": "number",
+              "placeholder": "S",
+              "description": "stop after S seconds (default: Ctrl-C)"
+            },
+            {
+              "name": "--grep",
+              "type": "string",
+              "placeholder": "RE",
+              "description": "only lines matching"
+            },
+            {
+              "name": "--all",
+              "type": "bool",
+              "description": "include sysmon/heap lines"
+            }
+          ]
+        },
+        {
+          "name": "app",
+          "path": "device app",
+          "usage": "espos device app ID [ARG] [options]",
+          "summary": "Open an app or package (APP id [arg]).",
+          "json": true,
+          "args": [
+            {
+              "name": "id",
+              "description": "app or package id (firmware before 0.4.0 reads only 23 characters of it)",
+              "required": true,
+              "variadic": false
+            },
+            {
+              "name": "arg",
+              "description": "what the app gets as app.arg",
+              "required": false,
+              "variadic": false
+            }
+          ],
+          "options": [
+            {
+              "name": "--port",
+              "short": "-p",
+              "type": "string",
+              "placeholder": "PATH",
+              "description": "the S3's serial port (it must answer ESPOS:READY with kind s3)",
+              "env": "ESPOS_PORT"
+            },
+            {
+              "name": "--wait",
+              "type": "number",
+              "placeholder": "S",
+              "description": "seconds to print the device's answer"
+            }
+          ]
+        },
+        {
+          "name": "tap",
+          "path": "device tap",
+          "usage": "espos device tap X Y [options]",
+          "summary": "Tap at x y (screen coordinates of the current rotation).",
+          "json": true,
+          "args": [
+            {
+              "name": "x",
+              "description": "0-319 (portrait)",
+              "required": true,
+              "variadic": false
+            },
+            {
+              "name": "y",
+              "description": "0-479 (portrait)",
+              "required": true,
+              "variadic": false
+            }
+          ],
+          "options": [
+            {
+              "name": "--port",
+              "short": "-p",
+              "type": "string",
+              "placeholder": "PATH",
+              "description": "the S3's serial port (it must answer ESPOS:READY with kind s3)",
+              "env": "ESPOS_PORT"
+            },
+            {
+              "name": "--wait",
+              "type": "number",
+              "placeholder": "S",
+              "description": "seconds to print the device's answer"
+            }
+          ]
+        },
+        {
+          "name": "drag",
+          "path": "device drag",
+          "usage": "espos device drag X0 Y0 X1 Y1 [MS] [options]",
+          "summary": "Drag from x0 y0 to x1 y1 in ms.",
+          "json": true,
+          "args": [
+            {
+              "name": "x0",
+              "description": "start x",
+              "required": true,
+              "variadic": false
+            },
+            {
+              "name": "y0",
+              "description": "start y",
+              "required": true,
+              "variadic": false
+            },
+            {
+              "name": "x1",
+              "description": "end x",
+              "required": true,
+              "variadic": false
+            },
+            {
+              "name": "y1",
+              "description": "end y",
+              "required": true,
+              "variadic": false
+            },
+            {
+              "name": "ms",
+              "description": "duration (default 250)",
+              "required": false,
+              "variadic": false
+            }
+          ],
+          "options": [
+            {
+              "name": "--port",
+              "short": "-p",
+              "type": "string",
+              "placeholder": "PATH",
+              "description": "the S3's serial port (it must answer ESPOS:READY with kind s3)",
+              "env": "ESPOS_PORT"
+            },
+            {
+              "name": "--wait",
+              "type": "number",
+              "placeholder": "S",
+              "description": "seconds to print the device's answer"
+            }
+          ]
+        },
+        {
+          "name": "home",
+          "path": "device home",
+          "usage": "espos device home [options]",
+          "summary": "Go to Home.",
+          "json": true,
+          "args": [],
+          "options": [
+            {
+              "name": "--port",
+              "short": "-p",
+              "type": "string",
+              "placeholder": "PATH",
+              "description": "the S3's serial port (it must answer ESPOS:READY with kind s3)",
+              "env": "ESPOS_PORT"
+            },
+            {
+              "name": "--wait",
+              "type": "number",
+              "placeholder": "S",
+              "description": "seconds to print the device's answer"
+            }
+          ]
+        },
+        {
+          "name": "trace",
+          "path": "device trace",
+          "usage": "espos device trace [options]",
+          "summary": "The device's event history (TRACE: touches, screens, slow loops, heap).",
+          "json": true,
+          "args": [],
+          "options": [
+            {
+              "name": "--port",
+              "short": "-p",
+              "type": "string",
+              "placeholder": "PATH",
+              "description": "the S3's serial port (it must answer ESPOS:READY with kind s3)",
+              "env": "ESPOS_PORT"
+            },
+            {
+              "name": "--wait",
+              "type": "number",
+              "placeholder": "S",
+              "description": "seconds to print the device's answer"
+            }
+          ]
+        },
+        {
+          "name": "mem",
+          "path": "device mem",
+          "usage": "espos device mem [options]",
+          "summary": "Internal RAM, PSRAM and LVGL memory (MEM).",
+          "json": true,
+          "args": [],
+          "options": [
+            {
+              "name": "--port",
+              "short": "-p",
+              "type": "string",
+              "placeholder": "PATH",
+              "description": "the S3's serial port (it must answer ESPOS:READY with kind s3)",
+              "env": "ESPOS_PORT"
+            },
+            {
+              "name": "--wait",
+              "type": "number",
+              "placeholder": "S",
+              "description": "seconds to print the device's answer"
+            }
+          ]
+        },
+        {
+          "name": "js",
+          "path": "device js",
+          "usage": "espos device js [CODE...] [options]",
+          "summary": "Evaluate JavaScript in a scratch QuickJS context (JS code).",
+          "json": true,
+          "args": [
+            {
+              "name": "code",
+              "description": "one line of JavaScript",
+              "required": false,
+              "variadic": true
+            }
+          ],
+          "options": [
+            {
+              "name": "--port",
+              "short": "-p",
+              "type": "string",
+              "placeholder": "PATH",
+              "description": "the S3's serial port (it must answer ESPOS:READY with kind s3)",
+              "env": "ESPOS_PORT"
+            },
+            {
+              "name": "--wait",
+              "type": "number",
+              "placeholder": "S",
+              "description": "seconds to print the device's answer"
+            }
+          ]
+        },
+        {
+          "name": "send",
+          "path": "device send",
+          "usage": "espos device send [LINE...] [options]",
+          "summary": "Send one dev console line and print the answer (not SHOT: use device shot).",
+          "json": true,
+          "args": [
+            {
+              "name": "line",
+              "description": "the command, e.g. ROT 1, SAVER, REMOTE",
+              "required": false,
+              "variadic": true
+            }
+          ],
+          "options": [
+            {
+              "name": "--port",
+              "short": "-p",
+              "type": "string",
+              "placeholder": "PATH",
+              "description": "the S3's serial port (it must answer ESPOS:READY with kind s3)",
+              "env": "ESPOS_PORT"
+            },
+            {
+              "name": "--wait",
+              "type": "number",
+              "placeholder": "S",
+              "description": "seconds to print the device's answer"
+            }
+          ]
+        },
+        {
+          "name": "console",
+          "path": "device console",
+          "usage": "espos device console [options]",
+          "summary": "Interactive dev console: your lines to the S3, its output here.",
+          "json": false,
+          "args": [],
+          "options": [
+            {
+              "name": "--port",
+              "short": "-p",
+              "type": "string",
+              "placeholder": "PATH",
+              "description": "the S3's serial port (it must answer ESPOS:READY with kind s3)",
+              "env": "ESPOS_PORT"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "firmware",
+      "path": "firmware",
+      "usage": "espos firmware <command>",
+      "summary": "Build the firmware (PlatformIO) and check firmware.bin against the 3,932,160-byte app slot.",
+      "description": "No flashing here: the board is flashed by its owner. The size check fails (exit 1) when firmware.bin is bigger than the app slot (app0 in the partition table, 0x3C0000).",
+      "json": false,
+      "args": [],
+      "options": [],
+      "commands": [
+        {
+          "name": "build",
+          "path": "firmware build",
+          "usage": "espos firmware build [options] [-- ...]",
+          "summary": "pio run -e ENV, then the size check.",
+          "json": true,
+          "args": [],
+          "options": [
+            {
+              "name": "--env",
+              "short": "-e",
+              "type": "string",
+              "placeholder": "ENV",
+              "description": "PlatformIO environment (platformio.ini): s3desk, s3desk-qemu, s3desk-28-qemu, ...",
+              "default": "s3desk"
+            },
+            {
+              "name": "--build-dir",
+              "type": "string",
+              "placeholder": "DIR",
+              "description": "PLATFORMIO_BUILD_DIR (e.g. .pio/build-you, so parallel builds do not collide)"
+            },
+            {
+              "name": "--dry-run",
+              "type": "bool",
+              "description": "print the command, run nothing"
+            }
+          ],
+          "passthrough": "more arguments for pio run",
+          "examples": [
+            "espos firmware build",
+            "espos firmware build --env s3desk-qemu",
+            "espos firmware build --build-dir .pio/build-me"
+          ]
+        },
+        {
+          "name": "size",
+          "path": "firmware size",
+          "usage": "espos firmware size [options]",
+          "summary": "firmware.bin's size vs the app slot (exit 1 when over).",
+          "json": true,
+          "args": [],
+          "options": [
+            {
+              "name": "--env",
+              "short": "-e",
+              "type": "string",
+              "placeholder": "ENV",
+              "description": "PlatformIO environment (platformio.ini): s3desk, s3desk-qemu, s3desk-28-qemu, ...",
+              "default": "s3desk"
+            },
+            {
+              "name": "--build-dir",
+              "type": "string",
+              "placeholder": "DIR",
+              "description": "PLATFORMIO_BUILD_DIR (e.g. .pio/build-you, so parallel builds do not collide)"
+            },
+            {
+              "name": "--file",
+              "type": "string",
+              "placeholder": "BIN",
+              "description": "a firmware.bin to check instead"
+            }
+          ],
+          "examples": [
+            "espos firmware size",
+            "espos firmware size --json"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "j2me",
+      "path": "j2me",
+      "usage": "espos j2me <command>",
+      "summary": "Java (J2ME) engine tools: the runtime package, the MIDP layer's tests, the VM tests.",
+      "json": false,
+      "args": [],
+      "options": [],
+      "commands": [
+        {
+          "name": "runtime",
+          "path": "j2me runtime",
+          "usage": "espos j2me runtime [VERSION] [CODE] [options]",
+          "summary": "Build the runtime package dev.espos.j2me (class library) into build-pkgs/ (tools/j2me/make_runtime.sh).",
+          "json": false,
+          "args": [
+            {
+              "name": "version",
+              "description": "default 1.0.0",
+              "required": false,
+              "variadic": false
+            },
+            {
+              "name": "code",
+              "description": "default 10000",
+              "required": false,
+              "variadic": false
+            }
+          ],
+          "options": [
+            {
+              "name": "--dry-run",
+              "type": "bool",
+              "description": "print the command, run nothing"
+            }
+          ],
+          "notes": [
+            "Needs javac (JDK 9+) and zip."
+          ]
+        },
+        {
+          "name": "test",
+          "path": "j2me test",
+          "usage": "espos j2me test [options]",
+          "summary": "Compile the MIDP layer and its logic tests (j2me/build-midp.sh tests); --run also runs them on the VM.",
+          "json": false,
+          "args": [],
+          "options": [
+            {
+              "name": "--dry-run",
+              "type": "bool",
+              "description": "print the command, run nothing"
+            },
+            {
+              "name": "--run",
+              "type": "bool",
+              "description": "run each MIDP test class on tools/j2me/build/j2me-run (boot class path with the stand-in natives)"
+            }
+          ],
+          "notes": [
+            "Needs the class library's java.* in j2me/build/classlib (j2me/build.sh or espos j2me vm-test builds it)."
+          ]
+        },
+        {
+          "name": "vm-test",
+          "path": "j2me vm-test",
+          "usage": "espos j2me vm-test [options]",
+          "summary": "Build the VM runner and run every VM test, compared with the JDK (j2me/test/run.sh).",
+          "json": false,
+          "args": [],
+          "options": [
+            {
+              "name": "--dry-run",
+              "type": "bool",
+              "description": "print the command, run nothing"
+            },
+            {
+              "name": "--asan",
+              "type": "bool",
+              "description": "AddressSanitizer + UBSan build"
+            },
+            {
+              "name": "--gcstress",
+              "type": "bool",
+              "description": "a full GC at every allocation"
+            },
+            {
+              "name": "--bench",
+              "type": "bool",
+              "description": "also the benchmark"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "doctor",
+      "path": "doctor",
+      "usage": "espos doctor",
+      "summary": "Check the toolchain (node, npm packages, python, JDK, make, SDL2, PlatformIO, QEMU, simulator builds) with install hints.",
+      "json": true,
+      "args": [],
+      "options": []
+    },
+    {
+      "name": "help",
+      "path": "help",
+      "usage": "espos help [COMMAND...]",
+      "summary": "Help for a command; --json prints every command, option and argument (the docs site's reference).",
+      "json": true,
+      "args": [
+        {
+          "name": "command",
+          "description": "a command (and sub-command)",
+          "required": false,
+          "variadic": true
+        }
+      ],
+      "options": [],
+      "examples": [
+        "espos help sim",
+        "espos help device shot",
+        "espos help --json > commands.json"
+      ]
+    },
+    {
+      "name": "version",
+      "path": "version",
+      "usage": "espos version",
+      "summary": "Print the CLI's version.",
+      "json": true,
+      "args": [],
+      "options": []
+    }
+  ]
+}

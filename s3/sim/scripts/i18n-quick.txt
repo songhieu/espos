@@ -1,0 +1,20 @@
+# Quick language check (docs/i18n.md): Home, Settings, Settings > Language in English, then Vietnamese.
+wait 3000
+shot en-home
+app settings
+wait 800
+shot en-settings
+app settings lang
+wait 800
+shot en-lang
+home
+wait 600
+set sys.lang vi
+wait 3000
+shot vi-home
+app settings
+wait 800
+shot vi-settings
+app settings lang
+wait 800
+shot vi-lang

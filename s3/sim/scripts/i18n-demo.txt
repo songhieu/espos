@@ -1,0 +1,37 @@
+# Languages (docs/i18n.md), for the live window: English, then Settings > Language to Vietnamese, German, Japanese,
+# Korean (downloaded from the canned store), and back to English. Run: SIM_DATA=sim/data-i18n tools/sim-live.sh sim/scripts/i18n-demo.txt
+wait 2500
+set sys.lang en
+wait 3000
+app settings
+wait 2500
+app settings lang
+wait 3000
+tap 160 172
+wait 4000
+home
+wait 3000
+app settings lang
+wait 3000
+tap 160 420
+wait 4000
+home
+wait 3000
+app weather
+wait 3000
+home
+wait 1500
+set sys.lang ja
+wait 4500
+app cal
+wait 3000
+home
+wait 1500
+set sys.lang ko
+wait 8000
+app clock
+wait 3000
+home
+wait 1500
+set sys.lang en
+wait 4000

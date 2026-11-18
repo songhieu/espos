@@ -1,0 +1,64 @@
+---
+title: How to contribute
+description: 'Licences, the Developer Certificate of Origin, what to work on, and how changes are checked before they land.'
+---
+
+import Status from '../../../components/Status.astro';
+import { Aside } from '@astrojs/starlight/components';
+
+## The repository
+
+The public monorepo is [github.com/songhieu/espos](https://github.com/songhieu/espos):
+
+| Folder | What |
+|---|---|
+| `s3/` | The S3 firmware (EspOS), its simulator, the tools, the SDK and these docs. Its layout: [Repository layout](/contributing/repo-layout/). |
+| `server/` | The self-hosted Go server and its web app. See [Self-hosting](/roadmap/self-hosting/). |
+| `firmware/` | The firmware of the Xteink X4 e-ink reader. |
+
+The repository holds no simulator data: `mkdir -p sim/data sim/data-live` in `s3/` gives the simulator and the SDK's tests a new, unlinked device.
+
+## Licences
+
+| Part | Licence |
+|---|---|
+| `s3/`: the S3 firmware (EspOS), the SDK (`@espos/sdk`, `@espos/cli`), the templates, the simulator and these docs' sources | Apache-2.0 |
+| `server/`: the self-hosted server and its web app | AGPL-3.0 |
+| `firmware/`: the X4 firmware | EspOS's changes Apache-2.0; CrossPoint Reader's own code stays MIT |
+| Everything up to commit `fac0c54` | stays MIT |
+| Third-party code in the tree | its own licence (QuickJS-ng: MIT; libopus: BSD; LVGL: MIT) |
+
+The name EspOS is covered by a trademark policy. There are no paid-only device features.
+
+Apps you write are yours, under the licence you choose. Store content belongs to its authors.
+
+## Sign off your commits (DCO)
+
+Contributions use the [Developer Certificate of Origin](https://developercertificate.org/). Add a `Signed-off-by` line to every commit to say you wrote the change or have the right to submit it:
+
+```sh
+git commit -s -m "Fix the chips handler when a screen has two bars"
+```
+
+There is no contributor licence agreement.
+
+## Good first areas
+
+- **Docs and examples.** Small apps that show one API well.
+- **The simulator** on Linux and Windows (it uses a few macOS-only calls today).
+- **Ports to new boards.** See [Port to a new board](/hardware/porting/).
+- **The Java class library.** Missing MIDP or Nokia classes, with tests in `j2me/test/midp`.
+- **The simulator on more platforms**, and making it model more of the board (stacks, internal RAM, speed).
+
+## How changes are checked
+
+Every change is checked before it lands. Depending on what it touches:
+
+- **Scripts in the simulator**, headless, with screenshots compared against known-good ones.
+- **ASan and TSan builds** of the simulator, and `j2me/test/run.sh asan` and `gcstress` for the Java VM.
+- **QEMU** runs of the real firmware image.
+- **The firmware's size**: the image must stay under 3,932,160 bytes. Report the flash your change adds.
+- **A board**, for anything that touches drivers, speed or memory: `tools/qa.py` measures frame rate, heap and reboots over a scripted session.
+- **App budgets** for rewritten apps: open time, scrolling frame rate, memory and flash, before and after.
+
+Next: [Repository layout](/contributing/repo-layout/), [Build the firmware](/contributing/firmware/) and [Code and UI style](/contributing/style/).

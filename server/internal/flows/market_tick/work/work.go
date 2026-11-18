@@ -222,7 +222,7 @@ func s3Stocks(s string) []string {
 // The symbols in every stocks widget of every reader's layouts (indices come from "index").
 func wantedSymbols() ([]string, error) {
 	rows, err := wm.QueryOpts("device_settings", map[string]any{"filters": []map[string]any{
-		{"column": "skey", "op": "in", "value": []any{"home.w", "sleep.wl", "sleep.wp", "s3.home", "s3.saver_pages", "s3.markets"}}}, "limit": 4000})
+		{"column": "skey", "op": "in", "value": []any{"home.w", "sleep.wl", "sleep.wp", "s3.home", "s3.home_l", "s3.saver_pages", "s3.markets"}}}, "limit": 4000})
 	if err != nil {
 		return nil, err
 	}
@@ -237,9 +237,9 @@ func wantedSymbols() ([]string, error) {
 		out = append(out, t)
 	}
 	for _, r := range rows {
-		// The colour desk's market widgets list "stocks:FPT" tokens among others (home and saver pages), and so
-		// does its Markets app's list (s3.markets).
-		if k := wm.Str(r["skey"]); k == "s3.home" || k == "s3.saver_pages" || k == "s3.markets" {
+		// The colour desk's market widgets list "stocks:FPT" tokens among others (portrait and landscape home pages,
+		// saver pages), and so does its Markets app's list (s3.markets).
+		if k := wm.Str(r["skey"]); k == "s3.home" || k == "s3.home_l" || k == "s3.saver_pages" || k == "s3.markets" {
 			for _, t := range s3Stocks(wm.Str(r["svalue"])) {
 				add(t)
 			}

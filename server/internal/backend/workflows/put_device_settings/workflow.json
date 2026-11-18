@@ -1,0 +1,20 @@
+{
+  "code": "put_device_settings",
+  "name": "Check and save a device's settings (the one place: the web's settings save and the dog assistant's actions)",
+  "draft": {
+    "nodes": [
+      {"id": "in", "type": "function_in", "config": {"inputs": ["uid", "device_id", "changes"]}},
+      {"id": "work", "type": "code", "config": {
+        "source": {"$file": "nodes/work.go"},
+        "timeout_ms": 10000,
+        "input": {"uid": "{{ input.uid }}", "params": {"id": "{{ input.device_id }}"}, "body": {"changes": "{{ input.changes }}"}}}},
+      {"id": "out", "type": "return", "config": {"data": {"status": "{{ work.status }}", "body": "{{ work.body }}"}}},
+      {"id": "fail", "type": "return", "config": {"data": {"status": 500, "body": {"error": "{{ work.error }}"}}}}
+    ],
+    "edges": [
+      {"from": "in", "to": "work"},
+      {"from": "work", "to": "out"},
+      {"from": "work", "to": "fail", "port": "error"}
+    ]
+  }
+}

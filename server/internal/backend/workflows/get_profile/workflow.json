@@ -1,0 +1,60 @@
+{
+  "code": "get_profile",
+  "name": "Web: my profile (the name the dogs call me)",
+  "draft": {
+    "nodes": [
+      {
+        "id": "in",
+        "type": "http_in"
+      },
+      {
+        "id": "work",
+        "type": "code",
+        "config": {
+          "source": {
+            "$file": "nodes/work.go"
+          },
+          "input": {
+            "uid": "{{ input.user.id }}"
+          }
+        }
+      },
+      {
+        "id": "out",
+        "type": "respond",
+        "config": {
+          "status": "{{ work.status }}",
+          "body": "{{ work.body }}",
+          "headers": {
+            "Cache-Control": "no-store"
+          }
+        }
+      },
+      {
+        "id": "fail",
+        "type": "respond",
+        "config": {
+          "status": 500,
+          "body": {
+            "error": "{{ work.error }}"
+          }
+        }
+      }
+    ],
+    "edges": [
+      {
+        "from": "in",
+        "to": "work"
+      },
+      {
+        "from": "work",
+        "to": "out"
+      },
+      {
+        "from": "work",
+        "to": "fail",
+        "port": "error"
+      }
+    ]
+  }
+}

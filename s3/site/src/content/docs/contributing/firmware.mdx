@@ -1,0 +1,81 @@
+---
+title: Build the firmware
+description: 'Build EspOS with PlatformIO, flash a board over USB, keep the image under its size budget, and build for QEMU.'
+---
+
+import { Aside, Steps } from '@astrojs/starlight/components';
+
+## Build
+
+The firmware is an Arduino-ESP32 3.x project (ESP-IDF 5.5) built with PlatformIO. LVGL 9.2 and ArduinoJson 7 come from PlatformIO's library registry.
+
+```sh
+pio run -e s3desk
+```
+
+The image is `.pio/build/s3desk/firmware.bin`. One image serves both boards.
+
+With the CLI, `espos firmware build` runs the same build and then checks the size budget, and `espos firmware size` checks an existing image (exit code 1 when it is over).
+
+| Environment | For |
+|---|---|
+| `s3desk` | Both boards. |
+| `s3desk-net` | The same, with a larger TCP window for faster downloads (a test build). |
+| `s3desk-qemu` | QEMU: the virtual panel, Ethernet, no sound. |
+| `s3desk-28-qemu` | QEMU as the 2.8" board. |
+
+To keep several builds apart, give each its own folder:
+
+```sh
+PLATFORMIO_BUILD_DIR=$PWD/.pio/build-mine pio run -e s3desk
+```
+
+<Aside type="note" title="The server address is a build flag">
+`ESPOS_API` (`https://api.espos.dev`) and `ESPOS_WEB` (`https://espos.dev`) in `platformio.ini` name the server the firmware talks to and the web page its pairing QR code opens. Point them at your own server (for example `https://espos.example`) for a private build; see [Self-hosting](/roadmap/self-hosting/). A Server setting on the device is planned for Phase 3, so self-hosters will not need their own build.
+</Aside>
+
+## The size budget
+
+The firmware's update slot is **3,932,160 bytes** (`0x3C0000`). The image is close to it, so:
+
+- check the size of `firmware.bin` after every change and report what you add;
+- build cold code for size with `#pragma GCC optimize("Os")` at the top of the file (screens that are not hot paths do this); keep hot code (Home, widgets, drawing loops) at `-O2`;
+- put new features in packages where you can, not in the firmware.
+
+## Flash a board
+
+<Steps>
+
+1. Connect the board over USB-C.
+2. Flash the bootloader, partition table and image:
+
+   ```sh
+   pio run -e s3desk -t upload
+   ```
+
+3. Watch the log:
+
+   ```sh
+   pio device monitor
+   ```
+
+</Steps>
+
+<Aside type="caution" title="The flash layout">
+`partitions_pawboop.csv` reserves room for PawBoop's data and the internal app area. Flashing with another table can erase installed packages.
+</Aside>
+
+## Build for QEMU
+
+`tools/qemu/run.sh` builds `s3desk-qemu`, writes the flash image with the firmware, PawBoop's data and a LittleFS made from `sim/data-live`, and starts QEMU. See [Test in QEMU](/guides/qemu/).
+
+## Tests
+
+| What | Command |
+|---|---|
+| Simulator scripts | `make -C sim -j10 && SIM_DATA=sim/data-me sim/build/espos-sim SCRIPT OUT/` |
+| Simulator with ASan | `make -C sim BUILD=build-asan EXTRA="-fsanitize=address -fno-omit-frame-pointer"` |
+| Simulator with TSan | `make -C sim BUILD=build-live-tsan EXTRA=-fsanitize=thread live` |
+| Java VM | `j2me/test/run.sh`, `j2me/test/run.sh asan`, `j2me/test/run.sh gcstress` |
+| A board session | `python3 tools/qa.py PORT OUTDIR SCRIPT` (frame rate, heap, panics, screenshots) |
+| The SDK and CLI | `cd sdk && npm test` |

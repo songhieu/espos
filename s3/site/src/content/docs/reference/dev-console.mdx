@@ -1,0 +1,69 @@
+---
+title: Dev console commands
+description: "Every command of the device's USB dev console: apps and taps, screenshots, memory and traces, JavaScript, remote control, benchmarks and the installer's handshake."
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+The dev console is the device's serial port: USB on a board (115200 baud), UART0 in QEMU. Send one command per line; answers are plain text lines. Coordinates are screen pixels in the current orientation.
+
+## Apps and input
+
+| Command | Does | Answer |
+|---|---|---|
+| `APP <id> [arg]` | Open an app, with an optional argument (`app.arg`). The id and the arg are cut at 23 characters each. | |
+| `HOME` | Go to Home. | |
+| `TAP X Y` | Tap at X, Y. | |
+| `DRAG X0 Y0 X1 Y1 MS` | Drag over MS milliseconds. | |
+| `TOUCH d\|u X Y` | Finger down (or moved) / up at X, Y, as it happens. The QEMU viewer uses this. | |
+| `PANEL` | Open the Control Center. | |
+| `ROT N` | Rotation 0 to 3, saved like the setting. | |
+| `SAVER` | Show the screen saver now. | |
+| `REBUILD` | Rebuild every screen (after a theme change). | |
+
+## Looking inside
+
+| Command | Does | Answer |
+|---|---|---|
+| `SHOT` | The screen and the top layer as raw pixels. | `SHOT w h bpp`, the rows (RGB565), a newline; `TOP w h 4`, the rows (ARGB8888), a newline; `ENDSHOT`. |
+| `MEM` | Memory now. | `MEM internal <n> KB (largest <n> KB, min <n> KB), psram <n> KB, lvgl used <n> KB of <n> KB, frag <n>%`, and the lowest internal RAM since the last `MEM`. |
+| `TRACE` | Print the trace log: app starts and errors, notifications, installs, screens. | |
+| `TOUCHLOG 0\|1` | Echo trace lines as they happen. | |
+| `INVLOG 0\|1` | Log the screen areas that are redrawn. | |
+| `JS <code>` | Evaluate one line of JavaScript in a scratch QuickJS context (2 MB, no app API). | `JS <result> (<µs> us)` |
+| `JSSTACK <bytes> [under]` | The QuickJS stack size for the next app opened, and the C room left under its limit. | |
+| `REMOTE [1\|0]` | Turn remote control on or off. | `REMOTE on\|off <url> pin <pin>` |
+| `SOUND test\|chime\|click` | Play a sound. | |
+
+`tools/s3cli.py PORT shot out.png` reads the `SHOT` answer and writes a PNG.
+
+## Benchmarks
+
+| Command | Measures |
+|---|---|
+| `BENCH N` | Full-screen redraws with a variant: 0 as is, 1 no gradients, 2 square corners, 3 no labels, 4 all of them. |
+| `TEXTBENCH` | Drawing a long label in several modes. |
+| `PIPEBENCH` | The drawing pipeline with empty, wrapped and clipped text. |
+| `LBENCH N F` | N labels in font F. |
+| `HOMEBENCH` | Building the Home pages. |
+| `RAWBENCH` | CPU and flash clocks, PSRAM size, memset and loop speed. |
+| `NETBENCH <https url> [max KB]` | Download speed. |
+| `CARDBENCH <path>` | Memory card read speed in several ways. |
+| `RUNBENCH` | The run game's speed test (about 35 s). |
+| `RUN auto\|manual\|god\|warp M\|end\|smooth 0\|helper 0\|stats` | Run-game developer controls. |
+
+## Installer and setup
+
+The web installer and the CLI use these lines to talk to a board over USB.
+
+| Command | Does | Answer |
+|---|---|---|
+| `ESPOS:HELLO <ms>` | Set the clock (ms since 1970) and ask who the device is. | `ESPOS:READY {"fw":"espos-s3-0.5.0","kind":"s3","board":"es3c35p","linked":true}` |
+| `ESPOS:PROVISION <json>` | Settings and layouts from the installer (up to 8 KB a line). | `ESPOS:OK` or `ESPOS:ERR <why>` |
+| `CMD:WIFISCAN` | Scan WiFi networks. | `WIFI <rssi> <ssid>` lines, then `WIFISCAN_END` |
+| `CMD:WIFITEST <ssid>\t<pass>` | Try a network (and save it on success). | `WIFITEST_OK` or `WIFITEST_FAIL status=1\|4` |
+| `CMD:WIFIADD <ssid>\t<pass>` | Save a network. | `WIFIADD_OK` or `WIFIADD_ERR` |
+
+<Aside type="caution">
+The dev console can change settings and saved networks. Open it only on your own device.
+</Aside>

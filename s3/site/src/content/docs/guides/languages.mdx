@@ -1,0 +1,151 @@
+---
+title: Languages and translation
+description: 'The languages EspOS shows, how a device switches between them, app.lang for your app''s own texts, translated names in the manifest, fonts, and how to add a translation.'
+---
+
+import { Aside, Steps } from '@astrojs/starlight/components';
+import Status from '../../../components/Status.astro';
+import DeviceShots from '../../../components/DeviceShots.astro';
+import langShot from '../../../assets/shots/settings-language.png';
+
+EspOS shows its text in the language of the setting `sys.lang`. English is built into the firmware. Ten more languages are packages from the store, so a device downloads only the language it uses. Your app reads the language from `app.lang` and shows its own texts in it.
+
+## The languages
+
+| Tag | Language | Language package | Font package |
+|---|---|---|---|
+| `en` | English | built in | built in |
+| `vi` | Tiếng Việt (Vietnamese) | `dev.espos.lang.vi` | `dev.espos.font.vi` |
+| `zh-Hans` | 简体中文 (Chinese, Simplified) | `dev.espos.lang.zh-Hans` | `dev.espos.font.sc` |
+| `es` | Español (Spanish) | `dev.espos.lang.es` | built in |
+| `fr` | Français (French) | `dev.espos.lang.fr` | built in |
+| `de` | Deutsch (German) | `dev.espos.lang.de` | built in |
+| `ja` | 日本語 (Japanese) | `dev.espos.lang.ja` | `dev.espos.font.jp` |
+| `ko` | 한국어 (Korean) | `dev.espos.lang.ko` | `dev.espos.font.kr` |
+| `pt-BR` | Português (Brasil) | `dev.espos.lang.pt-BR` | built in |
+| `ru` | Русский (Russian) | `dev.espos.lang.ru` | `dev.espos.font.cyr` |
+| `id` | Bahasa Indonesia | `dev.espos.lang.id` | built in |
+
+A language package holds the texts (about 40 to 70 KB). A font package holds the letters the built-in fonts lack: 88 KB for Cyrillic, 170 KB for Vietnamese, 0.8 to 1.5 MB for Chinese, Japanese or Korean. Both are packages of `type: "pack"`: the store never lists them, and Settings › Language is where they are picked. They need firmware 0.5.0 (`min_fw: 500`). The same list, for tools and the web, is `i18n/languages.json` in the firmware repository.
+
+The Xteink X4 reader has 34 languages built into its firmware and reads the same `sys.lang` tags (`en`, `vi`, `de`, `pt-BR`, `pt-PT`, `ca-valencia` and so on). It needs no language packages.
+
+<DeviceShots shots={[{ src: langShot, alt: 'Settings, Language: English is ticked; below it Tiếng Việt, 简体中文, Español, Français, Deutsch and 日本語, each with its English name', caption: 'Settings › Language' }]} />
+
+## How a device changes language
+
+<Steps>
+
+1. **The user picks a language**, in Settings › Language on the device, or in the device's settings on the EspOS web.
+2. **The device downloads what is missing**: the font package first, if the language needs one, then the language package. On the device a progress screen shows it.
+3. **It switches without a restart.** The texts, the fonts, the package names and the store's list change, and every screen is built again.
+
+</Steps>
+
+- A choice made on the device is saved in `sys.lang` only once the download worked, and goes to the server with the next sync like any other setting. A failed download changes nothing.
+- A choice made on the web reaches the device at its next sync. A failed download is tried again after 30 minutes; meanwhile the device keeps the language it shows.
+- The device never shows a language whose packages are missing. A missing, empty or unknown `sys.lang` means English.
+- From the web, the device switches only when nobody is touching the screen and no app is open, like a change of look.
+
+## Your app's texts: `app.lang`
+
+`app.lang` is the tag of the language the device shows: `"en"`, `"vi"`, `"zh-Hans"`, `"pt-BR"` and so on. It is set before `main.js` runs and does not change while the app is open: the OS switches language only when no app is open, so the next time your app opens it sees the new value.
+
+Write your texts in English, and keep the other languages in a table keyed by the English text. The sample apps in the firmware repository (`apps/focus`, `apps/dice`, `apps/water`, `apps/vocab`) carry all ten languages this way.
+
+```js title="main.js"
+// The app's texts are English. TEXT holds them in other languages; app.lang is the device's language.
+const TEXT = {
+  de: {'Hello': 'Hallo', 'Good morning, {0}': 'Guten Morgen, {0}', 'Say hi': 'Hallo sagen'},
+  es: {'Hello': 'Hola', 'Good morning, {0}': 'Buenos días, {0}', 'Say hi': 'Saludar'},
+};
+const t = (s, ...a) => ((TEXT[app.lang] || {})[s] || s).replace(/\{(\d)\}/g, (_, i) => a[i]);
+
+app.title = t('Hello');
+app.render = () => ui.column([
+  ui.title(t('Good morning, {0}', 'Ana')),
+  ui.button(t('Say hi'), () => toast(t('Hello'))),
+]);
+```
+
+On a device set to German this shows "Hallo", "Guten Morgen, Ana" and "Hallo sagen"; in any language the table lacks, the English.
+
+- **Match tags exactly.** `pt-BR` and `zh-Hans` are the keys, not `pt` or `zh`.
+- **Fall back to English.** `TEXT[app.lang] || {}` covers every language you have not translated.
+- **Keep texts short.** German and Russian run about 30 % longer than English. Text in `ui.text`, `ui.title` and `ui.list` wraps or shrinks; it is never cut. A button is as wide as its text, so a long label makes a wide button.
+- **Never use the ellipsis character** (U+2026). The device shows text in full, and the package tool refuses the character in a manifest.
+- **Dates and numbers are yours to format.** QuickJS has no `Intl`, and `toLocaleDateString()` gives one fixed format (`01/01/1970`). Build dates from `getDate()`, `getMonth()` and `getFullYear()` in the order your language uses.
+
+## Letters and fonts
+
+Which letters show depends on the language the device shows, not on your app:
+
+| Letters | Show |
+|---|---|
+| Latin-1 (English, Spanish, French, German, Portuguese, Indonesian and other Latin-1 languages), digits | always: they are built in |
+| Vietnamese | with their marks while the device is in Vietnamese (its font package is loaded); otherwise without the marks ("Hà Nội" shows as "Hà Noi") |
+| Chinese, Japanese, Korean, Cyrillic | only while the device is in that language, from its font package |
+| Other scripts (Arabic, Thai and so on), emoji | not at all |
+
+So show text in a language only when `app.lang` is that language. A name typed by the user, or text from elsewhere, follows the same rule.
+
+## Your package's name in other languages
+
+The manifest's `name` and `desc` are English. Add an `i18n` object for other languages:
+
+```json title="manifest.json (part)"
+{
+  "name": "Hello",
+  "desc": "Says hello in the device's language",
+  "i18n": {
+    "de": {"name": "Hallo", "desc": "Grüßt in der Sprache des Geräts"},
+    "es": {"name": "Hola", "desc": "Saluda en el idioma del dispositivo"}
+  }
+}
+```
+
+- The keys are the same exact tags as `app.lang`.
+- On Home, in the App Library and in search, the device shows the `name` for the language it shows, and the English `name` otherwise. It keeps the names of an installed package, so they follow every switch.
+- The store shows `name` and `desc` from the catalog entry's `i18n` in the same way. `tools/espk.py --entry` copies `i18n` into the entry it prints.
+
+The package tools check `i18n`. `tools/espk.py`, `espos check` <Status s="preview" /> and the store's publish script refuse the same mistakes; `espos check` also warns about what the device would not show:
+
+| Rule | Level | What |
+|---|---|---|
+| `M035` | error | `i18n` is not an object of languages, a language is not `{"name", "desc"}`, a `name` is empty or over 40 characters, a `desc` is over 300 characters. |
+| `M026` | error | The ellipsis character anywhere in the manifest, `i18n` included. |
+| `M036` | warning | A key the S3 never shows (`pt`, `zh`, `zh-hans`; it suggests `pt-BR`, `zh-Hans`), or a field other than `name` and `desc`. |
+| `M037` | warning | Letters the device cannot draw in that language: anything outside Latin-1 for `en`, `es`, `fr`, `de`, `pt-BR` and `id`; outside Latin-1 and the Vietnamese letters for `vi`; outside Latin-1 and Russian Cyrillic for `ru`. Chinese, Japanese and Korean are not checked letter by letter. |
+
+The publish script copies `i18n` into the catalog entry, so the store shows the names too.
+
+## Translating EspOS itself
+
+The firmware's texts are English in the sources. Each piece of text the user reads carries a mark (`T_("Settings")`, `N_(...)`, `NP_(...)` for plurals), and `tools/i18n.py extract` collects them into `i18n/en.json`, with the source lines that use each text and notes for translators. A translation is one file, `i18n/<tag>.json`: `{"English text": "translation", ...}`.
+
+To improve a translation or finish one:
+
+<Steps>
+
+1. **Read `i18n/TRANSLATING.md`.** It has the rules: as short as the English or shorter, placeholders (`{0}`, `{n}`, `%d`) kept, dates as patterns (`{W}, {M} {d}`), plurals as the language's forms joined by `|`, lists with exactly the count of items, names such as EspOS and PawBoop unchanged, no ellipsis character, and only letters the device's fonts have.
+2. **Edit `i18n/<tag>.json`.** A missing entry shows the English.
+3. **Check it:**
+
+   ```sh
+   python3 tools/i18n.py status          # per language: errors, missing, unused
+   python3 tools/i18n.py build de        # the language package (checks placeholders, plural forms and letters)
+   ```
+
+4. **Look at every screen.** `python3 tools/i18n_tour.py de --packs` runs the headless simulator over about 65 screens in that language and writes contact sheets and `overflow.txt` (text cut by its box or running over other text) to `sim/shots/i18n-de/`. Add `--rot 1` for landscape.
+
+</Steps>
+
+A new language is a firmware change: its tag goes into the language lists of the firmware (`src/i18n.cpp`) and of `tools/i18n.py`, with its plural rule, its number separators and, for a script the built-in fonts lack, a font package (`tools/i18n.py font`). The firmware repository's `docs/i18n.md` has the details: marking text in C++ code, the date and number helpers, and the package layouts.
+
+## Settings and sync
+
+| Setting | Values | Where |
+|---|---|---|
+| `sys.lang` | a tag from the table above; default `en` | Settings › Language on the S3, the X4's own settings, the device settings on the web |
+
+The server accepts every tag of both devices. An S3 shows English for a tag it does not have, such as `it`, which only the X4 carries.

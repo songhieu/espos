@@ -1,0 +1,112 @@
+---
+title: Store catalog
+description: 'The format of catalog.json: the packages list the device and the web read, each entry''s parts, translated names, and language packs.'
+---
+
+import Status from '../../../components/Status.astro';
+
+The store catalog is one JSON file on the server's public storage, `apps-s3/catalog.json`, next to the package files. The device's store and the web desk both read it.
+
+```json title="catalog.json"
+{
+  "packages": [
+    {
+      "id": "vn.pawboop.run",
+      "name": "Coin Run",
+      "addon_of": "vn.pawboop.pet",
+      "version": "1.0.1",
+      "code": 10001,
+      "kind": "native",
+      "engine": "run",
+      "min_fw": 300,
+      "category": "game",
+      "author": "PawBoop",
+      "desc": "Biscuit runs through the market, a building site and a circus, picking up coins for her food",
+      "i18n": {"vi": {"name": "Chạy lấy xu", "desc": "Biscuit chạy qua chợ, công trường, rạp xiếc, lấy xu mua đồ ăn"}},
+      "icon": {"bg": ["#ffb347", "#ff7a00"], "glyph": "play"},
+      "icon_url": "https://espos.example/apps-s3/vn.pawboop.run-1.0.1.jpg",
+      "perms": ["sound", "notify"],
+      "date": "2026-11-18",
+      "parts": [
+        {"id": "core", "req": true, "size": 2010629,
+         "url": "https://espos.example/apps-s3/vn.pawboop.run-1.0.1-core.espk",
+         "sha256": "5982ddbf08ae0ae3b4d4935243b610bf9e1b458084afde745a2d2a52c021ca6e"},
+        {"id": "roads10", "group": "roads", "default": true, "label": "Light: 10 frames a second", "size": 5767249,
+         "url": "https://espos.example/apps-s3/vn.pawboop.run-1.0.1-roads10.espk",
+         "sha256": "2797a2ef919fef887081a56d2e4d9a2fd2752ea66e4aee5581ded35dee979db5"},
+        {"id": "roads20", "group": "roads", "label": "Rich: 20 frames a second", "size": 11528834,
+         "url": "https://espos.example/apps-s3/vn.pawboop.run-1.0.1-roads20.espk",
+         "sha256": "00026534fa45c65641f240fddb89bb6d9ce216941c6e5491ac10af49a8083cea"}
+      ]
+    },
+    {
+      "id": "dev.espos.lang.ja",
+      "name": "Japanese",
+      "version": "1.0.1",
+      "code": 10001,
+      "kind": "native",
+      "engine": "lang",
+      "type": "pack",
+      "min_fw": 500,
+      "category": "tool",
+      "author": "EspOS",
+      "desc": "Japanese for EspOS",
+      "lang": "ja",
+      "font": "dev.espos.font.jp",
+      "i18n": {"ja": {"name": "日本語"}, "de": {"name": "Japanisch"}},
+      "icon": {"bg": ["#60a5fa", "#2563eb"], "glyph": "globe"},
+      "parts": [
+        {"id": "core", "req": true, "size": 50687,
+         "url": "https://espos.example/apps-s3/dev.espos.lang.ja-1.0.1.espk",
+         "sha256": "c83a9a98172481e37409e269b704f267e57a505dd396bb69de56b6642e070c3f"}
+      ]
+    }
+  ]
+}
+```
+
+## A package entry
+
+| Field | From | Meaning |
+|---|---|---|
+| `id`, `name`, `version`, `code` | the core manifest | As in the [manifest](/reference/manifest/). The store offers an update when `code` is higher than the installed one. |
+| `kind`, `engine`, `min_fw` | the core manifest | A device that lacks the engine or is older than `min_fw` shows "Needs a software update". |
+| `category`, `author`, `desc`, `icon`, `perms` | the core manifest | Shown in the store. |
+| `addon_of` | the core manifest | Lists the package inside its main app's page instead of on its own. |
+| `type` | the core manifest | `pack`: never listed, installed with what needs it, updated by itself. |
+| `i18n` | the core manifest | `name` and `desc` in other languages, by language tag. The store shows the ones of the device's language. |
+| `lang`, `font` | the core manifest | A language pack's tag, and the font pack it needs. |
+| `date` | the build tool | The day the entry was made (`YYYY-MM-DD`). |
+| `icon_url` | the publish script | The store's picture of the icon (`<id>-<version>.jpg`). |
+| `shots` | the publish script | Screenshot URLs. |
+| `parts` | the publish script | One entry per `.espk` file. |
+
+### A part
+
+| Field | Type | Meaning |
+|---|---|---|
+| `id` | string | The part's name (`core`, `roads10`). |
+| `url` | string | Where to download the `.espk`. |
+| `size` | integer | Its size in bytes. The store shows it and checks the room before downloading. |
+| `sha256` | string | Hex SHA-256 of the whole `.espk`. The installer refuses a part that does not match. |
+| `req` | boolean | Required. Default: `true` when the part has no `group`. |
+| `group` | string | The part is one choice of this group. |
+| `default` | boolean | The group's default choice. |
+| `label` | string | The choice's text in the store. Default: the part's `id`. |
+
+**An install takes every required part plus one part of each group**: its `default` unless the user picks another.
+
+The example holds two entries: the run game (an add-on of PawBoop, with a choice of road pictures) and the Japanese language pack, with the server address replaced by a placeholder and the `i18n` lists shortened.
+
+## Making an entry
+
+`tools/espk.py --entry BASE_URL core.espk [part.espk ...]` prints the entry for a package from its parts (core first), with sizes, hashes and `i18n`. The publish script then adds `icon_url` and `shots` and merges the entry into the catalog. The repository's `apps/pack.py` builds the whole catalog for the sample apps, the native packages, and the language and font packs. See [Publish to the store](/guides/publishing/).
+
+## User packages
+
+A user's own packages (Java games uploaded on the web desk) are not in the catalog. They reach that user's devices in the sync answer as `user_pkgs`, a list of entries in the same shape, with ids that start with `u.`.
+
+## Planned<Status s="planned" />
+
+- **Signed catalogs** with an expiry date, so a stale or swapped catalog is refused.
+- **Several sources**: a self-hosted server lists its catalogs and their keys in `/.well-known/espos.json`, and can mirror the official one.

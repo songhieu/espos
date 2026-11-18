@@ -1,0 +1,112 @@
+---
+title: State and rendering
+description: 'How to structure a JavaScript app: state in variables, a pure render function, helpers for parts of the screen, and the JavaScript features that are and are not available.'
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+API level 1 works like a small React without the framework: you keep **state** in variables, and `app.render` turns the state into a tree. The OS calls `render` again after every event.
+
+## The pattern
+
+```js
+// 1. State
+let items = store.get('items', []);
+let filter = 0;  // 0 all, 1 open, 2 done
+
+// 2. Actions change state (and save what must survive a close)
+function add(text) {
+  items.push({text, done: false});
+  store.set('items', items);
+}
+function toggle(i) {
+  items[i].done = !items[i].done;
+  store.set('items', items);
+}
+
+// 3. Helpers turn state into parts of the screen
+function shown() {
+  return items.filter((it) => filter === 0 || (filter === 1 ? !it.done : it.done));
+}
+function rows() {
+  return shown().map((it) => ({title: it.text, right: it.done ? 'Done' : ''}));
+}
+
+// 4. render arranges the parts
+app.title = 'To do';
+app.render = () => ui.column([
+  ui.chips(['All', 'Open', 'Done'], filter, (i) => { filter = i; }),
+  ui.list(rows(), (i) => toggle(items.indexOf(shown()[i]))),
+  ui.button('Add a sample', () => add('Water the plants'), {wide: true}),
+]);
+```
+
+Rules of thumb:
+
+- **`render` reads state, it never changes it.** It can run many times in a row.
+- **Handlers change state and return.** You do not redraw: the OS calls `render` after your handler returns.
+- **Save as you go.** There is no "on close" event. Call `store.set` when the data changes.
+
+## When the screen is drawn
+
+| Event | Redraw |
+|---|---|
+| The app opens | once, after `main.js` runs |
+| A button, chip or list row is tapped | after your function returns |
+| A timer fires | after your function returns |
+| `app.refresh()` | soon, once, however often you call it |
+
+Several redraws asked for at the same moment are merged into one. The scroll position is kept across redraws.
+
+## Keep nesting shallow
+
+On the board, QuickJS parses and runs your script on a small stack: 16 KB, of which the engine may use 11 KB. Deep recursion, or a single expression nested many levels deep (a `render` that returns `ui.column([ui.card([ui.row([ui.text(x, {...})])])])` and goes deeper still), can run out of it.
+
+When it does, the app does not start on the board, and the error can look unrelated: `RangeError: Maximum call stack size exceeded`, or a `SyntaxError` such as `invalid property name` on a line that is correct. The fix is the same: split the tree into helper functions that each return one part, as the [tutorial](/getting-started/first-app/) does.
+
+```js
+// Instead of one deep expression in render:
+function header() {
+  return ui.card([ui.title(name), ui.text(subtitle, {dim: true})]);
+}
+function footer() {
+  return ui.row([ui.button('Save', save), ui.button('Cancel', cancel, {bg: '#9ca3af'})], {center: true});
+}
+app.render = () => ui.column([header(), body(), footer()]);
+```
+
+<Aside type="caution" title="The simulator does not enforce the board's stack limit">
+In the simulator, QuickJS runs without a stack limit, so a script that is too deep for the board still works there. Test apps with deep screens or recursion in [QEMU](/guides/qemu/), which runs the real firmware with the board's stacks, or on a device. The dev console's `TRACE` shows how much stack an app used when it closes (`js: stack used ... of 16384 bytes`).
+</Aside>
+
+## The JavaScript you can use
+
+Apps run on **QuickJS-ng** with ES2023: `let`/`const`, arrow functions, classes, template strings, destructuring, spread, `Map`, `Set`, `JSON`, `Math`, `Date`, regular expressions and typed arrays all work.
+
+What is **not** there in API level 1:
+
+| Missing | Use instead |
+|---|---|
+| `console.log` | `toast(text)` for a quick look; errors appear on the dev console's `TRACE` |
+| `setTimeout`, `setInterval` | `timer.after`, `timer.every` |
+| Promise jobs: `.then()` callbacks and code after `await` never run | plain callbacks |
+| `fetch`, `XMLHttpRequest`, WebSocket | nothing yet: network access for apps is [planned](/concepts/permissions/#the-planned-model) |
+| `import` / `require` at run time | one script; `espos build` can bundle modules into one `main.js` |
+| `Intl`, locale-aware `toLocaleString` | format numbers and dates yourself |
+
+<Aside type="caution" title="Dates: local time versus UTC">
+`new Date().toISOString()` is in UTC. In a time zone ahead of UTC, the date part changes hours after local midnight. For "today" in the user's time zone, build the date from the local fields:
+
+```js
+const today = () => {
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+};
+```
+
+The device's time zone is the one set in Settings or on the web desk.
+</Aside>
+
+## Errors
+
+A throw in a handler or a timer shows a toast, "App error: " plus the message, and the app keeps running. A throw in `render` replaces the screen with "App error while drawing: " plus the message, until the next successful render. Each error is also written to the dev console's trace log with the app's id.

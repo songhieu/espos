@@ -1,0 +1,10 @@
+# The run game from PawBoop, she plays by herself (dev auto, no coins): tools/sim-live.sh sim/scripts/demo-run.txt
+pet
+wait 2500
+dismiss
+wait 3500
+tap 192 44
+wait 3500
+dev god
+dev auto
+tap 160 300

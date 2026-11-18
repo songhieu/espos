@@ -1,0 +1,86 @@
+---
+// The layers of EspOS, top to bottom. Planned parts are marked.
+import Status from './Status.astro';
+
+const layers = [
+  { name: 'Packages', items: ['JavaScript apps', 'Java games', 'engine data packs', 'widgets, faces, themes, services, drivers'], planned: [3], tone: 'pkg' },
+  { name: 'EspOS API', items: ['ui', 'timer', 'sound', 'notify', 'toast', 'store', 'app, net, data, theme, sensors'], planned: [6], tone: 'api' },
+  { name: 'Runtimes', items: ['QuickJS', 'engines: pet, run, j2me', 'WebAssembly (WAMR)'], planned: [2], tone: 'rt' },
+  { name: 'OS services', items: ['home and launcher', 'store and installer', 'notifications', 'settings and sync', 'network queue', 'OTA', 'power and input'], planned: [], tone: 'os' },
+  { name: 'Hardware', items: ['ESP32-S3', 'touch screen', 'speaker', 'microSD', 'WiFi', 'sensors and buses'], planned: [5], tone: 'hw' },
+];
+---
+
+<div class="layers not-content" role="img" aria-label="EspOS layers: packages on top of the EspOS API, on top of the runtimes, on top of the OS services, on top of the hardware.">
+  {layers.map((l) => (
+    <div class:list={['layer', l.tone]}>
+      <span class="name">{l.name}</span>
+      <span class="items">
+        {l.items.map((it, i) => (
+          <span class:list={['item', { planned: l.planned.includes(i) }]}>{it}</span>
+        ))}
+      </span>
+    </div>
+  ))}
+  <p class="key"><span class="item planned">dashed</span> = <Status s="planned" /></p>
+</div>
+
+<style>
+  .layers {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin: 1.5rem 0;
+  }
+  .layer {
+    display: grid;
+    grid-template-columns: 8.5rem 1fr;
+    gap: 0.75rem;
+    align-items: center;
+    padding: 0.7rem 0.9rem;
+    border-radius: 6px;
+    border: 1px solid var(--ink-line);
+    background: transparent;
+  }
+  .layer.api {
+    border-color: var(--sl-color-accent);
+    box-shadow: inset 3px 0 0 var(--sl-color-accent);
+  }
+  .name {
+    font-weight: 700;
+    font-size: var(--sl-text-sm);
+    color: var(--sl-color-white);
+  }
+  .items {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .item {
+    font-size: var(--sl-text-xs);
+    padding: 0.2rem 0.55rem;
+    border-radius: 6px;
+    background: var(--ink-soft);
+    color: var(--sl-color-gray-2);
+    border: 1px solid transparent;
+  }
+  .item.planned {
+    background: transparent;
+    border: 1px dashed var(--sl-color-gray-4);
+    color: var(--sl-color-gray-3);
+  }
+  .key {
+    font-size: var(--sl-text-xs);
+    color: var(--sl-color-gray-3);
+    margin: 0.3rem 0 0;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+  @media (max-width: 36rem) {
+    .layer {
+      grid-template-columns: 1fr;
+      gap: 0.4rem;
+    }
+  }
+</style>

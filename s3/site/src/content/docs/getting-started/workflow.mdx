@@ -1,0 +1,45 @@
+---
+title: The development loop
+description: 'From an idea to an installed app: create, run in the simulator, check, package, install on a device and publish.'
+---
+
+import { Steps, Aside } from '@astrojs/starlight/components';
+import Status from '../../../components/Status.astro';
+
+Building an EspOS app follows the same loop as a phone app. This page maps each step to the repository tool that does it, and to the `espos` command that wraps it.
+
+| Step | Repository tools | `espos` CLI <Status s="preview" /> |
+|---|---|---|
+| Create a project | A folder with `manifest.json` and `main.js` | `espos create NAME` (templates `js-app`, `js-app-ts`, `j2me-game`) |
+| Run it on your computer | `tools/espk.py --install-sim`, then `app ID` in the simulator | `espos sim --watch` (rebuilds and restarts on save) |
+| Test it without a window | `sim/build/espos-sim SCRIPT OUT/` | `espos sim --headless` (fails on an app error) |
+| Check it | `tools/espk.py FOLDER OUT.espk` checks the manifest | `espos check` (also permissions against the APIs your code calls) |
+| Package it | `tools/espk.py FOLDER OUT.espk` | `espos build` |
+| Run the real firmware | `tools/qemu/run.sh` | `espos qemu --install dist/*.espk` |
+| Look at a board | The USB dev console: `SHOT`, `TRACE`, `MEM` | `espos device shot`, `device logs`, `device mem` |
+| Run it on a board | Copy the unpacked package to the memory card; or the store, once published | `espos run --device IP` with live reload <Status s="planned" /> |
+| Publish | The store's owner runs `publish_pkg.py` | `espos store publish` (owner only today) |
+
+The [CLI reference](/reference/cli/) lists the commands that exist now.
+
+## The loop, step by step
+
+<Steps>
+
+1. **Write.** Edit `main.js`. Keep `app.render` a pure function of your state. See [State and rendering](/guides/js/state/).
+
+2. **Try.** Run the app in the [simulator](/guides/simulator/). The live simulator gives you a window and your mouse as a finger. The scripted simulator replays taps and saves screenshots, which is how you test without watching.
+
+3. **Check the limits.** The simulator runs JavaScript at your computer's speed. On the board, each call has 1.5 seconds and the app has 1.5 MB of memory. Watch the [limits](/reference/limits/), and test on a board or in [QEMU](/guides/qemu/) before you ship.
+
+4. **Package.** `tools/espk.py` checks the manifest (id, version, code, kind, engine, category, permissions, icon) and every file name, then writes the `.espk`. Bump `code` for every release.
+
+5. **Install.** Your own, unpublished package reaches a board only by the memory card today: copy the unpacked package there, or run it in QEMU with `espos qemu --install`. Published packages install from the store over WiFi. Installing from your computer over the network is planned. See [Work with a real device](/guides/device/).
+
+6. **Publish.** Send the package to the store. See [Publish to the store](/guides/publishing/).
+
+</Steps>
+
+<Aside type="caution" title="Test on the real stack">
+The simulator does not model the board's internal RAM, task stacks, JavaScript stack limit or CPU speed: a `render` that is quick on your computer can be slow on the board, and a deeply nested script that runs there can run out of stack on the board. QEMU runs the real firmware image, with the board's stacks, heaps and watchdogs. Only a board shows the real speed.
+</Aside>

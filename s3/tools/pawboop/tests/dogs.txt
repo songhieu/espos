@@ -1,0 +1,332 @@
+# Every dog: its game screen, the two beats (caught_1 then caught_2), its run
+wait 2500
+home
+wait 1500
+set s3.pet_dog bao
+wait 3000
+pet
+wait 4500
+shot bao_game
+pet clip:pounce
+wait 400
+tap 160 250
+wait 900
+shot bao_caught1
+wait 3200
+shot bao_caught2
+wait 3000
+tap 192 44
+wait 4000
+dev frame
+shot bao_runcard
+tap 160 300
+wait 1500
+dev god
+dev auto
+wait 2000
+dev frame
+shot bao_run
+wait 1500
+swipe up
+wait 250
+dev frame
+shot bao_jump
+back
+wait 2500
+home
+wait 1500
+set s3.pet_dog momo
+wait 3000
+pet
+wait 4500
+shot momo_game
+pet clip:pounce
+wait 400
+tap 160 250
+wait 900
+shot momo_caught1
+wait 3200
+shot momo_caught2
+wait 3000
+tap 192 44
+wait 4000
+dev frame
+shot momo_runcard
+tap 160 300
+wait 1500
+dev god
+dev auto
+wait 2000
+dev frame
+shot momo_run
+wait 1500
+swipe up
+wait 250
+dev frame
+shot momo_jump
+back
+wait 2500
+home
+wait 1500
+set s3.pet_dog boop
+wait 3000
+pet
+wait 4500
+shot boop_game
+pet clip:pounce
+wait 400
+tap 160 250
+wait 900
+shot boop_caught1
+wait 3200
+shot boop_caught2
+wait 3000
+tap 192 44
+wait 4000
+dev frame
+shot boop_runcard
+tap 160 300
+wait 1500
+dev god
+dev auto
+wait 2000
+dev frame
+shot boop_run
+wait 1500
+swipe up
+wait 250
+dev frame
+shot boop_jump
+back
+wait 2500
+home
+wait 1500
+set s3.pet_dog leaf
+wait 3000
+pet
+wait 4500
+shot leaf_game
+pet clip:pounce
+wait 400
+tap 160 250
+wait 900
+shot leaf_caught1
+wait 3200
+shot leaf_caught2
+wait 3000
+tap 192 44
+wait 4000
+dev frame
+shot leaf_runcard
+tap 160 300
+wait 1500
+dev god
+dev auto
+wait 2000
+dev frame
+shot leaf_run
+wait 1500
+swipe up
+wait 250
+dev frame
+shot leaf_jump
+back
+wait 2500
+home
+wait 1500
+set s3.pet_dog volt
+wait 3000
+pet
+wait 4500
+shot volt_game
+pet clip:pounce
+wait 400
+tap 160 250
+wait 900
+shot volt_caught1
+wait 3200
+shot volt_caught2
+wait 3000
+tap 192 44
+wait 4000
+dev frame
+shot volt_runcard
+tap 160 300
+wait 1500
+dev god
+dev auto
+wait 2000
+dev frame
+shot volt_run
+wait 1500
+swipe up
+wait 250
+dev frame
+shot volt_jump
+back
+wait 2500
+home
+wait 1500
+set s3.pet_dog byte
+wait 3000
+pet
+wait 4500
+shot byte_game
+pet clip:pounce
+wait 400
+tap 160 250
+wait 900
+shot byte_caught1
+wait 3200
+shot byte_caught2
+wait 3000
+tap 192 44
+wait 4000
+dev frame
+shot byte_runcard
+tap 160 300
+wait 1500
+dev god
+dev auto
+wait 2000
+dev frame
+shot byte_run
+wait 1500
+swipe up
+wait 250
+dev frame
+shot byte_jump
+back
+wait 2500
+home
+wait 1500
+set s3.pet_dog shiba
+wait 3000
+pet
+wait 4500
+shot shiba_game
+pet clip:pounce
+wait 400
+tap 160 250
+wait 900
+shot shiba_caught1
+wait 3200
+shot shiba_caught2
+wait 3000
+tap 192 44
+wait 4000
+dev frame
+shot shiba_runcard
+tap 160 300
+wait 1500
+dev god
+dev auto
+wait 2000
+dev frame
+shot shiba_run
+wait 1500
+swipe up
+wait 250
+dev frame
+shot shiba_jump
+back
+wait 2500
+home
+wait 1500
+set s3.pet_dog corgi
+wait 3000
+pet
+wait 4500
+shot corgi_game
+pet clip:pounce
+wait 400
+tap 160 250
+wait 900
+shot corgi_caught1
+wait 3200
+shot corgi_caught2
+wait 3000
+tap 192 44
+wait 4000
+dev frame
+shot corgi_runcard
+tap 160 300
+wait 1500
+dev god
+dev auto
+wait 2000
+dev frame
+shot corgi_run
+wait 1500
+swipe up
+wait 250
+dev frame
+shot corgi_jump
+back
+wait 2500
+home
+wait 1500
+set s3.pet_dog husky
+wait 3000
+pet
+wait 4500
+shot husky_game
+pet clip:pounce
+wait 400
+tap 160 250
+wait 900
+shot husky_caught1
+wait 3200
+shot husky_caught2
+wait 3000
+tap 192 44
+wait 4000
+dev frame
+shot husky_runcard
+tap 160 300
+wait 1500
+dev god
+dev auto
+wait 2000
+dev frame
+shot husky_run
+wait 1500
+swipe up
+wait 250
+dev frame
+shot husky_jump
+back
+wait 2500
+home
+wait 1500
+set s3.pet_dog golden
+wait 3000
+pet
+wait 4500
+shot golden_game
+pet clip:pounce
+wait 400
+tap 160 250
+wait 900
+shot golden_caught1
+wait 3200
+shot golden_caught2
+wait 3000
+tap 192 44
+wait 4000
+dev frame
+shot golden_runcard
+tap 160 300
+wait 1500
+dev god
+dev auto
+wait 2000
+dev frame
+shot golden_run
+wait 1500
+swipe up
+wait 250
+dev frame
+shot golden_jump
+back
+wait 2500

@@ -1,0 +1,74 @@
+---
+title: TypeScript and modules
+description: 'Write an app in TypeScript or in several JavaScript modules: the espos CLI type-checks it against API level 1 and bundles it into one main.js.'
+---
+
+import { FileTree, Aside } from '@astrojs/starlight/components';
+import Status from '../../../../components/Status.astro';
+
+<Status s="preview" /> The device runs one classic script, `main.js`. With the `espos` CLI you can still write your app in **TypeScript**, or split it into **modules**: `espos build` type-checks the code and bundles it, with its imports, into one `main.js` (esbuild, ES2022, an IIFE).
+
+## Start a TypeScript project
+
+```sh
+espos create focus-timer --template js-app-ts --id com.example.focus --name "Focus timer"
+cd focus-timer
+espos sim --watch
+```
+
+<FileTree>
+- focus-timer/
+  - espos.json what goes into the package
+  - manifest.json
+  - tsconfig.json
+  - icon.jpg
+  - src/
+    - main.ts the entry: sets app.title and app.render
+    - countdown.ts a module it imports
+  - sim/
+    - smoke.txt simulator commands run after the app opens
+  - dist/ where `espos build` writes the .espk
+</FileTree>
+
+```ts title="src/main.ts"
+import { Countdown, format } from './countdown';
+
+let pick = store.get<number>('pick', 2);
+const clock = new Countdown([1, 5, 10, 25][pick] * 60);
+```
+
+The globals (`ui`, `app`, `timer`, `sound`, `notify`, `toast`, `store`) are typed by `@espos/sdk`, so your editor completes them and the compiler catches a wrong option name or a missing argument. The typings follow firmware 0.5.0: `app.screen` is always there, and `app.lang` is one of the language tags, typed as `EspOSLang`. A table of your texts can use that type:
+
+```ts title="src/text.ts"
+// The app's texts are English; the other languages are optional.
+const TEXT: Partial<Record<EspOSLang, Record<string, string>>> = {
+  de: { Start: 'Start', Stop: 'Stopp', 'Time is up': 'Die Zeit ist um' },
+  es: { Start: 'Iniciar', Stop: 'Parar', 'Time is up': 'Se acabó el tiempo' },
+};
+
+export const t = (s: string): string => TEXT[app.lang]?.[s] ?? s;
+```
+
+## `espos.json`
+
+| Key | Default | Meaning |
+|---|---|---|
+| `main` | | The entry. A `.ts` entry, or any entry with `"bundle": true`, is bundled with its imports into `main.js`. A `.js` entry is copied as it is. |
+| `bundle` | `false` | Bundle a `.js` entry and its imports too. |
+| `files` | | Files or folders copied into the package as they are: `"icon.jpg"`, `"data"`. Folders keep their structure. |
+| `out` | `dist` | Where `espos build` writes `<id>-<version>-<part>.espk`. |
+| `minify` | `false` | Minify the bundled `main.js`. |
+
+A folder without `espos.json` is packed exactly as `tools/espk.py` packs it: every file except dotfiles and `manifest.json`.
+
+## Types in a plain JavaScript project
+
+```sh
+espos types
+```
+
+writes `types/espos.d.ts` into the project, so editors that read TypeScript declarations complete the API in plain `.js` files too.
+
+<Aside type="caution" title="Bundling does not add features">
+TypeScript and modules exist only at build time. The bundle still runs on API level 1: no `fetch`, no `setTimeout`, and no Promise jobs (`async` functions stop at their first `await`). `espos check` warns when your code uses any of these. Keep the bundle under 512 KB.
+</Aside>

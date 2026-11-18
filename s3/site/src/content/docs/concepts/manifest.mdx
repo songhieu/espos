@@ -1,0 +1,73 @@
+---
+title: The manifest
+description: 'manifest.json says what a package is, who made it, what it may do and which firmware it needs.'
+---
+
+import Status from '../../../components/Status.astro';
+import { Aside } from '@astrojs/starlight/components';
+
+Every package has a `manifest.json` at the root of its folder. The package tool copies it into the `.espk` file, and the store copies most of it into the catalog. It answers five questions.
+
+| Question | Fields |
+|---|---|
+| What is it? | `id`, `name`, `desc`, `i18n`, `category`, `icon` |
+| Which release? | `version`, `code` |
+| What runs it? | `kind`, `engine`, `type`, `min_fw` |
+| What may it do? | `perms` |
+| How is it split? | `part`, `addon_of` |
+
+A complete manifest for a JavaScript app:
+
+```json title="manifest.json"
+{
+  "id": "com.example.teatimer",
+  "name": "Tea timer",
+  "version": "1.0.0",
+  "code": 10000,
+  "kind": "js",
+  "engine": "js",
+  "min_fw": 300,
+  "category": "tool",
+  "author": "Example Co",
+  "desc": "Pick a tea, start the timer, get a notification when it is ready",
+  "icon": {"bg": ["#ffb347", "#ff7a00"], "glyph": "timer"},
+  "perms": ["sound", "notify"],
+  "part": "core"
+}
+```
+
+## The id is forever
+
+The `id` names the package's folder on the card and its saved data on the device. It never changes between versions. Pick a reverse-domain name you control (`com.example.teatimer`), at most 48 characters, with no `/`.
+
+## version and code
+
+`version` is the text people read (`1.2.0`). `code` is a whole number that must grow with every release. The store compares codes, not versions, to offer an update. A common rule is `major × 10000 + minor × 100 + patch`, so 1.2.0 is 10200. The repository's `apps/pack.py` uses exactly that rule.
+
+## min_fw
+
+The oldest firmware that can run the package, as a code: 0.3.0 is `300`, 0.4.0 is `400`.
+
+| Feature | Needs |
+|---|---|
+| Packages, JavaScript apps, notifications | `300` |
+| The `j2me` engine (Java games) | `400` |
+| The `lang` and `font` engines (language and font packs) | `500` |
+
+`.espk` files are read by EspOS 0.5.0 and newer, so `300` and `400` are met by every device that can install them, and every app there has `app.lang`, `app.screen` and half cards. The sample apps keep `min_fw: 300`.
+
+<Aside type="note" title="API levels are coming">
+`min_fw` mixes two things: the firmware version and the API your code uses. Manifest v2 adds a separate `api: {min, target}` field. Until then, `min_fw: 300` is the way to say "API level 1". See [API levels](/concepts/api-levels/).
+</Aside>
+
+## Texts
+
+`name`, `desc` and `author` are shown on the device and in the store. Write them in English, keep them short and plain, and give other languages in `i18n` (see [Languages and translation](/guides/languages/#your-packages-name-in-other-languages)). The device shows text in full: it shrinks or wraps it and never cuts it with an ellipsis, so the package tool rejects the ellipsis character (U+2026) anywhere in the manifest.
+
+## Two spellings of perms
+
+The device reads permissions from `perms` and also from `permissions` (the older spelling used by the apps in the repository's `apps/` folder). The package tool and the store catalog use `perms`. Write `perms`.
+
+## Manifest v2<Status s="planned" />
+
+Manifest v2 adds `type`, `runtime`, `api {min, target}`, `screens`, `theme` and `entry`, and many new permissions. The details are in the [manifest reference](/reference/manifest/#manifest-v2) and [Package types](/concepts/package-types/#planned-package-types-in-manifest-v2).

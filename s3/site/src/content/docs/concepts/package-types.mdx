@@ -1,0 +1,64 @@
+---
+title: Package types
+description: 'What kinds of packages exist today (kind js and native, type app and pack), and the package types planned for manifest v2.'
+---
+
+import Status from '../../../components/Status.astro';
+import { Aside } from '@astrojs/starlight/components';
+
+## Today: `kind`, `engine` and `type`
+
+Three manifest fields say what a package is.
+
+| Field | Values | Meaning |
+|---|---|---|
+| `kind` | `js` | A JavaScript app. `main.js` is the whole app. |
+| | `native` | Data for an engine built into the firmware. |
+| `engine` | `js`, `pet`, `run`, `j2me`, `lang`, `font` | The code that runs the package. `kind: js` always goes with `engine: js`. |
+| `type` | `app` (default) | Something the user opens. It gets an icon on Home, in the App Library and in search. |
+| | `pack` | Data that another package or the OS needs, such as the Java runtime's class library or a language. No icon, never opened, never listed in the store; installed together with what needs it. |
+
+A package can also be an **add-on** of another one (`addon_of`). An add-on has no icon of its own; the main app opens it. See [Packaging, parts and add-ons](/guides/packaging/#add-ons).
+
+### Examples
+
+| Package | kind | engine | type |
+|---|---|---|---|
+| Tea timer (the [tutorial](/getting-started/first-app/)) | `js` | `js` | `app` |
+| PawBoop (`vn.pawboop.pet`) | `native` | `pet` | `app` |
+| The run game (`vn.pawboop.run`, an add-on of PawBoop) | `native` | `run` | `app` |
+| A Java game (`jar.megablock`) | `native` | `j2me` | `app` |
+| The Java runtime (`dev.espos.j2me`) | `native` | `j2me` | `pack` |
+| German (`dev.espos.lang.de`) | `native` | `lang` | `pack` |
+| The Japanese font (`dev.espos.font.jp`) | `native` | `font` | `pack` |
+
+<Aside type="note">
+A device that lacks the engine a package needs, or is older than its `min_fw`, cannot install it. The store shows "Needs a software update".
+</Aside>
+
+## Planned: package types in manifest v2<Status s="planned" />
+
+Manifest v2 replaces `kind` with a `type` that says what the package does, and a `runtime` that says what runs it.
+
+| `type` | What it is |
+|---|---|
+| `app` | A full-screen app with a lifecycle. |
+| `widget` | A home-screen card: declarative JSON plus data bindings, drawn natively. An optional `render()` with a time budget. |
+| `face` | A clock face or screen saver, declarative. |
+| `theme` | Data only: colour tokens, wallpapers, optional icons and fonts. |
+| `service` | A short background job on a schedule, queued with the system sync. |
+| `pack` | Data for a native engine (today's `kind: native`). |
+| `driver` | The driver of a plugged-in device. See [Hardware and drivers](/roadmap/hardware/). |
+
+| `runtime` | Meaning |
+|---|---|
+| `js` | JavaScript or TypeScript, run by QuickJS. |
+| `decl` | Data only: a JSON layout the firmware draws itself. Faces, widgets and themes; runs on every [hardware profile](/hardware/profiles/). See [Declarative faces and widgets](/reference/decl/). |
+| `wasm` | WebAssembly, run by WAMR, with the same API and permission checks as JavaScript. |
+| `engine` | A first-party native engine. |
+
+A package also lists the device capabilities it needs (`requires`, such as `input.touch` or `screen.color`), so the store offers it only to devices that can run it.
+
+Every type can carry a `settings` schema, which both the web desk and the device render, and an optional `web` page shown in a sandboxed frame on the web desk. Widgets, faces and themes are declarative by default, so they cost no script time on Home.
+
+All v2 fields are listed in the [manifest reference](/reference/manifest/#manifest-v2).

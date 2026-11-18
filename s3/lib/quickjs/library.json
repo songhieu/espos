@@ -1,0 +1,10 @@
+{
+  "name": "quickjs",
+  "version": "0.10.1",
+  "description": "QuickJS-ng JavaScript engine (MIT), vendored unchanged from the v0.10.1 release for EspOS apps.",
+  "license": "MIT",
+  "build": {
+    "flags": ["-Os", "-w", "-fno-strict-aliasing", "-Wno-error=incompatible-pointer-types"],
+    "srcFilter": ["+<quickjs.c>", "+<libregexp.c>", "+<libunicode.c>", "+<cutils.c>", "+<xsum.c>"]
+  }
+}

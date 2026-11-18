@@ -1,0 +1,46 @@
+# Several full runs incl. map links, the end card, leaving and opening again (ASan build).
+run
+dismiss
+wait 500
+tap 160 300
+dev auto
+dev god
+wait 20000
+dev warp 150
+wait 20000
+dev warp 150
+wait 20000
+dev warp 150
+wait 15000
+dev god
+dev end
+wait 3000
+tap 160 300
+wait 8000
+dev end
+wait 3000
+dev manual
+tap 160 300
+swipe left
+swipe up
+wait 400
+swipe right
+swipe down
+wait 3000
+dev stats
+back
+wait 1000
+run carnival
+dismiss
+wait 500
+tap 160 300
+dev auto
+wait 15000
+dev end
+wait 2500
+shot asan_end
+home
+wait 1000
+bench
+wait 31000
+wait 1000

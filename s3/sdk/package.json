@@ -1,0 +1,20 @@
+{
+  "name": "espos-sdk-workspace",
+  "private": true,
+  "version": "0.1.0",
+  "description": "EspOS developer tools: the espos CLI and the @espos/sdk typings and schemas.",
+  "license": "Apache-2.0",
+  "workspaces": [
+    "packages/sdk",
+    "packages/cli"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "npm run build -w @espos/cli",
+    "prepare": "npm run build -w @espos/cli",
+    "test": "npm run build -w @espos/cli && node --test \"packages/cli/test/*.test.mjs\"",
+    "espos": "node packages/cli/bin/espos.js"
+  }
+}

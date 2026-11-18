@@ -1,0 +1,20 @@
+# MegaBlock (Apache-2.0) on the J2ME engine: tools/sim-live.sh sim/scripts/j2me-megablock.txt
+# Keypad (screen points): OK 74,416; left 35,416; right 113,416; up 74,377; down 74,455; soft left 58,339
+wait 2500
+app jar.megablock
+wait 5000
+shot mb-1
+tap 74 416
+wait 2500
+shot mb-2
+tap 113 416
+wait 300
+tap 113 416
+wait 300
+tap 74 377
+wait 300
+tap 74 455
+wait 1200
+shot mb-3
+wait 6000
+shot mb-4

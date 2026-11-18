@@ -1,0 +1,60 @@
+---
+title: App lifecycle
+description: 'When a JavaScript app starts, runs and stops, what survives a close, and the lifecycle hooks that are planned.'
+---
+
+import Status from '../../../components/Status.astro';
+import { Aside, Steps } from '@astrojs/starlight/components';
+
+A JavaScript app runs only while its screen is open. There is no background mode yet.
+
+## Opening
+
+<Steps>
+
+1. **The user opens the app**: from Home, the App Library, search, or by tapping one of its notifications. The firmware loads `main.js` from the internal flash or the memory card.
+2. **A fresh JavaScript context** is made, with a 1.5 MB memory limit, and the OS's prelude defines `ui`, `app`, `timer`, `sound`, `notify`, `toast` and `store`.
+3. **`app.arg`, `app.lang` and `app.screen` are set**: the `arg` of the notification that opened the app (`undefined` when it was opened from Home), the device's language, and the screen's size and orientation.
+4. **Your `main.js` runs from top to bottom**, with 3 seconds to finish. This is where you read saved state and start timers.
+5. **The OS calls `app.render()`** and draws the tree it returns.
+
+</Steps>
+
+If the script throws while it starts, the screen shows "The app cannot run: " followed by the error, and the rest of the OS keeps working.
+
+## Running
+
+While the app is open, three things make the OS call `app.render()` again:
+
+- a tap on a button, chip or list row (after your function returns);
+- a timer firing (after your function returns);
+- a call to `app.refresh()`.
+
+Each call into your code (a tap handler, a timer, `render`) has **1.5 seconds**. A call that runs longer is stopped, and a toast shows "App error: " followed by the error. The app stays open.
+
+## Closing
+
+Back and Home both **close** the app. So does turning the screen: the app then opens again at once, laid out for the new shape (see [Landscape and screen size](/guides/landscape/#what-happens-when-the-screen-turns)). Closing:
+
+- stops every timer;
+- frees the JavaScript context and all its memory;
+- keeps what you saved with `store.set`, and every scheduled notification.
+
+The next open starts from step 1 again, with fresh variables. Opening an app that is already open (for example by tapping its notification) also starts it again, with the new `app.arg`.
+
+<Aside type="tip" title="Design for being closed at any time">
+Save state as soon as it changes, not "on exit": there is no exit hook. Store times as timestamps (`Date.now()`), not as counters, so you can work out what happened while the app was closed. The [tutorial](/getting-started/first-app/#7-save-state-and-finish) shows the pattern.
+</Aside>
+
+## What survives what
+
+| | Close the app | Restart the device | Uninstall |
+|---|---|---|---|
+| Variables | lost | lost | lost |
+| `store` values | kept | kept | **kept today** (removed once the planned broker lands) |
+| Scheduled notifications | kept | kept | **kept today** (removed once the planned broker lands) |
+| Timers | stopped | stopped | stopped |
+
+## Planned lifecycle hooks<Status s="planned" />
+
+The platform plan adds an `app` module with four hooks: `onOpen`, `onShow`, `onHide` and `onClose`, and a separate `service` package type for short background jobs on a schedule. Until then, use top-level code for "open", and save as you go.

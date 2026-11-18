@@ -1,0 +1,16 @@
+---
+// A status pill: Available (in the firmware today), Preview (works, may change), Planned (agreed, not built yet).
+interface Props {
+  s: 'available' | 'preview' | 'planned';
+  label?: string;
+}
+const { s, label } = Astro.props;
+const text = label ?? { available: 'Available', preview: 'Preview', planned: 'Planned' }[s];
+const title = {
+  available: 'Available: in the firmware today',
+  preview: 'Preview: works today, may still change',
+  planned: 'Planned: agreed in the platform plan, not built yet',
+}[s];
+---
+
+<span class:list={['ink-status', s]} title={title}>{text}</span>

@@ -1,0 +1,8 @@
+# Run after the app opens (espos sim opens it first). Commands: tap X Y, drag X0 Y0 X1 Y1 MS, swipe left|right|up|down,
+# back, home, wait MS, shot NAME, set KEY VALUE, rot N (s3/sim/main.cpp). The screen is 320x480.
+wait 800
+shot opened
+# "Plus 1"
+tap 200 227
+wait 500
+shot added

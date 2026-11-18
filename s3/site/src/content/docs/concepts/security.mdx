@@ -1,0 +1,60 @@
+---
+title: Security model
+description: 'Why third-party code runs only in interpreters, what isolates one app from another today, and the signing and review that are planned.'
+---
+
+import Status from '../../../components/Status.astro';
+import { Aside } from '@astrojs/starlight/components';
+
+## No third-party native code
+
+The ESP32-S3's memory protection can split the chip into two worlds, kernel and user, with coarse regions. It cannot give each app its own address space. A native app from a stranger could read the WiFi password or corrupt the system's memory, and no setting could stop it.
+
+So EspOS runs third-party code only in **memory-safe interpreters**: QuickJS for JavaScript today, and WebAssembly (WAMR) later. Native code is limited to the firmware and its first-party engines (`pet`, `run`, `j2me`), which go through the same review as the firmware.
+
+## What isolates an app today
+
+| Protection | How |
+|---|---|
+| Only the API | An app's context holds only `ui`, `app`, `timer`, `sound`, `notify`, `toast`, `store`. No file system, no network, no `std` or `os` modules. |
+| Permissions in the binding | `sound` and `notify` are checked inside the call. See [Permissions](/concepts/permissions/). |
+| Memory | A 1.5 MB heap limit per app, in PSRAM, so a script can never take internal RAM from WiFi and TLS. |
+| Time | 1.5 s per call and 3 s to start; a script that runs longer is interrupted. |
+| Stack | QuickJS runs on its own 16 KB stack with an 11 KB limit; a deeper script gets an exception, not a crash. |
+| Storage | Each app's `store` is its own NVS namespace. Keys and values have fixed limits. |
+| Failure | An exception or a timeout shows an error; the OS keeps running. |
+
+## Package integrity today
+
+- The catalog lists a SHA-256 for every part. The installer checks it before it commits.
+- Each file in a `.espk` carries a CRC32, checked on install.
+- File names are checked: no absolute paths, no `..`, no duplicates, at most 51 bytes.
+
+<Aside type="caution" title="CRC32 catches damage, not tampering">
+Today the catalog itself is not signed, and packages on the memory card are trusted as they are. Someone with the card in hand can change an installed package. Signing closes this gap.
+</Aside>
+
+## Planned: signing<Status s="planned" />
+
+- **SHA-256 per file** in the `.espk`, replacing CRC32.
+- **Developer signatures** with Ed25519. An update must be signed with the same key as the version it replaces.
+- **Store-signed catalogs** with an expiry date, so a stale or swapped catalog is refused. The root key stays offline.
+- **The device verifies packages read from the memory card too**, so an edited package is refused.
+- Firmware images use the ESP32-S3's Secure Boot V2.
+
+## Planned: isolation inside the interpreter<Status s="planned" />
+
+- **Capability bindings.** An app's context holds only the API objects its permissions allow.
+- **Quotas** for storage, notifications per day, and network requests and bytes.
+- **Secrets stay in the OS.** WiFi credentials, the device token and server keys are never returned by any binding; `wifi.info` gives the network name and signal only.
+- **Network rules.** `net:<host>` allow-lists, HTTPS only with certificate checks, private addresses blocked without `net:lan`, and one OS queue for all requests.
+- **Safe mode.** If the device crash-loops right after an install, it boots with third-party packages off.
+
+## Planned: store review<Status s="planned" />
+
+- Automatic checks: the manifest schema, permissions against the APIs the code calls, size, and a headless simulator run that takes screenshots and fails on exceptions.
+- Human review for `net`, `bg` and new authors.
+
+## Engines and untrusted input
+
+First-party engines are trusted code, but some read untrusted input: the `j2me` engine runs jars that users upload. Its natives check every array and rectangle they are given. The VM has no bytecode verifier yet, so games are trusted to be well-formed; see [Inside the Java VM](/guides/java-vm/#limits).

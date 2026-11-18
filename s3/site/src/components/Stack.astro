@@ -1,0 +1,83 @@
+---
+// A layered diagram, top to bottom. `mark` highlights a layer (the part a reader changes), `note` sits on its right.
+interface Layer {
+  name: string;
+  items: string[];
+  note?: string;
+  mark?: boolean;
+}
+interface Props {
+  layers: Layer[];
+  label: string;
+}
+const { layers, label } = Astro.props;
+---
+
+<div class="stack not-content" role="img" aria-label={label}>
+  {layers.map((l) => (
+    <div class:list={['layer', { mark: l.mark }]}>
+      <span class="name">{l.name}</span>
+      <span class="items">
+        {l.items.map((it) => (
+          <span class="item">{it}</span>
+        ))}
+      </span>
+      {l.note && <span class="note">{l.note}</span>}
+    </div>
+  ))}
+</div>
+
+<style>
+  .stack {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin: 1.5rem 0;
+  }
+  .layer {
+    display: grid;
+    grid-template-columns: 9rem 1fr auto;
+    gap: 0.75rem;
+    align-items: center;
+    padding: 0.7rem 0.9rem;
+    border-radius: 6px;
+    border: 1px solid var(--ink-line);
+    background: transparent;
+  }
+  .layer.mark {
+    border-color: var(--sl-color-accent);
+    box-shadow: inset 3px 0 0 var(--sl-color-accent);
+  }
+  .name {
+    font-weight: 700;
+    font-size: var(--sl-text-sm);
+    color: var(--sl-color-white);
+  }
+  .items {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .item {
+    font-size: var(--sl-text-xs);
+    padding: 0.2rem 0.55rem;
+    border-radius: 6px;
+    background: var(--ink-soft);
+    color: var(--sl-color-gray-2);
+  }
+  .note {
+    font-size: var(--sl-text-xs);
+    font-weight: 650;
+    color: var(--sl-color-text-accent);
+    white-space: nowrap;
+  }
+  @media (max-width: 40rem) {
+    .layer {
+      grid-template-columns: 1fr;
+      gap: 0.4rem;
+    }
+    .note {
+      white-space: normal;
+    }
+  }
+</style>

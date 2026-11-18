@@ -1,0 +1,29 @@
+# PlatformIO and the framework build it generates
+/.pio/
+/.dummy/
+/managed_components/
+/CMakeLists.txt
+/dependencies.lock
+/sdkconfig.*
+/compile_commands.json
+/*.d
+# simulators: builds, a device's data (settings, WiFi, tokens, cached answers), screenshots
+/sim/build*/
+/sim/data*/
+/sim/shots/
+/build-qemu/
+/tools/j2me/build*/
+/j2me/build/
+# packages, bundles, flash images
+/build-pkgs/
+*.espk
+*.bin
+*.img
+*.elf
+*.jar
+# node and Python
+node_modules/
+dist/
+__pycache__/
+*.pyc
+.DS_Store

@@ -1,0 +1,66 @@
+---
+title: Boards
+description: 'The ES3C35P 3.5-inch and ES3C28P 2.8-inch boards: screens, touch, audio, card, pins, and how the same portrait and landscape interface runs on both.'
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+EspOS runs on two ESP32-S3 boards. Both have 16 MB of flash and 8 MB of octal PSRAM. Since firmware 0.4.0 one image runs on both; today that is `espos-s3-0.5.0`. At boot, before any driver starts, `board::detect()` asks who answers on which I2C pins:
+
+1. the 3.5" board's codec or touch on GPIO 38/39;
+2. else the 2.8" board's FT6336 or codec on GPIO 16/15;
+3. else it is the 3.5" board, as before.
+
+Each board is a folder in `src/boards/` with its descriptor and drivers; see [Board-specific code](/hardware/board-code/). QEMU cannot be asked, so there the board is the build's.
+
+| | ES3C35P (3.5") | ES3C28P (2.8") |
+|---|---|---|
+| Panel | ST77922, 320 × 480, QSPI | ILI9341V, 240 × 320, SPI at 40 MHz |
+| Orientations | all four | all four |
+| Touch | the panel's touch controller at 0x55, I2C on 38/39 | FT6336G at 0x38, I2C on 16/15, reset 18 |
+| Audio | ES8311 codec, I2S on 17/18/21/15/16 | ES8311 codec, I2S on 4/5/7/8/6 |
+| Memory card | SDIO 4-bit on 5/4/6/7/2/3 | SDIO on 38/40/39/41/48/47 (1-bit tried if 4-bit fails) |
+| Found at boot by | its codec (0x18) or touch (0x55) on 38/39 | its touch (0x38) or codec (0x18) on 16/15 |
+| Firmware | one image for both (`espos-s3-0.5.0`) | the same image |
+| Build environment | `s3desk` (QEMU: `s3desk-qemu`) | `s3desk` (QEMU: `s3desk-28-qemu`) |
+| Status | The reference board | Checked in QEMU, not yet on the board |
+
+## The same interface on both boards
+
+Every screen, app, widget layout and game is laid out for **320 × 480** in portrait and **480 × 320** in landscape, on both boards. JavaScript apps see the same `app.screen` on both. You do not need to do anything for the 2.8" board. How an app handles the two shapes: [Landscape and screen size](/guides/landscape/).
+
+On the 2.8" board, each picture goes to the panel at **2/3**: every panel pixel is the average of the 3 × 3 interface pixels it covers, so shapes and text keep their proportions.
+
+| | Portrait | Landscape |
+|---|---|---|
+| On the 3.5" panel | 320 × 480, the whole panel | 480 × 320, the whole panel |
+| On the 2.8" panel | 213 × 320, centred, 13 px of black each side | 320 × 213, the full width, 13 black rows above and 14 below |
+
+In portrait, touches on the 2.8" board are mapped back with `x = (px - 13) × 3/2`, `y = py × 3/2`; LVGL turns them for the other orientations, so touch needs nothing more. In landscape the ILI9341 turns its own picture (its `MADCTL` register); the 3.5" driver turns it in software.
+
+<Aside type="caution" title="Design for the small screen too">
+At 2/3, 12 px text becomes 8 px on the panel. Prefer text of 13 px and up, and buttons at least 44 px high (the `ui.button` default), so your app stays usable on the 2.8" board.
+</Aside>
+
+Remote control and screenshots send the interface itself, not the panel's scaled picture, on both boards.
+
+The 2.8" board's landscape has run in QEMU on the real firmware; the panel's turned directions have not yet been seen on a board.
+
+### Which way up
+
+The setting `s3.rot` holds the orientation: `0` portrait (USB-C at the bottom), `1` landscape (USB-C on the left), `2` portrait upside down, `3` landscape upside down (USB-C on the right). A case that stands the board on its side with the USB-C port on the right uses `3`. There is no tilt sensor: the user picks the way up in Settings › Display, the Control Center or on the web.
+
+## Updates and the web
+
+- One image for both boards, so one firmware record and one update path.
+- The device sends its board (`es3c35p` or `es3c28p`) in every sync and in its diagnostics.
+- The web desk names the screen size on the device page.
+- The USB installer shows the board from the device's `ESPOS:READY` answer.
+
+## Pins for expansion
+
+Almost every pin of the ES3C35P is in use: the panel, touch and codec I2C, I2S, the card, the amplifier, an LED and the battery ADC. External I2C devices would share the touch and codec bus, and a device that holds that bus low also stops touch and audio. Expansion today means the shared I2C bus, Bluetooth LE, UART0 and USB. The hardware plan recommends a separate Qwiic I2C port on future boards; see [Hardware and drivers](/roadmap/hardware/).
+
+## Your own board
+
+Each board is one folder in `src/boards/` with a descriptor and its drivers. To add yours, see [Port to a new board](/hardware/porting/); for what is board-specific, [Board-specific code](/hardware/board-code/).

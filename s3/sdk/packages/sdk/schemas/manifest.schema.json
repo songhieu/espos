@@ -1,0 +1,85 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://espos.dev/schemas/manifest.schema.json",
+  "title": "EspOS package manifest (current format, firmware 0.5.0)",
+  "description": "manifest.json of an .espk package as firmware 0.5.0, tools/espk.py and the store read it (s3/docs/packages.md, docs/i18n.md). `espos check` applies these rules and more (file and code checks); this schema is for editors.",
+  "type": "object",
+  "required": ["id", "version", "code", "part"],
+  "properties": {
+    "id": {"type": "string", "pattern": "^([a-z0-9][a-z0-9._-]{0,47}|dev\\.espos\\.lang\\.(vi|zh-Hans|es|fr|de|ja|ko|pt-BR|ru|id))$", "description": "Reverse-domain name, unique, never changes (it names the folder on the card and the app's saved data). At most 48 characters; the dev console's APP command reads 23. The language packs dev.espos.lang.<tag> keep their tag's capitals."},
+    "part": {"type": "string", "pattern": "^[a-z0-9_-]{1,24}$", "description": "\"core\" for the main part (it holds the full manifest); other parts of a big package carry only id, version, code, part (+ group, label, default, req)."},
+    "version": {"type": "string", "pattern": "^[0-9a-z.+-]{1,20}$", "description": "What people read, e.g. 1.0.0."},
+    "code": {"type": "integer", "minimum": 1, "maximum": 1999999999, "description": "A whole number that grows with every release (the store offers an update when the catalog's code is higher)."},
+    "name": {"type": "string", "minLength": 1, "maxLength": 40, "description": "Short, plain; never \"…\" (the device shows text in full)."},
+    "kind": {"enum": ["js", "native"], "description": "js: main.js is the app (QuickJS, API level 1). native: data for an engine built into the firmware."},
+    "engine": {"enum": ["js", "pet", "run", "j2me", "lang", "font"], "description": "What runs the package: js for kind js; pet, run, j2me for native packages; lang and font for the OS's language and font packs (tools/i18n.py)."},
+    "min_fw": {"type": "integer", "minimum": 0, "description": "The firmware code it needs (0.3.0 = 300; j2me games 400; lang and font packs 500)."},
+    "category": {"enum": ["game", "tool", "study", "health", "widget"]},
+    "author": {"type": "string", "maxLength": 40},
+    "desc": {"type": "string", "maxLength": 300},
+    "i18n": {
+      "type": "object",
+      "description": "The name and description in other languages, by language tag (docs/i18n.md). The device shows the ones of the language it shows, the English name and desc otherwise.",
+      "propertyNames": {"enum": ["en", "vi", "zh-Hans", "es", "fr", "de", "ja", "ko", "pt-BR", "ru", "id"]},
+      "additionalProperties": {
+        "type": "object",
+        "properties": {"name": {"type": "string", "minLength": 1, "maxLength": 40}, "desc": {"type": "string", "maxLength": 300}},
+        "additionalProperties": false
+      }
+    },
+    "icon": {
+      "type": "object",
+      "description": "Used when there is no icon.jpg (a 120x120 baseline JPEG, square; the device rounds the corners).",
+      "required": ["bg"],
+      "properties": {
+        "bg": {"type": "array", "minItems": 2, "maxItems": 2, "items": {"type": "string", "pattern": "^#[0-9a-fA-F]{6}$"}, "description": "The two colours of the gradient."},
+        "glyph": {"enum": ["timer", "alarm", "bell", "list", "drop", "flag", "globe", "sun", "moon", "photo", "edit", "font", "home", "search", "speaker", "play", "lap", "pin", "leaf", "power", "grid"]}
+      },
+      "additionalProperties": false
+    },
+    "perms": {"type": "array", "uniqueItems": true, "items": {"enum": ["sound", "notify", "net", "bg"]}, "description": "sound (sound.*), notify (notify(), notify.schedule, notify.cancel, app.badge). net and bg are reserved: no firmware grants them yet. Without a permission the call throws."},
+    "type": {"enum": ["app", "pack"], "description": "app (default) or pack (data for an engine, no icon on Home)."},
+    "addon_of": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{0,47}$", "description": "The id of the app this package adds to (docs/packages.md §4b)."},
+    "j2me": {
+      "type": "object",
+      "description": "Java games (engine j2me): what the store shows. The device reads the MIDlet class from the jar's MANIFEST.MF.",
+      "properties": {
+        "midlet": {"type": "string", "minLength": 1},
+        "keypad": {"enum": ["full", "compact", "touch"]},
+        "profile": {"type": "string"},
+        "config": {"type": "string"}
+      }
+    },
+    "lang": {"enum": ["vi", "zh-Hans", "es", "fr", "de", "ja", "ko", "pt-BR", "ru", "id"], "description": "Engine lang and font: the language the pack is for."},
+    "font": {"type": "string", "description": "In a language pack: the id of the font pack it needs (dev.espos.font.vi, .sc, .jp, .kr, .cyr)."},
+    "license": {"type": "string", "minLength": 1, "description": "Where the package comes from and under what licence (required for wrapped Java games)."},
+    "parts": {
+      "type": "array",
+      "description": "Core part only: what each part of a big package is (publish_pkg.py; wins over the parts' own fields).",
+      "items": {
+        "type": "object",
+        "required": ["id"],
+        "properties": {
+          "id": {"type": "string", "pattern": "^[a-z0-9_-]{1,24}$"},
+          "group": {"type": "string", "pattern": "^[a-z0-9_-]{1,24}$"},
+          "label": {"type": "string", "minLength": 1, "maxLength": 40},
+          "default": {"type": "boolean"},
+          "req": {"type": "boolean"}
+        }
+      }
+    },
+    "group": {"type": "string", "pattern": "^[a-z0-9_-]{1,24}$"},
+    "label": {"type": "string", "minLength": 1, "maxLength": 40},
+    "default": {"type": "boolean"},
+    "req": {"type": "boolean"}
+  },
+  "if": {"properties": {"part": {"const": "core"}}},
+  "then": {
+    "required": ["id", "name", "version", "code", "kind", "engine", "min_fw", "category", "part"],
+    "allOf": [
+      {"if": {"properties": {"kind": {"const": "js"}}, "required": ["kind"]}, "then": {"properties": {"engine": {"const": "js"}}}},
+      {"if": {"properties": {"kind": {"const": "native"}}, "required": ["kind"]}, "then": {"properties": {"engine": {"enum": ["pet", "run", "j2me"]}}}}
+    ]
+  },
+  "not": {"required": ["permissions"]}
+}

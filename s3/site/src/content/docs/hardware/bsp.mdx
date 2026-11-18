@@ -1,0 +1,79 @@
+---
+title: Board support packages
+description: 'The board support layout being built: a HAL in src/hal, one folder per board in src/boards with a board descriptor, a registry that detects the board at boot, and what is still planned.'
+---
+
+import Status from '../../../components/Status.astro';
+import { Aside, FileTree } from '@astrojs/starlight/components';
+
+<Aside type="caution" title="In progress">
+<Status s="preview" label="In progress" /> The firmware's board code is being reorganised into board support packages. Much of the layout below is already in the tree; names, fields and the folder location may still change before it is final. The other hardware pages follow the tree as it is now.
+</Aside>
+
+## The goal
+
+Anyone should be able to rebuild EspOS for their own hardware by adding **one folder** that describes the board and holds its drivers, without touching the OS core, the runtimes or any package. The OS asks the board layer, never a specific board.
+
+## The layout
+
+<FileTree>
+- src/
+  - hal/
+    - board.h `hal::Board` (the descriptor), `hal::Bsp`, `hal::detect()`
+    - caps.h capability flags and their package-facing names, the profiles
+    - display.h `hal::DisplayDesc` and the `hal::Display` driver interface
+    - input.h `hal::InputDesc` and the `hal::Input` driver interface
+    - audio.h, storage.h, power.h the codec, the card slot and the battery, as data
+    - hal.cpp `hal::i2cAnswer` for probes
+  - boards/
+    - boards.cpp the registry
+    - es3c35p/
+      - es3c35p.h the descriptor
+      - bsp.cpp `probe()` and the `hal::Bsp`
+      - display.cpp
+      - touch.cpp
+    - es3c28p/ the same four files
+    - qemu/ the boards as QEMU emulates them
+    - _template/ a commented starting point for a new board
+</FileTree>
+
+### A board support package
+
+```cpp
+// src/hal/board.h
+struct Bsp {
+  const Board* board;      // the descriptor
+  uint8_t (*probe)();      // is it this board? the I2C address that answered, 0: no
+  const Display* display;  // the panel driver
+  const Input* input;      // the touch driver (nullptr: none)
+};
+```
+
+The descriptor is `constexpr` data in flash. Drivers read it at compile time, so a pin from the descriptor costs no more than a `#define`.
+
+### The registry
+
+`src/boards/boards.cpp` lists the boards one firmware supports, in the order they are probed at boot. The first `probe()` that answers wins; if none does, the first board in the list is used. Simulator, QEMU and single-board builds list one board and skip probing.
+
+### Capabilities
+
+Each descriptor lists what its board has as `CAP_*` flags from `src/hal/caps.h`. Each flag has exactly one package-facing name (`CAP_TOUCH` is `input.touch`), kept 1:1 by a compile-time check; the table is in [Capabilities](/hardware/profiles/#capabilities). The OS already gates its audio, card and battery drivers on them, and they define the [hardware profiles](/hardware/profiles/).
+
+## What is done and what is planned
+
+| Part | Status |
+|---|---|
+| The HAL headers and the board descriptor | <Status s="preview" label="In progress" /> in the tree |
+| Board folders for the ES3C35P, the ES3C28P and QEMU | <Status s="preview" label="In progress" /> in the tree |
+| Detection through the registry | <Status s="preview" label="In progress" /> in the tree |
+| A template folder for new boards | <Status s="preview" label="In progress" /> in the tree |
+| The audio, card and battery drivers set up from the descriptor, gated by capabilities | <Status s="preview" label="In progress" /> in the tree |
+| A porting guide in the repository (`docs/porting.md`) | <Status s="available" label="Written" /> |
+| Capability flags with package-facing names (`src/hal/caps.h`) | <Status s="preview" label="In progress" /> in the tree |
+| Other codecs, SD over SPI, more chips (ESP32-C3, C6, P4) | <Status s="planned" /> values reserved |
+| E-ink panels and buttons input (the Lite profile) | <Status s="planned" /> |
+| The store offering packages by capability | <Status s="planned" /> |
+
+## Keeping the platform skeleton
+
+A board package changes how the OS reaches the hardware, never what the OS offers. Every board keeps the same [contract with packages](/hardware/#what-a-port-must-keep): the EspOS API, the 320 × 480 logical screen in portrait and 480 × 320 in landscape (scaled on a smaller panel), memory for apps, the package format and storage, and the server protocol. That is what lets one store serve every board.

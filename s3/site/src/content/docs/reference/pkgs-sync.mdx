@@ -1,0 +1,84 @@
+---
+title: Package sync (s3.pkgs)
+description: 'The contract between the web desk, the server and the device for installing, moving and removing packages: the s3.pkgs setting and the pkgs report in every sync.'
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+The web desk and the device agree on packages through two things:
+
+1. **What the user wants**: the setting `s3.pkgs`, edited on both sides.
+2. **What the device has**: the `pkgs` object the device sends in every sync.
+
+## `s3.pkgs`: what the user wants
+
+A JSON list. It syncs both ways like every `s3.*` setting: the newest write wins.
+
+```json
+[
+  {"id": "vn.pawboop.run", "parts": ["core", "roads10"], "vol": "sd"},
+  {"id": "dev.espos.focus", "vol": "flash"},
+  {"id": "vn.pawboop.pet", "rm": true}
+]
+```
+
+| Field | Meaning |
+|---|---|
+| `id` | The package. |
+| `parts` | The parts to install. Default: the required parts and each group's default. |
+| `vol` | `flash` (the internal flash) or `sd` (the memory card). |
+| `rm` | `true`: remove the package. |
+
+What the device does with the list:
+
+- **Installs** what is listed and not installed, one at a time, in list order.
+- **Moves** a package whose `vol` changed.
+- **Removes** entries with `"rm": true`, then drops those entries from the list.
+- **Updates** a listed package when the catalog has a higher `code`.
+- **Leaves alone** a package that is installed but not listed, and adds it to the list.
+
+Installing or removing on the device updates `s3.pkgs` the same way, so the web desk sees the change at the next sync.
+
+Language and font packs (`dev.espos.lang.<tag>`, `dev.espos.font.<name>`) are packages too, and show in the list and the report like any other. The device installs them by itself when `sys.lang` asks for a language it lacks; see [Languages and translation](/guides/languages/#how-a-device-changes-language).
+
+## `pkgs`: what the device has
+
+The device adds `pkgs` to the body of every sync:
+
+```json
+{
+  "vols": {
+    "flash": {"total": 7352, "free": 412},
+    "sd": {"present": true, "total": 30480000, "free": 29100000}
+  },
+  "installed": [
+    {"id": "vn.pawboop.run", "name": "Coin Run", "version": "1.0.1", "code": 10001,
+     "vol": "sd", "parts": ["core", "roads10"], "kb": 7596, "ok": true}
+  ],
+  "job": {"id": "dev.espos.focus", "state": "download", "pct": 42}
+}
+```
+
+| Field | Meaning |
+|---|---|
+| `vols.flash` | The internal app area: `total` and `free` in KB. |
+| `vols.sd` | The card: `present`, and `total` and `free` in KB when present. |
+| `installed[]` | Each package: `id`, `name` (up to 40 characters), `version`, `code`, `vol`, `parts`, `kb` (size), `ok` (`false` when it is on a card that is out). |
+| `job` | The running or last job: `id`, `state`, `pct`, and `err` (up to 80 characters) after a failure. |
+
+`job.state` is one of `download`, `write`, `move`, `remove`, `done`, `error`.
+
+The server stores the report with the device, and the web desk shows it: the space left in each place, what is installed where, and the progress of the current job.
+
+## Notification switches
+
+Two more settings live next to `s3.pkgs`:
+
+| Setting | Meaning |
+|---|---|
+| `s3.notif` | `{"<app id>": false}` turns an app's notifications off. A missing id means on. |
+| `s3.notif_preview` | `"0"` hides the text in banners. |
+
+<Aside type="tip" title="Try it in the simulator">
+`set s3.pkgs [{"id": "com.example.teatimer", "rm": true}]` in a simulator script plays the web desk asking for a removal. After every change the simulator writes what the next sync would report to `$SIM_DATA/pkgs-report.json`.
+</Aside>

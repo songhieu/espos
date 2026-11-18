@@ -1,0 +1,18 @@
+# PawBoop 2: one dog end to end (SIM_DATA=sim/data-dogs, every package on the card)
+wait 2500
+set s3.pet_dog bao
+pet
+wait 600
+shot splash
+wait 2600
+shot game
+wait 3000
+shot game2
+tap 18 44
+wait 1500
+shot book
+back
+wait 800
+tap 70 44
+wait 1500
+shot chooser

@@ -332,6 +332,20 @@
   },
   {
     "method": "GET",
+    "path": "/v1/profile",
+    "auth": "end_user",
+    "workflow": "get_profile",
+    "rate_limit_per_min": 60
+  },
+  {
+    "method": "POST",
+    "path": "/v1/profile",
+    "auth": "end_user",
+    "workflow": "save_profile",
+    "rate_limit_per_min": 30
+  },
+  {
+    "method": "GET",
     "path": "/v1/stats",
     "auth": "end_user",
     "workflow": "get_stats",

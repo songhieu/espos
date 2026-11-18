@@ -1,0 +1,29 @@
+# The pet game (vn.pawboop.pet installed on the simulator's card: docs/packages.md §7): game, a bubble, buttons, book.
+pet
+wait 2500
+shot pet_01_open
+wait 3000
+shot pet_02_idle
+tap 98 412
+wait 1500
+shot pet_03_play
+wait 3000
+tap 36 412
+wait 800
+shot pet_04_sheet
+tap 160 300
+wait 1500
+tap 222 412
+wait 2500
+shot pet_05_wash
+tap 40 44
+wait 1500
+shot pet_06_book
+back
+wait 1000
+home
+wait 1000
+shot pet_07_home
+pet book
+wait 2000
+shot pet_08_book

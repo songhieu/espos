@@ -1,0 +1,149 @@
+---
+title: Landscape and screen size
+description: 'Portrait and landscape on both S3 boards: the four orientations, app.screen, half cards, what happens when the screen turns, and how to design one app for every shape.'
+---
+
+import { Aside, Steps } from '@astrojs/starlight/components';
+import DeviceShots from '../../../components/DeviceShots.astro';
+import Shot from '../../../components/Shot.astro';
+import plantPortrait from '../../../assets/shots/landscape-plant-portrait.png';
+import plantLandscape from '../../../assets/shots/landscape-plant.png';
+import display from '../../../assets/shots/landscape-settings-display.png';
+import display28 from '../../../assets/shots/landscape-28-display-r3.png';
+
+An EspOS device can stand four ways up. Your app draws in **320 × 480** in portrait and **480 × 320** in landscape, on both boards. Most apps work in both without a change; `app.screen` and half cards let you use the wide screen well.
+
+## The four orientations
+
+| `s3.rot` | Name on the device | Screen | The USB-C port |
+|---|---|---|---|
+| `0` | Portrait | 320 × 480 | at the bottom |
+| `1` | Landscape | 480 × 320 | on the left |
+| `2` | Portrait, upside down | 320 × 480 | at the top |
+| `3` | Landscape, upside down | 480 × 320 | on the right |
+
+The boards have no tilt sensor, so the screen turns only when the user picks a way up:
+
+- **Settings › Display**: four pictures of the device, with the USB-C port drawn on each. A tap turns the screen at once.
+- **Control Center › Rotate**: switches between the user's portrait way and landscape way (the last one used of each), so it never turns the screen upside down by surprise. Touch and hold opens Settings › Display.
+- **The EspOS web**: the device's settings. The setting `s3.rot` syncs both ways, so the web can set it before the device is unpacked.
+
+A case that stands the board on its side with the USB-C port on the right uses rotation `3`.
+
+<Shot src={display} alt="Settings, Display in landscape: a brightness slider, then four device pictures named Portrait, Landscape (ringed), Portrait upside down and Landscape upside down" caption="Settings › Display on the 3.5-inch board, in landscape" />
+
+## What happens when the screen turns
+
+<Steps>
+
+1. **Every screen is built again** for the new shape, as after a change of look. The keyboard and any open sheet close.
+2. **The app in front opens again**, with the same `app.arg`. Your `main.js` runs from the top in a fresh context, so variables start over. What you saved with `store` is still there.
+3. **Home shows its own pages.** In landscape, Home has its own pages (the setting `s3.home_l`): a grid of 5 × 4 cells with the dock on the right. They start as a copy laid out from the portrait pages; after that each orientation is edited on its own. Settings › Home Screen › "Lay out landscape from portrait again" copies them again.
+
+</Steps>
+
+Games follow the same rule: PawBoop comes back with her saved state, and a Java game is asked to save (its `destroyApp` runs) before it opens again in the new shape.
+
+<Aside type="tip" title="Save state as it changes">
+A turn closes and reopens your app, like Back and opening it again. An app that saves as it goes and keeps times as timestamps (`Date.now()`) comes back exactly where it was. See [App lifecycle](/concepts/lifecycle/).
+</Aside>
+
+## `app.screen`
+
+```ts
+app.screen?: {w: number; h: number; landscape: boolean}
+```
+
+The room the app draws in: `{w: 320, h: 480, landscape: false}` in portrait, `{w: 480, h: 320, landscape: true}` in landscape. It is set before `main.js` runs, and since a turn opens the app again, it is never out of date while the app runs.
+
+Under the title bar your app has:
+
+| | Portrait | Landscape |
+|---|---|---|
+| Width for content | 296 px | 456 px |
+| Height under the title bar | 412 px | 252 px |
+| A half card (`{half: true}`) | the whole line, 296 px | 224 px, two on a line |
+
+The screen scrolls when the content is taller, in both orientations.
+
+## Half cards
+
+`ui.card(children, {half: true})` is half the line in landscape and the whole line in portrait. Put two half cards in a `ui.row`: side by side in landscape, one under the other in portrait, from the same code.
+
+```js title="main.js"
+// Two half cards: side by side in landscape, one under the other in portrait.
+const {w, h, landscape} = app.screen;
+let watered = store.get('watered', Date.now() - 2 * 86400000);
+
+function water() {
+  watered = Date.now();
+  store.set('watered', watered);
+}
+
+app.title = 'Plant';
+app.render = () => {
+  const days = Math.floor((Date.now() - watered) / 86400000);
+  const shape = `${w} x ${h}, ${landscape ? 'landscape' : 'portrait'}`;
+  return ui.column([
+    ui.row([
+      ui.card([
+        ui.text('Soil', {dim: true}),
+        ui.big('42%', {color: '#16a34a'}),
+        ui.progress(0.42),
+      ], {half: true, center: true}),
+      ui.card([
+        ui.text('Last watered', {dim: true}),
+        ui.title(days === 0 ? 'Today' : `${days} days ago`),
+        ui.text('Water again when the soil is under 30%.'),
+      ], {half: true}),
+    ]),
+    ui.button('Watered now', water, {wide: true, bg: '#16a34a'}),
+    ui.text(shape, {dim: true, size: 13}),
+  ]);
+};
+```
+
+<Shot src={plantLandscape} alt="The Plant app in landscape: a Soil card with 42% in big green digits and a bar, beside a Last watered card that says 2 days ago; a wide green Watered now button under both; 480 x 320, landscape" caption="Landscape: the two half cards side by side" />
+
+<DeviceShots shots={[{ src: plantPortrait, alt: 'The same app in portrait: the Soil card on the whole line, the Last watered card under it, then the button; 320 x 480, portrait', caption: 'Portrait: the same code, one card under the other' }]} />
+
+
+## Designing for both
+
+- **Start from portrait.** One column that reads well at 296 px also works at 456 px. Most apps need nothing more.
+- **Pair what belongs together.** A value and its details, a timer and today's count: two half cards in a row. The Focus app in the store puts its timer and the day's sessions side by side this way, and keeps its buttons under them.
+- **Mind the height in landscape.** 252 px holds about one card and a row of buttons. Put the main action near the top, or in a half card, so it shows without scrolling.
+- **Choose a different tree when it helps.** `render` can return another layout for `app.screen.landscape`, for example the chips and buttons on top in landscape and at the bottom in portrait. Keep the state the same, so a turn changes only the layout.
+- **Big digits fit a half card.** Focus shows its `25:00` at 64 px in a half card.
+- **Lists keep the whole line.** `ui.list` rows are as wide as their container in both orientations; for two short lists side by side, put each in a half card.
+- **Do not depend on pixel sizes.** Lay out with columns, rows and cards, and read `app.screen` only to choose between layouts.
+
+## The 2.8-inch board
+
+The ES3C28P shows the same interface at 2/3. In portrait the 320 × 480 picture becomes 213 × 320 in the middle of its 240 × 320 panel. In landscape the 480 × 320 picture becomes 320 × 213 across the full width of the turned panel, with 13 black rows above and 14 below. Apps get the same `app.screen` on both boards and need nothing special.
+
+<Shot src={display28} alt="The 2.8-inch board in QEMU, landscape upside down: the Display settings at 2/3, with black bands above and below" caption="The 2.8-inch board in QEMU, rotation 3: 320 × 213 on the 320 × 240 panel" />
+
+At 2/3, 12 px text becomes 8 px on the glass. Prefer 13 px and up, and buttons at least 44 px high (the `ui.button` default). The 2.8-inch board's landscape has run in QEMU; it has not yet been seen on a real board.
+
+## Test both orientations
+
+- **Simulator script:** `rot N` turns the screen and opens the app in front again. With the CLI, put it in the script:
+
+  ```txt title="sim/land.txt"
+  rot 1
+  wait 800
+  shot landscape
+  rot 0
+  wait 800
+  shot portrait
+  ```
+
+  ```sh
+  espos sim --headless -s sim/land.txt
+  ```
+
+- **Live simulator:** type `rot 1` in its terminal.
+- **QEMU and a board:** the dev console's `ROT N`, or Settings › Display. `espos device tap` takes coordinates of the current orientation.
+
+The commands are in [Simulator commands](/reference/sim-commands/) and [Dev console commands](/reference/dev-console/).

@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://espos.dev/schemas/project.schema.json",
+  "title": "espos.json (an EspOS package project)",
+  "description": "Tells `espos build` what goes into the package. Without espos.json, a folder with manifest.json is packed the way tools/espk.py packs it: every file except dotfiles and manifest.json.",
+  "type": "object",
+  "properties": {
+    "$schema": {"type": "string"},
+    "main": {"type": "string", "description": "The app's code (kind js). A .ts entry, or any entry with \"bundle\": true, is bundled with esbuild (its imports included) into main.js; a .js entry is copied as main.js."},
+    "bundle": {"type": "boolean", "default": false},
+    "files": {"type": "array", "items": {"type": "string"}, "description": "Files or folders copied into the package as they are (icon.jpg, game.jar, data/...). Paths keep their place: \"data\" becomes data/... in the package."},
+    "out": {"type": "string", "default": "dist", "description": "Where `espos build` writes <id>-<version>-<part>.espk."},
+    "minify": {"type": "boolean", "default": false}
+  },
+  "additionalProperties": false
+}

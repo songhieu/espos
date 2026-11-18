@@ -1,0 +1,67 @@
+{
+ "id": "dev.espos.water",
+ "name": "Water",
+ "version": "1.1.0",
+ "desc": "Counts your glasses of water and reminds you to drink",
+ "icon": {
+  "bg": [
+   "#38bdf8",
+   "#0284c7"
+  ],
+  "glyph": "drop"
+ },
+ "permissions": [
+  "notify"
+ ],
+ "part": "core",
+ "code": 10100,
+ "kind": "js",
+ "engine": "js",
+ "min_fw": 300,
+ "category": "health",
+ "perms": [
+  "notify"
+ ],
+ "i18n": {
+  "vi": {
+   "name": "Uống nước",
+   "desc": "Đếm ly nước mỗi ngày, nhắc khi quên uống"
+  },
+  "zh-Hans": {
+   "name": "喝水",
+   "desc": "记录每天喝了几杯水，忘了会提醒"
+  },
+  "es": {
+   "name": "Agua",
+   "desc": "Cuenta tus vasos de agua y te recuerda beber"
+  },
+  "fr": {
+   "name": "Eau",
+   "desc": "Compte vos verres d'eau et vous rappelle de boire"
+  },
+  "de": {
+   "name": "Wasser",
+   "desc": "Zählt deine Gläser Wasser, erinnert ans Trinken"
+  },
+  "ja": {
+   "name": "水分補給",
+   "desc": "飲んだ水を数えて、飲み忘れを知らせます"
+  },
+  "ko": {
+   "name": "물 마시기",
+   "desc": "마신 물을 세고, 잊으면 알려 줘요"
+  },
+  "pt-BR": {
+   "name": "Água",
+   "desc": "Conta seus copos de água e lembra você de beber"
+  },
+  "ru": {
+   "name": "Вода",
+   "desc": "Считает стаканы воды и напоминает пить"
+  },
+  "id": {
+   "name": "Minum air",
+   "desc": "Hitung gelas air harian dan ingatkan minum"
+  }
+ }
+}

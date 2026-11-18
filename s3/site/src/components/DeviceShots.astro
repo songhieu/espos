@@ -1,0 +1,23 @@
+---
+// Screenshots of the 320 x 480 screen, in a row of device frames.
+import { Image } from 'astro:assets';
+
+interface Shot {
+  src: ImageMetadata;
+  alt: string;
+  caption?: string;
+}
+interface Props {
+  shots: Shot[];
+}
+const { shots } = Astro.props;
+---
+
+<div class="device-shots not-content">
+  {shots.map((s) => (
+    <figure>
+      <Image src={s.src} alt={s.alt} width={320} height={480} />
+      {s.caption && <figcaption>{s.caption}</figcaption>}
+    </figure>
+  ))}
+</div>

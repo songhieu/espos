@@ -1,0 +1,67 @@
+---
+title: Performance budgets
+description: 'What costs time and memory on an ESP32-S3, how to keep a JavaScript app fast today, and the per-app budgets the platform plans to enforce.'
+---
+
+import Status from '../../../components/Status.astro';
+import { Aside } from '@astrojs/starlight/components';
+
+An ESP32-S3 is a 240 MHz dual-core chip with 512 KB of internal RAM and 8 MB of PSRAM. It is fast enough for smooth apps if the app does little per frame. This page explains where the time goes today and how the platform will measure it.
+
+## How API level 1 draws a screen
+
+Every tap, timer tick or `app.refresh()` does the same work:
+
+1. call `app.render()`, which builds a fresh tree of objects;
+2. delete every widget on the screen;
+3. create new LVGL widgets for the whole tree, and lay them out;
+4. restore the scroll position.
+
+So the cost of one event grows with the size of the tree. A screen with a few dozen nodes rebuilds in a blink. A list of 40 rows, rebuilt every 100 ms, does not.
+
+## Keep it fast today
+
+- **Tick no faster than you need.** A countdown needs one tick a second. `timer.every` accepts 50 ms at the fastest, and every tick rebuilds the screen.
+- **Do the work outside `render`.** Sort, filter and format when the data changes, and keep the results in variables. `render` should only arrange them.
+- **Keep the tree small.** The OS draws at most 60 children per container, 40 rows per list and 8 chips per chip bar. Beyond those, the rest are left out.
+- **Keep nesting shallow.** Build the screen from small helper functions instead of one deep expression. See [State and rendering](/guides/js/state/#keep-nesting-shallow).
+- **Save small values.** `store.set` writes to flash. Save when something changes, not on every tick.
+- **Avoid busy loops.** There is no `await` or Promise job queue in API level 1. Long work blocks the screen until it returns, and stops at 1.5 seconds.
+
+## The limits the OS enforces
+
+| Limit | Value | What happens past it |
+|---|---|---|
+| JavaScript heap | 1.5 MB (PSRAM) | `InternalError: out of memory` |
+| Time per call (tap handler, timer, `render`) | 1.5 s | `InternalError: interrupted`, shown as a toast |
+| Time to run `main.js` at start | 3 s | the app shows "The app cannot run" |
+| JavaScript stack | 16 KB, of which QuickJS may use 11 KB | `RangeError: Maximum call stack size exceeded` |
+| Timers | 8 at once | `RangeError: too many timers` |
+
+The full list is in [Limits](/reference/limits/).
+
+<Aside type="note" title="The JavaScript stack lives in internal RAM">
+While a JavaScript app is open, the OS sets aside a 16 KB stack for QuickJS in internal RAM. If internal RAM is short at that moment (for example during a TLS handshake right after boot), the app does not open and the device says "The device is busy. Open it again in a moment."
+</Aside>
+
+## Planned: a budget per app<Status s="planned" />
+
+The platform plan rewrites the built-in apps on the public API, and holds every app to a budget measured on a real board before and after a change:
+
+| Budget | Measured as |
+|---|---|
+| Open time | from the tap to the first frame |
+| Frame rate while scrolling | with the system monitor |
+| Memory | the lowest free internal RAM and PSRAM (`MEM` on the dev console) |
+| Flash | the package's size |
+
+An app that misses its budget keeps its old version. The same plan brings:
+
+- **A retained UI (UI v2).** The tree is kept and updated by key, instead of rebuilt for every event.
+- **Scripts off the UI thread**, with time limits, so a slow script never stutters the screen.
+- **Declarative widgets, faces and themes** that cost no script time on Home.
+- **Heavy work in C++ services** (data sync, decoding), offered to apps through the API.
+
+### The firmware's own budget
+
+The firmware image must stay under 3,932,160 bytes, the size of its update slot. It is at about 3.68 of 3.75 MB, which is why new features ship as packages where they can.

@@ -1,0 +1,88 @@
+---
+title: Simulator commands
+description: 'Every command of the simulator scripts and terminal: taps and gestures, apps, screenshots, settings, notifications and more.'
+---
+
+The same commands work in a script file (`espos-sim SCRIPT OUTDIR`, `espos-live SCRIPT`) and typed in the live simulator's terminal. One command per line; `#` starts a comment. Command names are not case sensitive, so the dev console's `TAP`, `DRAG`, `APP` and `HOME` work too. Coordinates are screen pixels (320 × 480, portrait).
+
+Each command waits a little after it acts (shown as "then"), so the screen can settle.
+
+## Touch
+
+| Command | Does |
+|---|---|
+| `tap X Y` | A tap: finger down 80 ms, then 400 ms. |
+| `long X Y` | A long press: finger down 900 ms, then 400 ms. |
+| `drag X0 Y0 X1 Y1 MS` | A drag over MS milliseconds, then 500 ms. |
+| `hold X0 Y0 X1 Y1 MS HOLD` | A drag, then the finger stays down for HOLD ms at the end. |
+| `down X Y` | Finger down (for screenshots in the middle of a gesture). |
+| `move X Y` | Move the finger that is down, in 10 steps. |
+| `up` | Lift the finger, then 400 ms. |
+| `swipe left\|right\|up\|down` | A 60 px swipe in the middle of the screen over 80 ms. |
+| `homeswipe` | The home gesture: a swipe up from the bottom edge. |
+| `backswipe` | The back gesture: a swipe from the left edge. |
+
+## Navigation and apps
+
+| Command | Does |
+|---|---|
+| `app ID [ARG]` | Open an app by id, with an optional `app.arg`. Built-in apps work too: `app store`, `app store <id>` (a package's store page), `app settings`. |
+| `home` | Go to Home. |
+| `back` | Go back one screen. |
+| `pet [ARG]` | Open PawBoop (`pet book` opens her book). |
+| `dismiss` | Close PawBoop's pop-up. |
+| `run [ARG]` | Open the run game directly (`ARG`: a map, `bench` or `pet`). |
+| `dev CMD` | Run-game developer commands: `auto`, `manual`, `god`, `warp M`, `end`, `smooth 0\|1`, `stats`. |
+| `bench` | The run game's speed test. |
+| `saver` | Show the screen saver now. |
+| `saveredit` | Open the screen saver's editor. |
+| `wake` | Leave the screen saver. |
+
+## Screens and text
+
+| Command | Does |
+|---|---|
+| `shot [NAME]` | Save the screen as `OUTDIR/NAME.ppm` (scripted) or a PNG (live). Without a name, it is named by the time. |
+| `window PATH.png` | Live only: the whole window, frame and screen. |
+| `rot N` | Rotate: 0, 1, 2 or 3. |
+| `type TEXT` | Type into the focused text field. |
+| `typetop TEXT` | Type into the focused text field of the top layer (the saver editor). |
+| `widgets RRGGBB KIND\|SIZE\|STYLE\|OPT\|SKIN\|X\|Y ...` | Draw home-screen widgets on a plain background (`+` stands for a space). |
+
+## Settings and state
+
+| Command | Does |
+|---|---|
+| `set KEY VALUE` | Set a setting, as the web desk or the device would, then 2 s. For example `set s3.theme dark`, `set s3.pkgs [...]`, `set sim.card 0`. |
+| `dumpset KEY [NAME]` | Write a setting's whole value to `OUTDIR/NAME.txt`. |
+| `mem [LABEL]` | Print memory use, and what the board would have free. |
+| `wait MS` | Let MS milliseconds of simulator time pass. |
+| `quit` or `exit` | End the simulator. |
+| `help` | List the commands. |
+
+## Notifications
+
+| Command | Does |
+|---|---|
+| `notif post APP TITLE\|BODY\|ARG\|TAG` | Post a notification as app APP. |
+| `notif sched SECONDS APP TITLE\|BODY\|ARG\|TAG` | Schedule one SECONDS from now. |
+| `notif center` / `notif close` | Open or close the Notification Center. |
+| `notif settings` | Open Settings › Notifications. |
+| `notif clear APP` | Remove the app's notifications and its badge. |
+| `notif seen APP` | Mark them seen, as opening the app does. |
+| `notif cancel APP [TAG]` | Cancel waiting ones (and the shown one of that tag). |
+| `notif badge APP N` | Set the app's badge. |
+| `notif show APP` | Print the badge, the switch and the Center's count. |
+
+## Useful settings for tests
+
+| Setting | Values |
+|---|---|
+| `s3.theme` | `color`, `light`, `dark`, `photo` |
+| `s3.theme_auto` | `1` (dark at night) or `0` |
+| `s3.dnd` | `1` Do Not Disturb on |
+| `s3.volume` | `0` to `100` |
+| `s3.click` | `0` touch sound off |
+| `s3.notif` | `{"<app id>": false}` |
+| `s3.pkgs` | see [Package sync](/reference/pkgs-sync/) |
+| `sim.card` | `0` card out, `1` card in |

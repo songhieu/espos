@@ -1,0 +1,90 @@
+---
+title: Saving data
+description: 'Keep data across closes and restarts with store.get and store.set: JSON values per app, with fixed key and size limits.'
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+`store` is a small key-value store for each app. Values are JSON. They survive closing the app and restarting the device. No permission is needed.
+
+## `store.get(key, default)`
+
+Returns the value saved under `key`, or `default` when there is none.
+
+```js
+let settings = store.get('settings', {goal: 8, unit: 'cups'});
+```
+
+`default` is also returned when the saved text is not valid JSON, so a missing or damaged value never throws.
+
+## `store.set(key, value)`
+
+Saves `value` as JSON under `key`.
+
+```js
+settings.goal = 10;
+store.set('settings', settings);
+```
+
+The write goes to flash right away.
+
+## Limits
+
+| | Limit | Past it |
+|---|---|---|
+| Key | 1 to 14 characters | `store.set` throws `RangeError: store keys are 1-14 characters`; `store.get` returns the default |
+| Value | at most 3000 bytes of JSON (UTF-8) | `RangeError: store values are at most 3000 characters` |
+| Scope | one space per app id | apps cannot read each other's data |
+
+Letters outside ASCII take 2 to 4 bytes each in UTF-8 (Vietnamese, Chinese, Japanese, Korean, Cyrillic), so 3000 bytes can be fewer than 3000 characters.
+
+## Patterns
+
+### One object for small state
+
+```js
+let state = store.get('state', {tea: 0, endsAt: 0, cups: 0});
+const save = () => store.set('state', state);
+```
+
+Simple, and one read at start. Keep it well under 3000 bytes.
+
+### Several keys for bigger data
+
+When one value would grow past 3000 bytes, split it. For example, keep a history in pages:
+
+```js
+// One key per day, named from the local date: "d20261117".
+const two = (n) => String(n).padStart(2, '0');
+const dayKey = (d) => 'd' + d.getFullYear() + two(d.getMonth() + 1) + two(d.getDate());
+function logDay(date, cups) {
+  store.set(dayKey(date), {cups});
+}
+function readDay(date) {
+  return store.get(dayKey(date), {cups: 0});
+}
+```
+
+The key `d20261117` is 9 characters, inside the 14-character limit.
+
+### Version your data
+
+Apps change. Save a version with your data so a new release can read the old shape:
+
+```js
+let data = store.get('data', {v: 2, items: []});
+if (data.v === 1) {
+  data = {v: 2, items: data.list.map((text) => ({text, done: false}))};
+  store.set('data', data);
+}
+```
+
+<Aside type="caution" title="Data outlives the app today">
+Uninstalling an app does not erase its `store` data today. If the same id is installed again, it finds the old data. That changes when the planned permission broker adds per-app quotas and wipes data on uninstall.
+</Aside>
+
+## What `store` is not
+
+- **Not shared.** Each app sees only its own keys.
+- **Not synced.** Data stays on the device; it does not go to the server or the web desk.
+- **Not a file system.** API level 1 has no file access. Package files are read-only and only engines read them.

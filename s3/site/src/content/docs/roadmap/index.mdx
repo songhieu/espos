@@ -1,0 +1,104 @@
+---
+title: Roadmap
+description: 'The platform plan for EspOS: the goal, the decisions behind it, and the phases from the Java games to the IoT hardware framework.'
+---
+
+import Status from '../../../components/Status.astro';
+import { Aside } from '@astrojs/starlight/components';
+
+<Aside type="note" title="Everything on this page is a plan">
+The plan was agreed on 2026-11-17. Phase 0 is in progress; later phases are <Status s="planned" />. Dates are not fixed. What already works is marked on each page of these docs.
+</Aside>
+
+## Shipped since the plan
+
+- **The name EspOS** (2026-11-18), with S3 firmware 0.5.0 and X4 firmware 0.4.0: `espos.dev`, `.espk` packages, `dev.espos.*` ids and the `espos` CLI.
+- **Languages:** English built in and ten more as packs from the store; `app.lang` and translated package names. See [Languages and translation](/guides/languages/).
+- **Landscape** on both S3 boards, with Home pages of its own; `app.screen` and half cards. See [Landscape and screen size](/guides/landscape/).
+- **Open source:** [github.com/songhieu/espos](https://github.com/songhieu/espos) holds the S3 firmware, the SDK, the simulator and these docs' sources in `s3/` (Apache-2.0), the self-hosted Go server in `server/` (AGPL-3.0), and the X4 firmware in `firmware/`. See [How to contribute](/contributing/) and [Self-hosting](/roadmap/self-hosting/).
+
+## The goal
+
+EspOS becomes an open-source operating system for ESP32-class IoT devices:
+
+- **The base firmware is the OS.** Everything else is an installable package that declares permissions: apps, themes, and drivers for plugged-in devices.
+- **Apps talk to the system only through the EspOS API**, versioned by API level.
+- **Developing for it feels like mobile development:** an SDK, typings, a CLI, simulators, live reload on a device, and a store.
+- **Existing apps are rewritten on the same API with no loss of performance.**
+- **Servers:** the hosted service, or your own.
+
+## Decisions
+
+| Topic | Decision |
+|---|---|
+| Third-party code | JavaScript/TypeScript (QuickJS) **and** WebAssembly (WAMR). No third-party native code: the ESP32-S3 cannot isolate one app from another. |
+| System apps | C++ on the same public API, a thin layer over the services, to keep native speed. |
+| Native engines | `pet`, `run` and `j2me` stay first-party; their packages carry data only. |
+| Servers | The hosted backend stays. An open Go server is the self-host implementation. One protocol spec and one conformance suite run against both. |
+| Licences | Firmware, SDK, templates and spec: Apache-2.0. Server: AGPL-3.0. Earlier releases stay MIT. Contributions use the DCO. A trademark policy covers the name. No paid-only device features. |
+| Order | Finish the Java games, then the OS foundation and SDK, then self-hosting and open source, then IoT hardware. |
+
+## Many chips, many screens
+
+Added by the owner the same day:
+
+- EspOS will run on many chips and displays, and the community must be able to build the firmware for their own hardware while keeping the platform's skeleton. The board layer becomes a HAL with board support packages. <Status s="preview" label="In progress" /> See [Hardware and porting](/hardware/).
+- Devices fall into hardware profiles: **Full** (ESP32-S3, PSRAM, colour touch) and **Lite** (no PSRAM, e-ink, buttons). Lite runs data-only declarative faces, widgets and themes first. See [Hardware profiles](/hardware/profiles/).
+- Packages say which capabilities they need, and the store filters by device. <Status s="planned" />
+- The Xteink X4 is the first Lite device, and it is done now rather than in phase 5. <Status s="preview" label="In progress" />
+
+## Phases
+
+### Phase 0: Java games<Status s="preview" />
+
+The Java VM, MIDP, the `j2me` engine, the on-screen keypad and user jar uploads. One firmware image for both boards. Fixes to the run game.
+
+### Phase 1: Foundation<Status s="planned" />
+
+- Manifest v2, and API level 1 frozen as today's `ui.*` API.
+- A first draft of EspOS Protocol v1.
+- The permission broker, with consent at install and per-app switches.
+- Per-app storage with quotas, wiped on uninstall; notifications removed on uninstall; package id checks.
+- JavaScript: Promise jobs, `console.log`, a retained UI (v2).
+- Colour tokens v1, for the OS and the web desk.
+- SHA-256 per file and Ed25519 signatures.
+- More free flash, then WebAssembly (WAMR, interpreter) on the same bindings.
+- Reserved names: the `driver` type and the `sensor:`, `actuator:` and `hw:` permissions.
+
+### Phase 2: SDK v1 and app migration<Status s="planned" />
+
+- `@espos/sdk`, the `espos` CLI, a simulator with live reload, developer mode on devices, these docs, and CI.
+- Declarative widgets, faces and themes.
+- Built-in apps move to packages, within their budgets, in this order: markets, news, notes, reminders, focus and vocabulary, calculator, lunar calendar; then faces and themes; then weather and calendar, once the `data:*` permissions exist. Home, Settings, the store and alarms stay in the core.
+
+### Phase 3: Self-hosting and open source<Status s="planned" />
+
+Started: the sources are open (see above), and the open server runs the X4 today.
+
+- The Go server with full support for these devices, and the conformance suite.
+- `/.well-known/espos.json` and a Server setting on the device.
+- A store with several sources.
+- Licences, the DCO, docs and a Docker image.
+- The firmware repository published as open source (done: `s3/` in the public repository).
+
+Details: [Self-hosting](/roadmap/self-hosting/).
+
+### Phase 4: IoT hardware<Status s="planned" />
+
+- **Sensors v1:** Bluetooth LE sensors (BTHome, ESS) and on-board sensors; the `sensors` API; sampling and history; a Devices page; fake buses in the simulator.
+- **Sensors v2:** driver packages (WebAssembly SHT4x, BME280, SCD4x; a JavaScript light sensor), GPIO buttons, relays and motion sensors, actuators with per-device consent, rules, MQTT with Home Assistant discovery.
+- **Sensors v3:** community drivers, DS18B20 on 1-Wire, UART devices, USB host, a display-less sensor-node build, and a study of a Matter bridge.
+
+Details: [Hardware and drivers](/roadmap/hardware/).
+
+### Phase 5<Status s="planned" />
+
+Background services, WebAssembly AOT, a developer portal with review, a simulator in the browser, more boards, and a hosted tier that charges for running costs only. (The e-ink ESP32-C3 profile moved forward: see above.)
+
+## How each phase is checked
+
+- **Every phase:** headless simulator and QEMU scripts, ASan and TSan, each app's budget measured on a board before and after, screenshot comparison, and a firmware size check.
+- **Permissions:** a call without the permission is refused; switching one off works at once; a package edited on the card is refused; uninstalling removes the app's data and scheduled notifications.
+- **SDK:** on a clean Linux and macOS machine, `espos create`, then `sim` (edit, see the change), then `run --device`, then `publish` to a test store.
+- **Self-host:** `docker compose up` the Go server; pair a device (in QEMU), sync, install from that server's catalog, remote control and OTA; the conformance suite passes on both servers.
+- **Hardware:** fake sensors in the simulator, then real ones (Bluetooth LE, then Qwiic). An app without `sensor:<channel>` reads nothing.

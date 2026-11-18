@@ -1,0 +1,106 @@
+---
+title: Notifications and badges
+description: 'Post, schedule, replace and cancel notifications from a JavaScript app, open the app from a notification, and set the icon badge.'
+---
+
+import { Aside } from '@astrojs/starlight/components';
+import DeviceShots from '../../../../components/DeviceShots.astro';
+import banner from '../../../../assets/shots/tea-banner.png';
+import ready from '../../../../assets/shots/tea-ready.png';
+
+All notification calls need the `notify` permission:
+
+```json
+"perms": ["notify"]
+```
+
+Without it, `notify`, `notify.schedule`, `notify.cancel` and `app.badge` throw `TypeError: app has no "notify" permission`.
+
+## Post a notification
+
+```js
+const shown = notify('Goal reached', 'You drank 8 cups of water today.');
+if (!shown) toast('Notifications are off for this app');
+```
+
+`notify(title, body, options)` shows a banner at the top of the screen, adds the notification to the Notification Center, counts it on the app's icon and plays the chime. It returns `false` when the user turned this app's notifications off, and posts nothing then.
+
+| Option | Type | Default | Meaning |
+|---|---|---|---|
+| `arg` | any | none | Handed back as `app.arg` when the user taps the notification. A string stays as it is; anything else arrives as JSON text. |
+| `tag` | string | none | A later notification with the same tag replaces this one. |
+| `sound` | boolean | `true` | Play the chime. |
+| `badge` | boolean | `true` | Count it on the app's icon until the app is opened. |
+
+## Schedule a notification
+
+```js
+const at = Date.now() + 25 * 60 * 1000;  // in 25 minutes
+notify.schedule(at, 'Break time', 'Stand up and stretch.', {tag: 'pomodoro'});
+```
+
+`notify.schedule(at, title, body, options)` posts the notification at `at`, **even when the app is closed**. Scheduled notifications survive a restart. It takes the same options as `notify` and returns `false` when the app's notifications are off.
+
+`at` can be:
+
+- a `Date`;
+- milliseconds since 1970, such as `Date.now() + 60000`;
+- a number below 10⁹ (1,000,000,000), read as **milliseconds from now**. `notify.schedule(60000, 'Title', 'Body')` fires in one minute.
+
+<Aside type="caution" title="At most 32 waiting">
+A device holds at most 32 scheduled notifications, for all apps together. Use a `tag` so that rescheduling replaces instead of adding.
+</Aside>
+
+A notification found more than 15 minutes late (the device was off at the time) goes to the Center quietly, without a banner or sound.
+
+## Open the app from a notification
+
+<DeviceShots
+  shots={[
+    { src: banner, alt: 'The banner Green tea is ready', caption: 'The user taps the banner' },
+    { src: ready, alt: 'The app opened, saying Your tea is ready', caption: 'app.arg is "ready"' },
+  ]}
+/>
+
+When the user taps a notification, the app opens with `app.arg` set to the notification's `arg`. `app.arg` is ready before your `main.js` runs, so you can read it at the top level:
+
+```js
+// Posted with: notify('New message', from, {arg: {chat: 42}})
+const opened = app.arg ? JSON.parse(app.arg) : null;   // {chat: 42}, or null from Home
+let chat = opened ? opened.chat : 0;
+```
+
+If the app was already open, it starts again with the new `app.arg`.
+
+## Replace and cancel
+
+A notification with a `tag` replaces the app's older notification with the same tag, both the waiting one and the shown one. Use one tag per thing so the user never sees two copies.
+
+```js
+notify.cancel('pomodoro');   // the waiting and the shown one with this tag
+notify.cancel();             // every waiting notification of this app
+```
+
+## The icon badge
+
+By default the number on the app's icon counts its unread notifications, and opening the app clears it. An app can show its own number instead:
+
+```js
+app.badge(3);   // show 3
+app.badge(0);   // hide the badge
+app.badge();    // go back to counting unread notifications
+```
+
+## What the user controls
+
+- **The app's switch** in Settings › Notifications (or on the web desk) turns its notifications off. `notify` and `notify.schedule` then return `false`.
+- **Do Not Disturb and quiet hours**: notifications still reach the Center, but without a banner or sound.
+- **Previews off**: banners hide the text.
+
+## Sizes
+
+The device keeps up to 120 bytes of a title, 400 bytes of a body, 120 bytes of an `arg` and 40 bytes of a `tag`. Longer text is cut to fit, so keep titles short and put the detail in the body.
+
+<Aside type="note" title="Uninstalling">
+Today an app's scheduled notifications are not removed when it is uninstalled. Cancel what you no longer need. Cleaning up on uninstall is part of the planned permission broker.
+</Aside>

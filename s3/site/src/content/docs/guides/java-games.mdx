@@ -1,0 +1,158 @@
+---
+title: Java (J2ME) games
+description: 'Run old phone games (MIDP 2.0, CLDC 1.1 jars) on the j2me engine: wrap a jar into a package, keypad mapping, limits and licensing.'
+---
+
+import { Aside, Steps, Tabs, TabItem } from '@astrojs/starlight/components';
+import Status from '../../../components/Status.astro';
+import DeviceShots from '../../../components/DeviceShots.astro';
+import menu from '../../../assets/shots/j2me-megablock-menu.png';
+import game from '../../../assets/shots/j2me-megablock.png';
+import shooter from '../../../assets/shots/j2me-spaceshooter.png';
+
+<Status s="preview" /> Firmware 0.4.0 and newer run old phone games (`.jar` files for **MIDP 2.0 / CLDC 1.1**) unchanged, on the `j2me` engine: a small Java virtual machine written for EspOS. The games have been checked in the simulator and in QEMU; they are not yet tested on a board.
+
+<DeviceShots
+  shots={[
+    { src: menu, alt: 'MegaBlock title screen with a keypad under it', caption: 'MegaBlock, menu' },
+    { src: game, alt: 'MegaBlock in play: blue well, falling block, Pause on the left soft key', caption: 'MegaBlock, playing' },
+    { src: shooter, alt: 'Space Shooter: a ship among stars with enemies and a Pause and Quit bar', caption: 'Space Shooter' },
+  ]}
+/>
+
+## How it looks
+
+The game's screen, 240 × 320 for most games, sits at the top in full screen (no status bar). Under it is the keypad: two soft keys with the ⋯ menu between them, a D-pad with an OK key, and the number pad `1`-`9`, `*`, `0`, `#`. The ⋯ menu has Continue, Sound on/off and Quit.
+
+In landscape the game sits in the middle at its own size, full screen. The left soft key, the arrows and OK are on its left; the ⋯ menu, the right soft key and the number keys on its right. A game too wide to leave 100 px of keys on each side is drawn smaller to fit. Turning the screen asks the game to save (its `destroyApp` runs) and opens it again in the new shape.
+
+## Make a game package
+
+A game package holds the jar and, optionally, an icon:
+
+| File | |
+|---|---|
+| `game.jar` | The game, unchanged. |
+| `icon.jpg` | Optional: 120 × 120 baseline JPEG. |
+| `manifest.json` | `kind: native`, `engine: j2me`, `min_fw: 400`. |
+
+```json title="manifest.json"
+{
+  "id": "jar.megablock",
+  "name": "Mega Block",
+  "version": "1.0.0",
+  "code": 10000,
+  "kind": "native",
+  "engine": "j2me",
+  "min_fw": 400,
+  "category": "game",
+  "author": "xylophones.net (Apache-2.0)",
+  "desc": "Stack the falling blocks into full rows to score. Open source, Apache-2.0.",
+  "icon": {"bg": ["#3a6bd1", "#1d3a7a"], "glyph": "grid"},
+  "perms": ["sound"],
+  "j2me": {"midlet": "net.xylophones.micro.game.mb.Midlet", "keypad": "full", "profile": "MIDP-2.0", "config": "CLDC-1.1"},
+  "part": "core"
+}
+```
+
+The device starts the class named by `MIDlet-1` in the jar's own `META-INF/MANIFEST.MF`. The `j2me` object in the manifest records the same facts for the store and the tools.
+
+<Tabs syncKey="tool">
+<TabItem label="espos CLI (Preview)">
+
+```sh
+espos jar MegaBlock.jar --license "Apache-2.0, xylophones.net" --desc "Stack the falling blocks into full rows"
+```
+
+`espos jar` reads the jar's manifest (name, vendor, version, MIDlet, icon), makes a 120 × 120 baseline icon, and writes `jar.<name>-<version>-core.espk`. `--license` is required.
+
+</TabItem>
+<TabItem label="Repository tools">
+
+Put `game.jar`, `manifest.json` and an optional `icon.jpg` in a folder, then:
+
+```sh
+python3 tools/espk.py jar-megablock/ build-pkgs/jar.megablock-1.0.0.espk
+```
+
+</TabItem>
+</Tabs>
+
+### The Java runtime package
+
+The class library (`java.*`, `javax.microedition.*`, `com.nokia.*`) is not in the firmware: there is no room. It ships as its own package, `dev.espos.j2me` (`type: pack`, about 175 KB). The store installs it before the first Java game, and updates it by itself after a sync when the catalog has a higher `code`. Build it with:
+
+```sh
+tools/j2me/make_runtime.sh 1.0.0 10000      # writes build-pkgs/dev.espos.j2me-1.0.0.espk
+```
+
+## Keys
+
+The keypad sends Nokia and Sony Ericsson key codes:
+
+| Key | Code |
+|---|---|
+| `0` to `9` | 48 to 57 |
+| `*` | 42 |
+| `#` | 35 |
+| Up, Down, Left, Right | -1, -2, -3, -4 |
+| OK (fire) | -5 |
+| Left soft key | -6 |
+| Right soft key | -7 |
+
+A soft key shows the label of the game's `Command` when it has one. Without one it reads "Left key" / "Right key" and still reaches the game as -6 / -7, so full-screen games that draw their own labels work.
+
+`GameCanvas.getKeyStates()` gets its bits from the same keys. A key tapped between two `getKeyStates()` calls still counts once.
+
+## Try it
+
+<Steps>
+
+1. **In the simulator.** Install the runtime and a game onto the simulator's card, then run a script:
+
+   ```sh
+   python3 tools/espk.py --install-sim sim/data-live build-pkgs/dev.espos.j2me-1.0.0.espk build-pkgs/jar.megablock-1.0.0.espk
+   tools/sim-live.sh sim/scripts/j2me-megablock.txt
+   ```
+
+2. **In QEMU** (the real firmware). Rebuild the memory card image with the packages, start QEMU and open the game from the dev console:
+
+   ```sh
+   python3 -c "import sys; sys.path.insert(0,'tools/qemu'); from pathlib import Path; import mkimage; mkimage.card(Path('sim/data-live/sd'), Path('build-qemu/sd.img'))"
+   tools/qemu/run.sh
+   ```
+
+   ```txt title="dev console"
+   APP jar.megablock
+   ```
+
+</Steps>
+
+## Upload your own game
+
+A user can add a game they own from the web desk, on the device's page:
+
+- The browser reads the jar and builds the package. Nothing is converted.
+- The jar can be at most **2 MB**, the package at most 2.2 MB, and the jar's icon at most 64 KB.
+- The package id is `u.` plus a short name made from the game's name, for example `u.rung-pixel`.
+- The server returns the package to that user's devices in the sync answer (`user_pkgs`). The device lists it next to the store's catalog and installs it like any package.
+
+User games are private to their owner. They are not listed in the store.
+
+## Licensing
+
+Most old phone games are still under copyright, even when they are no longer sold. Ship a game in the store only when its licence allows it, or with the author's permission, and say which in the description. The two games in the store today are **MegaBlock** (Apache-2.0) and **Space Shooter** (public domain). `espos jar` asks for the licence for this reason.
+
+## Limits
+
+| Limit | Detail |
+|---|---|
+| Profiles | MIDP 2.0 and CLDC 1.1. Nokia's `com.nokia.mid.ui` and `com.nokia.mid.sound` are included. |
+| Screen | 240 × 320 by default. A game whose `Canvas` reports another size (a port made for another phone, such as 320 × 240) is opened again at that size, up to 320 × 330, centred at the top with the keypad below (in landscape: in the middle, with the keys at the sides). Smaller games are not scaled up. |
+| Audio | Tones and tone sequences play. Sampled audio (WAV, MIDI, MP3) plays nothing. |
+| Keypad | One full keypad. Compact and touch modes are planned. |
+| Memory | The Java heap is what PSRAM can spare when the game opens, at most 3 MB. Each Java thread has a 32 KB stack. |
+| Saves | Record stores live next to the package: `/sdcard/espos/data/<id>/rms/` or `/littlefs/data/<id>/rms/`. |
+| Board | Not yet tested on a board. |
+
+How the VM works, for contributors: [Inside the Java VM](/guides/java-vm/).

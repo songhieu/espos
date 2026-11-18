@@ -1,0 +1,112 @@
+---
+title: Inside the Java VM
+description: "For contributors: the j2me engine's virtual machine, its memory and garbage collector, the interpreter, green threads, natives and the rules that keep them safe."
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+EspOS runs Java phone games on its own small Java virtual machine. This page is for people who work on the VM or its MIDP layer. To ship a game, see [Java (J2ME) games](/guides/java-games/).
+
+The VM is plain C++17 with no exceptions, no RTTI and no libraries (the JAR inflater is its own). The same files build for your computer (clang) and for the board (Xtensa GCC of ESP-IDF 5.5 / Arduino-ESP32 3.x).
+
+| Piece | Where |
+|---|---|
+| VM API | `src/j2me/jvm.h` |
+| VM core | `src/j2me/jvm.cpp`, `src/j2me/vm_*.cpp`, `vm_inflate.h` (the deflate decoder, also used for PNG) |
+| MIDP natives | `src/j2me/midp.cpp`: the 26 natives of `com.espos.j2me.Native` |
+| Drawing, PNG, fonts | `src/j2me/midp_draw.cpp`, `midp_png.cpp`, `midp_font.cpp` |
+| The game's screen and keypad | `src/j2me/app_j2me.cpp` |
+| Class library | `j2me/classlib`: `java.*`, `javax.microedition.*`, `com.nokia.mid.*`, `com.espos.j2me` |
+| Host runner | `tools/j2me` |
+| Tests | `j2me/test` (VM) and `j2me/test/midp` (458 MIDP checks) |
+
+## Build and test
+
+```sh
+j2me/build.sh                  # the class library: j2me/build/classlib (folder) and classlib.jar
+j2me/build.sh release          # without debug info: classlib.jar only
+make -C tools/j2me             # the host runner: tools/j2me/build/j2me-run
+make -C tools/j2me asan        # the same with AddressSanitizer and UBSan
+j2me/test/run.sh               # every test: PASS or FAIL each
+j2me/test/run.sh asan          # every test under ASan and UBSan
+j2me/test/run.sh gcstress      # a full GC at every allocation
+j2me/test/run.sh -bench        # also the benchmark (bytecodes per second)
+```
+
+`j2me-run [-cp folder_or_jar[:...]] [-Xmx 2m] [-Xss slots] [-bench] [-gcstress N] [-boot classlib] Class [args]` runs `main` and exits with the program's `System.exit` code; 1 when the main thread died of an exception (its stack trace is printed); 2 for a missing class or a deadlock (a thread dump is printed).
+
+The class library is compiled with JDK 17's `javac` as `-source 8 -target 8` with an empty boot class path, so `java.lang` comes from our sources. No lambdas and no `x.new Inner()` in the class library or tests. The deterministic tests are checked against what the JDK prints for the same class files.
+
+## Memory
+
+Everything the VM allocates goes through `vmMalloc`: PSRAM on the board (8-byte aligned), `malloc` elsewhere. Internal RAM is left alone.
+
+- **Objects** have a 16-byte header (`cls`, `mark`, `length`), then one 8-byte `Slot` per instance field, or an array's elements at their natural size. Objects never move, so `Object*` and element pointers stay valid across collections.
+- **The heap limit** (`Vm::heapLimit`) counts live object bytes: for a game on the device, what PSRAM can spare when it opens (at most 3 MB, keeping 1.4 MB for classes, threads and the OS); 64 MB on a computer. Past it, after a full collection, the allocation throws `OutOfMemoryError`.
+- **The collector** is mark-sweep. Java stacks are scanned **conservatively** (a slot that equals a live object's address keeps it alive); heap objects are scanned exactly.
+
+### The GC rule for natives
+
+The collector runs only inside allocations (`alloc`, `newArray`, `newString*`, `intern`, `mirror`, `call`, `throwNew`, `loadClass`/`initClass`) and `gc()`. So:
+
+- A native's arguments are safe for the whole native.
+- Every `Object*` the VM hands to C++ stays alive until the running native returns (outside natives: until the next `step()`).
+- An `Object*` read from a field or array element is only as alive as that field. Before you overwrite the field and allocate, call `vm.keep(o)`.
+- `Vm::Scope s(vm);` bounds the kept list in a native that allocates in a loop.
+- References kept across natives or steps need `vm.addRoot(&ptr)` and `vm.removeRoot(&ptr)`.
+
+Run `j2me/test/run.sh gcstress` after changing natives.
+
+## Classes
+
+Classes come from JARs (`addJar`: entries inflated on demand) and folders (`addDir`), searched in order. Linking lays out fields, builds the vtable, and binds natives. `<clinit>` runs on first active use, superclass first. Class file versions 45.3 to 52 are accepted; preverifier `StackMap` attributes are ignored.
+
+## The interpreter
+
+`Vm::run` is one function with computed-goto dispatch. Every opcode of Java 1.1 to 8 is there except `invokedynamic`. The first run of a field access, call, `new`, `checkcast`, `instanceof` or `anewarray` rewrites the instruction into a **quick** form with the resolved target. Exceptions raised by the VM are real Java exceptions with stack traces.
+
+On an Apple M-series computer, the benchmark runs about **620 million bytecodes per second**. On the board, the VM core is about 118 KB of code and 1 KB of internal RAM.
+
+## Threads, step() and nested calls
+
+All Java threads are green threads on one OS thread. Each has its own Java stack: 8192 slots (64 KB) by default, 4096 slots (32 KB) for games on the device. The game's OS task has a 16 KB stack in PSRAM; because a task with a PSRAM stack must not touch flash, the record stores' file work runs on the UI thread.
+
+`step(budgetUs)` runs ready threads round robin, up to 4 ms each, until the budget is used. After it, `idleUs` says how long nothing will run:
+
+| `idleUs` | Meaning |
+|---|---|
+| 0 | Threads still have work: call `step` again soon. |
+| n | Every thread sleeps or waits with a timeout; the first wakes in n µs. |
+| `Vm::kForever` | Every thread waits without a timeout: only a host call can change that. |
+
+`call(t, m, args)` runs a Java method to its return, for host events such as `paint`, `keyPressed` and `startApp`. If the Java code blocks, the other threads run until it can continue; if nothing can ever wake it, the VM throws `Error("deadlock")` instead of hanging.
+
+Each nested level (a native calling back into Java, a class initializer) takes about 0.7 KB of C stack on the board. The game's task has a 16 KB stack, room for about 15 levels; real games nest 2 to 4.
+
+## Natives
+
+```cpp
+static void sqrt(j2me::Vm& vm, j2me::Thread& t, j2me::Slot* args, j2me::Slot& ret) {
+  ret.d = std::sqrt(args[0].d);
+}
+vm.registerNative("java/lang/Math.sqrt(D)D", sqrt);
+```
+
+- The key is the internal class name, `.`, the method name and its descriptor.
+- `args` holds the receiver first (instance methods), then one `Slot` per argument. The result goes in `ret`.
+- Throw with `vm.throwNew(t, "java/lang/IllegalArgumentException", "why")` and return at once.
+- Strings: `vm.str(obj)`, `vm.strChars(obj, &p)`, `vm.newString(utf8)`, `vm.intern(utf8)`. Arrays: `arr->elems<int32_t>()` and friends; `vm.newArray('I', nullptr, n)`.
+- Call back into Java with `vm.findVirtual(...)` and `vm.call(t, m, a)`, then return if `t.pending` is set.
+
+`System.getProperty` gives `microedition.platform` = `EspOS-S3`, `microedition.configuration` = `CLDC-1.1`, `microedition.profiles` = `MIDP-2.0`, `microedition.encoding` = `ISO-8859-1` and `microedition.locale` = `en-US`.
+
+## Limits
+
+- No `invokedynamic` (lambdas, Java 9+ string concatenation), no default methods in interfaces, no reflection beyond CLDC's `Class`, no finalizers, no weak references that clear, no class unloading.
+- **No bytecode verifier**, and few access checks: games are trusted to be well-formed. The MIDP natives check every array and rectangle they are given.
+- Encodings: UTF-8 and ISO-8859-1 only.
+- One OS thread: a native that blocks it blocks every Java thread.
+
+<Aside type="note">
+The full design notes are in the repository's `docs/j2me.md` and `docs/j2me-games.md`.
+</Aside>

@@ -1,0 +1,51 @@
+---
+title: Notifications
+description: 'How notifications reach the user: banners, the Notification Center, icon badges, scheduling, quiet hours and the per-app switch.'
+---
+
+import DeviceShots from '../../../components/DeviceShots.astro';
+import banner from '../../../assets/shots/tea-banner.png';
+import { Aside } from '@astrojs/starlight/components';
+
+Every app can post notifications: built-in apps, native games and JavaScript apps. A JavaScript app needs the `notify` permission.
+
+<DeviceShots shots={[{ src: banner, alt: 'A banner at the top of the screen: Tea timer, Green tea is ready, Take the leaves out now', caption: 'A banner over the app' }]} />
+
+## Where a notification shows
+
+| Place | What happens |
+|---|---|
+| **Banner** | Slides in at the top. Tap it to open the app with the notification's `arg`. Swipe it up to dismiss it. |
+| **Notification Center** | Pull down from the left half of the status bar. It keeps the 50 newest notifications, across restarts. |
+| **Icon badge** | A count on the app's icon on Home, until the user opens the app. An app can also set its own number. |
+| **Sound** | The system chime, unless the notification asks for none. |
+
+## What the user controls
+
+- **Per-app switch.** Settings › Notifications on the device, or the web desk, can turn off one app's notifications. `notify()` then returns `false` and posts nothing. The setting is `s3.notif`.
+- **Do Not Disturb and quiet hours.** While Do Not Disturb is on, or during the night hours set on the web (23:00 to 06:00 by default), notifications reach the Center but make no banner and no sound.
+- **Previews.** With `s3.notif_preview` set to "0", banners hide the text.
+
+## Scheduled notifications
+
+An app can schedule a notification for later. It fires even if the app is closed, and survives a restart:
+
+- A device holds at most **32** scheduled notifications.
+- A time already past posts at once.
+- A notification found more than 15 minutes late (the device was off) goes to the Center quietly, without a banner or sound.
+
+## Tags replace
+
+A notification with a `tag` replaces an older one of the same app with the same tag, both scheduled and shown. Use one tag per thing ("brew", "daily-reminder") so a user never sees two copies.
+
+## Sizes
+
+The device keeps up to 120 bytes of a title, 400 bytes of a body, 120 bytes of an `arg` and 40 bytes of a `tag`. Longer text is cut to fit.
+
+## Notifications from the web
+
+The web desk's notes for the dashboard arrive as notifications of the pseudo app `desk`, shown as "EspOS". Built-in apps use their own ids (`news`, `weather`, `cal`, `clock`, `remind`, `pet`).
+
+<Aside type="tip">
+The calls, options and examples are in [Notifications and badges](/guides/js/notifications/).
+</Aside>

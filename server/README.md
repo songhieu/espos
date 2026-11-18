@@ -1,8 +1,9 @@
 # EspOS server (self-hosted)
 
-The server side of [EspOS](../README.md): the web app and the API the Xteink X4 reader
-talks to. One Go binary, one account, all data in one folder. No cloud service, no sign-up.
-The reader's firmware is in [../firmware](../firmware/README.md).
+The server side of [EspOS](../README.md): the web app and the API the Xteink X4 reader and
+the ESP32-S3 colour desk talk to. One Go binary, one account, all data in one folder. No cloud
+service, no sign-up. The reader's firmware is in [../firmware](../firmware/README.md), the
+desk's in [../s3](../s3/README.md).
 
 > **Tiếng Việt:** Máy chủ EspOS tự host cho máy đọc Xteink X4. Một file chạy duy nhất,
 > một tài khoản (đặt bằng `ESPOS_USER` / `ESPOS_PASSWORD`), dữ liệu nằm trong một thư
@@ -93,6 +94,15 @@ ESPOS_PASSWORD='a long password' ./espos
 The reader talks to the server over HTTPS or plain HTTP. HTTPS is recommended whenever the
 server is reachable from outside your network.
 
+## Connecting the S3 desk
+
+The desk (firmware in [../s3](../s3/README.md)) pairs with a code like a reader that has no
+cable: build its firmware with this server's address (`ESPOS_API` and `ESPOS_WEB`, see the
+[S3 README](../s3/README.md#server-address)), then enter the code it shows under **Thiết bị**.
+It syncs its settings, widgets, news, markets and packages with this server. The self-hosted
+web app has no pages for the desk's Home screens yet: edit them on the desk itself (every
+setting has a screen there).
+
 ## Data and backups
 
 Everything is in `ESPOS_DATA`:
@@ -128,7 +138,18 @@ switched on.
 - `internal/jobs/newsjob`: the morning paper builder, run as a background job.
 - `web/`: the React web app, embedded into the binary at build time.
 - `tools/importer`: re-imports the workflows from the hosted EspOS backend
-  (`make import FROM=…`), so both stay the same.
+  (`make import FROM=…`), so both stay the same. Two kinds are left out on purpose: routes for
+  the hosted store's API keys, and the workflows that send e-mail on the hosted sign-up's
+  account events (`user.registered`, `user.verification_requested`,
+  `password.reset_requested`, through `event_trigger` and `smtp_send`). This server has one
+  account set by `ESPOS_USER` / `ESPOS_PASSWORD`: nobody signs up, checks an address or resets
+  a password by mail, so there is no SMTP setting. Any other `event_trigger` stops the import
+  until the engine supports it. Workflows that answer HTTP but that no route runs (drafts and
+  temporary probes on the hosted site), and tables nothing here uses yet, are left out too.
+  So is the dog assistant (`/v1/device/assist`, `/v1/devices/:id/assist`, `/v1/assist/memories`):
+  it needs the hosted service's AI model and speech service (workflows that read a hosted secret,
+  the ones that call them, and its own memory workflows). The S3 shows no answer from the dog on a
+  self-hosted server.
 
 ```sh
 make test     # Go tests
@@ -150,4 +171,6 @@ cd web && npm run dev    # the web app with hot reload, using a server on :8080
 
 ## License
 
-MIT, see [LICENSE](../LICENSE). Bundled fonts keep their own licenses (OFL, UFL).
+GNU Affero General Public License v3.0, see [LICENSE](LICENSE). If you run a changed copy as a
+service for others, offer them its source. Bundled fonts keep their own licenses (OFL, UFL).
+Copies up to commit `fac0c54` (2026-11-18) were published under the MIT License and stay MIT.

@@ -1,0 +1,36 @@
+# PawBoop's ten dogs, the run's eight maps and the dog assistant, in the window (then by hand):
+#   make -C sim BUILD=build-dogs-live live && SIM_DATA=sim/data-dogs SIM_NO_PACKS=1 SIM_FW_CODE=501 \
+#     sim/build-dogs-live/espos-live sim/scripts/demo-dogs.txt
+#   (sim/data-dogs: tools/pawboop/make_all.py --sim sim/data-dogs on a copy of sim/data, no apparea.bin)
+wait 3000
+set s3.pet_dog corgi
+pet
+wait 6000
+tap 70 44
+wait 3500
+tap 236 250
+wait 6000
+pet clip:pounce
+wait 300
+tap 160 250
+wait 8000
+tap 192 44
+wait 5000
+tap 300 222
+wait 1500
+tap 300 222
+wait 1500
+tap 160 300
+wait 1500
+dev auto
+wait 25000
+back
+wait 3000
+home
+wait 2000
+app pet summon
+wait 8000
+tap 52 441
+wait 6000
+tap 144 441
+wait 8000

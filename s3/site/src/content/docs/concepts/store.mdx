@@ -1,0 +1,61 @@
+---
+title: The store
+description: 'How the store catalog, the device installer and the web desk work together, including updates, parts, add-ons and user packages.'
+---
+
+import Status from '../../../components/Status.astro';
+import { Aside } from '@astrojs/starlight/components';
+
+The store is three things working together:
+
+1. **A catalog**: one JSON file on the server's public storage that lists every package, its parts, their sizes and their SHA-256.
+2. **The installer on the device**: it reads the catalog, downloads parts, checks them and writes them.
+3. **The web desk**: the user's browser, which can ask the device to install, move or remove a package.
+
+## Installing from the device
+
+The Store app on the device lists the catalog's packages by category: `game`, `tool`, `study`, `health`, `widget`. Its page for a package shows the icon, description, author, permissions in plain words, size, and a choice of parts when the package has groups. Names and descriptions show in the device's language when the catalog entry has them in `i18n` (see [Languages and translation](/guides/languages/#your-packages-name-in-other-languages)).
+
+An install:
+
+1. picks the required parts and one part of each group (the default unless the user picks another);
+2. checks the room in the chosen place;
+3. downloads each part over HTTPS, several byte ranges at once;
+4. checks the part's SHA-256 against the catalog and each file's CRC32;
+5. writes the files, reading the internal flash back to confirm;
+6. commits the install (an NVS index entry, or a folder rename) only when every part is good.
+
+A failure at any step frees everything it took. One job runs at a time; others wait in a queue.
+
+## Updates
+
+When the catalog's `code` for a package is higher than the installed one, the store offers "Update". An update installs the new version next to the old one and then drops the old one, in the same place, with the same parts.
+
+## Installing from the web
+
+The web desk and the device share the setting `s3.pkgs`, a list of the packages the user wants:
+
+```json
+[{"id": "vn.pawboop.run", "parts": ["core", "roads10"], "vol": "sd"},
+ {"id": "dev.espos.focus", "vol": "flash"},
+ {"id": "vn.pawboop.pet", "rm": true}]
+```
+
+The device installs what is listed and missing, moves a package whose `vol` changed, and removes entries marked `"rm": true`. It reports what it has in every sync. The full contract is in [Package sync](/reference/pkgs-sync/).
+
+## Add-ons and packs
+
+- An **add-on** (`addon_of` in its manifest) is not listed on its own. The main app's page shows it under "Add-ons", with its own part choice, place and progress. The store refuses it until the main app is installed: "Install PawBoop first".
+- A **pack** (`type: pack`) is installed automatically with what needs it, and updated by itself when the catalog has a newer one. The Java runtime `dev.espos.j2me` is installed before the first Java game. A language (`dev.espos.lang.<tag>`) and its font (`dev.espos.font.<name>`) are installed when the user picks that language in Settings › Language or on the web; Settings › Storage can remove them.
+
+## User packages
+
+A user can upload their own Java game on the web desk, on the device's page. The browser builds the package, and the server returns it to that user's devices in the sync answer as `user_pkgs`, with an id that starts with `u.`. The device lists these next to the store's catalog and installs them through `s3.pkgs` like any other package. See [Java (J2ME) games](/guides/java-games/#upload-your-own-game).
+
+## The catalog file
+
+The catalog's `packages` list holds one entry per package. Its format is in [Store catalog](/reference/catalog/).
+
+<Aside type="note" title="Who can publish">
+Today only the store's owner publishes to the official catalog. A developer portal with review, signed catalogs and several catalog sources are planned. See [Publish to the store](/guides/publishing/). <Status s="planned" />
+</Aside>

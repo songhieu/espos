@@ -1,0 +1,101 @@
+---
+title: Test in QEMU
+description: "Run the real EspOS firmware image on Espressif's emulated ESP32-S3: setup, the viewer, the dev console over TCP, screenshots and the 2.8-inch board."
+---
+
+import { Aside, Steps } from '@astrojs/starlight/components';
+import Status from '../../../components/Status.astro';
+
+QEMU runs the **real firmware image** on an emulated ESP32-S3: the ROM boot, the bootloader, both Xtensa cores, FreeRTOS, 8 MB of octal PSRAM and the 16 MB flash with the board's partition table. What runs is the board's code: LVGL, the stack checks, the heaps, the watchdogs, the JPEG decoder, FatFs on the card and LittleFS.
+
+Use it to catch what the [simulator](/guides/simulator/) cannot: stack overflows, internal RAM shortages and anything that depends on FreeRTOS.
+
+## Setup
+
+<Steps>
+
+1. Get Espressif's QEMU build for the ESP32-S3 (release `esp-develop-9.2.2-20261109` is the one checked) from Espressif's QEMU releases, check its SHA-256 against the release page, and unpack it to `../tools-ext/qemu` next to the firmware repository. Or point the `QEMU` variable at its `qemu-system-xtensa`.
+
+2. Install PlatformIO (see [Set up your tools](/getting-started/install/)). `run.sh` builds the `s3desk-qemu` firmware environment for you.
+
+3. Run it:
+
+   ```sh
+   tools/qemu/run.sh
+   ```
+
+   The first run builds the firmware, writes `build-qemu/flash.bin` and the card image `build-qemu/sd.img`, starts QEMU, and opens the viewer.
+
+</Steps>
+
+## With the CLI<Status s="preview" />
+
+```sh
+espos qemu --install dist/com.example.myapp-1.0.0-core.espk   # put your package on the card, then run
+espos qemu --board 28 --install . --headless                  # the 2.8" board, no window
+```
+
+`espos qemu` wraps `tools/qemu/run.sh`, and `--install` checks a package (or builds a project folder) and writes it onto the card image first. It refuses while QEMU is running, because the card image must not change under it. All options: [CLI reference](/reference/cli/#espos-qemu).
+
+## Ways to run
+
+| Command | What you get |
+|---|---|
+| `tools/qemu/run.sh` | Build, update the image (its data kept, as flashing a board), run with the viewer. |
+| `tools/qemu/run.sh --keep` | The images as they are, no build. |
+| `tools/qemu/run.sh --fresh` | A new image: data from `sim/data-live` (settings, packages, the card), not linked to an account. |
+| `tools/qemu/run.sh --sdl` | QEMU's own window (no mouse); the dev console in this terminal. |
+| `tools/qemu/run.sh --tcp 5555` | QEMU's own window; the dev console on TCP port 5555. |
+| `tools/qemu/run.sh --headless` | No window; the dev console on port 5555. |
+| `tools/qemu/run.sh --board 28` | The 2.8" board's firmware, with its own images, console port 5556 and web port 8081. It can run next to the 3.5" one. |
+
+## The viewer
+
+The viewer shows the frame the firmware keeps in the virtual panel's memory, about 30 times a second, at the board's real size (**Z** enlarges). The mouse is your finger: its samples go into the firmware's touch queue, so gestures, slop and clicks behave as on the board. The keys are the [live simulator's](/guides/simulator/#keys-and-mouse). Type [dev console commands](/reference/dev-console/) in the terminal.
+
+## Scripting over TCP
+
+```sh
+tools/qemu/run.sh --tcp 5555 &
+tools/qemu/console.py 5555 "APP com.example.teatimer" sleep:2 "TAP 160 278" sleep:1 shot:started.ppm
+```
+
+`console.py PORT [--wait SECONDS] [CMD ...]` sends each command as a dev console line, prints what the firmware answers, waits on `sleep:N`, and saves the screen on `shot:FILE.ppm`.
+
+## Your package in QEMU
+
+The image's data comes from `sim/data-live`. Install your package there, then start fresh:
+
+```sh
+python3 tools/espk.py --install-sim sim/data-live out/myapp.espk --vol flash
+tools/qemu/run.sh --fresh
+```
+
+For a package on the card only, rebuild the card image instead of the whole image:
+
+```sh
+python3 -c "import sys; sys.path.insert(0,'tools/qemu'); from pathlib import Path; import mkimage; mkimage.card(Path('sim/data-live/sd'), Path('build-qemu/sd.img'))"
+tools/qemu/run.sh --keep
+```
+
+## Network and pairing
+
+QEMU's emulated Ethernet (OpenCores) replaces WiFi, with NAT through your computer, so the same TLS, sync, pairing and store code runs. A QEMU device can link to an EspOS account like a board: it shows up as "EspOS S3 (QEMU)". Its link token is kept across runs; `--fresh` starts unlinked.
+
+The device's local remote-control page is forwarded to `http://127.0.0.1:8080` (8081 for the 2.8" board). See [Work with a real device](/guides/device/#remote-control).
+
+## How it differs from a board
+
+| Area | In QEMU |
+|---|---|
+| Display | QEMU's virtual panel instead of the board's controller; the whole frame is sent each time. |
+| Touch | From the viewer's mouse and the dev console (`TOUCH`, `TAP`, `DRAG`). No touch controller. |
+| Network | Ethernet instead of WiFi. |
+| Sound | None. |
+| Battery | A fixed value. |
+| Speed | Your computer's. No PSRAM, cache or card timing: use the live simulator's board speed or a board for timing. |
+| Internal RAM | More is free than on a board (no WiFi driver: about 112 KB with the network up). |
+
+<Aside type="note" title="The 2.8-inch board">
+`--board 28` builds `s3desk-28-qemu`. The window is the 240 × 320 panel; the interface is kept in PSRAM and sent to the panel at 2/3: 213 × 320 with 13 px of black on each side in portrait, 320 × 213 in landscape. QEMU's panel stays portrait like the glass, so a landscape picture shows on its side. The viewer maps the mouse back to interface coordinates. See [Boards](/guides/boards/).
+</Aside>

@@ -1,0 +1,20 @@
+# PawBoop merged: the pet's "Chạy lấy xu" opens the run over her screen; the run pays; "Về nhà" brings her back
+# with the coins (+N xu, her @coin line). Needs vn.pawboop.run installed (make_pkgs.py --sim) and the pet packs.
+pet
+wait 1500
+dismiss
+wait 3500
+shot m1_pet
+tap 192 44
+wait 1500
+shot m2_start
+tap 160 230
+wait 45000
+shot m3_over
+tap 160 340
+wait 250
+shot m4_back
+wait 700
+shot m5_back
+wait 3000
+shot m6_later

@@ -1,0 +1,26 @@
+# The dog at the alarm (SIM_CLOCK="2026-11-18 06:29:40", a Wednesday: the weekday alarm 06:30 rings):
+# rings 1, 2, 3 (after two snoozes), then off
+wait 2500
+set s3.pet_dog corgi
+shot home
+wait 19000
+shot alarm1
+wait 4000
+shot alarm1b
+tap 86 412
+wait 1200
+shot snooze1
+wait 30000
+wait 520000
+shot alarm2
+wait 3000
+shot alarm2b
+tap 86 412
+wait 30000
+wait 520000
+shot alarm3
+wait 3000
+shot alarm3b
+tap 234 412
+wait 1200
+shot off

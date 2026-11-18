@@ -1,0 +1,248 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://espos.dev/schemas/manifest-v2.schema.json",
+  "title": "EspOS package manifest v2 (DRAFT; the X4 firmware reads the decl subset)",
+  "description": "The planned manifest v2 from s3/docs/platform.md (agreed 2026-11-17): package types, runtimes, API levels, screens, theme, the permission list version 1, entry points. No firmware reads these fields yet (firmware 0.5.0 = API level 1 reads the current format, manifest.schema.json). Field names may still change; do not ship packages that depend on them. Faces, widgets and themes with \"runtime\": \"decl\" are the exception: the X4 firmware reads them now (s3/docs/profiles.md §3-4).",
+  "type": "object",
+  "required": [
+    "id",
+    "name",
+    "version",
+    "code",
+    "type",
+    "runtime",
+    "api"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._-]{0,47}$"
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 40
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^[0-9a-z.+-]{1,20}$"
+    },
+    "code": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 1999999999
+    },
+    "type": {
+      "enum": [
+        "app",
+        "widget",
+        "face",
+        "theme",
+        "service",
+        "pack",
+        "driver"
+      ],
+      "description": "app: full screen with a lifecycle; widget: home-screen card (declarative + data bindings); face: clock face / screen saver; theme: data only (colour tokens, wallpapers); service: short background job; pack: data for a native engine; driver: a plugged-in device's driver."
+    },
+    "runtime": {
+      "enum": [
+        "js",
+        "wasm",
+        "engine",
+        "decl"
+      ],
+      "description": "decl: data only (JSON layouts drawn by the OS renderer), for face, widget and theme."
+    },
+    "api": {
+      "type": "object",
+      "required": [
+        "min"
+      ],
+      "properties": {
+        "min": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "The lowest API level the package works with (the store hides it on devices below)."
+        },
+        "target": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "min_fw": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "screens": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[0-9]{3,4}x[0-9]{3,4}$"
+      },
+      "uniqueItems": true,
+      "description": "Screen sizes the package draws for, e.g. 320x480, 240x320 (S3 boards), 800x480 and 480x800 (X4)."
+    },
+    "theme": {
+      "enum": [
+        "system",
+        "custom"
+      ],
+      "default": "system"
+    },
+    "perms": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "anyOf": [
+          {
+            "enum": [
+              "notify",
+              "sound",
+              "bg",
+              "screen.awake",
+              "remote",
+              "net:*",
+              "net:lan",
+              "location:city",
+              "wifi.info",
+              "theme.write",
+              "hw:*"
+            ]
+          },
+          {
+            "type": "string",
+            "pattern": "^net:[a-z0-9.-]+$"
+          },
+          {
+            "type": "string",
+            "pattern": "^storage:[0-9]+$"
+          },
+          {
+            "type": "string",
+            "pattern": "^data:(weather|calendar|markets|news|reading)$"
+          },
+          {
+            "type": "string",
+            "pattern": "^sensor:[a-z0-9_.]+$"
+          },
+          {
+            "type": "string",
+            "pattern": "^actuator:[a-z0-9_.]+$"
+          }
+        ]
+      }
+    },
+    "entry": {
+      "type": "object",
+      "properties": {
+        "app": {
+          "type": "string"
+        },
+        "widget": {
+          "type": "string"
+        },
+        "settings": {
+          "type": "string"
+        },
+        "face": {
+          "type": "string"
+        },
+        "theme": {
+          "type": "string"
+        }
+      }
+    },
+    "category": {
+      "enum": [
+        "game",
+        "tool",
+        "study",
+        "health",
+        "widget"
+      ]
+    },
+    "author": {
+      "type": "string",
+      "maxLength": 40
+    },
+    "desc": {
+      "type": "string",
+      "maxLength": 300
+    },
+    "icon": {
+      "$ref": "manifest.schema.json#/properties/icon"
+    },
+    "addon_of": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._-]{0,47}$"
+    },
+    "part": {
+      "type": "string",
+      "pattern": "^[a-z0-9_-]{1,24}$"
+    },
+    "requires": {
+      "type": "array",
+      "uniqueItems": true,
+      "description": "Capability names the device must report (s3/docs/profiles.md §1.1, src/hal/caps.h).",
+      "items": {
+        "enum": [
+          "audio.in",
+          "audio.out",
+          "input.buttons",
+          "input.touch",
+          "led.rgb",
+          "mem.psram",
+          "net.ble",
+          "net.wifi",
+          "power.battery",
+          "screen.color",
+          "screen.eink",
+          "screen.fast",
+          "screen.gray",
+          "store.sd"
+        ]
+      }
+    },
+    "refresh": {
+      "enum": [
+        "minute",
+        "hour",
+        "data",
+        "day"
+      ],
+      "description": "decl faces: how often the OS redraws it at most."
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "runtime": {
+            "const": "decl"
+          }
+        },
+        "required": [
+          "runtime"
+        ]
+      },
+      "then": {
+        "properties": {
+          "type": {
+            "enum": [
+              "face",
+              "widget",
+              "theme"
+            ]
+          }
+        }
+      },
+      "else": {
+        "required": [
+          "min_fw"
+        ]
+      }
+    }
+  ]
+}

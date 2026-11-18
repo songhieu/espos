@@ -1,0 +1,64 @@
+---
+title: The OS and packages
+description: 'How EspOS is built: the firmware owns the system services and runtimes, and everything else arrives as a package.'
+---
+
+import Layers from '../../../components/Layers.astro';
+import Status from '../../../components/Status.astro';
+
+EspOS splits the device in two. The **firmware** is the OS: it is flashed once and updated over the air. **Packages** are everything you install on top: apps, games, and later widgets, themes and drivers.
+
+<Layers />
+
+## What the firmware owns
+
+The firmware keeps everything that must be fast, trusted or shared:
+
+- the home screen and launcher, the widget renderer, settings, the store and installer, and notifications;
+- data sync with the server (weather, calendar, markets, news), the network and TLS queue, OTA updates, power and input;
+- the runtimes: QuickJS for JavaScript, and the native engines `pet`, `run` and `j2me`;
+- the languages: English built in, the other languages as `lang` and `font` packs (see [Languages and translation](/guides/languages/)).
+
+Built-in apps such as Weather, Calendar and Clock are part of the firmware today. The [roadmap](/roadmap/) moves several of them into packages, rewritten on the public API, without losing speed.
+
+## What a package is
+
+A package is one `.espk` file: a JSON manifest, a table of files, and the files. A JavaScript app is usually a few kilobytes. A game's data can be megabytes, split into [parts](/guides/packaging/#big-packages-parts) so the user can pick a lighter or a richer download.
+
+The installer downloads each part over HTTPS, checks its SHA-256 against the store catalog and each file's CRC32, writes it to the chosen place, and commits the install only when every part is good. A failure frees everything it took. The format is in [.espk file format](/reference/espk/).
+
+Packages live in one of two places, chosen by the user:
+
+| Place | Shown on the device as | Used for |
+|---|---|---|
+| Internal flash | "Device" | JavaScript apps go to the LittleFS file system. Big native data goes to a 7.5 MB app area, memory-mapped for zero-copy reads. |
+| Memory card | "Memory card" | Any package. Self-describing folders on the FAT32 card. |
+
+The user can move a package between the two to make room. See [Storage](/concepts/storage/).
+
+## How apps reach the system
+
+Apps never call firmware functions directly. They call the **EspOS API**, a small set of objects the OS puts into the app's JavaScript context: `ui`, `app`, `timer`, `sound`, `notify`, `toast` and `store`. Each call that needs a permission checks it first. This set is [API level 1](/concepts/api-levels/).
+
+The platform plan grows the API in modules (`net`, `data`, `theme`, `time`, `intent`, `sensors`, `bg`) behind the same permission checks, with one contract and three bindings: C++ for system apps, JavaScript, and WebAssembly. <Status s="planned" />
+
+## Engines: native code, first-party only
+
+Some packages are data for a **native engine** compiled into the firmware:
+
+| Engine | What it runs | Its packages carry |
+|---|---|---|
+| `js` | JavaScript apps (QuickJS-ng) | `main.js` |
+| `pet` | PawBoop, a virtual pet | pictures, voice lines |
+| `run` | The PawBoop run game | sprites, road videos, settings |
+| `j2me` | Java phone games (MIDP 2.0) | `game.jar` |
+| `lang` | A language for the OS's own texts | `strings.bin` |
+| `font` | The letters a language needs (Vietnamese, Chinese, Japanese, Korean, Cyrillic) | pre-rendered font files |
+
+Engines are written by the EspOS project and reviewed like the rest of the firmware. Third parties ship JavaScript (and later WebAssembly), never native code. The reason is in [Security model](/concepts/security/).
+
+## The server
+
+A device links to an EspOS server. The server stores the device's settings, serves data feeds and the store catalog, and relays remote control. The web desk in a browser edits the same settings, including which packages the device should have. The two sides meet in the `s3.pkgs` setting, described in [Package sync](/reference/pkgs-sync/).
+
+The S3 links to the hosted server today. The open-source server in the public repository runs the X4 reader on your own machine; full self-hosting for the S3 is [planned](/roadmap/self-hosting/). See [Hosted and self-hosted](/concepts/hosting/).

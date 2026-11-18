@@ -43,6 +43,8 @@ var syncKeys = []string{
 	"s3.notif_preview",
 	"s3.saver_pages",
 	"s3.markets",
+	"s3.pet_dog", "s3.assist",
+	"s3.home_l",
 	"x4.pkgs",
 }
 

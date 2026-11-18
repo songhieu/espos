@@ -1,0 +1,63 @@
+{
+ "id": "dev.espos.vocab",
+ "name": "Vocabulary",
+ "version": "1.1.0",
+ "desc": "English word cards, a few a day, reviewed at the right time",
+ "icon": {
+  "bg": [
+   "#22c55e",
+   "#15803d"
+  ],
+  "glyph": "font"
+ },
+ "permissions": [],
+ "part": "core",
+ "code": 10100,
+ "kind": "js",
+ "engine": "js",
+ "min_fw": 300,
+ "category": "study",
+ "perms": [],
+ "i18n": {
+  "vi": {
+   "name": "Từ vựng",
+   "desc": "Thẻ nhớ tiếng Anh, mỗi ngày vài từ, ôn lại đúng lúc"
+  },
+  "zh-Hans": {
+   "name": "背单词",
+   "desc": "英语单词卡，每天几个，适时复习"
+  },
+  "es": {
+   "name": "Palabras",
+   "desc": "Tarjetas de inglés: unas pocas al día, repaso a tiempo"
+  },
+  "fr": {
+   "name": "Mots",
+   "desc": "Cartes de mots anglais, un peu chaque jour"
+  },
+  "de": {
+   "name": "Vokabeln",
+   "desc": "Englisch-Karten, täglich ein paar, clever wiederholt"
+  },
+  "ja": {
+   "name": "英単語",
+   "desc": "英単語カードを毎日少しずつ、最適なタイミングで復習"
+  },
+  "ko": {
+   "name": "영단어",
+   "desc": "영어 단어 카드, 하루 몇 개씩, 제때 복습"
+  },
+  "pt-BR": {
+   "name": "Palavras",
+   "desc": "Cartões de inglês, poucos por dia, revisados na hora certa"
+  },
+  "ru": {
+   "name": "Слова",
+   "desc": "Карточки английских слов, понемногу в день"
+  },
+  "id": {
+   "name": "Kosakata",
+   "desc": "Kartu kata bahasa Inggris, sedikit tiap hari"
+  }
+ }
+}

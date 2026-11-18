@@ -1,0 +1,44 @@
+# The dog assistant (SIM_CLOCK="2026-11-18 12:01:00"): greeting + weather, the chips, a habit, meal, good night,
+# late night, long time (water every 30 min so the test is quick).
+wait 2500
+set s3.pet_dog husky
+set s3.assist {"on":1,"greet":1,"weather":1,"alarm":1,"water":30,"move":0,"eyes":0,"meal":1}
+wait 20000
+tap 300 404
+wait 1500
+shot noon
+wait 9000
+shot noon2
+tap 52 441
+wait 1200
+shot time
+wait 6000
+tap 144 441
+wait 1200
+shot weather
+wait 30000
+shot dismissed
+wait 840000
+tap 300 404
+wait 925000
+shot water
+wait 30000
+clock 2026-11-18 18:29:30
+tap 300 404
+wait 40000
+shot meal
+wait 30000
+clock 2026-11-18 22:30:00
+tap 300 404
+wait 1500
+shot goodnight
+wait 30000
+clock 2026-11-19 01:10:00
+tap 300 404
+wait 1500
+shot latenight
+wait 30000
+clock 2026-11-23 09:00:00
+tap 300 404
+wait 1500
+shot longtime

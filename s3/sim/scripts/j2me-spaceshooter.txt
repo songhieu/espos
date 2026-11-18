@@ -1,0 +1,17 @@
+# Space Shooter (public domain) on the J2ME engine: tools/sim-live.sh sim/scripts/j2me-spaceshooter.txt
+# Keypad: OK 74,416; left 35,416; right 113,416; up 74,377; down 74,455; soft left 58,339; soft right 262,339
+wait 2500
+app jar.spaceshooter
+wait 7000
+shot ss-1
+tap 74 416
+wait 2500
+tap 74 416
+wait 300
+tap 74 416
+wait 300
+tap 74 377
+wait 300
+tap 74 377
+wait 1500
+shot ss-2

@@ -1,0 +1,161 @@
+---
+title: Test in the simulator
+description: 'Run EspOS on your computer: the live window with the mouse as a finger, scripted runs with screenshots, installing your package, and what the simulator does not model.'
+---
+
+import { Aside, Steps, Tabs, TabItem } from '@astrojs/starlight/components';
+
+The simulator is the OS's own code built for your computer, with the hardware replaced by stand-ins. It has two forms:
+
+| | Binary | Use it to |
+|---|---|---|
+| **Live** | `sim/build-live/espos-live` | Try your app by hand in a window: the mouse is your finger, the speaker works. |
+| **Scripted** | `sim/build/espos-sim` | Replay taps from a script as fast as your computer goes, and save screenshots. For tests and CI. |
+
+Both read a **data folder**: settings, installed packages, the memory card and canned network answers. Give each project its own copy so tests do not affect each other.
+
+## Get your app into the simulator
+
+<Tabs syncKey="tool">
+<TabItem label="Repository tools">
+
+```sh
+cp -R sim/data sim/data-me                               # your own data folder, once
+python3 tools/espk.py myapp/ out/myapp.espk               # package
+python3 tools/espk.py --install-sim sim/data-me out/myapp.espk --vol flash
+```
+
+`--install-sim` unpacks the package straight into the data folder: onto the simulated card by default, or into the internal flash with `--vol flash` (JavaScript packages only). It replaces an older copy of the same id.
+
+</TabItem>
+<TabItem label="espos CLI (Preview)">
+
+```sh
+espos sim myapp              # build, install, open the app in the live window
+espos sim myapp --watch      # rebuild, reinstall and restart when a file changes
+espos sim myapp --headless   # no window: run sim/smoke.txt, save screenshots, fail on an app error
+```
+
+The CLI keeps a data folder per project in `.espos/sim-<base>`, copied from `sim/data-live` the first time (`--fresh` starts over), and builds the simulator when it is out of date. `--vol flash|sd` picks where the package goes, `--arg TEXT` sets `app.arg`, and `--script FILE` runs your own commands after the app opens. All options: [CLI reference](/reference/cli/#espos-sim).
+
+</TabItem>
+</Tabs>
+
+## The live simulator
+
+```sh
+SIM_DATA=sim/data-me sim/build-live/espos-live --fast
+```
+
+Then type `app com.example.myapp` in the terminal to open your app, or tap its icon on Home.
+
+| Option | Meaning |
+|---|---|
+| (none) | The board's speed for the run game's decoders; the rest at your computer's speed. |
+| `--fast` | Your computer's speed for everything. |
+| `--zoom N` | N points per screen pixel. The default is the board's real size on your display; **Z** toggles. |
+| `--out DIR` | Where screenshots go (default `sim/shots`). |
+| `SCRIPT` | A script's commands first, then by hand. |
+
+`tools/sim-live.sh` builds the live simulator and runs it on `sim/data-live`, with the run game's data on its card. `tools/sim-live.sh --reset` starts that folder over.
+
+### Keys and mouse
+
+| Input | Does |
+|---|---|
+| Left mouse button | The finger: tap, drag, swipe. A slide over 20 px is not a tap, as on the board. |
+| Arrow keys | A swipe in the middle of the screen. |
+| **H** | The home gesture (a swipe up from the bottom edge). |
+| **B** or Backspace | The back gesture (a swipe from the left edge). |
+| **S** | Save a screenshot (PNG). |
+| **M** | Print memory use. |
+| **Q** | Quit. |
+
+Every [script command](/reference/sim-commands/) can also be typed in the terminal while the window is open.
+
+## Scripted runs and screenshots
+
+```sh
+make -C sim -j10
+SIM_DATA=sim/data-me sim/build/espos-sim test.txt out/
+```
+
+```txt title="test.txt"
+wait 2500
+app com.example.teatimer
+wait 800
+shot tea-open
+tap 160 278
+wait 600
+shot tea-started
+quit
+```
+
+Each `shot NAME` writes `out/NAME.ppm`, a picture of the screen: 320 × 480, or 480 × 320 after `rot 1` or `rot 3`. Coordinates are screen pixels of the current orientation. The commands are listed in [Simulator commands](/reference/sim-commands/).
+
+Run headless (no window, no sound) with `SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy`.
+
+<Aside type="caution" title="Script time is not wall-clock time">
+In a scripted run, `wait 5000` advances the simulator's clock for timers and animations, but `Date.now()` in your app reads your computer's real clock, which barely moves. A countdown computed from `Date.now()` stays still in a scripted run. Use the live simulator to watch real time pass, or a shorter duration while you test.
+</Aside>
+
+## Test through the store
+
+To test the installer itself (parts, sizes, errors, progress), serve your package through a catalog:
+
+<Steps>
+
+1. Write your catalog entry with `python3 tools/espk.py --entry BASE_URL your.espk`, and add it to the `packages` list of a `catalog.json`.
+2. Put the `.espk` files and the catalog into `$SIM_DATA/net/`, each named like its URL path with `/` replaced by `_`: the store reads `/storage/bb/149/apps-s3/catalog.json`, so the catalog is `_storage_bb_149_apps-s3_catalog.json`, and a package listed at `.../apps-s3/<file>.espk` is `_storage_bb_149_apps-s3_<file>.espk`.
+3. Open the store with `app store`, or a package's page with `app store <id>`.
+
+</Steps>
+
+| Variable | Effect |
+|---|---|
+| `SIM_FW_CODE=300` | Act as firmware 0.3.0 (for `min_fw` checks). |
+| `SIM_PKG_KBPS` | Download speed in KB/s of simulator time (default 1024). |
+| `SIM_NO_PACKS=1` | Start with an empty internal app area (no PawBoop data). |
+| `SIM_PSRAM_KB` | The PSRAM the simulator reports, as the board would. |
+
+What the next sync would report (`"pkgs"`) is written to `$SIM_DATA/pkgs-report.json` after every change. `set s3.pkgs [...]` plays the web desk asking for installs, moves and removals.
+
+## Other languages and landscape
+
+| To see | Do |
+|---|---|
+| Landscape | `rot 1` (or `rot 3`) in a script or the live terminal; `rot 0` goes back. The app in front opens again in the new shape. |
+| Another language | `set sys.lang de`. The device switches once the language's packs are in the data folder: build them with `python3 tools/i18n.py build de` (and `font` for a language that needs a font pack; they land in `build-pkgs/espos/s3/`), then put them in with `python3 tools/espk.py --install-sim DATA dev.espos.lang.de-*.espk --vol flash`. |
+| Every system screen | `python3 tools/i18n_tour.py de --packs` (add `--rot 1` for landscape): contact sheets and a list of cut or overlapping text in `sim/shots/i18n-de/`. |
+
+More: [Languages and translation](/guides/languages/) and [Landscape and screen size](/guides/landscape/#test-both-orientations).
+
+## The simulated hardware
+
+| Part | In the simulator |
+|---|---|
+| Screen | 320 × 480 RGB565, as the panel gets it. Rotation follows the setting (`s3.rot`, or `rot N`). |
+| Internal app area | The file `$SIM_DATA/apparea.bin`, 7,528,448 bytes, made at the first run. |
+| Memory card | The folder `$SIM_DATA/sd/`. No folder means no card; `set sim.card 0` pulls it out, `set sim.card 1` puts it back. |
+| NVS (settings, app data) | `$SIM_DATA/nvs/` |
+| Network | Canned answers from `$SIM_DATA/net/`. No real WiFi or TLS. |
+| Memory | Every allocation is counted. Past the board's PSRAM (5380 KB for the heap) or internal RAM (180 KB), the terminal says "this would fail on the board". |
+
+## What the simulator does not model
+
+- **CPU speed.** LVGL drawing and JavaScript run at your computer's speed. Only the run game's decoding is slowed to the board's.
+- **Internal RAM, task stacks, the watchdog, task priorities and the second core.** A stack overflow or an internal RAM shortage may show only on the board or in QEMU.
+- **The JavaScript stack limit.** QuickJS runs without a stack limit in the simulator; the board allows it 11 KB. Test apps with deep screens or recursion in QEMU or on a device.
+- **The network.** WiFi, TLS and real downloads.
+- **The memory card's speed** (outside the run game) and the panel's SPI time and tearing.
+
+For those, use [QEMU](/guides/qemu/), which runs the real firmware, and then a board.
+
+## Sanitizers
+
+```sh
+make -C sim BUILD=build-asan EXTRA="-fsanitize=address -fno-omit-frame-pointer"
+make -C sim BUILD=build-live-tsan EXTRA=-fsanitize=thread live
+```
+
+Use a separate `BUILD` folder for each sanitizer.

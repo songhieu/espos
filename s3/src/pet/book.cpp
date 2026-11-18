@@ -1,0 +1,280 @@
+// The dog's book: who it is now (level, XP, mood, needs), the days in a row it was cared for, the album of
+// moments (its firsts, each shown with the picture of the clip it was playing), the game's switches, the dog
+// assistant's settings (s3.assist) and the way to another dog.
+#include "book.h"
+
+#include <Arduino.h>
+
+#include <ctime>
+#include <vector>
+
+#include "assist.h"
+#include "chooser.h"
+#include "dogs.h"
+#include "fonts.h"
+#include "i18n.h"
+#include "game.h"
+#include "os.h"
+#include "packs.h"
+#include "pet.h"
+#include "uikit.h"
+#include "view.h"
+#include "voice.h"
+
+namespace pet {
+namespace book {
+namespace {
+
+using namespace kit;
+
+constexpr uint32_t CREAM = 0xfff3df;
+const uint32_t GAUGE[4] = {0xf0922b, 0x3b8ee6, 0x7b62dd, 0x22ab9b};
+const char* const ICON[4] = {"g_food", "g_fun", "g_energy", "g_clean"};
+// i18n: the dog's four needs (gauges): fed, fun, health, clean
+const char* const NEED[4] = {N_("Fed"), NC_("need", "Fun"), N_("Health"), N_("Clean")};
+
+// i18n: the names of the dog's "firsts" in its album (short: a small card)
+String momentName(const game::Moment& m) {
+  switch (m.kind) {
+    case 0: return i18n::fmt(N_("First day with {0}"), dogs::name());
+    case 1: return i18n::fmt(N_("Reached level {0}"), String(m.arg));
+    case 2: return T_("First favourite food");
+    case 3: return T_("First bath");
+    case 4: return T_("First gold coin");
+    case 5: return i18n::plural(m.arg, NP_("Cared for {n} day in a row|Cared for {n} days in a row"));
+    case 6: return T_("First high five");
+    case 7: return T_("First nap");
+  }
+  return T_("Moment");
+}
+
+String moodText(const char* r) {
+  if (!strcmp(r, "hungry")) return T_("Hungry");
+  if (!strcmp(r, "sleepy")) return T_("Sleepy");
+  if (!strcmp(r, "bored")) return T_("Bored, wants to play");
+  return T_("Happy");
+}
+
+lv_obj_t* row(lv_obj_t* parent) {
+  lv_obj_t* r = clear(parent);
+  lv_obj_set_size(r, lv_pct(100), LV_SIZE_CONTENT);
+  return r;
+}
+
+// The moments' pictures are decoded one at a time, after the screen has opened.
+struct Pending {
+  lv_obj_t* box;
+  game::Moment m;
+};
+std::vector<Pending> pending;
+lv_timer_t* drawer;
+lv_obj_t* screen_ = nullptr;
+
+void drawNext(lv_timer_t*) {
+  while (!pending.empty() && !lv_obj_is_valid(pending.front().box)) pending.erase(pending.begin());
+  if (pending.empty()) {
+    lv_timer_delete(drawer);
+    drawer = nullptr;
+    return;
+  }
+  Pending p = pending.front();
+  pending.erase(pending.begin());
+  if (p.m.clip >= pk::clipCount()) return;
+  View* v = View::create(p.box, 86, 92, 1, CREAM, 37, 30);
+  lv_obj_set_pos(v->obj(), 0, 0);
+  lv_obj_move_background(v->obj());
+  v->still(pk::clipAt(p.m.clip)->name, p.m.frame);
+}
+
+}  // namespace
+
+bool isOpen() { return screen_ != nullptr; }
+
+void open() {
+  if (!pk::ready()) return pet::open(nullptr);  // the game screen explains what is missing
+  game::State& s = game::s();
+  lv_obj_t* body;
+  lv_obj_t* scr = os::screen(i18n::fmt(N_("{0}'s book"), dogs::name()).c_str(), &body);
+  keep(&screen_, scr);
+  const Pal& p = pal();
+
+  // The dog now, moving.
+  lv_obj_t* hero = cell(body, 0);
+  lv_obj_set_style_bg_color(hero, C(CREAM), 0);
+  lv_obj_set_style_clip_corner(hero, true, 0);
+  View* v = View::create(hero, os::W() - 24, 180, 0, CREAM, (320 - (os::W() - 24)) / 2, 80);
+  const char* mood = game::moodRole();
+  v->play(!strcmp(mood, "idle") ? "happy" : !strcmp(mood, "hungry") ? "sulk" : !strcmp(mood, "bored") ? "plead" : "lie_down");
+  lv_obj_t* info = clear(hero);
+  lv_obj_set_size(info, lv_pct(100), LV_SIZE_CONTENT);
+  lv_obj_set_style_pad_all(info, 12, 0);
+  lv_obj_set_style_pad_top(info, 0, 0);
+  lv_obj_set_flex_flow(info, LV_FLEX_FLOW_COLUMN);
+  lv_obj_set_style_pad_row(info, 4, 0);
+  lv_obj_set_flex_flow(hero, LV_FLEX_FLOW_COLUMN);
+  char b[96];
+  label(info, i18n::fmt(N_("{0} · Level {1}"), dogs::name(), String(s.lv)).c_str(), 20, true, 0x2b2f3a);
+  const int need = s.lv < 12 ? game::G.xpAt[s.lv] - s.xp : 0;
+  // i18n: mood, the XP still needed, the next level, her gold coins
+  if (need > 0) snprintf(b, sizeof b, T_("%s · %d XP to level %d · %d gold"), moodText(mood).c_str(), need, s.lv + 1, s.coins);
+  else snprintf(b, sizeof b, T_("%s · top level · %d gold"), moodText(mood).c_str(), s.coins);
+  lv_obj_t* sub = label(info, "", 14, false, 0x8a6d4a);
+  wrapText(sub, b, os::W() - 48, 14);
+  lv_obj_t* xpT = box(info, 0xf1dfc2, 4);
+  lv_obj_set_size(xpT, lv_pct(100), 8);
+  lv_obj_t* xpF = box(xpT, 0xffc933, 4);
+  lv_obj_set_size(xpF, lv_pct((int)(game::xpFrac() * 100)), 8);
+
+  // Her needs.
+  caption(body, N_("NEEDS"));  // i18n: a heading in upper case
+  lv_obj_t* nc = cell(body);
+  lv_obj_set_flex_flow(nc, LV_FLEX_FLOW_COLUMN);
+  lv_obj_set_style_pad_row(nc, 10, 0);
+  for (int k = 0; k < 4; k++) {
+    lv_obj_t* r = row(nc);
+    lv_obj_set_height(r, 18);
+    const lv_image_dsc_t* ic = pk::image(pk::piece(ICON[k]));
+    if (ic) lv_obj_align(img(r, ic), LV_ALIGN_LEFT_MID, 0, 0);
+    lv_obj_t* l = label(r, NEED[k], 15, false, p.fg);
+    lv_obj_align(l, LV_ALIGN_LEFT_MID, 24, 0);
+    lv_obj_t* t = box(r, p.dark ? 0x3a3f4a : 0xe6e8ee, 4);
+    lv_obj_set_size(t, 110, 8);
+    lv_obj_align(t, LV_ALIGN_RIGHT_MID, -36, 0);
+    const bool low = s.need[k] < game::G.low;
+    lv_obj_t* f = box(t, low ? 0xe8483e : GAUGE[k], 4);
+    lv_obj_set_size(f, max(6, (int)(110 * s.need[k] / 100)), 8);
+    lv_obj_t* n = label(r, String((int)s.need[k]).c_str(), 14, true, low ? 0xe8483e : p.dim);
+    lv_obj_align(n, LV_ALIGN_RIGHT_MID, 0, 0);
+  }
+
+  // Days in a row.
+  caption(body, N_("CARE STREAK"));  // i18n: a heading in upper case: days in a row the dog was cared for
+  lv_obj_t* sc = cell(body);
+  const uint32_t today = game::today();
+  const bool live = s.careDay && (s.careDay == today || game::s().streak);
+  int streak = s.streak;
+  if (today && s.careDay != today) {  // yesterday still counts until today ends
+    tm t = {};
+    t.tm_year = today / 10000 - 1900, t.tm_mon = today / 100 % 100 - 1, t.tm_mday = today % 100 - 1, t.tm_hour = 12;
+    mktime(&t);
+    const uint32_t y = (t.tm_year + 1900) * 10000 + (t.tm_mon + 1) * 100 + t.tm_mday;
+    if (s.careDay != y) streak = 0;
+  }
+  (void)live;
+  const String days = i18n::plural(streak, NP_("{n} day|{n} days"));
+  lv_obj_t* big = label(sc, days.c_str(), 28, true, 0xf08a24);
+  lv_obj_set_style_text_font(big, fonts::get(28, true), 0);
+  // i18n: %d is the longest streak in days
+  const String bs = streak ? i18n::fmt(N_("Best streak: {0}. Feed, play with, bathe or pet {1} once a day to keep it going."),
+                                       String(s.best), dogs::name())
+                           : i18n::fmt(N_("Best streak: {0}. Care for {1} once today to start a new streak."), String(s.best),
+                                       dogs::name());
+  lv_obj_t* hint_ = label(sc, "", 13, false, p.dim);
+  wrapText(hint_, bs.c_str(), os::W() - 48, 13);
+  lv_obj_set_flex_flow(sc, LV_FLEX_FLOW_COLUMN);
+  lv_obj_set_style_pad_row(sc, 4, 0);
+
+  // The album.
+  caption(body, N_("MOMENTS"));  // i18n: a heading in upper case: the dog's album of firsts
+  game::Moment ms[24];
+  const int n = game::moments(ms, 24);
+  if (!n) {
+    hint(body, i18n::fmt(N_("{0}'s firsts (a new level, the first bath, a favourite food...) are kept here."), dogs::name()).c_str());
+  } else {
+    lv_obj_t* grid = clear(body);
+    lv_obj_set_size(grid, lv_pct(100), LV_SIZE_CONTENT);
+    lv_obj_set_flex_flow(grid, LV_FLEX_FLOW_ROW_WRAP);
+    lv_obj_set_style_pad_column(grid, 8, 0);
+    lv_obj_set_style_pad_row(grid, 8, 0);
+    pending.clear();
+    for (int i = 0; i < n; i++) {
+      lv_obj_t* c = box(grid, CREAM, 14);
+      lv_obj_set_size(c, 86, 150);
+      lv_obj_set_style_clip_corner(c, true, 0);
+      lv_obj_t* cap = label(c, "", 12, true, 0x2b2f3a);
+      fitText(cap, momentName(ms[i]).c_str(), 78, 32, 12, 12, true, 1);
+      lv_obj_set_pos(cap, 5, 95);
+      if (ms[i].day) {
+        snprintf(b, sizeof b, "%u/%u/%u", (unsigned)(ms[i].day % 100), (unsigned)(ms[i].day / 100 % 100),
+                 (unsigned)(ms[i].day / 10000));
+        lv_obj_t* d = label(c, b, 12, false, 0x8a6d4a);
+        lv_obj_set_pos(d, 5, 130);
+      }
+      pending.push_back({c, ms[i]});
+    }
+    if (!drawer) drawer = lv_timer_create(drawNext, 60, nullptr);
+  }
+
+  // Switches.
+  caption(body, N_("SETTINGS"));  // i18n: a heading in upper case
+  lv_obj_t* set = cell(body, 0);
+  lv_obj_set_flex_flow(set, LV_FLEX_FLOW_COLUMN);
+  auto sw = [&](const char* name, bool on, lv_event_cb_t cb) {
+    lv_obj_t* r = row(set);
+    lv_obj_set_height(r, 48);
+    lv_obj_set_style_pad_hor(r, 12, 0);
+    lv_obj_t* l = label(r, name, 15, false, p.fg);
+    lv_obj_align(l, LV_ALIGN_LEFT_MID, 0, 0);
+    lv_obj_align(toggle(r, on, cb), LV_ALIGN_RIGHT_MID, 0, 0);
+  };
+  const String voiceName = i18n::fmt(N_("{0}'s voice"), dogs::name());
+  const String careName = i18n::fmt(N_("Tell me when {0} needs care"), dogs::name());
+  sw(voiceName.c_str(), !s.muted, [](lv_event_t* e) {
+    game::s().muted = !lv_obj_has_state((lv_obj_t*)lv_event_get_target(e), LV_STATE_CHECKED);
+    voice::setMuted(game::s().muted);
+    game::save();
+  });
+  sw(careName.c_str(), s.notify, [](lv_event_t* e) {
+    game::s().notify = lv_obj_has_state((lv_obj_t*)lv_event_get_target(e), LV_STATE_CHECKED);
+    game::save();
+  });
+  hint(body, N_("No notifications with Do Not Disturb on or in quiet hours."));
+  lv_obj_t* other = button(body, N_("Choose another dog"), p.chip, p.link, [](lv_event_t*) { chooser::open(); });
+  lv_obj_set_width(other, lv_pct(100));
+
+  // The dog assistant: what it may say by itself (alarms, greetings, the weather, habits).
+  caption(body, N_("ASSISTANT"));  // i18n: a heading in upper case: the dog as the device's assistant
+  lv_obj_t* as = cell(body, 0);
+  lv_obj_set_flex_flow(as, LV_FLEX_FLOW_COLUMN);
+  const assist::Prefs ap = assist::prefs();
+  auto asw = [&](const char* name, bool on, int field) {
+    lv_obj_t* r = row(as);
+    lv_obj_set_height(r, 48);
+    lv_obj_set_style_pad_hor(r, 12, 0);
+    lv_obj_t* l = label(r, "", 15, false, p.fg);
+    fitText(l, name, os::W() - 24 - 24 - 60, 40, 15, 12, false, 1);
+    lv_obj_align(l, LV_ALIGN_LEFT_MID, 0, 0);
+    lv_obj_align(toggle(r, on, [](lv_event_t* e) {
+      assist::Prefs q = assist::prefs();
+      const bool v = lv_obj_has_state((lv_obj_t*)lv_event_get_target(e), LV_STATE_CHECKED);
+      switch ((int)(intptr_t)lv_event_get_user_data(e)) {
+        case 0: q.on = v; break;
+        case 1: q.alarm = v; break;
+        case 2: q.greet = v; break;
+        case 3: q.weather = v; break;
+        case 4: q.water = v ? 120 : 0; break;
+        case 5: q.move = v ? 90 : 0; break;
+        case 6: q.eyes = v ? 60 : 0; break;
+        case 7: q.meal = v; break;
+      }
+      assist::setPrefs(q);
+    }, (void*)(intptr_t)field), LV_ALIGN_RIGHT_MID, 0, 0);
+  };
+  const String asName = i18n::fmt(N_("{0} is your assistant"), dogs::name());
+  asw(asName.c_str(), ap.on, 0);
+  asw(N_("Speaks at alarms"), ap.alarm, 1);
+  asw(N_("Greets you by the time of day"), ap.greet, 2);
+  asw(N_("Tells the weather"), ap.weather, 3);
+  asw(N_("Drink water (every 2 hours)"), ap.water > 0, 4);
+  asw(N_("Stand up and move (every 90 minutes)"), ap.move > 0, 5);
+  asw(N_("Rest your eyes (every hour)"), ap.eyes > 0, 6);
+  asw(N_("Meal times (11:30, 18:30)"), ap.meal, 7);
+  hint(body, N_("The dog says its own line, then the hour or the temperature. Never in Do Not Disturb or quiet hours, except alarms."));
+  lv_obj_t* demo = button(body, i18n::fmt(N_("Call {0}"), dogs::name()).c_str(), 0xffcf5c, 0x5a3a00,
+                          [](lv_event_t*) { summon("book"); });
+  lv_obj_set_width(demo, lv_pct(100));
+  os::open(scr);
+}
+
+}  // namespace book
+}  // namespace pet

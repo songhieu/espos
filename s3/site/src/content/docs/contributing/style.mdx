@@ -1,0 +1,35 @@
+---
+title: Code and UI style
+description: 'The conventions for EspOS code and screens: plain C++17, lean flash, PSRAM for big buffers, short plain words on screen, text in full, mockups first.'
+---
+
+## C++
+
+- **C++17**, no exceptions and no RTTI in new subsystems (the Java VM is built this way).
+- **Keep flash lean.** The firmware is close to its 3.75 MB slot. Report the size you add. Cold screens are built with `#pragma GCC optimize("Os")`; hot paths (Home, widgets, drawing loops) are not.
+- **Big buffers go to PSRAM** (`heap_caps_malloc(n, MALLOC_CAP_SPIRAM)`). Internal RAM is for WiFi, TLS, DMA and task stacks. Only one TLS session fits; the network code shares one kept connection.
+- **The UI belongs to one thread.** LVGL calls happen on the UI loop. Other tasks hand work to it.
+- **Comments say why**, in plain sentences. A file starts with what it is for.
+- **Shared UI goes through `kit::`** (`uikit.h`): labels, buttons, cards, list rows, chips and the system colours, so every screen looks the same and follows light and dark.
+
+## Screens
+
+- **Short, plain words, in English.** Every text the user reads is English in the sources and carries a mark (`T_`, `N_`, `NP_`) so `tools/i18n.py` can collect it for translation; say one thing per line. Leave room: German and Russian run about 30 % longer. See [Languages and translation](/guides/languages/#translating-espos-itself).
+- **Never an ellipsis.** The device shows text in full: shrink it (`fitText`) or wrap it, never cut it short. The package tool rejects the ellipsis character (U+2026) in manifests.
+- **System colours.** Light by day, dark at night. Hard-coded colours are moving to tokens; see [Themes](/concepts/themes/).
+- **Draw it first.** A new screen starts as an HTML mockup, approved before it is coded.
+- **Both boards, both orientations.** Lay out for 320 × 480 and 480 × 320, and check that the 2.8" board's 2/3 scale stays readable. `tools/i18n_tour.py en --rot 1` shows every screen in landscape.
+
+## JavaScript apps in the repository
+
+- One app per folder in `apps/`, with `manifest.json` and `main.js`. Texts in English, with a `TEXT` table for the other languages and names in the manifest's `i18n`.
+- Write `perms` (not the older `permissions`), and only the permissions the app uses.
+- Build the screen from small helper functions; keep `render` free of side effects.
+- Save with `store` when data changes.
+
+## Docs
+
+- Short, plain sentences. One idea per sentence.
+- Every planned feature carries a **Planned** label; anything that may change carries **Preview**.
+- Code samples must run: check API names against `src/js/jsapp.cpp`, and run the sample in the simulator.
+- Server addresses use the placeholder `https://espos.example`.

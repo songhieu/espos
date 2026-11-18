@@ -1,0 +1,69 @@
+---
+title: Hardware and porting
+description: 'EspOS is meant to run on many chips and displays. How the firmware is layered, what a port changes and what it must keep, and where to start.'
+---
+
+import Stack from '../../../components/Stack.astro';
+import Status from '../../../components/Status.astro';
+import { Aside, CardGrid, LinkCard } from '@astrojs/starlight/components';
+
+EspOS is not tied to one board. The goal is an OS that runs on many chips and displays, and that the community can **rebuild for their own hardware** while keeping the same platform: the same API, the same packages, the same store and the same server protocol.
+
+Today it runs on two ESP32-S3 boards with colour touch screens. This section explains how the firmware is layered, what is board-specific today, and how a new board was added, so you can add yours.
+
+## The layers
+
+<Stack
+  label="EspOS layers for porting: packages, runtimes and the EspOS API, the OS core, board support, and the chip and its peripherals. A port changes the board support layer."
+  layers={[
+    { name: 'Packages', items: ['JavaScript apps', 'Java games', 'engine data', 'widgets, faces, themes (planned)'], note: 'the same on every board' },
+    { name: 'Runtimes and API', items: ['QuickJS', 'engines: pet, run, j2me', 'EspOS API level 1', 'WebAssembly (planned)'], note: 'the same' },
+    { name: 'OS core', items: ['home', 'settings', 'store and installer', 'notifications', 'sync and network', 'OTA', 'LVGL UI, 320 × 480 and 480 × 320'], note: 'the same' },
+    { name: 'Board support', items: ['pins', 'board detection', 'display driver', 'touch', 'audio codec', 'memory card', 'battery', 'build environment'], note: 'what a port changes', mark: true },
+    { name: 'Chip', items: ['ESP32-S3', 'flash and PSRAM', 'panel, touch, codec, card, battery'] },
+  ]}
+/>
+
+A port touches the **board support** layer only. Everything above it is shared, which is what keeps packages working on every board: an app from the store does not know which board it runs on.
+
+## What a port must keep
+
+These are the platform's contract with packages. A port that changes them breaks apps.
+
+| Contract | Today |
+|---|---|
+| The EspOS API | API level 1, unchanged. See [API levels](/concepts/api-levels/). |
+| The logical screen | 320 × 480 in portrait, 480 × 320 in landscape, in four orientations. A smaller panel shows it scaled, as the 2.8" board does. |
+| Memory for apps | 1.5 MB of JavaScript heap in PSRAM, a 16 KB stack in internal RAM. |
+| Package format and storage | `.espk` files; the internal app area and `/sdcard/espos/pkgs/` on the card. |
+| Fonts and system colours | The same pre-rendered fonts, the same language and font packs, and the light and dark looks. |
+| The server protocol | Pairing, settings sync, the store catalog, OTA. A port reports its own board name in every sync. |
+
+## What a port changes
+
+A port adds one folder, `src/boards/<name>/`, and lists it in `src/boards/boards.cpp`. <Status s="preview" label="In progress" />
+
+| Part | Where |
+|---|---|
+| The board's description: name, chip, capabilities, panel, pins | `src/boards/<name>/<name>.h` (a `hal::Board` descriptor) |
+| Telling it apart from other boards at boot | `src/boards/<name>/bsp.cpp` (`probe()`), and its place in `src/boards/boards.cpp` |
+| The panel driver | `src/boards/<name>/display.cpp` (a `hal::Display`) |
+| The touch driver | `src/boards/<name>/touch.cpp` (a `hal::Input`) |
+| Scaling to a smaller panel | the descriptor's `ui`, with `src/scale.h` |
+| Audio, memory card, battery | descriptor values, read by `src/sound.cpp`, `src/pkg/card.cpp`, `src/power.cpp` |
+| QEMU and the build | `src/boards/qemu/`, `platformio.ini`, `tools/qemu/` |
+
+Each is described in [Board-specific code](/hardware/board-code/), and the whole path in [Port to a new board](/hardware/porting/).
+
+## Where to go next
+
+<CardGrid>
+  <LinkCard title="Board-specific code" description="Every file that knows about the board, and the display API a driver implements." href="/hardware/board-code/" />
+  <LinkCard title="Port to a new board" description="Step by step, the way the 2.8-inch ES3C28P was added." href="/hardware/porting/" />
+  <LinkCard title="Hardware profiles" description="Full (ESP32-S3, PSRAM, colour touch) today; Lite (ESP32-C3, e-ink, buttons) planned." href="/hardware/profiles/" />
+  <LinkCard title="Board support packages" description="A folder per board with a board descriptor. In progress." href="/hardware/bsp/" />
+</CardGrid>
+
+<Aside type="note" title="Sensors and plug-in devices are a different topic">
+This section is about the board itself: its screen, touch, audio, card and battery. Sensors and devices plugged into a board (I2C, Bluetooth LE, GPIO) come through driver packages; see [Hardware and drivers](/roadmap/hardware/). <Status s="planned" />
+</Aside>

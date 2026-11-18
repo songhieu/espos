@@ -818,9 +818,9 @@ func marketNeeds(st map[string]string, kind string) needs {
 	return n
 }
 
-// The options of the colour desk's market widgets: on its home pages (s3.home v2: ["w", kind, x, y, size,
-// style, opt, open]) and on its saver pages (s3.saver_pages: {t:"w", k, op}). An empty option is the
-// firmware's built-in mix, which the always-lists cover.
+// The options of the colour desk's market widgets: on its home pages (s3.home v2 and the landscape s3.home_l v1:
+// ["w", kind, x, y, size, style, opt, open]) and on its saver pages (s3.saver_pages: {t:"w", k, op}). An empty
+// option is the firmware's built-in mix, which the always-lists cover.
 func s3MarketOpts(st map[string]string) []string {
 	out := s3WidgetOpts(st, "markets")
 	// The one-market widgets (gold, stocks, fx, crypto) hold the same "kind:code" tokens.
@@ -834,10 +834,15 @@ func s3MarketOpts(st map[string]string) []string {
 	return out
 }
 
-// The non-empty options of the colour desk's widgets of one kind, on its home and saver pages.
+// The non-empty options of the colour desk's widgets of one kind, on its home pages (portrait s3.home and
+// landscape s3.home_l: the same entries) and its saver pages.
 func s3WidgetOpts(st map[string]string, kind string) []string {
 	out := []string{}
-	if s := st["s3.home"]; s != "" {
+	for _, key := range []string{"s3.home", "s3.home_l"} {
+		s := st[key]
+		if s == "" {
+			continue
+		}
 		var h struct {
 			Pages [][][]any `json:"pages"`
 		}

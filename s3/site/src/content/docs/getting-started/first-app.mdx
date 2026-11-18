@@ -1,0 +1,536 @@
+---
+title: Your first app
+description: 'Build a tea timer in JavaScript, step by step: a screen, a countdown, a notification that fires with the app closed, saved state, and a package you can install.'
+---
+
+import { Tabs, TabItem, Steps, Aside, FileTree } from '@astrojs/starlight/components';
+import Status from '../../../components/Status.astro';
+import DeviceShots from '../../../components/DeviceShots.astro';
+import idle from '../../../assets/shots/tea-idle.png';
+import brewing from '../../../assets/shots/tea-brewing.png';
+import banner from '../../../assets/shots/tea-banner.png';
+import ready from '../../../assets/shots/tea-ready.png';
+import step1 from '../../../assets/shots/tutorial-step1.png';
+import step2 from '../../../assets/shots/tutorial-step2.png';
+
+In this tutorial you build **Tea timer**: pick a tea, tap Start, and get a notification when it is ready, even if you closed the app. It takes about 15 minutes and uses most of [API level 1](/reference/js-api/): the screen, timers, sound, notifications and saved data.
+
+<DeviceShots
+  shots={[
+    { src: idle, alt: 'Tea timer with Green picked and 3:00 on the dial', caption: 'Pick a tea' },
+    { src: brewing, alt: 'Tea timer counting down at 2:45 with a progress bar', caption: 'It counts down' },
+    { src: banner, alt: 'A notification banner: Green tea is ready', caption: 'A notification at the end' },
+    { src: ready, alt: 'Tea timer saying Your tea is ready, 1 cup brewed so far', caption: 'Tapped: the app opens' },
+  ]}
+/>
+
+Every screenshot on this page comes from the code on this page, running in the EspOS simulator.
+
+## Before you start
+
+You need the package tool and the simulator from [Set up your tools](/getting-started/install/). You do not need a device.
+
+## 1. Create the project
+
+An app is a folder with two files.
+
+<FileTree>
+- tea-timer/
+  - manifest.json what the app is and what it may do
+  - main.js the whole app
+  - icon.jpg optional: 120 × 120 baseline JPEG
+</FileTree>
+
+<Tabs syncKey="tool">
+<TabItem label="Repository tools">
+```sh
+mkdir tea-timer
+```
+Then create the two files below.
+</TabItem>
+<TabItem label="espos CLI (Preview)">
+```sh
+espos create tea-timer --id com.example.teatimer --name "Tea timer"
+cd tea-timer
+```
+The `js-app` template writes `manifest.json`, `main.js` (a small counter), an `icon.jpg`, `espos.json` and a simulator smoke test in `sim/smoke.txt`. Replace `manifest.json` and `main.js` with the ones below.
+</TabItem>
+</Tabs>
+
+## 2. Write the manifest
+
+```json title="tea-timer/manifest.json"
+{
+  "id": "com.example.teatimer",
+  "name": "Tea timer",
+  "version": "1.0.0",
+  "code": 10000,
+  "kind": "js",
+  "engine": "js",
+  "min_fw": 300,
+  "category": "tool",
+  "author": "Example Co",
+  "desc": "Pick a tea, start the timer, get a notification when it is ready",
+  "icon": {"bg": ["#ffb347", "#ff7a00"], "glyph": "timer"},
+  "perms": ["sound", "notify"],
+  "part": "core"
+}
+```
+
+| Field | What it means here |
+|---|---|
+| `id` | A reverse-domain name that never changes. It names the app's folder and its saved data. Use a domain you control. |
+| `version`, `code` | What people read, and a whole number that must grow with every release. The store offers an update when the catalog's `code` is higher. |
+| `kind`, `engine` | `js` and `js`: the package is a JavaScript app. |
+| `min_fw` | The oldest firmware that can run it. `300` means 0.3.0, the first firmware with packages. |
+| `category` | Where the store lists it: `game`, `tool`, `study`, `health` or `widget`. |
+| `icon` | The home-screen icon when there is no `icon.jpg`: a two-colour gradient and one of the built-in glyphs. |
+| `perms` | What the app may use. `sound` and `notify` are checked: without them, those calls throw. |
+| `part` | `core`: the main part of the package. Big packages can have more parts. |
+
+All fields are in the [manifest reference](/reference/manifest/).
+
+<Aside type="caution" title="No ellipsis in texts">
+The device shows text in full: it shrinks or wraps it, and never cuts it short with an ellipsis. The package tool rejects a manifest that contains the ellipsis character (U+2026).
+</Aside>
+
+## 3. Draw a first screen
+
+Start with a screen that does nothing yet.
+
+```js title="tea-timer/main.js"
+app.title = 'Tea timer';
+app.render = () => ui.column([
+  ui.card([
+    ui.text('3 minutes', {dim: true}),
+    ui.big('3:00', {color: '#16a34a'}),
+  ], {center: true}),
+  ui.button('Start', () => toast('Not yet'), {bg: '#16a34a', wide: true}),
+]);
+```
+
+<div class="tut-split">
+<div>
+
+- `app.title` is the title at the top of the screen.
+- `app.render` returns the screen as a tree of plain objects. `ui.column` stacks its children, `ui.card` groups them on a rounded card, `ui.big` shows large digits.
+- `ui.button(text, fn, options)` calls `fn` when tapped. `toast` shows a short message at the top.
+- Colours are `#rrggbb` strings. Text without a colour follows the system theme: light by day, dark at night.
+
+[Run it in the simulator](#8-run-it-in-the-simulator) at any step to see your change.
+
+</div>
+<DeviceShots shots={[{ src: step1, alt: 'A card with 3 minutes and 3:00, and a green Start button', caption: 'Step 3' }]} />
+</div>
+
+## 4. Pick a tea
+
+Add the teas and a row of chips to pick one.
+
+```js title="tea-timer/main.js" ins={1-15, 18-20}
+const TEAS = [
+  {name: 'Green', min: 3, color: '#16a34a'},
+  {name: 'Black', min: 4, color: '#b45309'},
+  {name: 'Herbal', min: 6, color: '#7c3aed'},
+];
+let tea = 0;  // which tea is picked
+
+function dial() {
+  const t = TEAS[tea];
+  return ui.card([
+    ui.text(t.min + ' minutes', {dim: true}),
+    ui.big(t.min + ':00', {color: t.color}),
+  ], {center: true});
+}
+
+app.title = 'Tea timer';
+app.render = () => ui.column([
+  ui.chips(TEAS.map((t) => t.name), tea, (i) => { tea = i; }),
+  dial(),
+  ui.button('Start', () => toast('Not yet'), {bg: TEAS[tea].color, wide: true}),
+]);
+```
+
+<div class="tut-split">
+<div>
+
+The app keeps its state in plain variables. When the user taps a chip, the OS calls your function with the chip's index, then **calls `app.render` again** and redraws the screen. You never update the screen by hand.
+
+`dial()` is a helper that returns part of the tree. Splitting the screen into small functions keeps each one readable, and keeps nesting shallow (see [State and rendering](/guides/js/state/)).
+
+</div>
+<DeviceShots shots={[{ src: step2, alt: 'Black is picked: the dial shows 4:00 in brown', caption: 'Step 4, Black picked' }]} />
+</div>
+
+## 5. Count down
+
+A timer ticks once a second while the tea brews.
+
+```js title="tea-timer/main.js" ins={6-31, 35-36, 38-40, 42-46, 51, 53}
+const TEAS = [
+  {name: 'Green', min: 3, color: '#16a34a'},
+  {name: 'Black', min: 4, color: '#b45309'},
+  {name: 'Herbal', min: 6, color: '#7c3aed'},
+];
+let tea = 0;     // which tea is picked
+let endsAt = 0;  // when it is ready, in ms since 1970; 0 = not brewing
+let tick = 0;    // the id of the running timer
+
+const now = () => Date.now();
+const brewing = () => endsAt > now();
+const secondsLeft = () => Math.max(0, Math.ceil((endsAt - now()) / 1000));
+const mmss = (s) => Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+
+function start() {
+  endsAt = now() + TEAS[tea].min * 60 * 1000;
+  // Every second: check the time. The screen is drawn again after each tick.
+  tick = timer.every(1000, () => {
+    if (!brewing()) stopTimer();  // time is up
+  });
+}
+
+function stopTimer() {
+  timer.cancel(tick);
+  tick = 0;
+  endsAt = 0;
+}
+
+function pick(i) {
+  if (!brewing()) tea = i;  // keep the tea while it brews
+}
+
+function dial() {
+  const t = TEAS[tea];
+  const total = t.min * 60;
+  const s = brewing() ? secondsLeft() : total;
+  return ui.card([
+    ui.text(brewing() ? 'Brewing' : t.min + ' minutes', {dim: true}),
+    ui.big(mmss(s), {color: t.color}),
+    ui.progress(brewing() ? 1 - s / total : 0, {color: t.color}),
+  ], {center: true});
+}
+
+function action() {
+  if (brewing()) return ui.button('Stop', stopTimer, {bg: '#6b7280', wide: true});
+  return ui.button('Start', start, {bg: TEAS[tea].color, wide: true});
+}
+
+app.title = 'Tea timer';
+app.render = () => ui.column([
+  ui.chips(TEAS.map((t) => t.name), tea, pick),
+  dial(),
+  action(),
+]);
+```
+
+- `timer.every(ms, fn)` runs `fn` every `ms` milliseconds and returns an id. `timer.cancel(id)` stops it. The screen is drawn again after every tick.
+- The countdown reads the clock (`Date.now()`) instead of counting ticks. A tick can arrive late, and the clock is always right.
+- `ui.progress(v)` draws a bar from 0 to 1.
+
+<Aside type="note" title="Timers run only while the app is open">
+Leaving the app (Back or Home) closes it, and its timers stop. To do something at a set time when the app is closed, schedule a notification. That is the next step.
+</Aside>
+
+## 6. Notify when it is ready
+
+Add `notify.schedule` to `start()` and `notify.cancel` to a new `stop()`.
+
+```js title="tea-timer/main.js" ins={16-19, 32-37, 40-45, 53, 60}
+const TEAS = [
+  {name: 'Green', min: 3, color: '#16a34a'},
+  {name: 'Black', min: 4, color: '#b45309'},
+  {name: 'Herbal', min: 6, color: '#7c3aed'},
+];
+let tea = 0;     // which tea is picked
+let endsAt = 0;  // when it is ready, in ms since 1970; 0 = not brewing
+let tick = 0;    // the id of the running timer
+
+const now = () => Date.now();
+const brewing = () => endsAt > now();
+const secondsLeft = () => Math.max(0, Math.ceil((endsAt - now()) / 1000));
+const mmss = (s) => Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+
+function start() {
+  const t = TEAS[tea];
+  endsAt = now() + t.min * 60 * 1000;
+  // Fires at endsAt even if the app is closed by then. The tag lets stop() cancel it.
+  notify.schedule(endsAt, t.name + ' tea is ready', 'Take the leaves out now.', {tag: 'brew', arg: 'ready'});
+  // Every second: check the time. The screen is drawn again after each tick.
+  tick = timer.every(1000, () => {
+    if (!brewing()) stopTimer();  // time is up
+  });
+}
+
+function stopTimer() {
+  timer.cancel(tick);
+  tick = 0;
+  endsAt = 0;
+}
+
+// The Stop button: no notification for a brew that was stopped.
+function stop() {
+  notify.cancel('brew');
+  stopTimer();
+}
+
+function pick(i) {
+  if (!brewing()) tea = i;  // keep the tea while it brews
+}
+
+// app.arg is 'ready' when the notification opened the app.
+function label(t) {
+  if (brewing()) return 'Brewing';
+  return app.arg === 'ready' ? 'Your tea is ready' : t.min + ' minutes';
+}
+
+function dial() {
+  const t = TEAS[tea];
+  const total = t.min * 60;
+  const s = brewing() ? secondsLeft() : total;
+  return ui.card([
+    ui.text(label(t), {dim: true}),
+    ui.big(mmss(s), {color: t.color}),
+    ui.progress(brewing() ? 1 - s / total : 0, {color: t.color}),
+  ], {center: true});
+}
+
+function action() {
+  if (brewing()) return ui.button('Stop', stop, {bg: '#6b7280', wide: true});
+  return ui.button('Start', start, {bg: TEAS[tea].color, wide: true});
+}
+
+app.title = 'Tea timer';
+app.render = () => ui.column([
+  ui.chips(TEAS.map((t) => t.name), tea, pick),
+  dial(),
+  action(),
+]);
+```
+
+- `notify.schedule(at, title, body, options)` posts a notification at `at`, a time in milliseconds since 1970. It fires even when the app is closed, and survives a restart.
+- `tag: 'brew'` names it, so `notify.cancel('brew')` can remove it when the user stops the brew early.
+- `arg: 'ready'` comes back as `app.arg` when the user taps the notification and the app opens.
+- The brew can end while the app is open. Then the timer stops itself with `stopTimer()`, and leaves the notification alone.
+
+The `notify` permission in the manifest is what allows these calls. Remove it and `notify.schedule` throws `TypeError: app has no "notify" permission`.
+
+## 7. Save state and finish
+
+Two problems are left. Close the app mid-brew and reopen it: it forgot the brew. And nothing counts the cups. The fix is to keep the state in `store`, the app's own key-value storage, and resume from it when the app starts.
+
+This is the finished app:
+
+```js title="tea-timer/main.js"
+// Tea timer: pick a tea, start it, and get a notification when it is ready.
+const TEAS = [
+  {name: 'Green', min: 3, color: '#16a34a'},
+  {name: 'Black', min: 4, color: '#b45309'},
+  {name: 'Herbal', min: 6, color: '#7c3aed'},
+];
+
+// Saved state survives closing the app and restarting the device.
+let state = store.get('state', {tea: 0, endsAt: 0, cups: 0});
+let tick = 0;
+
+const now = () => Date.now();
+const brewing = () => state.endsAt > now();
+const secondsLeft = () => Math.max(0, Math.ceil((state.endsAt - now()) / 1000));
+const mmss = (s) => Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+const save = () => store.set('state', state);
+
+// A brew that ended (maybe while the app was closed) counts as a cup.
+function settle() {
+  if (state.endsAt && !brewing()) {
+    state.endsAt = 0;
+    state.cups++;
+    save();
+  }
+}
+
+function startTicking() {
+  if (tick) return;
+  tick = timer.every(1000, () => {
+    const s = secondsLeft();
+    if (s > 0 && s <= 3) sound.click();  // a soft tick for the last three seconds
+    if (s === 0) {
+      timer.cancel(tick);
+      tick = 0;
+      settle();
+    }
+  });
+}
+
+function start() {
+  const tea = TEAS[state.tea];
+  state.endsAt = now() + tea.min * 60 * 1000;
+  save();
+  // Fires even if the app is closed. The tag lets us cancel it.
+  notify.schedule(state.endsAt, tea.name + ' tea is ready', 'Take the leaves out now.', {tag: 'brew', arg: 'ready'});
+  startTicking();
+}
+
+function stop() {
+  state.endsAt = 0;
+  save();
+  notify.cancel('brew');
+  if (tick) { timer.cancel(tick); tick = 0; }
+}
+
+function pick(i) {
+  if (brewing()) return;  // keep the tea while it brews
+  state.tea = i;
+  save();
+}
+
+settle();
+if (brewing()) startTicking();  // reopened mid-brew: carry on
+
+// The screen, in small pieces. Each helper returns a ui.* node.
+function dial() {
+  const tea = TEAS[state.tea];
+  const total = tea.min * 60;
+  const s = brewing() ? secondsLeft() : total;
+  const label = brewing() ? 'Brewing ' + tea.name.toLowerCase() + ' tea'
+    : app.arg === 'ready' ? 'Your tea is ready' : tea.min + ' minutes';
+  return ui.card([
+    ui.text(label, {center: true, dim: true}),
+    ui.big(mmss(s), {color: tea.color}),
+    ui.progress(brewing() ? 1 - s / total : 0, {color: tea.color}),
+  ], {center: true});
+}
+
+function action() {
+  if (brewing()) return ui.button('Stop', stop, {bg: '#6b7280', wide: true});
+  return ui.button('Start', start, {bg: TEAS[state.tea].color, wide: true});
+}
+
+const cupsText = () => state.cups + (state.cups === 1 ? ' cup' : ' cups') + ' brewed so far';
+
+app.title = 'Tea timer';
+app.render = () => ui.column([
+  ui.chips(TEAS.map((t) => t.name), state.tea, pick),
+  dial(),
+  action(),
+  ui.text(cupsText(), {center: true, dim: true, size: 13}),
+]);
+```
+
+What changed:
+
+- **One state object, saved with `store.set`.** `store.get('state', defaults)` reads it back at the start, or returns the defaults the first time. Values are JSON, at most 3000 bytes each.
+- **Resume on open.** The whole script runs each time the app opens. If the saved `endsAt` is still ahead, the countdown carries on. If it has passed, `settle()` counts the cup.
+- **A tick for the last three seconds.** `sound.click()` needs the `sound` permission, which the manifest already has.
+
+## 8. Run it in the simulator
+
+<Tabs syncKey="tool">
+<TabItem label="Repository tools">
+
+Package the folder and put it straight into a copy of the simulator's data:
+
+```sh
+python3 tools/espk.py tea-timer/ out/com.example.teatimer-1.0.0-core.espk
+cp -R sim/data sim/data-me
+python3 tools/espk.py --install-sim sim/data-me out/com.example.teatimer-1.0.0-core.espk --vol flash
+```
+
+Open the simulator window and type a command in the terminal:
+
+```sh
+SIM_DATA=sim/data-me sim/build-live/espos-live --fast
+```
+
+```txt title="In the simulator's terminal"
+app com.example.teatimer
+```
+
+The mouse is your finger. **B** goes back, **H** goes home, **S** saves a screenshot.
+
+</TabItem>
+<TabItem label="espos CLI (Preview)">
+
+```sh
+espos sim --watch
+```
+
+`espos sim` builds the package, installs it into a simulator data folder kept in `.espos/`, builds the simulator if it is out of date, and opens your app in the window. With `--watch`, saving a file rebuilds, reinstalls and restarts it.
+
+For a check without a window, `espos sim --headless` runs `sim/smoke.txt`, saves screenshots to `.espos/shots/`, and fails if the app throws.
+
+</TabItem>
+</Tabs>
+
+Things to try:
+
+- Tap **Start**, go Home, and open the app again from the home screen. The countdown carries on.
+- Tap **Start**, then **Stop**. No notification arrives.
+- Wait for the end with the app closed. Tap the banner: the app opens and says "Your tea is ready".
+
+<Aside type="tip" title="A faster test">
+Three minutes is long to wait. While you test, change Green's `min: 3` to `min: 0.1` (six seconds). Change it back before you package a release.
+</Aside>
+
+## 9. Package and check it
+
+<Tabs syncKey="tool">
+<TabItem label="Repository tools">
+
+```sh
+python3 tools/espk.py tea-timer/ out/com.example.teatimer-1.0.0-core.espk
+python3 tools/espk.py --check out/com.example.teatimer-1.0.0-core.espk
+```
+
+The first command checks the manifest and builds the package. The second reads it back and checks every file's CRC32:
+
+```txt
+com.example.teatimer-1.0.0-core.espk: OK  com.example.teatimer 1.0.0 (code 10000) part core, 1 files, 3162 bytes, sha256 b6c9428b758f16f8c416cbe145644959ffc6ba13cba1462277dda6708e5ad5c3
+    main.js                                        2746 bytes  crc 2382abf9
+```
+
+</TabItem>
+<TabItem label="espos CLI (Preview)">
+
+```sh
+espos check     # the manifest, the files, and your code against the permissions it declares
+espos build     # writes dist/com.example.teatimer-1.0.0-core.espk
+```
+
+`espos check` also warns when the code calls an API its permissions do not allow, or uses something API level 1 does not have, such as `setTimeout`.
+
+</TabItem>
+</Tabs>
+
+The [packaging guide](/guides/packaging/) covers icons, parts and add-ons.
+
+## 10. Install it on a device
+
+<Aside type="caution" title="Your own package reaches a board only by the memory card today">
+A package that is not published in the store gets onto a board **only by copying it to the memory card**. Developer mode, which installs from your computer over the local network with live reload, is <Status s="planned" />.
+</Aside>
+
+The two ways in:
+
+- **The memory card.** Unpack the package into the card's `espos/pkgs/` folder, put the card in, and the app appears on Home. `tools/espk.py --install-sim DIR out/com.example.teatimer-1.0.0-core.espk` writes the right layout into `DIR/sd/espos/pkgs/com.example.teatimer/`; copy that folder to the card. This is also how `espos qemu --install` puts packages into QEMU.
+- **The store.** Once a package is published, a device installs it over WiFi from the store, or from the web desk's list. Publishing is done by the store's owner today; see step 11.
+
+Installing from your computer over the local network, with live reload (`espos run --device`), is <Status s="planned" />. The details are in [Work with a real device](/guides/device/).
+
+## 11. Publish
+
+Publishing to the official store is done by the store's owner today. The steps and what is coming are in [Publish to the store](/guides/publishing/).
+
+## Next steps
+
+- [Building the screen](/guides/js/ui/): every `ui.*` node and option.
+- [Landscape and screen size](/guides/landscape/): the tea timer works sideways as it is, with its last line scrolled under; half cards can put the dial beside the controls.
+- [Languages and translation](/guides/languages/): show "Start" and "Stop" in the user's language with `app.lang`.
+- [Notifications and badges](/guides/js/notifications/): grouping, badges, quiet hours.
+- [Permissions](/concepts/permissions/): what is checked today and what is coming.
+- [Limits](/reference/limits/): memory, time, timers and storage sizes in one table.
+
+<style>{`
+  .tut-split { display: grid; grid-template-columns: 1fr; gap: 1rem 2rem; align-items: start; }
+  @media (min-width: 50rem) { .tut-split { grid-template-columns: 1fr 190px; } }
+  .tut-split .device-shots { margin: 0; }
+  .tut-split .device-shots figure { flex: 1 1 auto; }
+`}</style>

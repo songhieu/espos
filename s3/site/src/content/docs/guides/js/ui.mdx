@@ -1,0 +1,156 @@
+---
+title: Building the screen
+description: 'Every ui.* node of API level 1 with its options, defaults and limits, with screenshots from the simulator.'
+---
+
+import { Aside } from '@astrojs/starlight/components';
+import DeviceShots from '../../../../components/DeviceShots.astro';
+import text from '../../../../assets/shots/ui-text.png';
+import layout from '../../../../assets/shots/ui-layout.png';
+import input from '../../../../assets/shots/ui-input.png';
+import list from '../../../../assets/shots/ui-list.png';
+
+An app's screen is a tree of nodes. You build it with `ui.*` calls in `app.render`, and the OS turns it into native widgets. The area under the title bar is 296 pixels wide in portrait and 456 in landscape, on both boards, and it scrolls when the content is taller than the screen. See [Landscape and screen size](/guides/landscape/).
+
+```js
+app.title = 'Hello';
+app.render = () => ui.column([
+  ui.title('Hello, EspOS'),
+  ui.text('This screen is a tree of plain objects.', {dim: true}),
+  ui.button('Say hi', () => toast('Hi!')),
+]);
+```
+
+The root is usually a `ui.column`. `app.render` must return one node.
+
+## Text
+
+<DeviceShots shots={[{ src: text, alt: 'A title, body text, dim text, bold 18 px text, red text, 12:45 in big digits and 98% in blue', caption: 'title, text, big' }]} />
+
+### `ui.title(text, options)`
+
+A bold heading, 20 px by default.
+
+### `ui.text(text, options)`
+
+Body text, 15 px by default.
+
+| Option | Type | Default | Notes |
+|---|---|---|---|
+| `size` | number | 15 (title: 20) | 12 to 24. Values outside are clamped. The device has regular 12-16, 18 and 20 px and bold 12-18, 20, 22 and 24 px, and picks the nearest. |
+| `bold` | boolean | `false` | `ui.title` is always bold. |
+| `dim` | boolean | `false` | The system's secondary text colour. `ui.text` only. |
+| `color` | `#rrggbb` | system text colour | |
+| `center` | boolean | `false` | Centres the lines of a text that wraps. |
+
+Text wraps at the width of its container, with no line limit. Any value is turned into a string, so `ui.text(42)` works.
+
+<Aside type="caution" title="Centring a short line">
+`center` on a text aligns its lines inside the text's own width. A short, one-line text is only as wide as its words, so it does not move. To centre it, set `center: true` on the parent `column`, `row` or `card`.
+</Aside>
+
+### `ui.big(text, options)`
+
+Large digits, centred across the screen: clocks, counters, scores.
+
+| Option | Type | Default | Notes |
+|---|---|---|---|
+| `color` | `#rrggbb` | system text colour | |
+| `size` | number | 64 | Three sizes exist: 64 (for 60 and above), 56 (50 to 59) and 44 (below 50). |
+
+The big fonts hold the digits `0`-`9`, space and `% + , - . / : ° −`. Letters fall back to the 24 px bold text font, so `ui.big('12:45')` looks right and `ui.big('Hello')` looks small.
+
+## Layout
+
+<DeviceShots shots={[{ src: layout, alt: 'Three cards: a default card, a card with a light orange background, a centred card; then a row of three buttons and a centred row', caption: 'card, row' }]} />
+
+### `ui.column(children, options)`
+
+Stacks its children from top to bottom, at the full width.
+
+### `ui.row(children, options)`
+
+Places its children side by side. When they do not fit, they **wrap** to the next line.
+
+### `ui.card(children, options)`
+
+A column on a rounded card, with 14 px of padding inside. Use cards to group related content.
+
+| Option | Applies to | Type | Default | Notes |
+|---|---|---|---|---|
+| `gap` | column, row, card | number | 8 | Space between children, in pixels. |
+| `center` | column, row, card | boolean | `false` | Centres the children. |
+| `bg` | card | `#rrggbb` | system card colour | The card's background. Text on it keeps the system colour: set the text's `color` too if you change `bg` a lot. |
+| `half` | card | boolean | `false` | Half the line in landscape, so two half cards in a `row` stand side by side; the whole line in portrait. See [Half cards](/guides/landscape/#half-cards). |
+
+Each container draws at most **60 children**. Children can be any node, including other containers. `null` or `false` children are skipped, so you can write `cond && ui.text('Shown when cond')`.
+
+## Input
+
+<DeviceShots shots={[{ src: input, alt: 'Chips Day, Week, Month with Week picked; a blue default button; a wide orange button; Save and Cancel buttons centred in a row', caption: 'chips, button' }]} />
+
+### `ui.button(text, onTap, options)`
+
+A button, 44 px high, as wide as its text unless `wide` is set. The device plays the click sound when it is tapped.
+
+| Option | Type | Default | Notes |
+|---|---|---|---|
+| `bg` | `#rrggbb` | `#0a84ff` (system blue) | Background. |
+| `color` | `#rrggbb` | `#ffffff` | Text colour. |
+| `wide` | boolean | `false` | The full width of its container. |
+
+`onTap` is called with no arguments. After it returns, the screen is drawn again.
+
+### `ui.chips(names, selected, onPick)`
+
+A row of choices; one is selected. If they do not fit, the row scrolls sideways.
+
+| Argument | Type | Notes |
+|---|---|---|
+| `names` | string[] | At most 8. |
+| `selected` | number | The index drawn as selected. Draw it from your state. |
+| `onPick` | `(index) => void` | Called with the tapped chip's index. |
+
+Each chip bar calls its own `onPick`, so a screen can have several.
+
+## Lists and more
+
+<DeviceShots shots={[{ src: list, alt: 'Three list rows: Wi-Fi with Home on the right, Water with a second line and 75%, and a plain row; then two progress bars and a spacer', caption: 'list, progress, spacer' }]} />
+
+### `ui.list(items, onTap)`
+
+List rows, each a rounded cell 46 px high (58 px with a second line).
+
+| Item field | Type | Notes |
+|---|---|---|
+| `title` | string | The main text. |
+| `sub` | string | Optional: a second, smaller line. |
+| `right` | string | Optional: text on the right. |
+
+`onTap(index)` is optional. With it, the rows are tappable, play the click sound and show a chevron. Without it, they are plain. At most **40** rows are drawn: page longer lists yourself, for example with "Next" and "Previous" buttons.
+
+### `ui.progress(value, options)`
+
+A bar from 0 to 1. Values outside are clamped.
+
+| Option | Type | Default |
+|---|---|---|
+| `color` | `#rrggbb` | `#34c759` (system green) |
+
+### `ui.spacer(height)`
+
+Empty space, 0 to 200 px high. The default is 8.
+
+## Colours
+
+Every colour option takes exactly `#rrggbb`. Anything else (`'red'`, `'#f00'`, `'rgb(...)'`) is ignored and the default is used. Text and cards without a colour follow the system look, light by day and dark at night; see [Themes](/concepts/themes/).
+
+## Fonts and languages
+
+Text fonts are Ubuntu. The built-in fonts hold Latin-1, so English, Spanish, French, German, Portuguese and Indonesian always show. Vietnamese marks, Chinese, Japanese, Korean and Cyrillic come from the font package of the language the device shows, so they show only while the device is in that language. Other scripts (Arabic, Thai and so on) and emoji do not show. To show your texts in the user's language, read `app.lang`: see [Languages and translation](/guides/languages/).
+
+## The title bar
+
+`app.title` sets the text at the top. The default is the package's `name`. You can change it in `render` or in any handler: it is read again every time the screen is drawn.
+
+The full API, with types, is in the [JavaScript API reference](/reference/js-api/).

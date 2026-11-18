@@ -28,6 +28,20 @@
       "required": false,
       "type": "text",
       "unique": true
+    },
+    {
+      "code": "call_name",
+      "default": null,
+      "help": "How the dogs (the AI assistant) call the person: set on the web (Tài khoản) or told to a dog; at most 40 letters",
+      "indexed": false,
+      "label": "Name for the dogs",
+      "options": [],
+      "position": 3,
+      "read_only": false,
+      "ref_table": null,
+      "required": false,
+      "type": "text",
+      "unique": false
     }
   ],
   "label": "User profiles",

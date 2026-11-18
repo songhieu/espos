@@ -1,0 +1,26 @@
+# PawBoop's store page: the app, Coin Run, the Dogs shelf, the Run maps shelf
+wait 2500
+app store vn.pawboop.pet
+wait 3500
+shot store1
+drag 160 420 160 60 600
+wait 1200
+shot store2
+drag 160 420 160 60 600
+wait 1200
+shot store3
+drag 160 420 160 60 600
+wait 1200
+shot store4
+drag 160 420 160 60 600
+wait 1200
+shot store5
+drag 160 420 160 60 600
+wait 1200
+shot store6
+drag 160 420 160 60 600
+wait 1200
+shot store7
+drag 160 420 160 60 600
+wait 1200
+shot store8

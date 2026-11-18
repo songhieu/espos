@@ -41,6 +41,7 @@ import (
 	get_device_settings_work "espos/internal/flows/get_device_settings/work"
 	get_markets_work "espos/internal/flows/get_markets/work"
 	get_news_work "espos/internal/flows/get_news/work"
+	get_profile_work "espos/internal/flows/get_profile/work"
 	get_stats_work "espos/internal/flows/get_stats/work"
 	list_books_work "espos/internal/flows/list_books/work"
 	list_devices_work "espos/internal/flows/list_devices/work"
@@ -51,13 +52,14 @@ import (
 	market_tick_work "espos/internal/flows/market_tick/work"
 	photo_source_find "espos/internal/flows/photo_source/find"
 	post_notification_work "espos/internal/flows/post_notification/work"
+	put_device_settings_work "espos/internal/flows/put_device_settings/work"
 	remote_input_work "espos/internal/flows/remote_input/work"
 	remote_view_work "espos/internal/flows/remote_view/work"
 	require_admin_chk "espos/internal/flows/require_admin/chk"
 	require_device_chk "espos/internal/flows/require_device/chk"
-	save_device_settings_work "espos/internal/flows/save_device_settings/work"
 	save_news_work "espos/internal/flows/save_news/work"
 	save_notify_key_work "espos/internal/flows/save_notify_key/work"
+	save_profile_work "espos/internal/flows/save_profile/work"
 	save_wifi_work "espos/internal/flows/save_wifi/work"
 	sign_pkg_upload_check "espos/internal/flows/sign_pkg_upload/check"
 	start_book_upload_prep "espos/internal/flows/start_book_upload/prep"
@@ -107,6 +109,7 @@ var Nodes = map[string]engine.NodeFunc{
 	"get_device_settings/work":    get_device_settings_work.Run,
 	"get_markets/work":            get_markets_work.Run,
 	"get_news/work":               get_news_work.Run,
+	"get_profile/work":            get_profile_work.Run,
 	"get_stats/work":              get_stats_work.Run,
 	"list_books/work":             list_books_work.Run,
 	"list_devices/work":           list_devices_work.Run,
@@ -117,13 +120,14 @@ var Nodes = map[string]engine.NodeFunc{
 	"market_tick/work":            market_tick_work.Run,
 	"photo_source/find":           photo_source_find.Run,
 	"post_notification/work":      post_notification_work.Run,
+	"put_device_settings/work":    put_device_settings_work.Run,
 	"remote_input/work":           remote_input_work.Run,
 	"remote_view/work":            remote_view_work.Run,
 	"require_admin/chk":           require_admin_chk.Run,
 	"require_device/chk":          require_device_chk.Run,
-	"save_device_settings/work":   save_device_settings_work.Run,
 	"save_news/work":              save_news_work.Run,
 	"save_notify_key/work":        save_notify_key_work.Run,
+	"save_profile/work":           save_profile_work.Run,
 	"save_wifi/work":              save_wifi_work.Run,
 	"sign_pkg_upload/check":       sign_pkg_upload_check.Run,
 	"start_book_upload/prep":      start_book_upload_prep.Run,

@@ -1,0 +1,27 @@
+{
+  "name": "opus",
+  "version": "1.4.0",
+  "description": "libopus 1.4 (Xiph.Org, BSD licence, see COPYING), decoder files only, fixed point, scratch memory on the heap (PSRAM). Copied unchanged from opus-1.4.tar.gz (sha256 c9b32b4253be5ae63d1ff16eea06b94b5f0f2951b7a02aceef58e3a3ce49c51f) for PawBoop's voice lines. Decodes the voice pack bit for bit like the Mac's libopus 1.5.2.",
+  "license": "BSD-3-Clause",
+  "frameworks": "*",
+  "platforms": "*",
+  "build": {
+    "srcDir": ".",
+    "includeDir": "include",
+    "srcFilter": ["+<celt/*.c>", "+<silk/*.c>", "+<src/*.c>"],
+    "flags": [
+      "-DFIXED_POINT=1",
+      "-DOPUS_BUILD",
+      "-DNONTHREADSAFE_PSEUDOSTACK",
+      "-DGLOBAL_STACK_SIZE=120000",
+      "-DDISABLE_FLOAT_API",
+      "-DHAVE_LRINT=1",
+      "-DHAVE_LRINTF=1",
+      "-Iinclude",
+      "-Icelt",
+      "-Isilk",
+      "-Isilk/fixed",
+      "-w"
+    ]
+  }
+}

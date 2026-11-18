@@ -1,0 +1,20 @@
+{
+  "name": "@espos/sdk",
+  "version": "0.1.0",
+  "description": "TypeScript typings for the EspOS JavaScript API (API level 1) and JSON schemas for package manifests.",
+  "license": "Apache-2.0",
+  "types": "espos.d.ts",
+  "files": [
+    "espos.d.ts",
+    "schemas",
+    "README.md"
+  ],
+  "exports": {
+    ".": {
+      "types": "./espos.d.ts"
+    },
+    "./espos.d.ts": "./espos.d.ts",
+    "./schemas/*": "./schemas/*",
+    "./package.json": "./package.json"
+  }
+}

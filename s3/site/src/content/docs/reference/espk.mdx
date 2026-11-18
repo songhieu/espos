@@ -1,0 +1,84 @@
+---
+title: .espk file format
+description: 'The byte layout of an EspOS package file: header, manifest, file table and file data, with the checks the device makes.'
+---
+
+import Status from '../../../components/Status.astro';
+
+An `.espk` file is one part of a package: a manifest and a set of files, laid out so the device can stream it from the network straight to flash. **Format 1**, little endian.
+
+## Layout
+
+| Offset | Size | Field | Value |
+|---|---|---|---|
+| 0 | 4 | magic | `"ESPK"` |
+| 4 | 2 | `format` (u16) | `1` |
+| 6 | 2 | `flags` (u16) | `0` |
+| 8 | 4 | `manifest_len` (u32) | Bytes of manifest JSON, at most 32,768. |
+| 12 | 4 | `nfiles` (u32) | Number of files, at most 512. |
+| 16 | `manifest_len` | manifest | UTF-8 JSON, then zero padding to a multiple of 16. |
+| `T` = 16 + pad16(`manifest_len`) | 64 × `nfiles` | file table | One entry per file, below. |
+| after the table | | file data | Each file at a 16-byte aligned offset, in table order. |
+
+### File table entry (64 bytes)
+
+| Offset | Size | Field | Meaning |
+|---|---|---|---|
+| 0 | 52 | `name` | UTF-8, zero padded. May contain `/` for folders. At most 51 bytes. |
+| 52 | 4 | `off` (u32) | Offset of the file's data from the start of the `.espk`. A multiple of 16. |
+| 56 | 4 | `size` (u32) | Size in bytes, at most 64 MB. |
+| 60 | 4 | `crc32` (u32) | CRC-32 (zlib) of the file's bytes. |
+
+Files are in increasing offset order and do not overlap. The gaps between them are zero bytes.
+
+## Rules the device checks
+
+| Check | Error on the device |
+|---|---|
+| Magic is `ESPK` | "not an .espk package" |
+| Format is 1 | "a newer package format: update the software" |
+| Manifest and table sizes in range | "the package header is broken" |
+| Names: 1-51 bytes, not absolute, no `..` or `//`, no trailing `/`, no `\ : * ? " < > \|` or control characters, not `manifest.json` | "a file name in the package is not valid" |
+| No two files with the same name | "the package has two files with the same name" |
+| Offsets aligned, increasing, sizes in range | "the package's file table is broken" |
+| Every file's CRC32 | "a downloaded file is wrong (CRC)" |
+| The file is complete | "the package is cut short" |
+
+On top of that, the installer checks each part's SHA-256 against the catalog, its size, and that the manifest's `id` is the package it asked for. See [Error messages](/reference/errors/).
+
+## Reading one in Python
+
+```python
+import struct, zlib
+
+def read_espk(path):
+    b = open(path, 'rb').read()
+    magic, fmt, flags, mlen, nfiles = struct.unpack_from('<4sHHII', b, 0)
+    assert magic == b'ESPK' and fmt == 1
+    manifest = b[16:16 + mlen].decode('utf-8')
+    table = 16 + ((mlen + 15) & ~15)
+    files = []
+    for i in range(nfiles):
+        raw, off, size, crc = struct.unpack_from('<52sIII', b, table + 64 * i)
+        name = raw.split(b'\0')[0].decode('utf-8')
+        data = b[off:off + size]
+        assert zlib.crc32(data) & 0xFFFFFFFF == crc, name
+        files.append((name, data))
+    return manifest, files
+```
+
+## Making and checking one
+
+| Tool | Does |
+|---|---|
+| `python3 tools/espk.py FOLDER OUT.espk` | Checks the manifest and every file name, then writes the file. The reference writer. |
+| `python3 tools/espk.py --check FILE.espk` | Verifies the header, the manifest, the table and every file's CRC32, and prints the table. |
+| `python3 tools/espk.py --entry BASE_URL core.espk [part.espk ...]` | Prints the package's catalog entry, with sizes and SHA-256. |
+| `espos build` <Status s="preview" /> | Writes the same bytes as `tools/espk.py` for a plain folder; bundles TypeScript first. |
+| `espos inspect FILE.espk` <Status s="preview" /> | The manifest, files, offsets, CRC32s, SHA-256 and catalog entry; `--extract DIR` unpacks it. |
+
+Files are named `<id>-<version>-<part>.espk` (`dev.espos.focus-1.2.0-core.espk`); a package of one part may leave the part out (`dev.espos.lang.de-1.0.1.espk`). The name is only a convention: the device reads the id, version and part from the manifest. Every device on EspOS 0.5.0 or newer reads the format; it is the same for apps, games, Java games, language and font packs, and declarative faces and widgets.
+
+## Planned changes<Status s="planned" />
+
+Signing replaces each file's CRC32 with a SHA-256 and adds an Ed25519 signature. The layout is not final yet. The `format` field is how a device tells layouts apart: today's firmware refuses any format other than 1 with "a newer package format: update the software".

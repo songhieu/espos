@@ -1,0 +1,145 @@
+---
+title: Board-specific code
+description: 'Every part of the firmware that knows which board it runs on: the HAL, the board descriptor, detection at boot, the display and touch drivers, scaling, and the audio, card and battery drivers set up from the descriptor.'
+---
+
+import { Aside, FileTree, Steps } from '@astrojs/starlight/components';
+import Status from '../../../components/Status.astro';
+
+<Status s="preview" label="In progress" /> The board layer is being reorganised into a hardware abstraction layer (HAL) with one folder per board. This page describes the code as it is in the tree now. Names and fields may still change; [Board support packages](/hardware/bsp/) tracks the work.
+
+## Where board code lives
+
+<FileTree>
+- src/
+  - hal/ what the OS may know about a board
+    - board.h the descriptor (`hal::Board`), `hal::Bsp`, `hal::detect()`
+    - caps.h capability flags, their package-facing names, the profiles
+    - display.h the panel's description and driver interface (`hal::Display`)
+    - input.h the touch controller's description and driver interface (`hal::Input`)
+    - audio.h, storage.h, power.h the codec, card slot and battery, as data
+    - hal.cpp helpers for boards (`hal::i2cAnswer`)
+  - boards/
+    - boards.cpp the registry: the boards this firmware knows, asked at boot
+    - es3c35p/ the 3.5" board: descriptor, `bsp.cpp`, `display.cpp`, `touch.cpp`
+    - es3c28p/ the 2.8" board: the same four files
+    - qemu/ the boards as QEMU emulates them
+    - _template/ a new board: copy it
+  - board.h, lcd.h, touch.h the OS's own APIs over the HAL
+  - scale.h shrinking the 320 × 480 interface for a smaller panel
+  - sound.cpp, power.cpp, pkg/card.cpp OS drivers set up from the descriptor
+</FileTree>
+
+The OS core calls only its own APIs (`lcd::`, `touch::`, `sound::`, `power::`, `board::`). Those call the found board's drivers and read its descriptor. Nothing above them knows which board it runs on.
+
+## The descriptor
+
+Each board describes itself in one `constexpr hal::Board`, in `src/boards/<name>/<name>.h`. It is plain data in flash: the OS reads it through `hal::board()`, and the board's drivers read it at compile time.
+
+| Field | Holds |
+|---|---|
+| `name`, `label` | `es3c28p` for the server (sync, diagnostics, firmware updates) and a label for people. Never change `name` once devices are out. |
+| `chip` | `ESP32S3` today. `ESP32C3`, `ESP32C6` and `ESP32P4` are reserved. |
+| `caps` | Capability flags from `src/hal/caps.h`, each with a package-facing name: see [Capabilities](/hardware/profiles/#capabilities). Both boards are exactly `hal::PROFILE_FULL`. |
+| `display` | The panel (its pixels, type, colour format, refresh kind, the rotations the driver supports), where the 320 × 480 interface lands on it (`ui`: a scale `num/den` and an offset), and the panel's pins. |
+| `i2c` | The board's own I2C bus, shared by touch and the codec. |
+| `input` | The touch controller: kind, I2C address, reset and interrupt pins. |
+| `audio` | The codec, its I2C address, the I2S pins, the amplifier enable pin and its "on" level. |
+| `card` | The card bus (SD_MMC), its width, whether to fall back to 1-bit, and the six pins. |
+| `power` | The battery's ADC pin, divider, and the voltages for 0 % and 100 %. |
+| `misc` | The RGB LED and BOOT button pins. |
+
+Pins are GPIO numbers; `-1` means not wired. The two boards side by side:
+
+| | `es3c35p` | `es3c28p` |
+|---|---|---|
+| Panel | 320 × 480 TFT, QSPI, tear signal on 42, all four rotations | 240 × 320 TFT, SPI with D/C on 46, all four rotations |
+| Interface on the panel | 1/1 at (0, 0) | 2/3 at (13, 0); in landscape 320 × 213 from row 13 |
+| I2C | 38/39 | 16/15 |
+| Touch | 0x55, reset 48, interrupt 47 | 0x38 (FT6336G), reset 18, interrupt 17 |
+| Audio | ES8311 at 0x18, I2S 17/18/21/15/16, amplifier 1 (low = on) | ES8311 at 0x18, I2S 4/5/7/8/6, amplifier 1 (low = on) |
+| Card | SD_MMC 4-bit on 5/4/6/7/2/3 | SD_MMC 4-bit on 38/40/39/41/48/47, 1-bit fallback |
+| Battery | ADC 8, 1:2 | ADC 9, 1:2 |
+
+## Detection at boot: `src/boards/boards.cpp`
+
+<Steps>
+
+1. `hal::detect()` runs first at boot, before any driver takes a pin.
+2. It asks each listed board's `probe()` in order and keeps the first that answers. A probe looks for a chip only that board has, at a known I2C address on that board's pins, with `hal::i2cAnswer`.
+3. If nobody answers, the board is the first in the list: the ES3C35P, as every firmware before detection.
+4. The result goes to the trace log, for example `board: es3c28p (0x38 answered, 312 ms)`.
+
+</Steps>
+
+The order is a safety rule. The ES3C28P's probe drives its touch reset (GPIO 18) high, and on the ES3C35P that pin is an I2S clock. So the ES3C35P is asked first: on the 2.8" board its pins (38/39) are the card's clock and a data line, where an I2C address byte is harmless.
+
+A build can list one board only and skip probing (`-DBOARD_ES3C28P` does this). QEMU and the simulator cannot be probed, so there the board is the build's.
+
+## The display: `hal::Display` behind `src/lcd.h`
+
+Every panel driver fills in a `hal::Display`. The OS calls it through `lcd::`:
+
+| Function | What the driver does |
+|---|---|
+| `begin()` | Start the bus and the panel, leave the backlight off, and create an LVGL display of **320 × 480** in RGB565 (480 × 320 once turned), with two band buffers in internal RAM and a flush callback that sends each band (scaled, turned and byte-swapped as the panel needs). |
+| `setRotation(r)` | Turn the picture: `r` is LVGL's 0, 90, 180 or 270. A rotation the driver cannot do (not in the descriptor's `rotations`) stays portrait. |
+| `setBacklight(percent)` | 0 to 100; 0 is off. The OS turns it on once the first screen is drawn. |
+| `stats`, `logInvalid` | Frame counts and flush times for benchmarks; a redraw log (may do nothing). |
+| `direct(y0, y1, fill, ctx, tear)` | Rows sent straight to the panel, past LVGL, for full-screen games. Returning `false` makes the game draw through LVGL instead, slower but correct. |
+| `mirror(on)`, `frame(w, h)` | Keep a copy of the interface's picture in PSRAM for remote control and screenshots: 320 × 480, or 480 × 320 in landscape. |
+
+| Driver | Notes |
+|---|---|
+| `boards/es3c35p/display.cpp` | QSPI, DMA while LVGL renders the next band, the panel's tear signal, all four rotations (landscape turned in software through a shadow frame): the fastest path. |
+| `boards/es3c28p/display.cpp` | SPI with D/C at 40 MHz; renders the interface in bands of 78 rows and sends each at 2/3, centred. In landscape the ILI9341 turns itself (`MADCTL`), and the bands are 51 rows of 480, each scaled in two halves. |
+| `boards/qemu/display.cpp` | QEMU's virtual panel; for the 2.8" build, the interface is scaled into a 240 × 320 window. |
+
+## Scaling: `src/scale.h`
+
+When the panel has fewer pixels than the interface, each band is shrunk on its way out. Every output pixel is the **area average** of the input pixels it covers, so shapes and text keep their proportions.
+
+| Function | Ratio | Used by |
+|---|---|---|
+| `scale::down32` | 2/3 (3 pixels to 2, both ways) | the 2.8" board: 320 × 480 to 213 × 320, and 480 × 320 to 320 × 213 |
+| `scale::down43` | 3/4 (4 to 3) | available |
+
+Plain C++ on RGB565, the same on the board, in QEMU and in the simulator. Bands must be a multiple of the step (3 rows for 2/3), so a scaling driver widens LVGL's redraw areas to whole rows aligned to the step.
+
+## Touch: `hal::Input` behind `src/touch.h`
+
+`touch::begin()` makes the board's I2C bus and starts the board's input driver. The driver resets its controller, checks that it answers, and runs a task that reads every report (about 100 a second) and hands it to:
+
+```cpp
+touch::report(x, y, down, ms);   // x, y in the interface's portrait coordinates, 0..319 and 0..479
+```
+
+A panel that shows the interface scaled maps its point back through the descriptor's `ui` (on the 2.8" board, `x = (px - 13) × 3/2`, `y = py × 3/2`). Report portrait coordinates in every orientation: LVGL turns them. `touch.cpp` does the rest for every board: one queue, the system gestures, the 20 px slop and the tap click. QEMU has no touch controller: the viewer and the dev console feed the same queue.
+
+## Audio, card and battery: OS drivers set up from the descriptor
+
+| Driver | Reads | Without the capability |
+|---|---|---|
+| `src/sound.cpp` | `audio`: the ES8311 over the board's I2C bus, I2S at 16 kHz, the amplifier pin | no `CAP_AUDIO_OUT`: `sound::` stays quiet |
+| `src/pkg/card.cpp` | `card`: SD_MMC 4-bit, then 1-bit if allowed | no `CAP_SDCARD`: no card task |
+| `src/power.cpp` | `power`: the ADC pin and divider, mapped from `emptyMv` to `fullMv` | no `CAP_BATTERY`: a steady 85 % (QEMU) |
+
+A board with the same chips needs only its descriptor values. Another codec, or a card on SPI, needs a new kind added to these drivers (`hal::Codec`, `hal::CardBus` list the kinds; SD over SPI is planned).
+
+## The build: `platformio.ini`
+
+| Environment | For |
+|---|---|
+| `s3desk` | Every listed board: the ESP32-S3 with 16 MB of flash, octal PSRAM, and the `partitions_pawboop.csv` table. |
+| `s3desk-qemu` | QEMU as the 3.5" board. |
+| `s3desk-28-qemu` | QEMU as the 2.8" board (`-DBOARD_ES3C28P`). |
+
+The partition table fixes the firmware slot (3,932,160 bytes), the internal app area for packages, LittleFS and NVS. It is the same on every 16 MB board; another flash size needs its own table.
+
+## In the simulator
+
+The simulator builds the OS for your computer with the board's **descriptor** only (`src/boards/boards.cpp`), and stands in for the drivers itself (`sim/stubs.cpp`). It draws the interface directly, in the orientation of the setting (`rot N` in a script). Use QEMU to exercise a board's real build.
+
+<Aside type="note" title="Checked on which hardware">
+The ES3C35P runs this code on the board. The ES3C28P has been checked in QEMU; on the board, the panel's colour order, the touch axes, the codec, the card's 4-bit wiring, the battery divider and the real frame rate are still to be confirmed.
+</Aside>

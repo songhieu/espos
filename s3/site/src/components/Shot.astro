@@ -1,0 +1,17 @@
+---
+// One screenshot at its own size (landscape 480 x 320, or a panel picture), with a caption under it.
+// DeviceShots is for rows of 320 x 480 portrait shots.
+import { Image } from 'astro:assets';
+
+interface Props {
+  src: ImageMetadata;
+  alt: string;
+  caption?: string;
+}
+const { src, alt, caption } = Astro.props;
+---
+
+<figure class="screen-shot not-content">
+  <Image src={src} alt={alt} width={src.width} height={src.height} />
+  {caption && <figcaption>{caption}</figcaption>}
+</figure>

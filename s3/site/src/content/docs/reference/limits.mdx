@@ -1,0 +1,82 @@
+---
+title: Limits
+description: 'Every fixed limit an app or package meets, in one table: memory, time, stack, timers, storage, notifications, UI nodes, package sizes and names.'
+---
+
+All values are for EspOS 0.5.0, API level 1.
+
+## JavaScript apps
+
+| What | Limit | Past it |
+|---|---|---|
+| Heap | 1.5 MB per app, in PSRAM | `InternalError: out of memory` |
+| One call (tap handler, timer callback, `render`) | 1.5 s | `InternalError: interrupted`; a toast "App error: " plus the error |
+| Running `main.js` at open | 3 s | "The app cannot run: " plus the error |
+| Stack | 16 KB in internal RAM; QuickJS may use 11 KB (the simulator sets no limit: test deep code in QEMU) | `RangeError: Maximum call stack size exceeded` |
+| Internal RAM free to open an app | 16 KB for the stack plus 12 KB to spare | "The device is busy. Open it again in a moment." |
+| `main.js` | under 512 KB | the app does not open |
+| Timers at once | 8 | `RangeError: too many timers` |
+| Timer period | at least 50 ms | raised to 50 ms |
+| Running | only while the app is open | timers stop on close |
+
+## Screen
+
+| What | Limit |
+|---|---|
+| Interface size | 320 × 480 in portrait, 480 × 320 in landscape (both boards) |
+| Content width | 296 px in portrait, 456 px in landscape |
+| Half card (`{half: true}`) | 224 px in landscape; the whole line in portrait |
+| Children per `column`, `row`, `card` | 60 |
+| Rows per `ui.list` | 40 |
+| Chips per `ui.chips` | 8 |
+| Text sizes | 12 to 24 px |
+| `ui.big` sizes | 44, 56, 64 px |
+| `ui.spacer` | 0 to 200 px |
+| Colours | `#rrggbb` only |
+
+## Storage (`store`)
+
+| What | Limit | Past it |
+|---|---|---|
+| Key length | 1 to 14 characters | `RangeError: store keys are 1-14 characters` |
+| Value | 3000 bytes of JSON (UTF-8) | `RangeError: store values are at most 3000 characters` |
+| Scope | one namespace per app id | |
+
+## Notifications
+
+| What | Limit |
+|---|---|
+| Waiting (scheduled) notifications | 32 per device |
+| History in the Notification Center | 50 newest |
+| Title | 120 bytes |
+| Body | 400 bytes |
+| `arg` | 120 bytes |
+| `tag` | 40 bytes |
+| Late scheduled notifications | after 15 minutes late: to the Center quietly |
+
+## Packages
+
+| What | Limit |
+|---|---|
+| `id` | 48 characters; 23 to open with the dev console's `APP` |
+| `name` | 40 characters |
+| `desc` | 300 characters |
+| `author` | 40 characters |
+| `version` | 20 characters |
+| File name inside a package | 51 bytes, folders included |
+| Files per part | 512 |
+| One file | 64 MB |
+| Manifest | 32 KB |
+| Icon | `icon.jpg`, square baseline JPEG, 120 × 120, under 200 KB |
+| Internal app area (native packages) | 7,528,448 bytes |
+| Java game upload on the web desk | jar 2 MB, package 2.2 MB, icon 64 KB |
+| Java heap (`j2me`) | at most 3 MB |
+
+## Firmware
+
+| What | Limit |
+|---|---|
+| Firmware image | 3,932,160 bytes (the update slot) |
+| Flash | 16 MB |
+| PSRAM | 8 MB |
+| TLS sessions at once | 1 (sync, downloads and remote control take turns) |

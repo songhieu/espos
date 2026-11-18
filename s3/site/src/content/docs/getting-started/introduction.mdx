@@ -1,0 +1,86 @@
+---
+title: What is EspOS
+description: 'EspOS is the base firmware of ESP32-S3 touch-screen devices. Apps, games and data are installable packages that declare permissions.'
+---
+
+import Status from '../../../components/Status.astro';
+import DeviceShots from '../../../components/DeviceShots.astro';
+import tea from '../../../assets/shots/tea-brewing.png';
+import dice from '../../../assets/shots/dice.png';
+import game from '../../../assets/shots/j2me-spaceshooter.png';
+
+EspOS is an open-source operating system for ESP32-S3 devices with a touch screen. The base firmware is the OS. Everything else is a **package** that you install, move and remove, like apps on a phone.
+
+<DeviceShots
+  shots={[
+    { src: tea, alt: 'A JavaScript tea timer counting down', caption: 'A JavaScript app' },
+    { src: dice, alt: 'The built-in dice app written in JavaScript', caption: 'Dice, a store app' },
+    { src: game, alt: 'A Java phone game running on the device with an on-screen keypad', caption: 'A Java (J2ME) game' },
+  ]}
+/>
+
+## The idea in four lines
+
+- **The firmware is the OS.** It holds the home screen, settings, the store and installer, notifications, data sync, the network queue, power and input.
+- **Everything else is a package.** One `.espk` file holds a manifest and the app's files. The store installs it over WiFi into the internal flash or onto the memory card; you can also copy a package onto the card yourself. (Publishing to the store is done by its owner today.)
+- **Apps talk to the system only through the EspOS API.** Today that is a JavaScript API (we call it API level 1). Each call that needs a permission checks it.
+- **Building for it should feel like mobile development:** an SDK, a CLI, simulators, a store, and a hosted or self-hosted server.
+
+## What you can build today
+
+| You write | It runs on | Status |
+|---|---|---|
+| A JavaScript app (`main.js` + `manifest.json`) | QuickJS inside the firmware, with the `ui`, `timer`, `sound`, `notify`, `toast` and `store` APIs | <Status s="available" /> |
+| A Java phone game (`.jar`, MIDP 2.0 / CLDC 1.1) | The `j2me` engine, a small Java VM in the firmware (firmware 0.4.0) | <Status s="preview" /> |
+| Data for a built-in engine (pictures, sounds, levels) | First-party engines such as `pet` and `run` | First-party only |
+| A declarative clock face or widget (JSON the firmware draws) | the `decl` renderer: built for the e-ink Xteink X4, the S3 next | <Status s="preview" label="In progress" /> |
+| A theme, background service or driver | | <Status s="planned" /> |
+
+Third-party native code is not on the list, and it will not be. The ESP32-S3 cannot keep one native app away from another app's memory, so third-party code runs in memory-safe interpreters: QuickJS today, WebAssembly later. See [Security model](/concepts/security/).
+
+## The hardware
+
+EspOS runs on two boards today. Both use an ESP32-S3 with 16 MB of flash and 8 MB of PSRAM, a capacitive touch screen, a speaker and a microSD slot.
+
+| Board | Screen | Notes |
+|---|---|---|
+| ES3C35P | 3.5", 320 × 480 | The reference board. |
+| ES3C28P | 2.8", 240 × 320 | Shows the same interface scaled to 2/3. Checked in QEMU, not yet on the board. |
+
+Both boards turn four ways. Every app is laid out for 320 × 480 in portrait and 480 × 320 in landscape, on both boards, and the OS speaks eleven languages. Details: [Supported boards](/guides/boards/), [Landscape and screen size](/guides/landscape/) and [Languages and translation](/guides/languages/).
+
+EspOS is meant to run on many chips and displays, and to be rebuilt by anyone for their own hardware while keeping the same platform. See [Hardware and porting](/hardware/).
+
+## How the pieces fit
+
+```
+  Your app (main.js)          Store catalog + .espk files
+        │                               │
+        ▼                               ▼
+  ┌──────────────────────────────────────────────┐
+  │  EspOS (firmware)                            │
+  │  installer · home · notifications · settings │
+  │  QuickJS runtime · engines (pet, run, j2me)  │
+  └──────────────────────────────────────────────┘
+        ▲                               ▲
+        │ sync: settings, s3.pkgs       │ HTTPS
+        ▼                               │
+  EspOS server (hosted, or your own) ── web desk in the browser
+```
+
+The device syncs with an EspOS server. The web desk in your browser edits the device's settings and its list of wanted packages (`s3.pkgs`), and the device installs what the list asks for. You can also install from the store on the device itself.
+
+## What is in these docs
+
+- [Getting started](/getting-started/install/): set up the tools and build [your first app](/getting-started/first-app/).
+- [Concepts](/concepts/architecture/): how the OS, packages, permissions, storage and the store work.
+- [Guides](/guides/js/ui/): task by task, from building a screen to publishing.
+- [Reference](/reference/js-api/): every API call, manifest field, file format and command.
+- [Roadmap](/roadmap/): what is planned and in what order.
+
+### Conventions
+
+- Every feature that is not in the firmware today carries a label: <Status s="preview" /> works but may change; <Status s="planned" /> is agreed in the platform plan and not built yet. Unlabelled means available.
+- The device's own screens are in English unless the user picks another language. These docs quote device messages in English, for example "Needs the memory card".
+- Server addresses use the placeholder `https://espos.example`.
+- Paths such as `tools/espk.py` are relative to the root of the firmware repository.

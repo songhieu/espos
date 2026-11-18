@@ -36,6 +36,12 @@ var deviceDefaults = map[string]string{
 	"s3.saver_pages":   "",  // the custom saver (s3desk/docs/saver.md); "" = the device's defaults
 	// The Markets app's codes ("gold:SJC,stocks:FPT,fx:USD,crypto:BTC", at most 20); "" = the built-in mix.
 	"s3.markets": "",
+	// Landscape Home pages (2026-11-18, s3desk/docs/widgets.md §4b): {"v":1,"pages":[...],"bg":[...]}; "" = the device
+	// lays them out from the portrait ones (s3.home).
+	"s3.home_l": "",
+	// PawBoop (2026-11-18, s3desk/docs/pawboop.md): the chosen dog (a key of petDogs; "" = the first installed) and the
+	// dog assistant's switches (checkAssist). The AI assistant (assist_reply) talks as s3.pet_dog when not told a dog.
+	"s3.pet_dog": "", "s3.assist": "",
 	// Lite packages on the X4 (2026-11-17, s3desk/docs/profiles.md §9.1): what the user wants installed, a JSON
 	// list [{"id", "code"}, {"id", "rm": true}]. Sent to and taken from an X4 only.
 	"x4.pkgs": "",
@@ -121,11 +127,14 @@ func cleanSections(v string) string {
 }
 
 // s3OSJSON: the colour desk's JSON settings and their size limits in bytes.
-var s3OSJSON = map[string]int{"s3.home": 6000, "s3.mywidgets": 8000, "s3.notes": 16000, "s3.alarms": 2000, "s3.todo": 4000, "s3.apps": 4000}
+var s3OSJSON = map[string]int{"s3.home": 6000, "s3.home_l": 6000, "s3.mywidgets": 8000, "s3.notes": 16000, "s3.alarms": 2000, "s3.todo": 4000, "s3.apps": 4000}
 
 // s3OSCheck: handled is true for the colour desk's OS keys, good when v may be stored as it is
 // (valid JSON within its size, or a known value; "" always). A bad value is skipped, never cut.
 func s3OSCheck(k, v string) (handled bool, good bool) {
+	if k == "s3.home_l" {
+		return true, checkHomeL(v) == "" // the landscape pages' shape, as save_device_settings checks it
+	}
 	if max, ok := s3OSJSON[k]; ok {
 		return true, v == "" || (len(v) <= max && json.Valid([]byte(v)))
 	}
@@ -150,6 +159,10 @@ func s3OSCheck(k, v string) (handled bool, good bool) {
 		return true, photoIDs(v)
 	case "s3.markets":
 		return true, checkMarkets(v)
+	case "s3.pet_dog":
+		return true, petDogs[v]
+	case "s3.assist":
+		return true, checkAssist(v) == ""
 	}
 	return false, false
 }
@@ -169,6 +182,97 @@ func photoIDs(v string) bool {
 		}
 	}
 	return true
+}
+
+// checkHomeL: s3.home_l, the colour desk's landscape Home pages (s3desk/docs/widgets.md §4b, home.cpp readPages):
+// "" or {"v":1,"pages":[[entries]],"bg":[...]} within 6000 bytes, at most 8 pages. Entries as in s3.home: an app
+// ["a", id, x, y] (1 x 1) or a widget ["w", kind, x, y, size, style, opt, open?, skin?] (size by its first letter as
+// the device's sizeOf: m 4 x 2, l 4 x 4, anything else S 2 x 2), each inside the 5 x 4 grid. Overlaps are left to the
+// device, which drops them. "bg": no longer than "pages", each null or an object. "" when good, else the reason.
+// The same function is in device_sync and save_device_settings: keep the two copies identical.
+func checkHomeL(v string) string {
+	if v == "" {
+		return ""
+	}
+	if len(v) > 6000 {
+		return "quá dài (tối đa 6000 byte)"
+	}
+	if !json.Valid([]byte(v)) {
+		return "không phải JSON"
+	}
+	var d map[string]any
+	if json.Unmarshal([]byte(v), &d) != nil || d == nil {
+		return "cần một đối tượng JSON"
+	}
+	if d["v"] != float64(1) {
+		return "cần \"v\": 1"
+	}
+	pages, ok := d["pages"].([]any)
+	if !ok {
+		return "cần danh sách trang \"pages\""
+	}
+	if len(pages) > 8 {
+		return "tối đa 8 trang"
+	}
+	for i, pg := range pages {
+		where := "trang " + strconv.Itoa(i+1)
+		items, ok := pg.([]any)
+		if !ok {
+			return where + " không hợp lệ"
+		}
+		for _, it := range items {
+			e, ok := it.([]any)
+			if !ok || len(e) < 2 || (e[0] != "a" && e[0] != "w") {
+				return where + ": có mục không hợp lệ"
+			}
+			id, _ := e[1].(string)
+			if id == "" {
+				return where + ": thiếu mã ứng dụng hoặc widget"
+			}
+			name := "ứng dụng " + id
+			cols, rows := 1.0, 1.0
+			if e[0] == "w" {
+				name = "widget " + id
+				cols, rows = 2, 2
+				size := ""
+				if len(e) > 4 {
+					size, _ = e[4].(string)
+				}
+				if strings.HasPrefix(size, "m") {
+					cols, rows = 4, 2
+				} else if strings.HasPrefix(size, "l") {
+					cols, rows = 4, 4
+				}
+			}
+			var x, y float64
+			xok, yok := false, false
+			if len(e) >= 4 {
+				x, xok = e[2].(float64)
+				y, yok = e[3].(float64)
+			}
+			if !xok || !yok || x != float64(int64(x)) || y != float64(int64(y)) {
+				return where + ": vị trí của " + name + " phải là số nguyên"
+			}
+			if x < 0 || y < 0 || x+cols > 5 || y+rows > 4 {
+				return where + ": " + name + " nằm ngoài lưới 5 x 4"
+			}
+		}
+	}
+	if b, has := d["bg"]; has {
+		list, ok := b.([]any)
+		if !ok {
+			return "\"bg\" cần là một danh sách"
+		}
+		if len(list) > len(pages) {
+			return "nền nhiều hơn số trang"
+		}
+		for i, x := range list {
+			if _, obj := x.(map[string]any); x != nil && !obj {
+				return "nền trang " + strconv.Itoa(i+1) + " không hợp lệ"
+			}
+		}
+	}
+	return ""
 }
 
 // ---- app store: package ids, s3.pkgs, s3.notif and the device's packages report (docs/ecosystem.md §6) ----
@@ -1579,4 +1683,45 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 		out["pkgs_err"] = pkgsErr
 	}
 	return map[string]any{"status": 200, "body": out}
+}
+
+// petDogs: the PawBoop dogs a colour desk may choose (s3.pet_dog; s3desk/src/pet/dogs.cpp ALL, dogs.json order).
+// "" = the device takes the first dog installed.
+var petDogs = map[string]bool{"": true, "bao": true, "momo": true, "boop": true, "leaf": true, "volt": true, "byte": true,
+	"shiba": true, "corgi": true, "husky": true, "golden": true}
+
+// checkAssist: s3.assist, the dog assistant's switches (s3desk/src/pet/assist.cpp prefs/setPrefs): "" or a JSON
+// object of at most these keys: on, greet, weather, alarm, meal (0 or 1) and water, move, eyes (minutes between
+// habit reminders, 0 to 600; 0 = off). "" when good, else the reason.
+// The same function is in device_sync and put_device_settings: keep the two copies identical.
+func checkAssist(v string) string {
+	if v == "" {
+		return ""
+	}
+	if len(v) > 200 {
+		return "quá dài (tối đa 200 byte)"
+	}
+	var d map[string]any
+	if json.Unmarshal([]byte(v), &d) != nil || d == nil {
+		return "cần một đối tượng JSON"
+	}
+	for k, x := range d {
+		n, ok := x.(float64)
+		if !ok || n != float64(int(n)) {
+			return k + ": cần một số nguyên"
+		}
+		switch k {
+		case "on", "greet", "weather", "alarm", "meal":
+			if n != 0 && n != 1 {
+				return k + ": 0 hoặc 1"
+			}
+		case "water", "move", "eyes":
+			if n < 0 || n > 600 {
+				return k + ": 0 đến 600 phút"
+			}
+		default:
+			return k + ": không có công tắc này"
+		}
+	}
+	return ""
 }

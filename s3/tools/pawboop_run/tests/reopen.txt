@@ -1,0 +1,18 @@
+# The game open (the bench), then opened again through the OS (apps::open -> os::closeApps -> run::open): the new
+# game must show and play (the old screen is deleted later by the OS).
+bench
+dismiss
+wait 3000
+app vn.pawboop.run
+wait 1500
+shot reopen_menu
+tap 160 300
+wait 1500
+shot reopen_run
+app vn.pawboop.run
+wait 300
+app vn.pawboop.run
+wait 1500
+tap 160 300
+wait 1000
+shot reopen_twice

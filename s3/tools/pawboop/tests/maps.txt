@@ -1,0 +1,182 @@
+# Every map (live simulator, board speed): its start card, running, its gate, the next map
+wait 3000
+set s3.pet_dog corgi
+wait 2000
+run bazaar
+wait 4500
+dev frame
+shot bazaar_card
+tap 160 300
+wait 1200
+dev god
+dev auto
+wait 3000
+dev frame
+shot bazaar_run
+dev warp 172
+wait 2600
+dev frame
+shot bazaar_gate
+wait 3200
+dev frame
+shot bazaar_next
+back
+wait 2500
+run construction
+wait 4500
+dev frame
+shot construction_card
+tap 160 300
+wait 1200
+dev god
+dev auto
+wait 3000
+dev frame
+shot construction_run
+dev warp 172
+wait 2600
+dev frame
+shot construction_gate
+wait 3200
+dev frame
+shot construction_next
+back
+wait 2500
+run carnival
+wait 4500
+dev frame
+shot carnival_card
+tap 160 300
+wait 1200
+dev god
+dev auto
+wait 3000
+dev frame
+shot carnival_run
+dev warp 172
+wait 2600
+dev frame
+shot carnival_gate
+wait 3200
+dev frame
+shot carnival_next
+back
+wait 2500
+run city
+wait 4500
+dev frame
+shot city_card
+tap 160 300
+wait 1200
+dev god
+dev auto
+wait 3000
+dev frame
+shot city_run
+dev warp 172
+wait 2600
+dev frame
+shot city_gate
+wait 3200
+dev frame
+shot city_next
+back
+wait 2500
+run lantern
+wait 4500
+dev frame
+shot lantern_card
+tap 160 300
+wait 1200
+dev god
+dev auto
+wait 3000
+dev frame
+shot lantern_run
+dev warp 172
+wait 2600
+dev frame
+shot lantern_gate
+wait 3200
+dev frame
+shot lantern_next
+back
+wait 2500
+run park
+wait 4500
+dev frame
+shot park_card
+tap 160 300
+wait 1200
+dev god
+dev auto
+wait 3000
+dev frame
+shot park_run
+dev warp 172
+wait 2600
+dev frame
+shot park_gate
+wait 3200
+dev frame
+shot park_next
+back
+wait 2500
+run snow
+wait 4500
+dev frame
+shot snow_card
+tap 160 300
+wait 1200
+dev god
+dev auto
+wait 3000
+dev frame
+shot snow_run
+dev warp 172
+wait 2600
+dev frame
+shot snow_gate
+wait 3200
+dev frame
+shot snow_next
+back
+wait 2500
+run beach
+wait 4500
+dev frame
+shot beach_card
+tap 160 300
+wait 1200
+dev god
+dev auto
+wait 3000
+dev frame
+shot beach_run
+dev warp 172
+wait 2600
+dev frame
+shot beach_gate
+wait 3200
+dev frame
+shot beach_next
+back
+wait 2500
+# the start card's arrows
+run
+wait 4500
+dev frame
+shot arrows_0
+tap 300 222
+wait 1200
+dev frame
+shot arrows_next
+tap 20 222
+wait 1200
+tap 20 222
+wait 1200
+dev frame
+shot arrows_prev2
+back
+wait 1500
+quit

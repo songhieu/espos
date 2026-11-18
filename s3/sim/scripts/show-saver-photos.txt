@@ -1,0 +1,7 @@
+# The saver with saver-web's "Ba ảnh" frame: three photos that change together every minute (fade). Long press to edit.
+wait 1500
+# no quiet hours here, so the photos show even late at night
+set dash.quiet_from 00:00
+set dash.quiet_to 00:00
+set s3.saver_pages {"v":1,"cycle":0,"light":30,"night":"page","p":[{"bg":{"t":"color","c":"f4f1ec"},"e":[{"t":"photo","x":10,"y":10,"w":300,"h":214,"all":1,"tr":"f","r":12,"iv":60},{"t":"photo","x":10,"y":232,"w":146,"h":146,"all":1,"tr":"f","r":12,"iv":60,"of":1},{"t":"photo","x":164,"y":232,"w":146,"h":146,"all":1,"tr":"f","r":12,"iv":60,"of":2},{"t":"time","x":12,"y":394,"w":150,"h":60,"a":"l","b":1,"c":"1d1f24"},{"t":"date","x":166,"y":400,"w":142,"h":20,"f":"wdu","a":"r","b":1,"px":13,"c":"c0392b"},{"t":"date","x":166,"y":422,"w":142,"h":28,"f":"dm","a":"r","b":1,"px":22,"c":"1d1f24"}]}],"l":[{"bg":{"t":"color","c":"f4f1ec"},"e":[{"t":"photo","x":12,"y":12,"w":300,"h":296,"all":1,"tr":"f","r":12,"iv":60},{"t":"photo","x":324,"y":12,"w":144,"h":108,"all":1,"tr":"f","r":12,"iv":60,"of":1},{"t":"photo","x":324,"y":128,"w":144,"h":108,"all":1,"tr":"f","r":12,"iv":60,"of":2},{"t":"time","x":322,"y":246,"w":146,"h":46,"a":"l","b":1,"c":"1d1f24"},{"t":"date","x":324,"y":294,"w":144,"h":20,"f":"wdm","a":"l","px":13,"c":"6b7280"}]}]}
+saver

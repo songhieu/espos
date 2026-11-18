@@ -1,0 +1,126 @@
+---
+title: Hardware and drivers
+description: 'The planned IoT framework: bus primitives in the firmware, signed driver packages, typed sensor channels with fixed units, permissions in three layers, and OS services for sampling, rules and Home Assistant.'
+---
+
+import Status from '../../../components/Status.astro';
+import { Aside } from '@astrojs/starlight/components';
+
+<Aside type="note" title="Planned">
+Everything on this page is <Status s="planned" /> for Phase 4. Nothing here ships yet. Phase 1 reserves the names (`driver`, `sensor:`, `actuator:`, `hw:`) so apps written today do not clash with them.
+</Aside>
+
+EspOS will let a device read sensors and control things, the way a phone talks to accessories: apps never touch a bus directly, drivers come as signed packages, and the user grants access.
+
+## Three layers
+
+| Layer | Who | What it can do | Permission |
+|---|---|---|---|
+| **Bus primitives** | The firmware (C++) | I2C, SPI, UART, 1-Wire (RMT), GPIO, ADC, PWM, Bluetooth LE scan and GATT, USB host | |
+| **Drivers** | `driver` packages (WebAssembly or JavaScript), signed | Talk only to the devices the OS bound to them, and publish typed channels | `hw:i2c`, `hw:uart`, `hw:gpio`, `hw:onewire`, `hw:ble`, `hw:usb:<vid>:<pid>`, plus review |
+| **Apps** | Ordinary packages | Read channels and their history; control actuators | `sensor:<channel>`, `actuator:<channel>` |
+
+## Typed channels
+
+Apps see channels with fixed units, mapped one to one to Home Assistant device classes (and to Matter clusters where one exists).
+
+| Channel | Unit |
+|---|---|
+| `temperature` | °C |
+| `humidity` | %RH |
+| `pressure` | hPa |
+| `co2` | ppm |
+| `voc_index` | index |
+| `pm1`, `pm25`, `pm10` | µg/m³ |
+| `light` | lx |
+| `motion`, `contact`, `presence`, `leak` | on / off |
+| `power` | W |
+| `energy` | kWh |
+| `voltage` | V |
+| `current` | A |
+| `battery` | % |
+| `button` | event: press, double, long |
+| `switch` (actuator) | on / off |
+| `light` (actuator) | on / off, 0-100 %, colour |
+
+## Driver packages
+
+A driver comes in one of two forms:
+
+- **WebAssembly**, for first-party drivers and vendor C drivers ported to it. Bosch's BME280 driver and Sensirion's SHT4x and SCD4x drivers are BSD-licensed C and port almost as they are.
+- **JavaScript**, in the shapes of ECMA-419 (the embedded JavaScript standard), for community drivers and Bluetooth LE advert parsers.
+
+Each driver declares how the OS recognises its device (`match`) and the channels it `provides`. A draft manifest:
+
+```json
+{"id": "dev.espos.drv.sht4x", "type": "driver", "runtime": "wasm", "entry": "sht4x.wasm",
+ "version": "1.0.0", "code": 10000, "api": {"min": 1}, "perms": ["hw:i2c"],
+ "match": [{"bus": "i2c", "addr": ["0x44", "0x45", "0x46"], "probe": true}],
+ "provides": [{"ch": "temperature", "unit": "C"}, {"ch": "humidity", "unit": "%RH"}],
+ "power": {"typ_ma": 0.4, "peak_ma": 1}, "rate": {"min_ms": 1000, "default_ms": 60000}}
+```
+
+| `match` by | Example |
+|---|---|
+| I2C address plus a chip-ID check | SHT4x at 0x44, read its serial number |
+| 1-Wire family code | DS18B20 |
+| Bluetooth LE service | Environmental Sensing (0x181A), BTHome v2 (0xFCD2) |
+| USB vendor and product id | a serial bridge |
+| `manual` | UART and GPIO devices, added by hand |
+
+Only signed drivers hold `hw:*`, and only for devices the OS bound to them. The touch and audio chips' addresses are never handed out.
+
+### The WebAssembly driver interface (draft)
+
+| Host to driver (imports) | Driver to host (exports) |
+|---|---|
+| `bus_write(h, ptr, len)`, `bus_read(h, ptr, len)`, `bus_write_read(h, wptr, wlen, rptr, rlen)` | `probe() -> i32` |
+| `gpio_get(h)`, `gpio_set(h)`, `delay_us(n)`, `now_ms()`, `log(ptr, len)` | `init() -> i32`, `sample() -> i32` |
+| `emit(ch_index, value_milli, quality)` | `configure(ptr, len) -> i32`, `close()` |
+
+`h` is a handle to the device the OS bound to the driver. The driver never sees a raw bus.
+
+## The app API (draft)
+
+```js
+const t = sensors.find('temperature');              // {id, name, room, unit}
+sensors.on(t.id, (s) => { /* s.value, s.unit, s.ts, s.quality */ }, {every: 60000});
+const day = sensors.history(t.id, {since: Date.now() - 86400000, step: 600000});
+devices.find('switch')[0].set(true);                // asks the user the first time
+```
+
+Widgets and faces will bind channels without code: `"bind": "sensor:temperature@living"`.
+
+## Permissions in three layers
+
+- **Reading a sensor** (`sensor:temperature`, `sensor:co2`) is granted at install. It is low risk.
+- **Controlling an actuator** (`actuator:switch`) is granted at install **and** confirmed per device the first time, like a phone's per-accessory prompt.
+- **Raw bus access** follows the same rule as controlling, and is limited to reviewed drivers.
+- **A new device** produces one notification ("a sensor was found, add it?"). Once added, the apps that asked for its channels can see it.
+- A **Devices** page in Settings lists every device and every grant, and can revoke them.
+
+## OS services
+
+- **Sampling:** one sampler per channel, at the fastest rate any app asked for, capped by the driver and the battery.
+- **History:** a ring in PSRAM (about 11 KB per channel per day at one sample a minute) and minute aggregates on flash or the card.
+- **Rules:** "if a condition or a time, then notify, switch an actuator or call a webhook", edited on the web and run on the device, so they work offline.
+- **Bridges:** sync to the EspOS server, and MQTT with Home Assistant discovery.
+- **Driver updates** through the store, with automatic disabling after repeated faults.
+- **Fail-safe states** for actuators (relays off after a reboot unless a rule says otherwise).
+
+## Which buses first
+
+1. **Bluetooth LE**: no wiring and no pin conflicts. BTHome and ESS sensors broadcast their readings.
+2. **Qwiic I2C**: SHT4x, BME280, SCD4x, a light sensor.
+3. **GPIO** (buttons, relays, motion sensors) and **1-Wire** (DS18B20).
+4. **UART**: PM2.5 and NDIR CO₂ sensors.
+5. **USB host**, last: it takes the USB port used for the console and flashing.
+
+Today's boards have few free pins, and external I2C would share the touch and audio bus. Future boards should have a separate Qwiic port.
+
+## In the simulator
+
+- A fake bus layer with chip register models, Bluetooth LE advert encoders and 1-Wire ids, so drivers run unchanged.
+- `sim/devices.json` describes devices and their scripted values: a constant, a sine, a random walk, a schedule, or a CSV replay.
+- Dev console commands to plug, unplug and set devices, and `espos driver test` to run a driver against its chip model.
+- The same layer under QEMU.
