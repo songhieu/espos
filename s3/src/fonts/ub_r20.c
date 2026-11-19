@@ -21,6 +21,8 @@
  *----------------*/
 
 /*Store the image of the glyphs*/
+#include "zfonts.h"
+#if !UB_ZFONTS  /* the bitmaps are deflated in zfonts.c (tools/fontconv/zfonts.py) */
 static LV_ATTRIBUTE_LARGE_CONST const uint8_t glyph_bitmap[] = {
     /* U+0020 " " */
 
@@ -2205,6 +2207,11 @@ static LV_ATTRIBUTE_LARGE_CONST const uint8_t glyph_bitmap[] = {
     0x9a, 0xaa, 0xaa, 0xaa, 0xa2, 0xef, 0xff, 0xff,
     0xff, 0xf3
 };
+#define UB_BITMAP glyph_bitmap
+#else
+#define UB_BITMAP ((const uint8_t*)0)  /* fonts.cpp gives the font its inflated bitmaps */
+#endif
+
 
 
 /*---------------------
@@ -2455,7 +2462,7 @@ static const lv_font_fmt_txt_dsc_t font_dsc = {
 #else
 static lv_font_fmt_txt_dsc_t font_dsc = {
 #endif
-    .glyph_bitmap = glyph_bitmap,
+    .glyph_bitmap = UB_BITMAP,
     .glyph_dsc = glyph_dsc,
     .cmaps = cmaps,
     .kern_dsc = NULL,

@@ -6,7 +6,13 @@
 
 #include <Arduino.h>  // heap_caps_* (the simulator's shim too)
 
+#include "fonts/zfonts.h"
 #include "pkg/pkg.h"
+#ifdef SIM
+#include <zlib.h>
+#else
+#include "miniz.h"  // the ROM's (esp_rom/include), as src/artz.cpp
+#endif
 
 // Pre-rendered Ubuntu bitmap fonts (tools/fontconv/make_fonts.sh): Latin-1 at the text sizes (Vietnamese letters
 // come from a font package, below); the big sizes hold digits (and : . , + - % °) only and borrow
@@ -92,6 +98,7 @@ struct LangFont {
   lv_font_t font;
   lv_font_fmt_txt_dsc_t dsc;
   lv_font_fmt_txt_cmap_t cmap;
+  lv_font_fmt_txt_kern_classes_t kern;  // format 1 (an app's font, e.g. PawBoop's Lexend): LVGL's kerning classes
   int px;
   bool bold;
 };
@@ -113,7 +120,7 @@ LangFont* parse(const uint8_t* b, uint32_t len) {
   } h;
   if (len < sizeof h) return nullptr;
   memcpy(&h, b, sizeof h);
-  if (memcmp(h.magic, "ESF1", 4) || h.format != 0 || h.offList + h.n * 2 > len || h.offDsc + (h.n + 1) * 8 > len ||
+  if (memcmp(h.magic, "ESF1", 4) || h.format > 1 || h.offList + h.n * 2 > len || h.offDsc + (h.n + 1) * 8 > len ||
       h.offBmp > len || (h.offDsc & 3) || (h.offList & 1) || h.range > 0xffff)
     return nullptr;
   LangFont* f = (LangFont*)heap_caps_calloc(1, sizeof(LangFont), MALLOC_CAP_SPIRAM);
@@ -130,6 +137,24 @@ LangFont* parse(const uint8_t* b, uint32_t len) {
   f->dsc.cmaps = &f->cmap;
   f->dsc.cmap_num = 1;
   f->dsc.bpp = h.bpp;
+  // Format 1: u32 at 40 = the kerning block: u16 left classes, u16 right classes, u16 scale, u16 0, then a left and a
+  // right class for each glyph (n + 1 bytes each, glyph 0 first), then left x right int8 values.
+  uint32_t ko = 0;
+  if (h.format == 1 && len >= sizeof h + 4) memcpy(&ko, b + sizeof h, 4);
+  if (ko && ko + 8 <= len) {
+    uint16_t k[3];
+    memcpy(k, b + ko, 6);
+    const uint32_t need = ko + 8 + 2 * (h.n + 1) + (uint32_t)k[0] * k[1];
+    if (k[0] && k[1] && k[0] < 256 && k[1] < 256 && need <= len) {
+      f->kern.left_class_mapping = b + ko + 8;
+      f->kern.right_class_mapping = b + ko + 8 + h.n + 1;
+      f->kern.class_pair_values = (const int8_t*)(b + ko + 8 + 2 * (h.n + 1));
+      f->kern.left_class_cnt = k[0], f->kern.right_class_cnt = k[1];
+      f->dsc.kern_dsc = &f->kern;
+      f->dsc.kern_scale = k[2];
+      f->dsc.kern_classes = 1;
+    }
+  }
   f->font.get_glyph_dsc = lv_font_get_glyph_dsc_fmt_txt;
   f->font.get_glyph_bitmap = lv_font_get_bitmap_fmt_txt;
   f->font.line_height = h.lineH;
@@ -204,20 +229,68 @@ void chain(LangSet* s) {
   }
 }
 
+// Most built-in fonts keep their glyph bitmaps deflated in flash (src/fonts/zfonts.c, tools/fontconv/zfonts.py; 2026-11-19:
+// 237 KB -> 87 KB, for the aquarium): one inflate into PSRAM here, and those fonts get a PSRAM copy of their
+// descriptions pointing into it. Without PSRAM they borrow the nearest font that is not deflated (never a crash).
+lv_font_fmt_txt_dsc_t* zdsc = nullptr;
+uint32_t inflateUs = 0;  // what it cost at boot (fonts::inflateMs)
+void inflateFonts() {
+#if !UB_ZFONTS
+  return;  // -DUB_ZFONTS_RAW: the bitmaps are raw in flash
+#endif
+  const uint32_t t0 = micros();
+  uint8_t* bits = (uint8_t*)heap_caps_malloc(zfonts_raw, MALLOC_CAP_SPIRAM);
+  bool good = bits != nullptr;
+#ifdef SIM
+  uLongf n = zfonts_raw;
+  good = good && uncompress(bits, &n, zfonts_z, zfonts_size) == Z_OK && n == zfonts_raw;
+#else
+  tinfl_decompressor* r = good ? (tinfl_decompressor*)heap_caps_malloc(sizeof(tinfl_decompressor), MALLOC_CAP_SPIRAM) : nullptr;
+  if (good && r) {
+    tinfl_init(r);
+    size_t in = zfonts_size, out = zfonts_raw;
+    good = tinfl_decompress(r, zfonts_z, &in, bits, bits, &out, TINFL_FLAG_PARSE_ZLIB_HEADER | TINFL_FLAG_USING_NON_WRAPPING_OUTPUT_BUF) ==
+               TINFL_STATUS_DONE && out == zfonts_raw;
+  } else good = false;
+  heap_caps_free(r);
+#endif
+  zdsc = good ? (lv_font_fmt_txt_dsc_t*)heap_caps_malloc(ZFONTS_N * sizeof(lv_font_fmt_txt_dsc_t), MALLOC_CAP_SPIRAM) : nullptr;
+  if (!zdsc) {
+    heap_caps_free(bits);
+    return;
+  }
+  for (int i = 0; i < ZFONTS_N; i++) {
+    zdsc[i] = *(const lv_font_fmt_txt_dsc_t*)zfonts[i].font->dsc;
+    zdsc[i].glyph_bitmap = bits + zfonts[i].off;
+  }
+  inflateUs = micros() - t0;
+}
+// e.font as drawn: a deflated font with its PSRAM descriptions, or (no PSRAM) a font that is not deflated
+void drawable(Entry& e) {
+  e.font = *e.src;
+  for (int i = 0; i < ZFONTS_N; i++)
+    if (zfonts[i].font == e.src) {
+      if (zdsc) e.font.dsc = &zdsc[i];
+      else if (UB_ZFONTS) e.font = e.bold ? ub_b16 : ub_r16;
+    }
+}
+
 }  // namespace
 
 void begin() {
   names = lang_names;
+  inflateFonts();
   for (Entry& e : table) {
-    e.font = *e.src;
+    drawable(e);
     if (e.digits) continue;
     e.bare = (lv_font_t*)heap_caps_malloc(sizeof(lv_font_t), MALLOC_CAP_SPIRAM);
     if (!e.bare) continue;
-    *e.bare = *e.src;
+    *e.bare = e.font;
     e.bare->get_glyph_dsc = bareDsc;
     e.bare->fallback = symbols(e.px);
   }
   chain(nullptr);
+  Serial.printf("fonts: %d deflated fonts, %u KB inflated in %lu ms\n", ZFONTS_N, (unsigned)(zfonts_raw / 1024), (unsigned long)(inflateUs / 1000));
 }
 
 bool useLang(const char* fontPkg) {

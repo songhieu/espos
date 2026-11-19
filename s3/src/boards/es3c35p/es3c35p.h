@@ -2,7 +2,7 @@
 // ES3C35P (LCDWIKI 3.5" ESP32-S3 display, 16 MB flash, 8 MB octal PSRAM): ST77922 320x480 over QSPI (display.cpp), the
 // panel's own touch at I2C 0x55 (touch.cpp), an ES8311 codec, a 4-bit SDIO card slot, a battery on a 1:2 divider.
 // Pins from the vendor demos (LCDWIKI Example_08_LVGL_Demos); checked on the board with the self-test in
-// ~/projects/xt/s3test.
+// s3test.
 #include "hal/board.h"
 
 namespace es3c35p {

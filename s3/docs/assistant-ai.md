@@ -9,14 +9,18 @@ told to a dog), remembers important things, and a conversation keeps its thread.
 `web/backend/workflows/assist_reply` + `assist_apply` (2026-11-18). This page is what the device does.
 
 ```
- hold button      release             JSON (~1.5-3 s)                       PCM stream (first sound ~0.5 s)
- ──record──▶ POST /v1/device/assist ──────────────▶ show reply, mood ──▶ GET /v1/device/assist/say ──▶ speaker
-             (WAV 16 kHz mono)       heard, reply, mood, cid, n           (?cid&n, 16-bit mono 16 kHz)
+ hold button      release                      ONE request: the answer IS the voice
+ ──record──▶ POST /v1/device/assist?stream=1 ─────────────────────────────────────────▶ speaker
+             (WAV 16 kHz mono)        headers first: X-Assist (heard, reply, mood, cid, n…), X-Sample-Rate
+                                      then the body: 16-bit mono PCM, streamed while the TTS speaks
 ```
 
-Two requests on the same kept TLS connection to `api.espos.dev`, both with the device's token
-(`Authorization: Device <token>`, as `/v1/device/sync`). The first one answers as soon as the dog knows what to say
-(the text and its mood: draw them at once); the second streams the voice while the TTS makes it.
+**Use the streamed answer** (`?stream=1`, since 2026-11-18): one request, the dog's words and mood in the
+`X-Assist` header (draw them the moment the headers arrive), then its voice as the body. It saves the second
+round trip of the older two-step way (about 1-1.5 s). The two-step way still works and is the fallback:
+`POST /v1/device/assist` without `stream` answers JSON, then `GET /v1/device/assist/say` streams the voice (§3).
+Every request carries the device's token (`Authorization: Device <token>`, as `/v1/device/sync`); keep the TLS
+connection to `api.espos.dev` open.
 
 ## 1. Recording (push to talk)
 
@@ -65,6 +69,7 @@ Content-Length: <bytes>
 - `s3.assist` (the assistant's switches, `{"on","greet","weather","alarm","meal"}` 0/1 and `{"water","move","eyes"}`
   0-600 minutes) is synced and checked the same way; it does not change the AI turn.
 - `wake=1`: the turn began with the wake word (1b).
+- `stream=1` (or `Accept: audio/pcm`): answer with the voice (2b). `say_rate=` its sample rate (16000; 8000-48000).
 - Text instead of audio (tests, a keyboard): `Content-Type: application/json`, `{"text": "…", "cid": "…", "dog": "…"}`.
 - Rate limit: 20 questions a minute per device (429 past it).
 
@@ -100,6 +105,32 @@ Answer `200`, JSON (about 0.5-1 KB):
 | `silent` | a wake-word turn with nothing after the wake word: show and say nothing |
 | `ms` | server timings, for the dev console |
 
+## 2b. The streamed answer (`?stream=1`): the faster path
+
+```
+POST https://api.espos.dev/v1/device/assist?stream=1&cid=<cid>&dog=<key>
+Authorization: Device <token>
+Content-Type: audio/wav
+
+<the WAV>
+```
+
+Read the answer's `Content-Type` first (the body's pieces are not sample-aligned either: §3's rule applies):
+
+- `audio/pcm` (status 200): the dog answered. Headers: `X-Sample-Rate` (16000 unless `say_rate`), `X-Assist` = the
+  answer's JSON (the same fields as §2: heard, reply, mood, topic, cid, n, dog, dog_name, voice, done, saved,
+  asks_confirm, name_saved, remembered, forgot, ms) in standard base64 (decode, then parse; about 1-1.5 KB). Show
+  the bubble and start the mood clip at once, then play the body as §3 says (buffer about 1 s, chunked, the end of
+  the body is the end of the speech).
+- `application/json`: no voice this time; it is §2's JSON or an error of §4. Same handling as the two-step way.
+  This is what comes back when the dog has nothing to say (`silent`, a wake word with nothing after it), when the
+  model failed (502 `ai_failed` + the recorded clip to play), and for every 4xx.
+- A 502 JSON `{"error", "upstream_status"}` with no `X-Assist`: the TTS refused AFTER the turn was saved. Ask
+  `GET /v1/device/assist/say?n=last&format=json` (§3) for the words, show them, and try the voice once with
+  `GET /v1/device/assist/say?n=last`.
+- The connection broke during the voice: the words are already in `X-Assist`; `GET /say?cid=<cid>&n=<n>` plays it
+  again if wanted.
+
 ## 3. The voice: `GET /v1/device/assist/say`
 
 ```
@@ -111,10 +142,19 @@ The body is raw 16-bit little-endian mono PCM at `rate` (default 16000; 8000-480
 TTS speaks it (`Content-Type: audio/pcm`, header `X-Sample-Rate`). No length is known in advance; the end of the
 body is the end of the speech. A 3-sentence reply is 6-10 s of sound, 200-320 KB.
 
+- **Chunks are not sample-aligned.** The voice reaches the device in pieces cut wherever the network cut them;
+  through Cloudflare most pieces have an ODD number of bytes (measured 2026-11-18: 62 of 93 pieces). A 16-bit
+  sample can be split across two reads. Never decode a read on its own: keep the odd last byte of a read and put it
+  in front of the next one, decode only whole 2-byte little-endian samples, and drop a lone byte left at the very
+  end. Decoding each piece alone shifts every later sample by one byte: the speech becomes white noise (spectral
+  flatness 0.84 instead of 0.11 on the same bytes). The web player does exactly this (`web/app/src/n2/pcm.ts`,
+  tested by `web/scripts/test-pcm.sh` on 500 random splits).
 - Play it as it arrives through `sound::stream` (as the pet voice does): read into a ring of about 1 s in PSRAM,
-  start playing once 200-300 ms are buffered, then keep reading. Underrun: pause the dog's talking animation, keep
+  start playing once about 1 s is buffered (the TTS can run slower than real time when its machine is busy, §9), then keep reading. Underrun: pause the dog's talking animation, keep
   waiting while bytes come.
 - The same `cid` + `n` can be fetched again ("Nói lại").
+- `n=last`: the last turn of `cid`, or without `cid` the last turn of this device's newest conversation.
+  `format=json`: that turn as JSON `{heard, reply, mood, cid, n, dog, dog_name, voice}` instead of its voice.
 - The voice is the dog's own (table below); the text is the `reply` with `[cười]` / `[thở dài]` cues that make the
   voice laugh or sigh (the bubble text has them removed).
 
@@ -229,5 +269,21 @@ list) and change a dog's voice in `web/scripts/gen-assist-dogs.py` (`EXTRA[dog][
 | speech: first sound after `GET /say` | ~0.3-0.5 s (vieneu-turbo streams; tts.espos.dev README: ~0.3 s) |
 | speech: whole reply | 7.3 s of speech streamed in 4.3 s, 6.6 s in 3.0 s (faster than it plays) |
 
-So from releasing the button to the first sound: about 2.5-3.5 s for a recorded question, of which the model is
-half. The reply text and the dog's mood come about 0.5 s before the sound: show them at once.
+Live, over real HTTP from Vietnam (2026-11-18, after the release; curl, a new TLS connection each time):
+
+| Request | Time |
+|---|---|
+| `POST /v1/device/assist`, a 3-4 s WAV | answer after 3.0-3.6 s (the run itself 1.9 s: guard 12 ms, reading the upload 14 ms, the turn 1.84 s) |
+| `POST /v1/device/assist`, text | 2.3-2.7 s |
+| `GET /v1/device/assist/say` | first sound after 1.8 s (6 s once, the TTS cold), 7.1 s of speech in 4.2 s, in 98 pieces |
+| the same, the TTS's Mac busy (load 58, 2026-11-18 17:00) | first sound after 3.7-9.5 s, 8.1 s of speech in 11-22 s: SLOWER than it plays |
+| `POST /v1/device/assist?stream=1`, a 3-4 s WAV (17:30, TTS down to 1 worker, load 18) | headers + first sound after 4.9-6.2 s (once 16.8 s while the TTS was being reconfigured); `GET /say` for the same turn 1.3-2.2 s |
+
+The TTS (tts.espos.dev, 2 vieneu-turbo workers) runs on one machine: when that machine is busy the voice comes
+slower than real time. The device must handle it: buffer at least 1 s before playing, and on an underrun pause the
+talking animation and wait (never drop the rest); past 6 s without bytes, stop and keep the bubble.
+
+So from releasing the button to the first sound: about 5 s today, of which the model is 1.6-1.8 s and the trip to the
+server and back (Cloudflare, the platform in Europe, the TTS at home) most of the rest. Keep the TLS connection
+open between the two requests, start the `say` request the moment the JSON arrives, and show the reply and the
+mood at once: they come about 2 s before the sound.

@@ -14,12 +14,13 @@ namespace {
 
 constexpr int RATE = 16000;
 i2c_master_dev_handle_t codec;
-i2s_chan_handle_t tx;
+i2s_chan_handle_t tx, rx = nullptr;  // rx: the codec's ADC (the microphone, src/mic.cpp), full duplex on I2S0
+volatile uint32_t lastOut = 0;       // millis() of the last sound written (the wake word's speaker gate)
 QueueHandle_t q;
 bool ready = false;
 int vol = 45;
 
-enum Sound : uint8_t { CLICK, CHIME, TEST, BEEP };
+enum Sound : uint8_t { CLICK, CHIME, TEST, BEEP, BLIP };
 
 bool wr(uint8_t reg, uint8_t v) {
   const uint8_t b[2] = {reg, v};
@@ -55,8 +56,13 @@ bool codecInit() {
   wr(0x0E, 0x02);
   wr(0x12, 0x00);
   wr(0x13, 0x10);
-  wr(0x1C, 0x6A);
+  wr(0x1C, 0x6A);  // ADC high-pass filter (no DC offset)
   wr(0x37, 0x08);
+  // The microphone (the ADC), as the board self-test (s3test) heard it: analog mic in, PGA +30 dB, ADC gain +24 dB,
+  // ADC volume 0xC8 (+4.5 dB). Its output goes out on the I2S data line only while the mic is read.
+  wr(0x17, 0xC8);
+  wr(0x14, 0x1A);
+  wr(0x16, 0x04);
   const uint8_t id1 = rd(0xFD), id2 = rd(0xFE);
   return ok && id1 == 0x83 && id2 == 0x11;
 }
@@ -68,6 +74,7 @@ void applyVolume() {
 }
 
 void write(const int16_t* stereo, int frames) {
+  lastOut = millis();
   size_t done;
   i2s_channel_write(tx, stereo, frames * 4, &done, 200);
 }
@@ -98,6 +105,21 @@ void play(Sound s) {
           const float env = min(1.0f, k / 120.0f) * min(1.0f, (n - k) / 400.0f);
           const float ph = 2 * PI * nt[0] * k / RATE;
           buf[i * 2] = buf[i * 2 + 1] = (int16_t)((sinf(ph) * 0.8f + sinf(2 * ph) * 0.2f) * env * 18000);
+        }
+        write(buf, m);
+      }
+    }
+  } else if (s == BLIP) {
+    // "I'm here": two soft rising notes, 150 ms in all (the wake word was heard; short, so it barely covers a question
+    // said straight after it).
+    const int n = RATE * 70 / 1000;
+    for (float hz : {988.0f, 1319.0f}) {
+      for (int done = 0; done < n; done += 512) {  // buf holds 512 frames
+        const int m = min(512, n - done);
+        for (int i = 0; i < m; i++) {
+          const int k = done + i;
+          const float env = min(1.0f, k / 40.0f) * min(1.0f, (n - k) / 160.0f);
+          buf[i * 2] = buf[i * 2 + 1] = (int16_t)(sinf(2 * PI * hz * k / RATE) * env * 9000);
         }
         write(buf, m);
       }
@@ -242,9 +264,11 @@ bool begin() {
   if (i2c_master_bus_add_device(touch::i2cBus(), &dc, &codec) != ESP_OK) return false;
   i2s_chan_config_t chan = I2S_CHANNEL_DEFAULT_CONFIG(I2S_NUM_0, I2S_ROLE_MASTER);
   chan.auto_clear = true;  // silence between sounds
-  chan.dma_desc_num = 3;   // short sounds: small DMA buffers (internal RAM is scarce)
+  chan.dma_desc_num = 4;   // 40 ms each way: small DMA buffers (internal RAM is scarce), enough for the mic task
   chan.dma_frame_num = 160;
-  if (i2s_new_channel(&chan, &tx, nullptr) != ESP_OK) return false;
+  // TX and RX are made together (I2S0 in full duplex: they share BCLK/WS); RX is enabled only while the mic is read.
+  const bool mic = hal::has(hal::CAP_AUDIO_IN) && a.din >= 0;
+  if (i2s_new_channel(&chan, &tx, mic ? &rx : nullptr) != ESP_OK) return false;
   i2s_std_config_t cfg = {
       .clk_cfg = I2S_STD_CLK_DEFAULT_CONFIG(RATE),
       .slot_cfg = I2S_STD_PHILIPS_SLOT_DEFAULT_CONFIG(I2S_DATA_BIT_WIDTH_16BIT, I2S_SLOT_MODE_STEREO),
@@ -253,6 +277,13 @@ bool begin() {
   };
   cfg.clk_cfg.mclk_multiple = I2S_MCLK_MULTIPLE_384;
   if (i2s_channel_init_std_mode(tx, &cfg) != ESP_OK || i2s_channel_enable(tx) != ESP_OK) return false;
+  if (rx) {
+    cfg.gpio_cfg.din = (gpio_num_t)a.din;
+    if (i2s_channel_init_std_mode(rx, &cfg) != ESP_OK) {
+      i2s_del_channel(rx);
+      rx = nullptr;
+    }
+  }
   ready = codecInit();
   applyVolume();
   q = xQueueCreate(4, 1);
@@ -285,6 +316,12 @@ void alarmBeep() {
   xQueueSend(q, &s, 0);
 }
 
+void blip() {
+  if (!ready || vol <= 0) return;
+  const uint8_t s = BLIP;
+  xQueueSend(q, &s, 0);
+}
+
 void chime() {
   if (!allowed()) return;
   const uint8_t s = CHIME;
@@ -304,5 +341,9 @@ void stream(Pull pull, void* ctx) {
 void stopStream() { stream(nullptr, nullptr); }
 
 bool streaming() { return sPull || sSwitch; }
+
+void* micChannel() { return ready ? rx : nullptr; }
+
+bool outputSince(uint32_t ms) { return sPull || sSwitch || millis() - lastOut < ms; }
 
 }  // namespace sound

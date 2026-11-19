@@ -44,7 +44,8 @@ LEXEND = Path("handoff/fonts")
 PET_ICON = ROOT / "build-pkgs/espos/s3/vn.pawboop.pet-1.0.0.jpg"
 
 MIN_FW = 501  # firmware 0.5.1: dogs, maps, the assistant (src/pet/dogs.cpp, assist.cpp)
-PET_V, RUN_V, PIECE_V = "2.0.1", "2.0.0", "1.0.0"  # pet 2.0.1: the re-packed screen pieces
+PET_MIN_FW = 502  # 0.5.2: the pet's fonts are format 1 (kerning); 0.5.1's src/fonts.cpp refuses format 1
+PET_V, RUN_V, PIECE_V = "2.0.2", "2.0.0", "1.0.0"  # pet 2.0.1: the re-packed screen pieces; 2.0.2: kerned fonts
 
 
 def code_of(v):
@@ -161,11 +162,43 @@ def font_files(dogs: dict):
             if missing:
                 print(f"font {tag}: not in Lexend: {''.join(map(chr, missing))}")
             c = Path(tmp) / f"{tag}.c"
-            subprocess.run([str(I18N.CONV), "--bpp", "4", "--size", str(px), "--no-compress", "--no-kerning", "--format",
+            subprocess.run([str(I18N.CONV), "--bpp", "4", "--size", str(px), "--no-compress", "--format",
                             "lvgl", "--lv-include", "lvgl.h", "--font", str(LEXEND / ttf), "-r", I18N.ranges(have),
                             "-o", str(c), "--lv-font-name", "f"], check=True, stdout=subprocess.DEVNULL)
-            out.append((f"font/{tag}.bin", I18N.esf(c, px, bold)))
+            out.append((f"font/{tag}.bin", esf_kerned(c, px, bold)))
     return out
+
+
+def esf_kerned(path_c, px, bold):
+    """The font file of tools/i18n.py esf() (format 0) as format 1: with Lexend's kerning (LVGL's kerning classes),
+    so the bubble's words are spaced and measured like the page's canvas (src/fonts.cpp reads it)."""
+    import re
+    import struct
+    blob = bytearray(I18N.esf(path_c, px, bold))
+    src = Path(path_c).read_text()
+
+    def arr(name):
+        m = re.search(name + r"\[\]\s*=\s*\{(.*?)\};", src, re.S)
+        body = re.sub(r"/\*.*?\*/", "", m.group(1), flags=re.S)
+        return [int(v) for v in re.findall(r"-?\d+", body)]
+    left, right, vals = arr("kern_left_class_mapping"), arr("kern_right_class_mapping"), arr("kern_class_values")
+    lc = int(re.search(r"\.left_class_cnt\s*=\s*(\d+)", src).group(1))
+    rc = int(re.search(r"\.right_class_cnt\s*=\s*(\d+)", src).group(1))
+    scale = int(re.search(r"\.kern_scale\s*=\s*(\d+)", src).group(1))
+    n = struct.unpack_from("<I", blob, 20)[0]
+    assert len(left) == len(right) == n + 1 and len(vals) == lc * rc, (len(left), n, len(vals), lc, rc)
+    # Format 1: 4 more bytes after the 40-byte head (the kerning block's offset): every offset moves by 4 (aligned).
+    head, rest = blob[:40], blob[40:]
+    off_list, off_dsc, off_bmp = struct.unpack_from("<III", head, 24)
+    shift = 4 if (off_dsc + 4) % 4 == 0 else 4
+    struct.pack_into("<III", head, 24, off_list + shift, off_dsc + shift, off_bmp + shift)
+    head[7] = 1  # format
+    body = bytes(head) + b"\0" * 4 + bytes(rest)
+    ko = (len(body) + 3) & ~3
+    kern = struct.pack("<HHHH", lc, rc, scale, 0) + bytes(left) + bytes(right) + bytes(v & 0xFF for v in vals)
+    out = bytearray(body + b"\0" * (ko - len(body)) + kern)
+    struct.pack_into("<I", out, 40, ko)
+    return bytes(out)
 
 
 def main():
@@ -188,7 +221,7 @@ def main():
 
     # ---- the pet game
     man = {"id": "vn.pawboop.pet", "name": "PawBoop", "version": PET_V, "code": code_of(PET_V), "kind": "native",
-           "engine": "pet", "min_fw": MIN_FW, "category": "game", "author": "PawBoop",
+           "engine": "pet", "min_fw": PET_MIN_FW, "category": "game", "author": "PawBoop",
            "desc": "Raise a dog: feed it, bathe it, play ball. Ten dogs, each with its own character and Vietnamese voice.",
            "icon": {"bg": ["#ffcf7a", "#e8892c"], "glyph": "play"}, "perms": ["sound", "notify"],
            "i18n": {"vi": {"name": "PawBoop", "desc": "Nuôi chó: cho ăn, tắm, chơi bóng. Mười con chó, mỗi con một tính cách, nói tiếng Việt."}}}

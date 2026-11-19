@@ -23,6 +23,9 @@ extern std::string simDir;
 #include "jpeg.h"
 #include "os.h"
 #include "photo.h"
+#if __has_include("tank/tank.h")
+#include "tank/tank.h"
+#endif
 #include "theme.h"
 #include "trace.h"
 #include "uikit.h"
@@ -734,6 +737,11 @@ lv_obj_t* drawBg(lv_obj_t* parent, const Bg& bg, int w, int h) {
     grad(c, bg.c, bg.c2);
   } else if (bg.t == "photo" && !bg.id) {  // the s3.photos slideshow
     if (const lv_image_dsc_t* pic = photo::screen(slide, w, h)) img(c, pic);
+#if __has_include("tank/tank.h")
+  } else if (bg.t == "tank") {  // the user's aquarium, alive (src/tank); deep water when none is installed
+    if (!tank::saverBg(c, w, h)) grad(c, 0x0b4f6c, 0x041e2e);
+    else lv_obj_set_style_bg_opa(c, LV_OPA_TRANSP, 0);
+#endif
   } else if (const lv_image_dsc_t* pic = holdPic(bg, w, h)) {
     lv_obj_t* i = img(c, pic);
     lv_obj_set_style_bg_opa(c, LV_OPA_TRANSP, 0);  // the picture covers it all

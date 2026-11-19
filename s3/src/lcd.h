@@ -21,4 +21,11 @@ bool direct(int y0, int y1, void (*fill)(uint16_t* dst, int y, int rows, void* c
 // screen is turned; nullptr while off.
 void mirror(bool on);
 const uint16_t* frame(int& w, int& h);
+// The whole screen drawn at the panel's own size of the UI (hal::UiMap: 320x480 on the 3.5" board, 213x320 on the 2.8"
+// one; 480x320 / 320x213 turned), straight to the panel, past LVGL and past the 2.8" board's 2/3 scale (the aquarium
+// draws its water at that size: src/tank). The driver asks fill() for pieces: the rectangle [x0, x1) x [y0, y1) of the
+// picture, pixel (x, y) at dst + (x - x0) * dx + (y - y0) * dy (RGB565 native order; the strides let the 3.5" board
+// held on its side take columns straight into its rows). From the LVGL thread, between refreshes. false: use LVGL.
+using NativeFill = void (*)(uint16_t* dst, int dx, int dy, int x0, int y0, int x1, int y1, void* ctx);
+bool native(NativeFill fill, void* ctx, bool tear);
 }  // namespace lcd

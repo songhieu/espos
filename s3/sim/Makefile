@@ -10,7 +10,7 @@ CXXFLAGS := $(CFLAGS) -std=gnu++17 -I$(AJ) -DARDUINOJSON_ENABLE_ARDUINO_STRING=1
 
 LV_SRC := $(shell find $(LV)/src -name '*.c')
 LV_OBJ := $(patsubst $(LV)/src/%.c,$(BUILD)/lvgl/%.o,$(LV_SRC))
-HW := desk net power sound photo ota touch lcd trace devtools main remote
+HW := desk net power sound photo ota touch lcd trace devtools main remote mic
 APP_CPP := $(filter-out $(addprefix $(ROOT)/src/,$(addsuffix .cpp,$(HW))),$(wildcard $(ROOT)/src/*.cpp))
 APP_C := $(wildcard $(ROOT)/src/*.c) $(wildcard $(ROOT)/src/fonts/*.c)
 # PawBoop (src/pet) and its Opus decoder (lib/opus, the same fixed-point build as the board).
@@ -35,7 +35,12 @@ $(BUILD)/qjs/%.o: $(ROOT)/lib/quickjs/src/%.c
 APP_CPP += $(wildcard $(ROOT)/src/pkg/*.cpp) $(wildcard $(ROOT)/src/run/*.cpp)
 # The widget families (src/wid, docs/widgets.md).
 APP_CPP += $(wildcard $(ROOT)/src/wid/*.cpp)
+# The mic's listener and the "Gâu" wake word (src/wake: the same C as the board and the training tools).
+APP_CPP += $(wildcard $(ROOT)/src/wake/*.cpp)
+APP_C += $(wildcard $(ROOT)/src/wake/*.c)
 APP_CPP += $(wildcard $(ROOT)/src/j2me/*.cpp)
+# Hồ cá cảnh, the aquarium (src/tank, docs/tank.md).
+APP_CPP += $(wildcard $(ROOT)/src/tank/*.cpp)
 APP_C += $(wildcard $(ROOT)/src/run/*.c)
 # The board's descriptor (src/boards/boards.cpp, the registry: the 3.5" board's; EXTRA=-DBOARD_ES3C28P the 2.8" one's).
 # The boards' drivers (src/boards/<name>/, src/hal/hal.cpp) are not built here: sim/stubs.cpp stands in for them.

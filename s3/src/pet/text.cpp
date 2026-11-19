@@ -4,6 +4,7 @@
 #include <cmath>
 
 #include "dog.h"
+#include "packs.h"
 
 namespace pet {
 namespace text {
@@ -29,22 +30,72 @@ uint32_t utf8Next(const char* s, uint32_t& i) {  // UTF-8, one letter
   return v;
 }
 
+// A letter's pen advance in 1/16 px, its kerning with the next letter included: fractional like the page's canvas
+// (LVGL rounds every letter to whole pixels: a bubble came out 5 px wider than the page's).
+int adv16(const lv_font_t* f, uint32_t letter, uint32_t next, lv_font_glyph_dsc_t& g) {
+  // A letter no font of the chain has: LVGL answers a placeholder box with no font (resolved_font NULL). Its
+  // bitmap must never be asked for (LV_ASSERT_NULL halts the device: PawBoop froze on the board, 2026-11-18);
+  // it is left as a gap of LVGL's placeholder width.
+  if (!lv_font_get_glyph_dsc(f, &g, letter, next) || !g.resolved_font) {
+    g.resolved_font = nullptr, g.box_w = g.box_h = 0;
+    return g.adv_w * 16;
+  }
+  const lv_font_t* rf = g.resolved_font;
+  if (!rf || rf->get_glyph_dsc != lv_font_get_glyph_dsc_fmt_txt || !g.gid.index) return g.adv_w * 16;
+  const lv_font_fmt_txt_dsc_t* fd = (const lv_font_fmt_txt_dsc_t*)rf->dsc;
+  int a = fd->glyph_dsc[g.gid.index].adv_w;
+  lv_font_glyph_dsc_t gn;
+  if (next && fd->kern_dsc && fd->kern_classes == 1 && lv_font_get_glyph_dsc(rf, &gn, next, 0) && gn.resolved_font == rf) {
+    const lv_font_fmt_txt_kern_classes_t* k = (const lv_font_fmt_txt_kern_classes_t*)fd->kern_dsc;
+    const uint8_t l = k->left_class_mapping[g.gid.index], r = k->right_class_mapping[gn.gid.index];
+    if (l && r) a += (k->class_pair_values[(l - 1) * k->right_class_cnt + (r - 1)] * fd->kern_scale) >> 4;
+  }
+  return a;
+}
+
+// The dog's "…" (its own words, kept as said) as three dots when the font chain lacks it (PawBoop 1.0 without its
+// Lexend files: the OS's fonts), so it is never a placeholder box.
+String forFont(const lv_font_t* f, const String& s) {
+  if (s.indexOf("\xE2\x80\xA6") < 0) return s;
+  lv_font_glyph_dsc_t g;
+  if (lv_font_get_glyph_dsc(f, &g, 0x2026, 0) && g.resolved_font) return s;
+  String t = s;
+  t.replace("\xE2\x80\xA6", "...");
+  return t;
+}
+
 }  // namespace
 
-int width(const lv_font_t* f, const char* s) { return s ? lv_text_get_width(s, strlen(s), f, 0) : 0; }
+int width(const lv_font_t* f, const char* s) {
+  if (!s || !f) return 0;
+  int w16 = 0;
+  uint32_t i = 0, letter = utf8Next(s, i);
+  while (letter) {
+    const uint32_t next = utf8Next(s, i);
+    lv_font_glyph_dsc_t g;
+    w16 += adv16(f, letter, next, g);
+    letter = next;
+  }
+  return (w16 + 8) >> 4;
+}
 
 void draw(const Target& t, const lv_font_t* f, const char* s, int x, float midY, uint16_t color) {
   if (!s || !f) return;
   if (!glyphBuf) glyphBuf = lv_draw_buf_create(64, 64, LV_COLOR_FORMAT_A8, 0);
   if (!glyphBuf) return;
-  const int lineTop = (int)lroundf(midY - f->line_height / 2.0f);
+  // The page's textBaseline "middle" (the em box's middle) sits about an eighth of a line higher than the middle of
+  // LVGL's line box: measured against pet.html's bubbles and the game designer's name/splash pieces (12, 14, 11 px: 2 px).
+  const int lineTop = (int)lroundf(midY - f->line_height / 2.0f) - (f->line_height + 4) / 8;
   uint32_t i = 0;
   uint32_t letter = utf8Next(s, i);
+  int pen16 = 0;  // fractional pen, each letter at its rounded place (as the page's canvas)
   while (letter) {
     const uint32_t next = utf8Next(s, i);
     lv_font_glyph_dsc_t g;
-    if (lv_font_get_glyph_dsc(f, &g, letter, next) && g.box_w && g.box_h && g.box_w <= 64 && g.box_h <= 64 &&
-        g.format <= LV_FONT_GLYPH_FORMAT_A8) {
+    const int a16 = adv16(f, letter, next, g);
+    const int gx = x + ((pen16 + 8) >> 4);
+    if (g.resolved_font && !g.is_placeholder && g.box_w && g.box_h && g.box_w <= 64 && g.box_h <= 64 &&
+        g.format >= LV_FONT_GLYPH_FORMAT_A1 && g.format <= LV_FONT_GLYPH_FORMAT_A8) {
       const lv_font_t* rf = g.resolved_font ? g.resolved_font : f;
       // LVGL 9.2 writes the glyph as A8 into the draw buffer and returns the buffer (not its pixels).
       const uint8_t* a = lv_font_get_glyph_bitmap(&g, glyphBuf) ? glyphBuf->data : nullptr;
@@ -53,17 +104,18 @@ void draw(const Target& t, const lv_font_t* f, const char* s, int x, float midY,
         // As an LVGL label: the letter's box above the font's base line.
         const int top = lineTop + (rf->line_height - rf->base_line) - g.box_h - g.ofs_y + (f->line_height - rf->line_height) / 2;
         for (int r = 0; r < g.box_h; r++)
-          for (int c = 0; c < g.box_w; c++) put(t, x + g.ofs_x + c, top + r, color, a[r * stride + c]);
+          for (int c = 0; c < g.box_w; c++) put(t, gx + g.ofs_x + c, top + r, color, a[r * stride + c]);
       }
       if (rf->release_glyph) rf->release_glyph(rf, &g);
     }
-    x += g.adv_w;
+    pen16 += a16;
     letter = next;
   }
 }
 
-Bubble layout(const lv_font_t* f, const String& s) {
+Bubble layout(const lv_font_t* f, const String& text) {
   Bubble b;
+  const String s = forFont(f, text);
   b.rows[0] = s, b.n = 1;
   if (width(f, s.c_str()) > SAYMAX) {  // the two rows nearest to equal (split at a space)
     int best = 1 << 30;
@@ -87,6 +139,40 @@ Bubble layout(const lv_font_t* f, const String& s) {
   for (int k = 0; k < b.n; k++) w = max(w, width(f, b.rows[k].c_str()));
   b.w = w + 24, b.h = 10 + 16 * b.n;
   return b;
+}
+
+String wrap(const lv_font_t* f, const String& text, int w, int& lines) {
+  const String s = forFont(f, text);
+  String out, row;
+  lines = 0;
+  int at = 0;
+  while (at <= (int)s.length()) {
+    int sp = s.indexOf(' ', at);
+    if (sp < 0) sp = s.length();
+    const String word = s.substring(at, sp);
+    const String tryRow = row.length() ? row + " " + word : word;
+    if (row.length() && lv_text_get_width(tryRow.c_str(), tryRow.length(), f, 0) > w) {
+      out += (lines++ ? "\n" : "") + row;
+      row = word;
+    } else {
+      row = tryRow;
+    }
+    at = sp + 1;
+  }
+  if (row.length()) out += (lines++ ? "\n" : "") + row;
+  return out;
+}
+
+int words(lv_obj_t* l, const String& s, int w, int maxLines) {
+  int n = 0;
+  const lv_font_t* f = pk::font(1);
+  String t = wrap(f, s, w, n);
+  if (n > maxLines) f = pk::font(0), t = wrap(f, s, w, n);
+  lv_obj_set_style_text_font(l, f, 0);
+  lv_label_set_long_mode(l, LV_LABEL_LONG_WRAP);
+  lv_obj_set_width(l, w);
+  lv_label_set_text(l, t.c_str());
+  return n * lv_font_get_line_height(f) + (n - 1) * lv_obj_get_style_text_line_space(l, 0);
 }
 
 void roundBox(const Target& t, int x, int y, int w, int h, int r, uint16_t color) {

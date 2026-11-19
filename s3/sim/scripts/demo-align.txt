@@ -1,0 +1,36 @@
+# PawBoop after the alignment pass (mockups/pawboop-align.html), in the window:
+#   SIM_DATA=sim/data-dogs SIM_NO_PACKS=1 SIM_FW_CODE=501 sim/build-dogs-live/espos-live sim/scripts/demo-align.txt
+wait 3000
+set s3.pet_dog bao
+set sys.lang en
+wait 2000
+pet
+wait 6000
+pet clip:stand
+pet say:happy_2
+wait 5000
+pet clip:stand
+pet say:stand_4
+wait 5000
+home
+wait 1500
+app pet summon
+wait 6000
+tap 52 441
+wait 6000
+dismiss
+wait 1000
+app pet dogs
+wait 4000
+home
+wait 1000
+run bazaar
+wait 6000
+tap 300 222
+wait 3000
+tap 160 300
+wait 1500
+dev auto
+wait 12000
+back
+wait 2000

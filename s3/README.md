@@ -22,12 +22,13 @@ and [docs/boards.md](docs/boards.md).
 
 | Folder | |
 |---|---|
-| `src/` | The firmware: the OS shell (`os.cpp`, `home.cpp`), apps (`app_*.cpp`), widgets (`wid/`), packages and store (`pkg/`), the JavaScript app host (`js/`), the J2ME virtual machine (`j2me/`), the PawBoop pet and run games (`pet/`, `run/`), board support (`boards/`, `hal/`), sync with the server (`desk.cpp`) |
+| `src/` | The firmware: the OS shell (`os.cpp`, `home.cpp`), apps (`app_*.cpp`), widgets (`wid/`), packages and store (`pkg/`), the JavaScript app host (`js/`), the J2ME virtual machine (`j2me/`), the PawBoop pet, run and aquarium games (`pet/`, `run/`, `tank/`), the wake word and microphone (`wake/`, `mic.cpp`), the RGB LED (`led.cpp`), board support (`boards/`, `hal/`), sync with the server (`desk.cpp`) |
 | `include/`, `lib/` | LVGL's configuration; vendored libraries (QuickJS-ng, libopus, esp_new_jpeg, the QEMU Ethernet driver) |
 | `sim/` | The simulator: the firmware's UI built for your computer (headless or in a window) |
 | `tools/` | QEMU runner (`tools/qemu`), live simulator, dev console clients, package tools (`espk.py`), language tools (`i18n.py`), font and art generators |
 | `sdk/` | The `espos` CLI and the `@espos/sdk` typings and schemas: create, build, check and run apps |
 | `apps/` | Sample JavaScript apps (focus timer, dice, vocabulary, water) |
+| `wake/` | The "Gâu" wake word: the keyword spotter's design (`FIRMWARE.md`), host tools, training scripts and evaluation reports (no data, no models) |
 | `j2me/` | The J2ME class library (CLDC 1.1 / MIDP 2.0) and its tests |
 | `i18n/` | Translations (English is built in; the others ship as language packages) |
 | `docs/` | Design notes: packages, apps, widgets, the saver, boards and porting, simulators, the platform plan |

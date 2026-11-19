@@ -4,7 +4,7 @@
 // (time, date, lunar date, the user's text, the next event, the next alarm, the weather, boxes, photos, Home
 // widgets) placed anywhere. Each orientation has 1..3 pages (cycled), plus a night page for the quiet hours.
 // Without the setting: the old s3.saver_mode picks a template ("desk" = the defaults, like today's desk saver).
-// The device editor (saveredit.h) edits the same model. Mockup: ~/projects/xt/mockups/s3-saver-custom.html.
+// The device editor (saveredit.h) edits the same model. Mockup: mockups/s3-saver-custom.html.
 #include <Arduino.h>
 #include <ArduinoJson.h>
 #include <lvgl.h>

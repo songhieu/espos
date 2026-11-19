@@ -11,6 +11,7 @@ packages again and installs them into sim/data-i18n first. --rot N: the whole to
 landscape, the gestures moved to the 480 x 320 screen); --sim another simulator build, --data another data folder
 (the tour writes sys.lang into it).
 """
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -134,7 +135,8 @@ def main(argv):
         return
     for p in out.glob("*.ppm"):
         p.unlink()
-    env = {"SIM_DATA": data, "SDL_VIDEODRIVER": "dummy", "SDL_AUDIODRIVER": "dummy", "PATH": "/usr/bin:/bin"}
+    env = {"SIM_DATA": data, "SDL_VIDEODRIVER": "dummy", "SDL_AUDIODRIVER": "dummy", "PATH": "/usr/bin:/bin",
+           "OVERFLOW_ROWS": os.environ.get("OVERFLOW_ROWS", "")}  # 1: rows that only fit by scrolling sideways too
     r = subprocess.run([sim, str(sc), str(out)], cwd=ROOT, env=env,
                        capture_output=True, text=True, timeout=900)
     lines, shot = [], ""

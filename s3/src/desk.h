@@ -5,6 +5,8 @@
 #include <Arduino.h>
 #include <ArduinoJson.h>
 
+class NetworkClientSecure;
+
 namespace desk {
 
 enum class Link { None, Pairing, Linked };
@@ -29,6 +31,15 @@ void unlink();
 // reply. false: one is waiting already, or the device is offline or not linked.
 using RemoteCb = void (*)(int status, JsonDocument& reply);
 bool remoteSend(const String& body, RemoteCb cb);
+
+// The dog assistant's turn (src/pet/talk.cpp): a request that writes and reads the kept TLS connection itself (a WAV
+// up, the voice streamed down as it comes). `fn` runs on the network worker with the connection to the API host
+// (connected; nullptr when it could not connect), the host name and the device token; it returns false when it left
+// the connection unusable (then it is closed). `done` runs on the UI loop afterwards. It goes before every other
+// request. false: one is waiting already, or the device is offline or not linked.
+using RawFn = bool (*)(void* ctx, NetworkClientSecure* tls, const char* host, const char* token);
+using RawDone = void (*)(void* ctx);
+bool rawSend(RawFn fn, RawDone done, void* ctx);
 
 // Sync.
 void syncNow();

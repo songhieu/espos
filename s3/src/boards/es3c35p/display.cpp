@@ -205,6 +205,53 @@ bool direct(int y0, int y1, void (*fill)(uint16_t*, int, int, void*), void* ctx,
   return true;
 }
 
+// lcd::native: the whole screen in pieces past LVGL. Upright: 80-row bands, as direct(). On its side: blocks of
+// logical columns that are whole panel rows, filled straight in the panel's order (the strides do what
+// lv_draw_sw_rotate does in sendLandscape: 90 = pixel (x+i, j) at (cols-1-i) * 320 + j, 270 = i * 320 + 319 - j), so
+// there is no shadow frame and no turning pass. The remote viewer's copy is kept upright only.
+bool native(void (*fill)(uint16_t*, int, int, int, int, int, int, void*), void* ctx, bool tear) {
+  if (!disp || disp->rendering_in_progress) return false;
+  const lv_display_rotation_t rot = lv_display_get_rotation(disp);
+  if (disp->flushing) {
+    flushWait(disp);
+    disp->flushing = 0;
+  }
+  const uint32_t t0 = micros();
+  if (tear) waitTear();
+  uint8_t* bufs[2] = {band1, band2};
+  int inFlight = 0, n = 0;
+  const bool side = rot == LV_DISPLAY_ROTATION_90 || rot == LV_DISPLAY_ROTATION_270;
+  const int fw = side ? LCD_H : LCD_W, fh = side ? LCD_W : LCD_H;
+  const int step = side ? (int)(BAND_BYTES / (fh * 2)) & ~1 : BAND;  // columns (side) or rows a piece
+  for (int at = 0; at < (side ? fw : fh); at += step, n++) {
+    const int k = min(step, (side ? fw : fh) - at);
+    if (inFlight == 2) xSemaphoreTake(bandSent, portMAX_DELAY), inFlight--;
+    uint16_t* out = (uint16_t*)bufs[n & 1];
+    lv_area_t a;
+    if (side) {
+      if (rot == LV_DISPLAY_ROTATION_90) fill(out + (k - 1) * fh, -fh, 1, at, 0, at + k, fh, ctx);
+      else fill(out + fh - 1, fh, -1, at, 0, at + k, fh, ctx);
+      a = {at, 0, at + k - 1, fh - 1};
+    } else {
+      if (rot == LV_DISPLAY_ROTATION_180) fill(out + LCD_W * k - 1, -1, -LCD_W, 0, at, LCD_W, at + k, ctx);
+      else {
+        fill(out, 1, LCD_W, 0, at, LCD_W, at + k, ctx);
+        if (mirrorBuf) memcpy(mirrorBuf + at * LCD_W, out, LCD_W * k * 2);
+      }
+      a = {0, at, LCD_W - 1, at + k - 1};
+    }
+    lv_draw_sw_rgb565_swap(out, LCD_W * k);  // the same pixel count either way (k panel rows of 320)
+    lv_display_rotate_area(disp, &a);
+    esp_lcd_panel_draw_bitmap(panel, a.x1, a.y1, a.x2 + 1, a.y2 + 1, out);
+    inFlight++;
+  }
+  while (inFlight-- > 0) xSemaphoreTake(bandSent, portMAX_DELAY);
+  newFrame = true;
+  flushUs += micros() - t0;
+  frames++;
+  return true;
+}
+
 void mirror(bool on) {
   if (on == (mirrorBuf != nullptr)) return;
   if (on) {
@@ -318,7 +365,7 @@ void setBacklight(int percent) {
 
 }  // namespace
 
-const hal::Display display = {begin, setRotation, setBacklight, stats, logInvalid, direct, mirror, frame};
+const hal::Display display = {begin, setRotation, setBacklight, stats, logInvalid, direct, mirror, frame, native};
 
 }  // namespace es3c35p
 #endif  // ESPOS_QEMU

@@ -26,6 +26,8 @@ BG   = {"t":"black"}
      | {"t":"wall"}                                 the theme's wallpaper (theme::wallpaper)
      | {"t":"wall","w":"bien"}                      a built-in wallpaper by id (theme::wallpaperOf; added 2026-11-16)
      | {"t":"photo","id":N}                         a full-screen picture; id 0 = the s3.photos slideshow, one a minute
+     | {"t":"tank"}                                 the user's aquarium, alive (Hồ cá cảnh, docs/tank.md; added 2026-11-19);
+                                                    without the package a deep-water gradient
      plus "dim":0..90 on any of them: percent of black over it
 EL   common keys: "t" type; "x","y" top left and "w","h" the box, in the page's pixels; "c":"rrggbb" colour
      (text, or the fill of a box; default e8ecf2); "o":10..100 opacity (default 100); "a":"l"|"c"|"r" (default c)

@@ -23,6 +23,10 @@
 #include "remote.h"
 #include "sound.h"
 #include "touch.h"
+#include "mic.h"
+#include <atomic>
+#include <chrono>
+#include <thread>
 #include "trace.h"
 #include "WiFi.h"
 
@@ -169,6 +173,16 @@ void setEcho(bool) {}
 
 // ---------------------------------------------------------------- desk
 namespace desk {
+// The dog assistant's turn: on a thread like the board's network worker (src/pet/talk.cpp runs wake/tools/simnet.py
+// against the live API when SIM_DEVICE_TOKEN is set: wake/tools/simpair.py links the simulator); without it, no network.
+bool rawSend(RawFn fn, RawDone done, void* ctx) {
+  if (!getenv("SIM_DEVICE_TOKEN") && !getenv("SIM_FAKE_ASSIST")) return false;
+  std::thread([=] {
+    fn(ctx, nullptr, "api.espos.dev", "");
+    done(ctx);
+  }).detach();
+  return true;
+}
 namespace {
 JsonDocument dashDoc;
 uint32_t dashVer = 1, settingsVer = 1, changeCount = 0;
@@ -319,6 +333,7 @@ __attribute__((weak)) bool begin() { return true; }
 __attribute__((weak)) void setVolume(int) {}
 __attribute__((weak)) void click() {}
 __attribute__((weak)) void chime() {}
+__attribute__((weak)) void blip() {}
 __attribute__((weak)) void test() {}
 __attribute__((weak)) void alarmBeep() { trace::add("sim: beep"); }
 // Streams are drained at once; with SIM_WAV=path every streamed sample is appended to that raw file
@@ -332,7 +347,69 @@ __attribute__((weak)) void stream(Pull pull, void* ctx) {
 }
 __attribute__((weak)) void stopStream() {}
 __attribute__((weak)) bool streaming() { return false; }
+// The microphone: only with SIM_MIC=file (16 kHz mono s16le raw, or a WAV) played into it in real time, then silence.
+__attribute__((weak)) void* micChannel() { return getenv("SIM_MIC") ? (void*)1 : nullptr; }
+__attribute__((weak)) bool outputSince(uint32_t) { return false; }
 }  // namespace sound
+
+// The RGB LED (src/led.cpp): drawn by the live build's window (sim/live.cpp), nothing headless.
+__attribute__((weak)) void simLed(uint8_t, uint8_t, uint8_t) {}
+
+// SIM_MIC=live: the computer's microphone (sim/live.cpp, the live build only).
+__attribute__((weak)) bool simLiveMic(mic::Sink, bool) { return false; }
+
+namespace mic {
+namespace {
+std::atomic<Sink> simSink{nullptr};
+std::atomic<bool> simOn{false};
+std::atomic<int> simNext{0};  // opens so far: each one plays the next file of SIM_MIC (a:b:c), then silence
+std::thread* simThread = nullptr;
+}  // namespace
+bool available() { return getenv("SIM_MIC") != nullptr; }
+bool open(Sink s) {
+  if (!available()) return false;
+  if (!strcmp(getenv("SIM_MIC"), "live")) {
+    simOn = simLiveMic(s, true);
+    return simOn;
+  }
+  simSink = s;
+  if (!simOn) simNext++;
+  simOn = true;
+  if (!simThread) simThread = new std::thread([] {
+      std::vector<std::string> files;
+      std::stringstream ss(getenv("SIM_MIC"));
+      for (std::string f; std::getline(ss, f, ':');) files.push_back(f);
+      FILE* f = nullptr;
+      int playing = 0;
+      int16_t b[160];
+      auto t = std::chrono::steady_clock::now();  // real time, like the codec (the sim's millis() is its own)
+      for (;;) {
+        if (simNext != playing) {  // the mic was opened again: the next file from its start
+          playing = simNext;
+          if (f) fclose(f);
+          f = playing - 1 < (int)files.size() ? fopen(files[playing - 1].c_str(), "rb") : nullptr;
+          char hdr[4] = {};
+          if (f && fread(hdr, 1, 4, f) == 4 && !memcmp(hdr, "RIFF", 4)) fseek(f, 44, SEEK_SET);
+          else if (f) fseek(f, 0, SEEK_SET);
+          trace::add("sim mic: %s", f ? files[playing - 1].c_str() : "silence");
+        }
+        const int n = f && simOn ? (int)fread(b, 2, 160, f) : 0;
+        for (int i = n; i < 160; i++) b[i] = 0;
+        const Sink k = simSink;
+        if (simOn && k) k(b, 160);
+        t += std::chrono::milliseconds(10);
+        std::this_thread::sleep_until(t);
+      }
+    });
+  return true;
+}
+void close() {
+  if (getenv("SIM_MIC") && !strcmp(getenv("SIM_MIC"), "live")) simLiveMic(nullptr, false);
+  simOn = false;
+}
+bool isOpen() { return simOn; }
+Stats stats() { return {0, -96, -96, 0, 0}; }
+}  // namespace mic
 namespace ota {
 void begin() {}
 void poll() {}

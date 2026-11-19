@@ -10,6 +10,7 @@
 #include "packs.h"
 #include "pet.h"
 #include "pet_icon.h"
+#include "text.h"
 #include "uikit.h"
 #include "view.h"
 #include "../wid/kit.h"
@@ -85,11 +86,13 @@ void fill(Live& l) {
     l.view->still(clip, frame);
     if (l.say) {
       const int w = l.size == 2 ? 252 : 136;
-      lv_obj_set_style_text_font(l.say, pk::font(0), 0);  // the dog's words: the page's font, every letter
       lv_obj_set_style_text_line_space(l.say, 1, 0);
+      int n = 0;  // the dog's words: the page's font (every letter), lines broken to the box
+      const String t = text::wrap(pk::font(0), fitLine(moodLine(mood), w), w, n);
+      lv_obj_set_style_text_font(l.say, pk::font(0), 0);
       lv_label_set_long_mode(l.say, LV_LABEL_LONG_WRAP);
       lv_obj_set_width(l.say, w);
-      lv_label_set_text(l.say, fitLine(moodLine(mood), w).c_str());
+      lv_label_set_text(l.say, t.c_str());
       lv_obj_center(l.say);
     }
   }

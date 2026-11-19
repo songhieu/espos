@@ -18,7 +18,7 @@ files copied unchanged and checked against the hand-off's SHA-256 lists):
 
 | Package | What | .espk |
 |---|---|---|
-| `vn.pawboop.pet` 2.0.1 | the game: `pawboop_ui.pbu` (the game designer's re-pack `handoff_ui2/`: no `say_*` bubbles, no "Biscuit" in `screen`/`splash`, `name_<dog>` and `wake_<dog>` pieces), `font/b12.bin` `b14.bin` `s11.bin` (Lexend, the page's font, every letter of every dog's lines, 37 KB), icon | 1,254,054 |
+| `vn.pawboop.pet` 2.0.2 | the game: `pawboop_ui.pbu` (the game designer's re-pack `handoff_ui2/`: no `say_*` bubbles, no "Biscuit" in `screen`/`splash`, `name_<dog>` and `wake_<dog>` pieces), `font/b12.bin` `b14.bin` `s11.bin` (Lexend, the page's font, every letter of every dog's lines, with its kerning: font file format 1, 51 KB), icon | 1,267,686 |
 | `vn.pawboop.run` 2.0.0 | add-on: `core/run_things.pbs` (26 things), `core/run_ui.pbu`, `run.json` (8 maps); roads come with the maps | 4,248,101 |
 | `vn.pawboop.dog.<dog>` 1.0.0 x 10 | add-on, `"set": "dog"`: `pet.pbs`, `run.pbs`, `voice.pba`, `assist.pba`, `icon.jpg` (the phone game's portrait) | 5.98-7.67 MB |
 | `vn.pawboop.map.<map>` 1.0.0 x 8 | add-on, `"set": "map"`, `"needs": "vn.pawboop.run"`: `road_<map>.pbv` (20/s) + `link_<map>_<next>.pbv` (the gate to the next map of the ring), icon | 4.15-4.88 MB |
@@ -46,8 +46,12 @@ the line plays, then `giggle` (70 %) or `sulk` with the `caught_2` of the same i
 **Bubbles**: drawn from the line's text (the page's sayWrap/sayBox/bubble: one row up to 280 px, else the two rows
 nearest in width, pill #2b2f3a radius 13, Lexend bold 12, the game's tail pieces), by `src/pet/text.cpp` straight
 into the game's buffer with LVGL's glyphs. The header's name is the pack's `name_<dog>` piece (drawn in Lexend bold
-14 at x 42 when absent); the splash's line is drawn translated ("{0} is waking up...", Lexend semibold 11, centred,
-middle y 266), not the English `wake_<dog>` piece. With PawBoop 1.0's pack ("Biscuit" baked in) both are covered first. The pop-up, the alarm card and the widget show the dog's words
+14 at x 42 when absent); the splash's line is drawn translated ("{0} is waking up", no dots, Lexend semibold 11, centred,
+middle y 266), not the English `wake_<dog>` piece. With PawBoop 1.0's pack ("Biscuit" baked in) both are covered first. Alignment (2026-11-18): drawn
+text uses fractional advances with Lexend's kerning (as the page's canvas: a bubble came out 5 px wider with LVGL's
+whole-pixel advances) and the page's "middle" line (2 px higher than LVGL's line box); bubbles now match pet.html to
+1 px, the static pieces exactly (the header 24 px lower for the status bar). The pop-up's bubble point touches the
+bubble, its chips are 44 px (two lines), the alarm card's words are centred, the run's "‹ ›" sit beside the card. The pop-up, the alarm card and the widget show the dog's words
 in Lexend too (every Vietnamese letter without the Vietnamese font package).
 
 **Voice files from the card**: only a voice file's header, clip table and texts are in PSRAM (~20 KB); a line's packets
@@ -82,6 +86,25 @@ HH:MM:SS"` sets the simulator's wall clock, script command `clock`): `smoke`, `d
 run), `maps` (live simulator: every map, its gate, the start card's arrows), `alarm` (three rings, snoozes, off),
 `assist` (greetings, chips, a habit, good night, late night, long time), `store`, `download` (`sim/data-dogs2`: a dog
 from the chooser, a map's page). `make_all.py --sim DIR` installs everything on a simulator card.
+
+### Board fix 0.5.4 (2026-11-18): PawBoop froze on a test board
+
+- Cause: `text.cpp` asked LVGL for the bitmap of a letter no font of the chain had (PawBoop 1.0's pack has no Lexend
+  files, so the OS's fonts drew the bubble and "…" was missing). LVGL answers a placeholder with `resolved_font` NULL;
+  `lv_font_get_glyph_bitmap` then hits `LV_ASSERT_NULL`, and `LV_ASSERT_HANDLER` is `while(1);`: the UI stopped for good
+  (serial: `lv_font_get_glyph_bitmap: Asserted at expression: font_p != NULL`). Fix: a letter without a font is a gap,
+  never drawn; a "…" the fonts lack becomes "..." (`forFont`). Reproduced and fixed in the simulator
+  (`SIM_DATA=sim/data-dogs-old`, the line alert_4) and on the board.
+- A dog's picture records are read the first time a picture is used (they lie before each picture, spread over the
+  5-7 MB file): switching to a dog on the card took 836 ms on the UI thread, now 15 ms.
+- The store's PawBoop page drew itself and the list under it again for every add-on icon that arrived (1.1-1.6 s each,
+  ~20 s of stalls); now once when all are in (one 1.5 s build when it opens). The chooser updates the download's
+  percent and the arriving pictures in place instead of building its ten cards again every 0.7 s.
+- Coin Run 2.0 with no map installed: the pill opens the store at the Run maps shelf ("Add a map for Coin Run first")
+  instead of the dead end "No roads installed".
+- Measured on the board (0.5.4, PawBoop 1.0 in flash + Bao on the card): game 100 pictures/10 s, compose ~39 ms, decode
+  ~39 ms, tap to picture 150-220 ms (taps that start a line; 50-100 ms otherwise), voice underruns 0, internal RAM 59 KB
+  minimum, PSRAM 3.5 MB free in the game; no assert over a 2-minute tap soak.
 
 ## What is where
 

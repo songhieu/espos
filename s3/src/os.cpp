@@ -26,7 +26,9 @@
 #include "js/jsapp.h"
 #ifndef NO_PET
 #include "pet/pet.h"
+#include "pet/talk.h"
 #endif
+#include "wake/wake.h"
 #include "power.h"
 #include "sound.h"
 #include "src/display/lv_display_private.h"
@@ -73,7 +75,7 @@ void seedClock() {
 }
 
 // ------------------------------------------------------------------ status bar (top layer)
-lv_obj_t *sb, *sbTime, *sbWifi, *sbPct, *sbBat, *sbBatFill, *sbBolt;
+lv_obj_t *sb, *sbTime, *sbWifi, *sbPct, *sbBat, *sbBatFill, *sbBolt, *sbMic;
 bool sbDark = false, sbHidden = false;
 
 void paintBar() {
@@ -115,6 +117,10 @@ void buildStatusBar() {
   keep(&sbPct, label(sb, "", 13, true));
   lv_obj_align_to(sbPct, sbBat, LV_ALIGN_OUT_LEFT_MID, -5, 0);
   keep(&sbWifi, glyph(sb, &gl_wifi3_16, 0xffffff));
+  // The microphone is open (the "Gâu" wake word listening, or a turn being recorded): an orange dot, like a phone's.
+  keep(&sbMic, box(sb, 0xff9f0a, 4));
+  lv_obj_set_size(sbMic, 8, 8);
+  lv_obj_add_flag(sbMic, LV_OBJ_FLAG_HIDDEN);
   lv_obj_add_event_cb(sb, onPull, LV_EVENT_PRESSED, nullptr);
   lv_obj_add_event_cb(sb, onPull, LV_EVENT_PRESSING, nullptr);
   lv_obj_add_event_cb(sb, onPull, LV_EVENT_RELEASED, nullptr);
@@ -127,6 +133,12 @@ void updateStatusBar(const tm& t) {
   char hm[8];
   snprintf(hm, sizeof hm, "%02d:%02d", t.tm_hour, t.tm_min);
   setText(sbTime, hm);
+  if (wake::micOn()) {
+    lv_obj_remove_flag(sbMic, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_align_to(sbMic, sbTime, LV_ALIGN_OUT_RIGHT_MID, 6, 0);
+  } else {
+    lv_obj_add_flag(sbMic, LV_OBJ_FLAG_HIDDEN);
+  }
   const int pct = power::percent();
   char p[8];
   snprintf(p, sizeof p, "%d%%", pct);
@@ -207,7 +219,8 @@ bool watchTouch(bool down, int32_t x, int32_t y) {
     const bool app = !stack.empty();
     // With the keyboard up, a finger landing on its keys types (no back swipe from its left column).
     const int kbTop = kb::isOpen() ? H() - kb::height() : H();
-    if (saverShown || ccOpen() || ::home::editing() || notif::centerShown()) gst.kind = G_NONE;
+    // Biscuit's pop-up has its own gestures (swipe down, tap outside): nothing underneath may take its touches.
+    if (saverShown || ccOpen() || ::home::editing() || notif::centerShown() || pet::summoned()) gst.kind = G_NONE;
     else if (app && x < EDGE && y > SB_H && y < kbTop) gst.kind = G_BACK;
     else if (app && y >= H() - BOTTOM) gst.kind = G_HOME;
     else if (!app && ::home::searchAt(x, y)) gst.kind = G_SEARCH;
@@ -288,7 +301,7 @@ void showToast(const char* text) {
 
 // ------------------------------------------------------------------ Control Center
 constexpr int CC_ANIM = 200;
-lv_obj_t *cc, *ccWifi, *ccSync, *ccDnd, *ccBright, *ccVol, *ccAlarm, *ccNotes;
+lv_obj_t *cc, *ccWifi, *ccSync, *ccDnd, *ccBright, *ccVol, *ccAlarm, *ccNotes, *ccMic;
 int32_t pullStart = 0;
 
 // While it slides, the Control Center is a picture of itself (one copy from PSRAM a frame
@@ -410,9 +423,9 @@ lv_obj_t* ccToggle(lv_obj_t* parent, const lv_image_dsc_t* g, const char* name, 
   // Two-line names ("Do Not Disturb") lift the glyph so nothing overlaps.
   const bool two = textW(name, 12, true) > 58;
   lv_obj_t* i = glyph(t, g, 0xffffff);
-  lv_obj_align(i, LV_ALIGN_TOP_MID, 0, two ? 4 : 10);
+  lv_obj_align(i, LV_ALIGN_TOP_MID, 0, two ? 2 : 10);
   lv_obj_t* l = label(t, "", 12, true, 0xffffff);
-  fitText(l, name, 58, 30, 12, 12, true, -2);
+  fitText(l, name, 58, 36, 12, 12, true, -2);  // two bold lines take 36 px ("Không làm phiền", "Nicht stören")
   lv_obj_set_style_text_align(l, LV_TEXT_ALIGN_CENTER, 0);
   lv_obj_align(l, LV_ALIGN_BOTTOM_MID, 0, two ? -3 : -7);
   if (cb) lv_obj_add_event_cb(t, cb, LV_EVENT_CLICKED, nullptr);
@@ -424,12 +437,13 @@ lv_obj_t* ccTile(lv_obj_t* parent, int w, int h, const lv_image_dsc_t* g, const 
   lv_obj_set_size(t, w, h);
   lv_obj_add_flag(t, LV_OBJ_FLAG_CLICKABLE);
   lv_obj_set_style_bg_opa(t, LV_OPA_70, LV_STATE_PRESSED);
+  const bool two = textW(name, 12, true) > w - 4;  // a longer translation wraps (never cut): the glyph moves up
   lv_obj_t* i = glyph(t, g, 0xffffff);
-  lv_obj_align(i, LV_ALIGN_TOP_MID, 0, h / 2 - 22);
+  lv_obj_align(i, LV_ALIGN_TOP_MID, 0, two ? h / 2 - 30 : h / 2 - 22);
   lv_obj_t* l = label(t, "", 12, true, 0xffffff);
-  fitText(l, name, w - 4, 30, 12, 12, true, -2);  // a longer translation wraps (never cut)
+  fitText(l, name, w - 4, 36, 12, 12, true, -2);
   lv_obj_set_style_text_align(l, LV_TEXT_ALIGN_CENTER, 0);
-  lv_obj_align(l, LV_ALIGN_BOTTOM_MID, 0, -(h / 2 - 20));
+  lv_obj_align(l, LV_ALIGN_BOTTOM_MID, 0, two ? -(h / 2 - 28) : -(h / 2 - 20));
   lv_obj_add_event_cb(t, cb, LV_EVENT_CLICKED, nullptr);
   return t;
 }
@@ -568,9 +582,33 @@ void buildControl() {
   }
   // Notifications: like a phone, not listed here; one tile opens the Notification Center.
   const int ny = land ? y0 + 146 + 10 + 60 + 8 : y1 + 146 + 10;
+  // The "Gâu" wake word's tile beside it (boards with a mic): listening (orange) / paused; off: opens its settings.
+  const int nh = land ? 56 : 64;
+  int micW = 0;
+#ifndef NO_PET
+  if (sound::micChannel()) {
+    micW = nh + 8;
+    keep(&ccMic, box(cc, 0x2b3050, 22));
+    lv_obj_set_size(ccMic, nh, nh);
+    lv_obj_set_pos(ccMic, W() - x0 - nh, ny);
+    lv_obj_add_flag(ccMic, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_set_style_bg_opa(ccMic, LV_OPA_70, LV_STATE_PRESSED);
+    lv_obj_center(pet::talk::micIcon(ccMic, 0xffffff));
+    lv_obj_add_event_cb(ccMic, [](lv_event_t*) {
+      if (wake::mode() == wake::OFF) {
+        closeCcNow();
+        apps::open("pet", "book");
+        return;
+      }
+      wake::setPaused(!wake::paused());
+      showToast(wake::paused() ? N_("Not listening for \"Gâu\"") : N_("Listening for \"Gâu\""));
+      updateControl(true);
+    }, LV_EVENT_CLICKED, nullptr);
+  }
+#endif
   keep(&ccNotes, box(cc, 0x22274a, 22));
   lv_obj_set_pos(ccNotes, x0, ny);
-  lv_obj_set_size(ccNotes, W() - 2 * x0, land ? 56 : 64);
+  lv_obj_set_size(ccNotes, W() - 2 * x0 - micW, nh);
   lv_obj_add_flag(ccNotes, LV_OBJ_FLAG_CLICKABLE);
   lv_obj_set_style_bg_opa(ccNotes, LV_OPA_70, LV_STATE_PRESSED);
   lv_obj_add_event_cb(ccNotes, [](lv_event_t*) {
@@ -618,6 +656,7 @@ void updateControl(bool force) {
   lv_obj_set_style_bg_color(ccSync, C(desk::syncing() ? 0x34c759 : linked ? 0x248a3d : 0x2b3050), 0);
   const bool dnd = desk::settingInt("s3.dnd", 0);
   lv_obj_set_style_bg_color(ccDnd, C(dnd ? 0x5e5ce6 : 0x2b3050), 0);
+  if (ccMic) lv_obj_set_style_bg_color(ccMic, C(wake::mode() != wake::OFF && !wake::paused() ? 0xff9f0a : 0x2b3050), 0);
   String when, day;
   alarms::next(when, day);
   setText(lv_obj_get_child(ccAlarm, 1), when.length() ? when.c_str() : "--:--");
@@ -683,6 +722,10 @@ void buildSaver() {
 void updateSaver(const tm& t) {
   if (!saverShown) {
     // Not over a ringing alarm (it woke the screen; nobody has touched it since the night, so idle is long).
+    // Nor over the dog's pop-up (it was called by "Gâu gâu" while the saver was on: talking to it is no touch).
+#ifndef NO_PET
+    if (pet::summoned()) return;
+#endif
     if (saverSec > 0 && stack.empty() && !kb::isOpen() && !ccOpen() && !home::editing() && !alarms::ringing() &&
         idleMs() > (uint32_t)saverSec * 1000 && millis() > 5000)
       showSaver();

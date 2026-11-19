@@ -1,5 +1,5 @@
 #pragma once
-// The saver's editor on the device (docs/saver.md §3, mockup ~/projects/xt/mockups/s3-saver-device.html): a long
+// The saver's editor on the device (docs/saver.md §3, mockup mockups/s3-saver-device.html): a long
 // press on the saver, or Cài đặt › Màn chờ › Chỉnh màn chờ, opens it on the page shown (this orientation only).
 // The real page full screen, every element outlined; drag to move (4 px steps, snaps to the centre and to other
 // elements' edges with a guide line), tap to select: a corner handle resizes (widgets: Nhỏ/Vừa/Lớn) and a sheet

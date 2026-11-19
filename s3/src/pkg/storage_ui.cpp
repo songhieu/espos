@@ -2,7 +2,7 @@
 #pragma GCC optimize("Os")
 // The Storage page, like a phone's storage screen: a bar per volume (games, apps, other, free),
 // the installed apps by size, and a sheet to remove an app or move it between Máy and Thẻ nhớ.
-// Drawn after ~/projects/xt/mockups/s3-store.html. Also the small pieces the store shares (ui.h).
+// Drawn after mockups/s3-store.html. Also the small pieces the store shares (ui.h).
 #include <lvgl.h>
 
 #include <algorithm>

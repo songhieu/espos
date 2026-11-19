@@ -15,11 +15,15 @@
 #include <cmath>
 #include <cstdio>
 #include <cstring>
+#include <ctime>
 #include <vector>
 
 #include "desk.h"
 #include "realsize.h"
 #include "sound.h"
+#include "mic.h"
+#include <atomic>
+#include <chrono>
 
 namespace live {
 bool on = false;
@@ -87,6 +91,8 @@ bool begin(int w, int h, float z) {
             480 * PANEL_MM_PER_PX);
   }
   on = true;
+  SDL_ShowWindow(win);
+  SDL_RaiseWindow(win);  // in front of the terminal that started it
   sound::begin();
   return true;
 }
@@ -103,6 +109,42 @@ uint32_t ms() { return SDL_GetTicks(); }
 void sleepMs(int n) { SDL_Delay(n); }
 void setTitle(const std::string& t) { SDL_SetWindowTitle(win, t.c_str()); }
 void shootWindow(const std::string& path) { frameShotPath = path; }
+
+std::atomic<uint32_t> ledRgb{0};  // the RGB LED's colour as the board would light it (src/led.cpp)
+std::atomic<bool> ledNew{false};
+bool ledChanged() { return ledNew.exchange(false); }
+
+// The LED: a dot in the frame above the panel's top-right corner, with a soft halo (it is small on the board too).
+void drawLed(float s) {
+  const uint32_t c = ledRgb;
+  const int r = c >> 16 & 255, g = c >> 8 & 255, b = c & 255;
+  const float cx = (MARGIN + texW * zoom - 12) * s, cy = (MARGIN / 2.0f) * s, rad = 4.0f * s;
+  SDL_SetRenderDrawBlendMode(ren, SDL_BLENDMODE_BLEND);
+  // the bare LED when dark: a faint grey bead
+  const float lit = std::max(r, std::max(g, b)) / 255.0f;
+  const float k = lit > 0 ? std::min(1.0f, 0.35f + lit * 2.5f) : 0;  // WS2812s look bright even when dimmed
+  for (int dy = -(int)(rad * 3); dy <= (int)(rad * 3); dy++)
+    for (int dx = -(int)(rad * 3); dx <= (int)(rad * 3); dx++) {
+      const float d = sqrtf((float)(dx * dx + dy * dy));
+      int a;
+      uint8_t cr, cg, cb;
+      if (d <= rad) {
+        a = 255;
+        cr = (uint8_t)std::min(255.0f, 40 + r * k * 255.0f / std::max(1, std::max(r, std::max(g, b))));
+        cg = (uint8_t)std::min(255.0f, 40 + g * k * 255.0f / std::max(1, std::max(r, std::max(g, b))));
+        cb = (uint8_t)std::min(255.0f, 44 + b * k * 255.0f / std::max(1, std::max(r, std::max(g, b))));
+      } else if (k > 0 && d <= rad * 3) {
+        a = (int)(110 * k * (1 - (d - rad) / (rad * 2)) * (1 - (d - rad) / (rad * 2)));
+        const int m = std::max(1, std::max(r, std::max(g, b)));
+        cr = r * 255 / m, cg = g * 255 / m, cb = b * 255 / m;
+      } else {
+        continue;
+      }
+      SDL_SetRenderDrawColor(ren, cr, cg, cb, (uint8_t)a);
+      SDL_RenderDrawPoint(ren, (int)cx + dx, (int)cy + dy);
+    }
+  SDL_SetRenderDrawBlendMode(ren, SDL_BLENDMODE_NONE);
+}
 
 void present(const uint16_t* fb, int w, int h) {
   if (!tex || texW != w || texH != h) {
@@ -126,6 +168,7 @@ void present(const uint16_t* fb, int w, int h) {
   SDL_RenderFillRect(ren, &frame);
   SDL_Rect dst = {(int)(MARGIN * s), (int)(MARGIN * s), (int)(w * zoom * s + 0.5f), (int)(h * zoom * s + 0.5f)};
   SDL_RenderCopy(ren, tex, nullptr, &dst);
+  drawLed(s);
   if (!frameShotPath.empty()) {
     fprintf(stderr, frameShot(frameShotPath) ? "[sim] window %s\n" : "[sim] no window picture %s\n", frameShotPath.c_str());
     frameShotPath.clear();
@@ -249,6 +292,12 @@ SDL_AudioDeviceID dev = 0;
 int vol = 45;
 std::vector<int16_t> tones, voice, clickWave;  // what plays next (filled under the device lock)
 size_t toneAt = 0, voiceAt = 0;
+Pull sPull = nullptr;  // a stream pulled as it plays, 20 ms at a time like the board's sound task (the AI's voice)
+void* sCtx = nullptr;
+std::atomic<int64_t> lastOutMs{-100000};  // when the speaker last played something (the wake word's gate)
+int64_t nowMs() {
+  return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
+}
 int clickAt = -1;
 float gainNow = 1;
 
@@ -263,8 +312,15 @@ float gainFor(int v) {
 void callback(void*, Uint8* bytes, int len) {
   int16_t* out = (int16_t*)bytes;
   const int n = len / 2;
+  short pulled[2048];
+  int have = 0;
+  if (sPull && n <= 2048) {
+    have = sPull(pulled, n, sCtx);
+    if (have <= 0) sPull = nullptr, have = 0;  // it ended
+  }
+  bool loud = false;
   for (int i = 0; i < n; i++) {
-    int v = 0;
+    int v = i < have ? pulled[i] : 0;
     if (toneAt < tones.size()) v += tones[toneAt++];
     else if (!tones.empty()) tones.clear(), toneAt = 0, gainNow = gainFor(vol);  // after an alarm at 70 %
     if (voiceAt < voice.size()) v += voice[voiceAt++];
@@ -273,7 +329,9 @@ void callback(void*, Uint8* bytes, int len) {
       if (clickAt >= (int)clickWave.size()) clickAt = -1;
     }
     out[i] = (int16_t)std::max(-32768, std::min(32767, (int)(v * gainNow)));
+    loud = loud || out[i] > 64 || out[i] < -64;
   }
+  if (loud || sPull) lastOutMs = nowMs();
 }
 
 bool allowed() { return dev && vol > 0 && !desk::settingInt("s3.dnd", 0); }
@@ -336,6 +394,19 @@ void chime() {
   queueTone(std::move(t), gainFor(vol));
 }
 
+void blip() {
+  if (!dev || vol <= 0) return;
+  std::vector<int16_t> t;
+  for (float hz : {988.0f, 1319.0f})
+    note(t, RATE * 70 / 1000, [](int k, int n, float f) {
+      return sinf(2 * M_PI * f * k / RATE) * std::min(1.0f, k / 40.0f) * std::min(1.0f, (n - k) / 160.0f) * 9000;
+    }, hz);
+  SDL_LockAudioDevice(dev);
+  tones = std::move(t), toneAt = 0;  // over the stream, not instead of it
+  gainNow = gainFor(vol);
+  SDL_UnlockAudioDevice(dev);
+}
+
 void test() {
   if (!dev) return;
   std::vector<int16_t> t;
@@ -360,29 +431,75 @@ void alarmBeep() {
   queueTone(std::move(t), gainFor(std::max(vol, 70)));  // never quieter than 70 %
 }
 
-// The simulator's pet decodes a whole line before it streams (src/pet/voice.cpp): taken in one go here.
+// Pulled from the audio callback as it plays (the board's sound task does it every 20 ms): a pet line decoded
+// beforehand, or the AI's voice arriving from the network (silence while it waits).
 void stream(Pull pull, void* ctx) {
-  if (!dev || !pull) return;
-  std::vector<int16_t> v;
-  short buf[320];
-  for (int n; (n = pull(buf, 320, ctx)) > 0;) v.insert(v.end(), buf, buf + n);
-  SDL_LockAudioDevice(dev);
-  voice = std::move(v), voiceAt = 0;
-  SDL_UnlockAudioDevice(dev);
-}
-
-void stopStream() {
   if (!dev) return;
   SDL_LockAudioDevice(dev);
+  sPull = pull, sCtx = ctx;
   voice.clear(), voiceAt = 0;
   SDL_UnlockAudioDevice(dev);
 }
 
+void stopStream() { stream(nullptr, nullptr); }
+
+bool outputSince(uint32_t ms) { return nowMs() - lastOutMs < (int64_t)ms; }
+
 bool streaming() {
   if (!dev) return false;
   SDL_LockAudioDevice(dev);
-  const bool s = voiceAt < voice.size();
+  const bool s = sPull != nullptr || voiceAt < voice.size();
   SDL_UnlockAudioDevice(dev);
   return s;
 }
 }  // namespace sound
+
+void simLed(uint8_t r, uint8_t g, uint8_t b) {
+  live::ledRgb = (uint32_t)r << 16 | (uint32_t)g << 8 | b;
+  live::ledNew = true;
+}
+
+// SIM_MIC=live: the computer's own microphone (SDL capture, 16 kHz mono) instead of files (sim/stubs.cpp calls this).
+namespace {
+SDL_AudioDeviceID micDev = 0;
+std::atomic<mic::Sink> micSink{nullptr};
+int16_t micBlock[160];
+int micFill = 0;
+int micPeak = 0, micBlocks = 0;
+FILE* micRec = nullptr;  // SIM_MIC=live: everything it hears, for the wake word's training (SIM_MIC_REC=0: not kept)
+void micCallback(void*, Uint8* bytes, int len) {
+  const int16_t* in = (const int16_t*)bytes;
+  if (micRec) fwrite(bytes, 1, len, micRec), fflush(micRec);
+  for (int i = 0; i < len / 2; i++) {
+    micPeak = std::max(micPeak, std::abs((int)in[i]));
+    if (++micBlocks >= 16000 * 10) {  // every 10 s: is the microphone hearing anything (permission, input device)?
+      fprintf(stderr, "[sim] mic peak %.0f dBFS in the last 10 s\n", micPeak ? 20 * log10f(micPeak / 32768.0f) : -96.0f);
+      micPeak = 0, micBlocks = 0;
+    }
+    micBlock[micFill++] = in[i];
+    if (micFill == 160) {
+      micFill = 0;
+      const mic::Sink k = micSink;
+      if (k) k(micBlock, 160);
+    }
+  }
+}
+}  // namespace
+bool simLiveMic(mic::Sink sink, bool on) {
+  micSink = on ? sink : nullptr;
+  if (!micDev) {
+    SDL_AudioSpec want = {}, got = {};
+    want.freq = 16000, want.format = AUDIO_S16SYS, want.channels = 1, want.samples = 160, want.callback = micCallback;
+    micDev = SDL_OpenAudioDevice(nullptr, 1, &want, &got, 0);
+    if (!micDev) return fprintf(stderr, "[sim] no microphone: %s\n", SDL_GetError()), false;
+    if (getenv("SIM_MIC_REC") && *getenv("SIM_MIC_REC") && strcmp(getenv("SIM_MIC_REC"), "0")) {  // a folder
+      char path[512];
+      snprintf(path, sizeof path, "%s/live-%ld.raw", getenv("SIM_MIC_REC"), (long)time(nullptr));
+      micRec = fopen(path, "wb");
+      fprintf(stderr, "[sim] recording the microphone to %s\n", micRec ? path : "(failed)");
+    }
+    fprintf(stderr, "[sim] microphone: %s, %d Hz\n", SDL_GetAudioDeviceName(0, 1) ? SDL_GetAudioDeviceName(0, 1) : "default", got.freq);
+  }
+  SDL_PauseAudioDevice(micDev, on ? 0 : 1);
+  return true;
+}

@@ -60,6 +60,10 @@ struct Display {
   bool (*direct)(int y0, int y1, void (*fill)(uint16_t* dst, int y, int rows, void* ctx), void* ctx, bool tear);
   void (*mirror)(bool on);                       // keep a copy of the UI's frame for the remote viewer
   const uint16_t* (*frame)(int& w, int& h);      // that copy, as the screen is turned (nullptr while off)
+  // lcd::native (added 2026-11-19, the aquarium): the whole screen at the panel's own size of the UI (the UiMap's
+  // num/den, as turned), past LVGL and past any scaling, asked for in pieces. nullptr (a board without it): use LVGL.
+  bool (*native)(void (*fill)(uint16_t* dst, int dx, int dy, int x0, int y0, int x1, int y1, void* ctx), void* ctx,
+                 bool tear);
 };
 
 }  // namespace hal

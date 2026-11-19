@@ -1,5 +1,5 @@
 #pragma GCC optimize("Os")  // a cold screen: built small (the firmware must fit its 3.75 MB slot)
-// The saver's editor (saveredit.h, docs/saver.md §3, mockup ~/projects/xt/mockups/s3-saver-device.html): the real
+// The saver's editor (saveredit.h, docs/saver.md §3, mockup mockups/s3-saver-device.html): the real
 // page full screen, one screen of plain LVGL objects over the saver. The widget gallery, the widget option rows, the
 // background sheet and the sheet look are Home's (home.h, widopts.h): one copy of that code, the same widgets.
 #include "saveredit.h"
@@ -1050,6 +1050,7 @@ const char* bgName(const desksaver::Bg& b) {
       if (b.w == theme::WALLS[i].id) return theme::WALLS[i].name;
     return N_("From the theme");
   }
+  if (b.t == "tank") return N_("Aquarium");  // the live aquarium (src/tank)
   return b.t == "photo" ? (b.id ? N_("Photo") : N_("Photos in turn")) : b.t == "grad" ? N_("Gradient")
          : b.t == "color" ? N_("Solid colour")
                           : N_("Black");

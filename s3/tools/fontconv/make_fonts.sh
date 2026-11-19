@@ -46,3 +46,6 @@ digits ub_b96 96 1   # the date sheet's day number (src/wid/cal.cpp)
 digits ub_r84 84 0
 digits ub_r96 96 0
 ls -la $OUT
+
+# The glyph bitmaps of most fonts deflated (src/fonts/zfonts.c, inflated at boot by src/fonts.cpp): the app slot is full.
+python3 tools/fontconv/zfonts.py

@@ -37,6 +37,11 @@ void open(const char* id, const char* arg);
 #define HAVE_J2ME 1
 #endif
 
+#if __has_include("../tank/tank.h")
+#include "../tank/tank.h"
+#define HAVE_TANK 1  // Hồ cá cảnh (src/tank, docs/tank.md)
+#endif
+
 #ifdef SIM
 #include <string>
 extern std::string simDir;
@@ -511,6 +516,7 @@ String sizeText(uint64_t b) { return in::sizeStr(b); }
 
 bool engineKnown(const String& e) {
   if (e == "js" || e == "lang" || e == "font") return true;  // lang, font: language packs (i18n.cpp, fonts.cpp)
+  if (e == "wake") return true;  // a wake word's model (src/wake/wake.cpp)
 #ifndef NO_PET
   if (e == "pet") return true;
 #endif
@@ -519,6 +525,9 @@ bool engineKnown(const String& e) {
 #endif
 #ifdef HAVE_J2ME
   if (e == "j2me") return true;
+#endif
+#ifdef HAVE_TANK
+  if (e == "tank") return true;
 #endif
   return false;
 }
@@ -595,6 +604,9 @@ void run(const char* id, const char* arg) {
   else if (p->engine == "run") run::open(id, arg);
 #ifdef HAVE_J2ME
   else if (p->engine == "j2me") j2me_app::open(id, arg);
+#endif
+#ifdef HAVE_TANK
+  else if (p->engine == "tank") tank::open(id, arg);
 #endif
   else os::toast(N_("Needs a software update"));
 }

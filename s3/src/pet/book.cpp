@@ -17,6 +17,13 @@
 #include "os.h"
 #include "packs.h"
 #include "pet.h"
+#include "talk.h"
+#include "../pkg/store.h"
+#include "../sound.h"
+#include "../wake/wake.h"
+#include "../led.h"
+#include "../hal/board.h"
+#include <Preferences.h>
 #include "uikit.h"
 #include "view.h"
 #include "voice.h"
@@ -26,6 +33,127 @@ namespace book {
 namespace {
 
 using namespace kit;
+
+// ---------------------------------------------------------------- calling the dog with "Gâu" (src/wake/wake.h)
+void setWake(int mode) {
+  assist::Prefs q = assist::prefs();
+  q.wake = mode;
+  assist::setPrefs(q);
+}
+
+// The first time it is turned on: what listening means, then on or not.
+void askWake(int mode) {
+  lv_obj_t* body;
+  lv_obj_t* scr = os::screen(N_("Call with \"Gâu\""), &body);  // i18n: a screen title; "Gâu" is the dog's call, as is
+  lv_obj_t* c = cell(body);
+  lv_obj_set_flex_flow(c, LV_FLEX_FLOW_COLUMN);
+  lv_obj_set_style_pad_row(c, 8, 0);
+  const String say = i18n::fmt(N_("Say \"Gâu gâu\" and what you need, and {0} answers, like a phone's assistant."), dogs::name());
+  lv_obj_t* l = label(c, "", 15, true, pal().fg);
+  wrapText(l, say.c_str(), os::W() - 56, 15, true);
+  static const char* const PARAS[] = {
+      N_("To hear it, the microphone listens all the time while this is on. What it hears stays on the device: it is "
+         "checked here for \"Gâu\" and forgotten after 2 seconds."),
+      N_("Only after \"Gâu\" does the device send what you said next to the server, so the dog can answer. No sound is "
+         "kept there."),
+      N_("An orange dot at the top of the screen shows when the microphone is on. The microphone tile in the Control "
+         "Center stops it at any time."),
+  };
+  for (const char* t : PARAS) {
+    lv_obj_t* p = label(c, "", 14, false, pal().dim);
+    wrapText(p, T_(t), os::W() - 56, 14);
+  }
+  lv_obj_t* on = button(body, N_("Turn on"), 0xff9f0a, 0x3a2200, [](lv_event_t* e) {
+    Preferences pr;
+    pr.begin("wake", false);
+    pr.putInt("ok", 1);
+    pr.end();
+    setWake((int)(intptr_t)lv_event_get_user_data(e));
+    os::back();
+  }, (void*)(intptr_t)mode);
+  lv_obj_set_width(on, lv_pct(100));
+  lv_obj_t* no = button(body, N_("Not now"), pal().chip, pal().fg, [](lv_event_t*) { os::back(); });
+  lv_obj_set_width(no, lv_pct(100));
+  os::open(scr);
+}
+
+void wakeRows(lv_obj_t* body) {
+  caption(body, N_("CALL WITH \"GÂU\""));  // i18n: a heading in upper case; "GÂU" is the dog's call, as is
+  lv_obj_t* c = cell(body);
+  lv_obj_set_flex_flow(c, LV_FLEX_FLOW_COLUMN);
+  lv_obj_set_style_pad_row(c, 6, 0);
+  const assist::Prefs p = assist::prefs();
+  auto title = [&](const char* t) {
+    lv_obj_t* l = label(c, "", 14, true, pal().fg);
+    fitText(l, t, os::W() - 48, 20, 14, 12, true, 0);
+  };
+  title(N_("Listen for \"Gâu\""));
+  static const char* const MODES[] = {N_("Off"), N_("On the charger"), N_("Always")};  // i18n: chips, short
+  chips(c, MODES, 3, p.wake, [](int i) {
+    Preferences pr;
+    pr.begin("wake", true);
+    const bool ok = pr.getInt("ok", 0);
+    pr.end();
+    if (i && !ok) return askWake(i);
+    setWake(i);
+  });
+  title(N_("Call it with"));
+  static const char* const WORDS[] = {N_("Gâu gâu"), N_("\"Gâu\" too")};  // i18n: "Gâu gâu" is the call itself: keep it as is
+  chips(c, WORDS, 2, p.wakeWord, [](int i) {
+    assist::Prefs q = assist::prefs();
+    q.wakeWord = i;
+    assist::setPrefs(q);
+  });
+  title(N_("How easily it wakes"));
+  static const char* const SENS[] = {N_("Less often"), N_("Normal"), N_("More often")};  // i18n: chips, short
+  chips(c, SENS, 3, p.wakeSens - 1, [](int i) {
+    assist::Prefs q = assist::prefs();
+    q.wakeSens = i + 1;
+    assist::setPrefs(q);
+  });
+  hint(body, N_("\"Gâu gâu\" alone is the safest. \"Gâu\" too wakes it more easily, also by mistake."));
+  if (hal::has(hal::CAP_RGB_LED)) {  // the board's small RGB LED (src/led.h)
+    caption(body, N_("LIGHT"));  // i18n: a heading in upper case: the board's small coloured light
+    lv_obj_t* lc = cell(body);
+    lv_obj_set_flex_flow(lc, LV_FLEX_FLOW_COLUMN);
+    lv_obj_set_style_pad_row(lc, 6, 0);
+    auto ltitle = [&](const char* t) {
+      lv_obj_t* l = label(lc, "", 14, true, pal().fg);
+      fitText(l, t, os::W() - 48, 20, 14, 12, true, 0);
+    };
+    ltitle(N_("The light shows"));
+    // i18n: chips under "The light shows", short (three must fit in one row): no light / while you talk to the dog /
+    // that and when something new arrives (a message, a notification)
+    static const char* const LED[] = {NC_("led", "Off"), NC_("led", "Talking"), NC_("led", "Talking + alerts")};
+    chips(lc, LED, 3, p.led, [](int i) {
+      assist::Prefs q = assist::prefs();
+      q.led = i;
+      assist::setPrefs(q);
+      led::bump();
+    });
+    ltitle(N_("Light brightness"));
+    static const char* const LB[] = {N_("Low"), N_("Normal"), N_("High")};
+    chips(lc, LB, 3, p.ledBright - 1, [](int i) {
+      assist::Prefs q = assist::prefs();
+      q.ledBright = i + 1;
+      assist::setPrefs(q);
+      led::bump();
+    });
+  }
+  if (!wake::modelInstalled()) {
+    lv_obj_t* get = button(body, N_("Download the \"Gâu\" listener (40 KB)"), pal().chip, pal().link, [](lv_event_t*) {
+      const pkg::store::Entry* e = pkg::store::entry(wake::PKG);
+      String why;
+      if (!e) {
+        pkg::store::refresh(true);
+        return os::toast(N_("Not in the store yet, try again later"));
+      }
+      if (!pkg::store::install(*e, pkg::store::defaultParts(*e), pkg::FLASH, why)) return os::toast(why.c_str());
+      os::toast(N_("Downloading"));
+    });
+    lv_obj_set_width(get, lv_pct(100));
+  }
+}
 
 constexpr uint32_t CREAM = 0xfff3df;
 const uint32_t GAUGE[4] = {0xf0922b, 0x3b8ee6, 0x7b62dd, 0x22ab9b};
@@ -179,7 +307,7 @@ void open() {
   game::Moment ms[24];
   const int n = game::moments(ms, 24);
   if (!n) {
-    hint(body, i18n::fmt(N_("{0}'s firsts (a new level, the first bath, a favourite food...) are kept here."), dogs::name()).c_str());
+    hint(body, i18n::fmt(N_("{0}'s firsts are kept here: a new level, the first bath, a favourite food."), dogs::name()).c_str());
   } else {
     lv_obj_t* grid = clear(body);
     lv_obj_set_size(grid, lv_pct(100), LV_SIZE_CONTENT);
@@ -187,20 +315,33 @@ void open() {
     lv_obj_set_style_pad_column(grid, 8, 0);
     lv_obj_set_style_pad_row(grid, 8, 0);
     pending.clear();
+    // Each name gets up to three lines ("First day with Biscuit" takes two in every language); every card is as tall
+    // as the longest name of the album needs, so the row stays even and the dates line up.
+    lv_obj_t* cards[24];
+    lv_obj_t* dates[24];
+    int capH = 0;
     for (int i = 0; i < n; i++) {
-      lv_obj_t* c = box(grid, CREAM, 14);
-      lv_obj_set_size(c, 86, 150);
+      lv_obj_t* c = cards[i] = box(grid, CREAM, 14);
+      lv_obj_set_width(c, 86);
       lv_obj_set_style_clip_corner(c, true, 0);
       lv_obj_t* cap = label(c, "", 12, true, 0x2b2f3a);
-      fitText(cap, momentName(ms[i]).c_str(), 78, 32, 12, 12, true, 1);
+      fitText(cap, momentName(ms[i]).c_str(), 78, 60, 12, 12, true, 1);
       lv_obj_set_pos(cap, 5, 95);
+      int lines = 1;
+      for (const char* t = lv_label_get_text(cap); *t; t++) lines += *t == '\n';
+      capH = max(capH, lines * (int)lv_font_get_line_height(lv_obj_get_style_text_font(cap, 0)) + (lines - 1));
+      dates[i] = nullptr;
       if (ms[i].day) {
         snprintf(b, sizeof b, "%u/%u/%u", (unsigned)(ms[i].day % 100), (unsigned)(ms[i].day / 100 % 100),
                  (unsigned)(ms[i].day / 10000));
-        lv_obj_t* d = label(c, b, 12, false, 0x8a6d4a);
-        lv_obj_set_pos(d, 5, 130);
+        dates[i] = label(c, b, 12, false, 0x8a6d4a);
       }
       pending.push_back({c, ms[i]});
+    }
+    const int dateY = 95 + capH + 1;
+    for (int i = 0; i < n; i++) {
+      if (dates[i]) lv_obj_set_pos(dates[i], 5, dateY);
+      lv_obj_set_height(cards[i], dateY + (int)lv_font_get_line_height(fonts::text(12, false)) + 5);
     }
     if (!drawer) drawer = lv_timer_create(drawNext, 60, nullptr);
   }
@@ -270,6 +411,7 @@ void open() {
   asw(N_("Rest your eyes (every hour)"), ap.eyes > 0, 6);
   asw(N_("Meal times (11:30, 18:30)"), ap.meal, 7);
   hint(body, N_("The dog says its own line, then the hour or the temperature. Never in Do Not Disturb or quiet hours, except alarms."));
+  if (sound::micChannel()) wakeRows(body);
   lv_obj_t* demo = button(body, i18n::fmt(N_("Call {0}"), dogs::name()).c_str(), 0xffcf5c, 0x5a3a00,
                           [](lv_event_t*) { summon("book"); });
   lv_obj_set_width(demo, lv_pct(100));

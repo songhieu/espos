@@ -404,7 +404,7 @@ void open(const char*) {
 #pragma GCC optimize("Os")  // screens built once per change: size over speed (the app slot is full)
 // Apps and games as packages (pkg/store.h): the catalog's "packages" by category, a details screen (parts,
 // install place, permissions, install / open / update / move / remove with progress), and the storage strip that
-// opens the Storage page. Drawn after ~/projects/xt/mockups/s3-store.html.
+// opens the Storage page. Drawn after mockups/s3-store.html.
 namespace app_store {
 namespace {
 
@@ -463,6 +463,7 @@ std::map<String, NetIcon> netIcons;  // by package id
 String fetchingIcon;
 void buildDetails();
 
+bool detailsWantIcons();
 void iconLoaded(void*, int status, JsonDocument*, const uint8_t* data, size_t len) {
   NetIcon& n = netIcons[fetchingIcon];
   n.loading = false;
@@ -472,8 +473,14 @@ void iconLoaded(void*, int status, JsonDocument*, const uint8_t* data, size_t le
   } else {
     n.failed = true;
   }
+  // The list under the details page shows apps, not add-ons: an add-on's picture does not draw it again (it took
+  // 1.1 s on the board, once for each of PawBoop's 18 add-ons).
+  const Entry* got = st::entry(fetchingIcon.c_str());
   fetchingIcon = "";
-  if (listBox) refillSoon();
+  if (listBox && !(got && (got->addonOf.length() || got->type == "pack"))) refillSoon();
+  // A page with many add-ons (PawBoop: 19) is drawn again once its pictures are all in, not once a picture: each
+  // drawing of that page took 1.5 s on the board, so the store stalled for half a minute.
+  if (detailsWantIcons()) return;
   lv_async_call([](void*) { buildDetails(); }, nullptr);
 }
 
@@ -776,6 +783,13 @@ struct Det {
 } det;
 
 void buildDetails();
+// The next picture the details page still lacks is on its way (true), or none is missing.
+bool detailsWantIcons() {
+  if (!det.body) return false;
+  for (const Sel& s : det.sels)
+    if (s.hasEntry && !pkg::find(s.id.c_str()) && !netIcon(&s.e, 52) && netIcons[s.id].loading) return true;
+  return false;
+}
 void rebuildSoon() {
   lv_async_call([](void*) { buildDetails(); }, nullptr);
 }

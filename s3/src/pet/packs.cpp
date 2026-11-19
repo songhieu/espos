@@ -27,11 +27,12 @@ struct DogPack {
   size_t n = 0;
   uint8_t* own = nullptr;
   pkg::File f;                 // the card's file
-  pbs2_frame_t* recs = nullptr;  // card: every picture's record (nframes), PSRAM
+  pbs2_frame_t* recs = nullptr;  // card: every picture's record (nframes), PSRAM, read when first asked for
+  uint8_t* have = nullptr;       // card: which records are read (a bit each)
   uint32_t* offs = nullptr;      // card: nframes + 1 offsets
-  uint32_t dataMaxB = 0;         // card: the largest scan_len + mask_len
+  uint32_t dataMaxB = 0;         // card: the largest scan_len + mask_len (from the offsets)
   void free() {
-    heap_caps_free(own), heap_caps_free(recs), heap_caps_free(offs);
+    heap_caps_free(own), heap_caps_free(recs), heap_caps_free(offs), heap_caps_free(have);
     *this = DogPack();
   }
 };
@@ -55,42 +56,25 @@ uint32_t tookMs = 0;
 String key;           // the dog loaded
 const char* want = nullptr;  // the dog to load (dogs::chosen())
 
-// The dog pack on the card: its index into PSRAM, then every picture's record. The records are spread over the
-// whole file (each before its picture): read in 32 KB pieces from start to end, not one small read each.
+// The dog pack on the card: its index into PSRAM (header, clips, offsets: a few KB, one read). Each picture's
+// 22-byte record lies before the picture, spread over the whole 5-7 MB file: it is read the first time the picture
+// is asked for (frame()). Reading them all at once read the whole file, 836 ms on the UI thread for a 5.6 MB dog.
 bool dogIndex(const pkg::File& f, DogPack& d) {
   pbs2_head_t h;
   if (f.size() < sizeof h || !f.read(0, &h, sizeof h) || !h.nframes || h.nframes > 65536) return false;
   const uint32_t tab = 4 * (h.nframes + 1);
   const uint64_t idx = sizeof h + (uint64_t)h.hdr_len + 24ull * h.nclips + tab;
   if (idx > f.size()) return false;
-  constexpr uint32_t CH = 32 * 1024;
   d.own = (uint8_t*)psram(idx);
-  uint8_t* ch = (uint8_t*)psram(CH);
-  d.recs = (pbs2_frame_t*)psram(sizeof(pbs2_frame_t) * h.nframes);
+  d.recs = (pbs2_frame_t*)heap_caps_calloc(h.nframes, sizeof(pbs2_frame_t), MALLOC_CAP_SPIRAM);
+  d.have = (uint8_t*)heap_caps_calloc(h.nframes / 8 + 1, 1, MALLOC_CAP_SPIRAM);
   d.offs = (uint32_t*)psram(tab);
-  bool good = d.own && ch && d.recs && d.offs && f.read(0, d.own, idx);
+  bool good = d.own && d.recs && d.have && d.offs && f.read(0, d.own, idx);
   if (good) memcpy(d.offs, d.own + idx - tab, tab);
-  uint32_t at = 0, got = 0;
-  for (uint32_t i = 0; good && i < h.nframes; i++) {
-    const uint32_t o = d.offs[i];
-    if ((uint64_t)o + sizeof(pbs2_frame_t) > f.size()) {
-      good = false;
-      break;
-    }
-    if (!got || o < at || o + sizeof(pbs2_frame_t) > at + got) {
-      got = (uint32_t)min<uint64_t>(CH, f.size() - o);
-      at = o;
-      if (!f.read(at, ch, got)) {
-        good = false;
-        break;
-      }
-    }
-    memcpy(&d.recs[i], ch + (o - at), sizeof(pbs2_frame_t));
-    const uint64_t len = (uint64_t)d.recs[i].scan_len + d.recs[i].mask_len;
-    good = o + sizeof(pbs2_frame_t) + len <= f.size();
-    d.dataMaxB = max<uint32_t>(d.dataMaxB, len);
+  for (uint32_t i = 0; good && i < h.nframes; i++) {  // every picture inside the file, in order
+    good = d.offs[i] >= idx && d.offs[i] + sizeof(pbs2_frame_t) <= d.offs[i + 1] && d.offs[i + 1] <= f.size();
+    if (good) d.dataMaxB = max<uint32_t>(d.dataMaxB, d.offs[i + 1] - d.offs[i] - sizeof(pbs2_frame_t));
   }
-  heap_caps_free(ch);
   if (!good) {
     d.free();
     return false;
@@ -99,6 +83,19 @@ bool dogIndex(const pkg::File& f, DogPack& d) {
   d.b = d.own;
   d.n = idx;
   return true;
+}
+
+// A picture's record from the card, the first time (an empty picture if it cannot be read or does not fit).
+const pbs2_frame_t* record(DogPack& d, uint32_t k) {
+  if (!(d.have[k >> 3] & (1 << (k & 7)))) {
+    pbs2_frame_t r;
+    if (d.f.read(d.offs[k], &r, sizeof r) && (uint64_t)r.scan_len + r.mask_len <= d.offs[k + 1] - d.offs[k] - sizeof r)
+      d.recs[k] = r;
+    else
+      memset(&d.recs[k], 0, sizeof r);
+    d.have[k >> 3] |= 1 << (k & 7);
+  }
+  return &d.recs[k];
 }
 
 bool loadDog(const char* id, const char* name, DogPack& d) {
@@ -265,7 +262,7 @@ const pbs2_clip_t* clip(const char* name) {
 const pbs2_frame_t* frame(const pbs2_clip_t* c, int i) {
   if (!c || !c->count) return nullptr;
   i %= c->count;
-  if (dp.recs) return &dp.recs[c->first + i];  // on the card
+  if (dp.recs) return record(dp, c->first + i);  // on the card
   // The offsets table is not 4-byte aligned in the file (the board faults on unaligned 32-bit loads).
   uint32_t at;
   memcpy(&at, (const uint8_t*)clipAt(dog()->nclips) + 4 * (c->first + i), 4);

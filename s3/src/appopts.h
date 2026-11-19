@@ -1,6 +1,6 @@
 #pragma once
 // Settings pages that live in their apps, so everything the web sets for an S3 can be set on the device too
-// (docs/settings-parity.md, mockup ~/projects/xt/mockups/s3-settings-parity.html). Each opens from its app
+// (docs/settings-parity.md, mockup mockups/s3-settings-parity.html). Each opens from its app
 // (a "Sửa"/"Đổi" button) and from Settings. Changes go up with desk::setSetting and a sync right away.
 #include <Arduino.h>
 

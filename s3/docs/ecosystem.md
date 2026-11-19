@@ -73,7 +73,7 @@ Firmware 0.2.3 reads `"apps"` (the old `.espk` list) — keep it as is. New firm
              {"id": "roads10", "group": "roads", "default": true, "label": "Nhẹ (10 hình/giây)", "url": "...", "size": 5767000, "sha256": "..."},
              {"id": "roads20", "group": "roads", "label": "Đẹp (20 hình/giây)", "url": "...", "size": 11500000, "sha256": "..."}]}]}
 ```
-Install = all `req` parts + one part of each `group` (its `default` unless the user picks another). Categories:
+Install = all `req` parts + one part of each `group` (its `default` unless the user picks another). A group's part may say `"board": "es3c28p"`: it is made for that board only; the device takes the part made for its own board, whatever was asked (src/pkg/store.cpp fitBoard; added 2026-11-19 for the aquarium's backgrounds bg35 / bg28). Categories:
 `game`, `tool`, `study`, `health`, `widget`. Files are uploaded by `scripts/publish_pkg.py` with a
 temporary bbk_ key that is revoked right after.
 

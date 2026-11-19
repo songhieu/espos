@@ -103,6 +103,7 @@ Entry parseEntry(JsonObjectConst a) {
       pt.size = p["size"] | 0u;
       pt.req = p["req"] | !pt.group.length();  // no group: required (publish_pkg.py)
       pt.def = p["default"] | false;
+      pt.board = p["board"] | "";
       if (pt.id.length() && pt.url.length()) e.parts.push_back(pt);
     }
     return e;
@@ -956,17 +957,33 @@ void setUserPkgs(JsonArrayConst list) {
   catVer++;
 }
 
+// A group's part made for another board, swapped for the group's part made for this one (the aquarium's backgrounds:
+// bg35 / bg28). Whoever asked (the web's store picks the catalog's default), a 2.8" board never downloads 3.5" pictures.
+void fitBoard(const Entry& e, std::vector<String>& parts) {
+  for (String& id : parts)
+    for (const Part& p : e.parts) {
+      if (p.id != id || !p.group.length() || !p.board.length() || p.board == board::name()) continue;
+      for (const Part& q : e.parts)
+        if (q.group == p.group && q.board == board::name()) id = q.id;
+    }
+}
+
 std::vector<String> defaultParts(const Entry& e) {
   std::vector<String> out, groups;
   for (const Part& p : e.parts)
     if (p.req) out.push_back(p.id);
-  // One part of each group: its default, else its first.
+  // One part of each group: the one made for this board, else its default, else its first.
   for (const Part& p : e.parts) {
     if (p.req || !p.group.length() || std::find(groups.begin(), groups.end(), p.group) != groups.end()) continue;
     groups.push_back(p.group);
     const Part* pick = &p;
     for (const Part& q : e.parts)
       if (q.group == p.group && q.def) {
+        pick = &q;
+        break;
+      }
+    for (const Part& q : e.parts)
+      if (q.group == p.group && q.board.length() && q.board == board::name()) {
         pick = &q;
         break;
       }
@@ -1007,7 +1024,7 @@ bool hasUpdate(const char* id) {
 }
 
 bool onLfs(const String& kind, const String& engine, uint64_t bytes) {
-  return kind == "js" || engine == "lang" || (engine == "font" && bytes <= 384 * 1024);
+  return kind == "js" || engine == "lang" || engine == "wake" || (engine == "font" && bytes <= 384 * 1024);
 }
 
 Room room(uint64_t bytes, Vol v, bool js, const char*) {
@@ -1056,8 +1073,10 @@ bool inUse(const char* id) { return pinned(id); }
 
 bool install(const Entry& e, const std::vector<String>& parts, Vol v, String& why) { return installAs(e, parts, v, why, true); }
 
-bool installAs(const Entry& e, const std::vector<String>& parts, Vol v, String& why, bool user) {
+bool installAs(const Entry& e, const std::vector<String>& asked, Vol v, String& why, bool user) {
   if (!e.supported()) return why = T_("Needs a software update"), false;
+  std::vector<String> parts = asked;
+  fitBoard(e, parts);
   if (v == SD && !card::present()) return why = T_("Needs the memory card"), false;
   // A Java game needs the Java runtime package (its class library): installed first, on the same volume.
   // The runtime's own entry also says engine "j2me": never for itself (that recursed until the loop task's

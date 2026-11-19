@@ -1,11 +1,12 @@
 #pragma GCC optimize("Os")  // a cold screen: built small (the firmware must fit 3.75 MB)
 // Notifications for every app (notif.h): the history, banners, the Notification Center, scheduled ones,
-// icon badges and the settings page. Drawn after ~/projects/xt/mockups/s3-notif.html.
+// icon badges and the settings page. Drawn after mockups/s3-notif.html.
 // Built for size: nothing here is hot, and the flash is nearly full.
 #ifndef SIM
 #pragma GCC optimize("Os")
 #endif
 #include "notif.h"
+#include "led.h"
 
 #include "i18n.h"
 
@@ -1172,6 +1173,7 @@ void appRow(lv_obj_t* body, const String& id) {
 
 // ================================================================== public
 bool post(const char* app, const char* title, const char* body, const Opts& o) {
+  led::receive();  // the LED's soft green (when the person allows it, src/led.h)
   title = i18n::trl(title), body = i18n::trl(body);  // N_ marked text
   load();
   if (!app || !*app) return false;

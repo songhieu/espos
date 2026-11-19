@@ -14,6 +14,7 @@ void sleepMs(int n);
 
 // The screen (RGB565, as the panel gets it). The window follows its size (rotation).
 void present(const uint16_t* fb, int w, int h);
+bool ledChanged();  // the board's RGB LED (src/led.cpp) changed colour: present again
 void setTitle(const std::string& t);
 
 // Everything since the last call. The finger: the mouse's left button on the screen. Keys come back as script

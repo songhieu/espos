@@ -9,7 +9,8 @@
 //   alarm time:  t_alarm, then the same without t_now        temperature: t_out, n_<0..59>, u_do
 //   gaps:        260 ms after the dog's own line, 20 ms between the kit's clips
 // It speaks through the pop-up (summon.cpp) and on the alarm's screen (alarm.cpp's hook).
-// Settings: s3.assist (synced): {"on":1,"greet":1,"weather":1,"alarm":1,"water":120,"move":90,"eyes":60,"meal":1}
+// Settings: s3.assist (synced): {"on":1,"greet":1,"weather":1,"alarm":1,"water":120,"move":90,"eyes":60,"meal":1,
+// "wake":0,"wake_word":0,"wake_sens":2,"led":2,"led_bright":2}
 // (minutes between habit reminders; 0 = off). Never in Do Not Disturb or quiet hours, except the alarm and a
 // late-night touch.
 #include <Arduino.h>
@@ -25,6 +26,11 @@ namespace assist {
 struct Prefs {
   bool on = true, greet = true, weather = true, alarm = true, meal = true;
   int water = 120, move = 90, eyes = 60;  // minutes, 0 = off
+  // The wake word (src/wake/wake.h): wake 0 off, 1 only on the charger, 2 always; wake_word 0 "gâu gâu", 1 "gâu"
+  // alone too; wake_sens 1 low, 2 normal, 3 high.
+  uint8_t wake = 0, wakeWord = 0, wakeSens = 2;
+  // The RGB LED (src/led.h): led 0 off, 1 only with the dog, 2 the dog and arrivals; led_bright 1-3.
+  uint8_t led = 2, ledBright = 2;
 };
 Prefs prefs();
 void setPrefs(const Prefs& p);  // stores s3.assist (goes up with the next sync)

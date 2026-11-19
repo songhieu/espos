@@ -19,7 +19,7 @@ ProvisionSummary g_summary;
 
 // One write per reply so a log line from another task cannot split it.
 void reply(const char* line) {
-  std::string out = "ESPOS:";
+  std::string out = PREFIX;
   out += line;
   out += "\n";
   logSerial.write(reinterpret_cast<const uint8_t*>(out.data()), out.size());

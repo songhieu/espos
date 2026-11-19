@@ -19,5 +19,6 @@ bool direct(int y0, int y1, void (*fill)(uint16_t*, int, int, void*), void* ctx,
 }
 void mirror(bool on) { drv().mirror(on); }
 const uint16_t* frame(int& w, int& h) { return drv().frame(w, h); }
+bool native(NativeFill fill, void* ctx, bool tear) { return drv().native && drv().native(fill, ctx, tear); }
 
 }  // namespace lcd

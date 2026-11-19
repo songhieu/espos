@@ -1172,7 +1172,7 @@ lv_obj_t* iconRow(lv_obj_t* parent, uint32_t color, const lv_image_dsc_t* g, con
   const String vt = lv_label_get_text(v);
   if (!half) {
     const int room = rowW - 28 - 40 - textW(name, 15) - 30;
-    if (textW(vt.c_str(), 14) > room) fitText(v, vt.c_str(), max(60, room), 20, 14, 12);
+    if (textW(vt.c_str(), 14) > room) fitText(v, vt.c_str(), max(60, room), 36, 14, 12);  // two lines fit the row
     lv_obj_update_layout(r);
     const int nroom = rowW - 28 - 40 - lv_obj_get_width(v) - 40;
     if (textW(name, 15) > nroom) fitText(lv_obj_get_child(r, 0), name, nroom, 40, 15, 12);

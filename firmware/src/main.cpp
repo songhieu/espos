@@ -1099,9 +1099,9 @@ void loop() {
   // nb: we use logSerial from logging to avoid deprecation warnings
   if (logSerial.available() > 0) {
     String line = logSerial.readStringUntil('\n');
-    if (line.startsWith("ESPOS:")) {
+    if (line.startsWith(espos::serial::PREFIX)) {
       line.trim();
-      if (espos::serial::handleLine(line.c_str() + 8)) {
+      if (espos::serial::handleLine(line.c_str() + espos::serial::PREFIX_LEN)) {
         activityManager.replaceActivity(std::make_unique<EspOSWelcomeActivity>(renderer, mappedInputManager));
       }
     } else if (line.startsWith("CMD:")) {

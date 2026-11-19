@@ -24,6 +24,7 @@
 #include "trace.h"
 
 #include "i18n.h"
+#include "led.h"
 
 // The IDF's built-in root certificates (CONFIG_MBEDTLS_CERTIFICATE_BUNDLE): the server's
 // certificate is checked, never skipped.
@@ -126,19 +127,25 @@ uint32_t nextPing = 0, fwActedAt = 0;
 int64_t pingRevActed = 0;  // the rev a ping started a sync for: a server whose rev never matches cannot loop
 volatile bool pingHold = false;
 
-enum class Job { Sync, PairStart, WhoAmI, PhotoWhere, PhotoGet, Fetch, Remote, Ping };
+enum class Job { Sync, PairStart, WhoAmI, PhotoWhere, PhotoGet, Fetch, Remote, Ping, Raw };
 Job inFlightJob = Job::Sync;
 // Remote control (remoteSend): the one request waiting, and whether the last one sent was a remote one (then the
 // others go first).
 String remoteBody;
 RemoteCb remoteCb = nullptr, remoteCbNow = nullptr;
 bool remoteWaiting = false, lastRemote = false;
+// The assistant's raw request (rawSend): the one waiting, and the one running.
+RawFn rawFn = nullptr;
+RawDone rawDone = nullptr, rawDoneNow = nullptr;
+void *rawCtx = nullptr, *rawCtxNow = nullptr;
 struct Request {
   Job job;
   String path, body, token;
   bool post;
   String url;  // a full URL (storage) instead of api + path
   bool bytes = false;  // keep the raw body
+  RawFn raw = nullptr;
+  void* rawCtx = nullptr;
 };
 struct Response {
   Job job;
@@ -166,20 +173,46 @@ void dropKept() {
   keepOpen = false;
 }
 
+void makeKept() {
+  if (keepTls) return;
+  keepTls = new NetworkClientSecure();
+  keepTls->setCACertBundle(x509_bundle_start, x509_bundle_end - x509_bundle_start);
+  keepTls->setHandshakeTimeout(20);
+  keepHttp = new HTTPClient();
+  keepHttp->setConnectTimeout(10000);
+  keepHttp->setTimeout(20000);
+  keepHttp->setReuse(true);
+  // Redirects are followed by hand: the device token must never go to the storage host.
+  keepHttp->setFollowRedirects(HTTPC_DISABLE_FOLLOW_REDIRECTS);
+}
+
+// rawSend's request: the kept connection handed to the assistant (HTTPClient reuses it afterwards, as it is).
+int raw(const Request& r) {
+  makeKept();
+  if (millis() - keepUsed > KEEP_IDLE_MS) dropKept();
+  String host = api.substring(api.indexOf("//") + 2);
+  if (host.indexOf('/') > 0) host = host.substring(0, host.indexOf('/'));
+  bool up = keepTls->connected();
+  if (!up) up = keepTls->connect(host.c_str(), 443) == 1;
+  if (!up) {
+    char err[96] = "";
+    keepTls->lastError(err, sizeof err);
+    trace::add("raw: no connection (%s)", err);
+  }
+  const bool keep = r.raw(r.rawCtx, up ? keepTls : nullptr, host.c_str(), r.token.c_str());
+  keepUsed = millis();
+  if (keep && up && keepTls->connected()) {
+    keepOpen = true;
+  } else {
+    dropKept();
+  }
+  return up ? 200 : -1;
+}
+
 int http(const Request& r, String& out, Response* res) {
   const String url = r.url.length() ? r.url : api + r.path;
   for (int attempt = 0; attempt < 2; attempt++) {
-    if (!keepTls) {
-      keepTls = new NetworkClientSecure();
-      keepTls->setCACertBundle(x509_bundle_start, x509_bundle_end - x509_bundle_start);
-      keepTls->setHandshakeTimeout(20);
-      keepHttp = new HTTPClient();
-      keepHttp->setConnectTimeout(10000);
-      keepHttp->setTimeout(20000);
-      keepHttp->setReuse(true);
-      // Redirects are followed by hand: the device token must never go to the storage host.
-      keepHttp->setFollowRedirects(HTTPC_DISABLE_FOLLOW_REDIRECTS);
-    }
+    makeKept();
     // Idle a long while: the server has probably dropped it, start afresh (a dropped one is retried below anyway).
     if (millis() - keepUsed > KEEP_IDLE_MS) dropKept();
     HTTPClient& h = *keepHttp;
@@ -249,7 +282,7 @@ void worker(void*) {
     String out;
     const uint32_t t0 = millis();
     Response* res = new Response{r->job, 0, new JsonDocument(&psram)};
-    res->status = http(*r, out, res);
+    res->status = r->job == Job::Raw ? raw(*r) : http(*r, out, res);
     if (out.length() && deserializeJson(*res->doc, out) != DeserializationError::Ok) res->doc->clear();
     // A good ping every minute would push everything else out of the trace: only the ones that failed are kept.
     if (!(r->job == Job::Ping && res->status == 200))
@@ -548,6 +581,10 @@ void handle(Response* r) {
   JsonDocument& doc = *r->doc;
   const char* err = doc["error"] | "";
   switch (r->job) {
+    case Job::Raw:
+      if (rawDoneNow) rawDoneNow(rawCtxNow);
+      rawDoneNow = nullptr;
+      break;
     case Job::Remote:
       if (remoteCbNow) remoteCbNow(r->status, doc);
       remoteCbNow = nullptr;
@@ -602,6 +639,7 @@ void handle(Response* r) {
         const bool fwNew = (doc["fw"] | false) && (!fwActedAt || millis() - fwActedAt >= PING_FW_GAP_MS);
         if (revNew || fwNew) {
           trace::add("ping: %s, syncing now", revNew ? "settings changed on the web" : "firmware news");
+          if (revNew) led::receive();  // the LED's soft green: something came from the web
           if (revNew) pingRevActed = rev;
           if (fwNew) fwActedAt = millis() | 1;
           syncNow();
@@ -708,6 +746,16 @@ void poll() {
     return;
   }
   const uint32_t now = millis();
+  if (state == Link::Linked && rawFn) {  // the person is waiting for the dog: first
+    Request* q = new Request{Job::Raw, "", "", token, true, ""};
+    q->raw = rawFn, q->rawCtx = rawCtx;
+    rawDoneNow = rawDone, rawCtxNow = rawCtx;
+    rawFn = nullptr;
+    inFlight = true;
+    inFlightJob = Job::Raw;
+    xQueueSend(jobs, &q, portMAX_DELAY);
+    return;
+  }
   const bool ping = pingReady(now);
   // Remote control first, but after a remote request the others take their turn.
   const bool others =
@@ -780,6 +828,12 @@ void unlink() {
   state = Link::None;
   saveLink();
   changed();
+}
+
+bool rawSend(RawFn fn, RawDone done, void* ctx) {
+  if (rawFn || state != Link::Linked || net::state() != net::State::Connected) return false;
+  rawFn = fn, rawDone = done, rawCtx = ctx;
+  return true;
 }
 
 bool remoteSend(const String& body, RemoteCb cb) {

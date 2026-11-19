@@ -17,6 +17,7 @@ namespace store {
 // ---------------------------------------------------------------- catalog ("packages" in apps-s3/catalog.json)
 struct Part {
   String id, group, label, url, sha256;
+  String board;  // made for that board only ("es3c35p", "es3c28p"; the catalog's "board"): "" = any (2026-11-19)
   uint32_t size = 0;
   bool req = false, def = false;
 };

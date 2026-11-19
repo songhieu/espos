@@ -187,6 +187,9 @@ struct SerialClass {
   operator bool() const { return true; }
   int available() { return 0; }
   int read() { return -1; }
+  size_t write(const uint8_t* b, size_t n) { return fwrite(b, 1, n, stdout); }
+  size_t readBytes(uint8_t*, size_t) { return 0; }
+  void flush() { fflush(stdout); }
   void setTxTimeoutMs(int) {}
   void setRxBufferSize(int) {}
 };

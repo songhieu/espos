@@ -123,6 +123,44 @@ bool direct(int y0, int y1, void (*fill)(uint16_t*, int, int, void*), void* ctx,
   return true;
 }
 
+// lcd::native: the screen at the panel's own size of the UI, as the boards take it. The 3.5" board: into the logical
+// frame (turned into the window as LVGL's frames are). The 2.8" board: straight into the window's 213x320 (or turned)
+// place, nothing scaled: in 80-row pieces in internal RAM, as the boards fill their DMA buffers.
+bool native(void (*fill)(uint16_t*, int, int, int, int, int, int, void*), void* ctx, bool) {
+  if (!disp || disp->rendering_in_progress) return false;
+  const uint32_t t0 = micros();
+  uint16_t* b = (uint16_t*)band1;
+#ifdef BOARD_ES3C28P
+  static uint16_t* NB = nullptr;  // the picture (320x213 at most), then into the window as LVGL's frames go there
+  if (!NB) NB = (uint16_t*)heap_caps_malloc(320 * 213 * 2, MALLOC_CAP_SPIRAM);
+  if (!NB) return false;
+  const bool side = rot == LV_DISPLAY_ROTATION_90 || rot == LV_DISPLAY_ROTATION_270;
+  const int w = side ? PANEL28_H : SHOW_W, h = side ? SHOW_W : PANEL28_H, rowsA = (int)(BAND_BYTES / 2) / w;
+  for (int y = 0; y < h; y += rowsA) {
+    const int n = min(rowsA, h - y);
+    fill(b, 1, w, 0, y, w, y + n, ctx);
+    memcpy(NB + y * w, b, w * n * 2);
+  }
+  if (side) lv_draw_sw_rotate(NB, VRAM + SHOW_X, w, h, w * 2, WW * 2, rot, LV_COLOR_FORMAT_RGB565);
+  else if (rot == LV_DISPLAY_ROTATION_180) lv_draw_sw_rotate(NB, VRAM + (PANEL28_W - SHOW_X - SHOW_W), w, h, w * 2, WW * 2, rot, LV_COLOR_FORMAT_RGB565);
+  else
+    for (int y = 0; y < h; y++) memcpy(VRAM + y * WW + SHOW_X, NB + y * w, w * 2);
+#else
+  uint16_t* to = rot != LV_DISPLAY_ROTATION_0 && LF ? LF : FB;
+  const int rowsA = (int)(BAND_BYTES / 2) / fw;  // 80 rows of 320, 53 of 480
+  for (int y = 0; y < fh; y += rowsA) {
+    const int n = min(rowsA, fh - y);
+    fill(b, 1, fw, 0, y, fw, y + n, ctx);
+    memcpy(to + y * fw, b, fw * n * 2);
+  }
+  if (rot != LV_DISPLAY_ROTATION_0 && LF) lv_draw_sw_rotate(LF, FB, fw, fh, fw * 2, LCD_W * 2, rot, LV_COLOR_FORMAT_RGB565);
+#endif
+  submit(0, WH - 1);
+  flushUs += micros() - t0;
+  frames++;
+  return true;
+}
+
 void stats(uint32_t& nFrames, uint32_t& avgFlushUs) {
   nFrames = frames;
   avgFlushUs = frames ? flushUs / frames : 0;
@@ -161,7 +199,7 @@ void setBacklight(int) {}
 
 }  // namespace
 
-const hal::Display display = {begin, setRotation, setBacklight, stats, logInvalid, direct, mirror, frame};
+const hal::Display display = {begin, setRotation, setBacklight, stats, logInvalid, direct, mirror, frame, native};
 
 }  // namespace qemu
 #endif

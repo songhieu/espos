@@ -127,6 +127,15 @@ int eventsOn(const std::vector<data::Event>& evs, const Day& x) {
 String eventLine(const data::Event& e) {
   return (e.time.length() ? e.time + " " : String(T_("All day")) + " · ") + e.title;
 }
+// One event row of a list: `lead` (a day), the time or "All day", the title. Too long for one line (a longer language, a
+// long title): "All day" goes first, then the row takes two lines. Its height, or -1 when `room` is too small.
+int eventRow(lv_obj_t* p, const String& lead, const data::Event& e, int x, int y, int w, int room, int px, uint32_t color) {
+  String t = lead + eventLine(e);
+  if (!e.time.length() && textW(t.c_str(), 12) > w) t = lead + e.title;
+  const int h = textW(t.c_str(), 12) <= w ? 18 : 36;  // one line at some size, else two at 12 px
+  if (h > room) return -1;
+  return heightOf(fit(p, t, x, y, w, h, px, 12, false, color));
+}
 int evMin(const data::Event& e, int allDay) {
   return e.time.length() ? e.time.substring(0, 2).toInt() * 60 + e.time.substring(3, 5).toInt() : allDay;
 }
@@ -368,9 +377,10 @@ void calToday(Card c, Size size) {
         at(p, upperVi(lbl), x, y, 12, true, GREY);
         y += 17;
       }
-      rect(p, x, y + 1, 3, 16, shown % 2 ? 0x34c759 : 0x0a84ff, 2);
-      fit(p, eventLine(e), x + 8, y, c.w - x - 8, 18, 14, 12, false, INK);
-      y += 22;
+      const int h = eventRow(p, "", e, x + 8, y, c.w - x - 8, c.h - y, 14, INK);
+      if (h < 0) break;
+      rect(p, x, y + 1, 3, h - 1, shown % 2 ? 0x34c759 : 0x0a84ff, 2);
+      y += max(22, h + 5);
       shown++;
     }
     if (!shown) fit(p, N_("No events in the next 7 days"), x, 2, c.w - x, c.h, 14, 12, false, GREY);
@@ -385,8 +395,9 @@ void calToday(Card c, Size size) {
     if (y + 20 > c.h) break;
     Day ed;
     const String lbl = e.date == td ? String() : parseIso(e.date, ed) ? dm(ed) + " " : e.date + " ";
-    fit(p, lbl + eventLine(e), 0, y, c.w, 18, 13, 12, false, INK);
-    y += 20;
+    const int h = eventRow(p, lbl, e, 0, y, c.w, c.h - y, 13, INK);
+    if (h < 0) break;
+    y += max(20, h + 3);
   }
   if (evs.empty()) fit(p, N_("No upcoming events"), 0, y, c.w, 18, 13, 12, false, GREY);
 }

@@ -165,6 +165,31 @@ bool direct(int y0, int y1, void (*fill)(uint16_t*, int, int, void*), void* ctx,
   return true;
 }
 
+// lcd::native: the screen drawn straight at the panel's size (213x320 upright, 320x213 on its side: the 2/3 is the
+// picture's own, nothing is scaled here), in pieces of the scaled-band buffers, placed as sendRows() places a band.
+bool native(void (*fill)(uint16_t*, int, int, int, int, int, int, void*), void* ctx, bool) {
+  if (!disp || disp->rendering_in_progress) return false;
+  const uint32_t t0 = micros();
+  const int w = side ? PANEL28_H : SHOW_W, h = side ? SHOW_W : PANEL28_H;  // 320x213 or 213x320
+  const int rowsA = PANEL28_W * OUT_ROWS / w;                              // what one buffer holds
+  for (int py = 0; py < h; py += rowsA) {
+    const int n = min(rowsA, h - py);
+    uint16_t* o = out[outAt];
+    outAt ^= 1;
+    int x0 = side ? 0 : SHOW_X, y0 = side ? sideRow0 + py : py;
+    if (upside) {
+      fill(o + w * n - 1, -1, -w, 0, py, w, py + n, ctx);
+      x0 = PANEL28_W - SHOW_X - SHOW_W, y0 = PANEL28_H - py - n;
+    } else fill(o, 1, w, 0, py, w, py + n, ctx);
+    lv_draw_sw_rgb565_swap(o, w * n);
+    window(x0, y0, x0 + w - 1, y0 + n - 1);  // waits for the piece before the last (its buffer is ours again)
+    esp_lcd_panel_io_tx_color(io, 0x2C, o, w * n * 2);
+  }
+  flushUs += micros() - t0;
+  frames++;
+  return true;
+}
+
 void mirror(bool on) {
   if (on == (mirrorBuf != nullptr)) return;
   if (on) {
@@ -243,7 +268,7 @@ void setBacklight(int percent) {
 
 }  // namespace
 
-const hal::Display display = {begin, setRotation, setBacklight, stats, logInvalid, direct, mirror, frame};
+const hal::Display display = {begin, setRotation, setBacklight, stats, logInvalid, direct, mirror, frame, native};
 
 }  // namespace es3c28p
 #endif

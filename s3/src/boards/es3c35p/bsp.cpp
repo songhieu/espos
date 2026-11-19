@@ -6,7 +6,7 @@ namespace es3c35p {
 namespace {
 
 // Its ES8311 (0x18) and its touch (0x55) on GPIO 38/39. The self-test saw the codec answer there before its clock runs
-// (~/projects/xt/s3test, "I2C" step).
+// (s3test, "I2C" step).
 uint8_t probe() { return hal::i2cAnswer(BOARD.i2c.sda, BOARD.i2c.scl, {BOARD.audio.addr, BOARD.input.addr}, 0); }
 
 }  // namespace

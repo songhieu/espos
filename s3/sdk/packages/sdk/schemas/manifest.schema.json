@@ -12,7 +12,7 @@
     "code": {"type": "integer", "minimum": 1, "maximum": 1999999999, "description": "A whole number that grows with every release (the store offers an update when the catalog's code is higher)."},
     "name": {"type": "string", "minLength": 1, "maxLength": 40, "description": "Short, plain; never \"…\" (the device shows text in full)."},
     "kind": {"enum": ["js", "native"], "description": "js: main.js is the app (QuickJS, API level 1). native: data for an engine built into the firmware."},
-    "engine": {"enum": ["js", "pet", "run", "j2me", "lang", "font"], "description": "What runs the package: js for kind js; pet, run, j2me for native packages; lang and font for the OS's language and font packs (tools/i18n.py)."},
+    "engine": {"enum": ["js", "pet", "run", "j2me", "lang", "font", "wake", "tank"], "description": "What runs the package: js for kind js; pet, run, j2me for native packages; lang and font for the OS's language and font packs (tools/i18n.py)."},
     "min_fw": {"type": "integer", "minimum": 0, "description": "The firmware code it needs (0.3.0 = 300; j2me games 400; lang and font packs 500)."},
     "category": {"enum": ["game", "tool", "study", "health", "widget"]},
     "author": {"type": "string", "maxLength": 40},
@@ -78,7 +78,7 @@
     "required": ["id", "name", "version", "code", "kind", "engine", "min_fw", "category", "part"],
     "allOf": [
       {"if": {"properties": {"kind": {"const": "js"}}, "required": ["kind"]}, "then": {"properties": {"engine": {"const": "js"}}}},
-      {"if": {"properties": {"kind": {"const": "native"}}, "required": ["kind"]}, "then": {"properties": {"engine": {"enum": ["pet", "run", "j2me"]}}}}
+      {"if": {"properties": {"kind": {"const": "native"}}, "required": ["kind"]}, "then": {"properties": {"engine": {"enum": ["pet", "run", "j2me", "lang", "font", "wake", "tank"]}}}}
     ]
   },
   "not": {"required": ["permissions"]}

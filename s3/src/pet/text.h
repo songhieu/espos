@@ -27,6 +27,11 @@ struct Bubble {
 Bubble layout(const lv_font_t* f, const String& s);
 // The pill (#2b2f3a, radius 13) with its rows in white, at (x, y) (the tail is the game's piece).
 void bubble(const Target& t, const lv_font_t* f, const Bubble& b, int x, int y);
+// The dog's words in an LVGL label (Lexend: every letter of its lines), broken into lines at spaces to `w` px with
+// explicit line breaks, so the label never runs past its box: bold 14, or bold 12 when 14 takes more than
+// `maxLines` lines. The label's width is set to w; returns its height.
+int words(lv_obj_t* label, const String& s, int w, int maxLines);
+String wrap(const lv_font_t* f, const String& s, int w, int& lines);
 // A filled rounded box (antialiased corners).
 void roundBox(const Target& t, int x, int y, int w, int h, int r, uint16_t color);
 

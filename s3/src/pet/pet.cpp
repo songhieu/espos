@@ -154,6 +154,7 @@ void open(const char* arg) {
   if (arg && !strcmp(arg, "book")) return book::open();
   if (arg && !strcmp(arg, "dogs")) return chooser::open();
   if (arg && !strncmp(arg, "clip:", 5)) return app::devClip(arg + 5);  // tests (the two beats)
+  if (arg && !strncmp(arg, "say:", 4)) return app::devSay(arg + 4);     // tests (a bubble against the page's)
   app::open();
   if (pk::ready() && !game::hasMoment(0, 0)) game::addMoment(0, 0, "nudge", 12);
 }

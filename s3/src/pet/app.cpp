@@ -385,7 +385,7 @@ void splashScreen() {
     for (int y = mid - 10; y < mid + 11; y++)
       for (int x = 8; x < W - 8; x++) g->buf[y * W + x] = bg;
   }
-  const String t = i18n::fmt(N_("{0} is waking up..."), dogs::name());  // i18n: the splash, the dog's name
+  const String t = i18n::fmt(N_("{0} is waking up"), dogs::name());  // i18n: the splash, the dog's name
   const text::Target tg = {g->buf, W, BH, W, 0, BH};
   text::draw(tg, pk::font(2), t.c_str(), (W - text::width(pk::font(2), t.c_str())) / 2, mid + 0.5f, 0x8C94);
   showParts();
@@ -725,6 +725,14 @@ constexpr const char* RUN_ID = "vn.pawboop.run";
 void openRun(lv_event_t*) {
   if (!g || g->splash > 0) return;
   if (!pkg::find(RUN_ID)) return apps::open("store", RUN_ID);  // the add-on, in the store
+  // Coin Run 2.0 has its roads in the maps (each its own add-on): none yet, its shelf in the store.
+  bool roads = false;
+  for (const pkg::Package& p : pkg::list()) roads |= p.id.startsWith("vn.pawboop.map.") && p.available;
+  for (const String& part : pkg::find(RUN_ID)->parts) roads |= part.startsWith("roads");  // run 1.0's own roads
+  if (!roads) {
+    os::toast(N_("Add a map for Coin Run first"));
+    return apps::open("store", "vn.pawboop.map.bazaar");
+  }
   hush();
   g->sheet = false, g->sayPlaced = false;
   // Her pictures go first (decoded again when she is back): the run sizes its sprite cache from the PSRAM left,
@@ -883,6 +891,9 @@ void message(const char* title, const char* text, const char* small) {
 }  // namespace
 
 bool isOpen() { return g != nullptr; }
+void devSay(const char* line) {
+  if (g) say(pk::line(line), true);
+}
 void devClip(const char* clip) {
   if (g && pk::clip(clip)) play(clip);
 }

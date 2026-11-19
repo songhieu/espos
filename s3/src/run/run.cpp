@@ -273,9 +273,11 @@ void card() {
     addPieceAt(nm);
     if (g->prevBtn.rgb && g->nextBtn.rgb && g->world.nextMap(G.map) != G.map) {  // more than one map: choose
       const pbu_piece_t* p = g->ui.piece(nm);
-      g->arrowY = p ? p->y + p->h / 2 - 18 : 202;
-      addSprite(&g->prevBtn, 4, g->arrowY, 255);
-      addSprite(&g->nextBtn, W - 40, g->arrowY, 255);
+      // Centred on the card's middle, each in the margin beside it (the card: x 34..285).
+      const int cx = p ? p->x : 34, cw = p ? p->w : 252;
+      g->arrowY = (p ? p->y + p->h / 2 : 220) - g->prevBtn.h / 2;
+      addSprite(&g->prevBtn, (cx - g->prevBtn.w) / 2, g->arrowY, 255);
+      addSprite(&g->nextBtn, cx + cw + (W - cx - cw - g->nextBtn.w + 1) / 2, g->arrowY, 255);
     }
     if (g->fromPet && g->coinNote.rgb) {  // under the card: where the coins go, and the way back to her
       const pbu_piece_t* p = g->ui.piece(nm);
@@ -325,10 +327,10 @@ void bake(lv_obj_t* o, media::Sprite& out) {
 // The start card's "‹ ›" (dark round buttons over the road, either side of the card).
 void bakeArrows() {
   for (int k = 0; k < 2; k++) {
-    lv_obj_t* b = box(g->scr, 0x2b2f3a, 18);
+    lv_obj_t* b = box(g->scr, 0x2b2f3a, 14);  // 28 px: centred in the 34 px beside the card, never over it
     lv_obj_set_style_bg_opa(b, 200, 0);
-    lv_obj_set_size(b, 36, 36);
-    lv_obj_t* gl = kit::glyph(b, k ? &gl_chev_22 : &gl_back_22, 0xffffff);
+    lv_obj_set_size(b, 28, 28);
+    lv_obj_t* gl = kit::glyph(b, k ? &gl_chev_16 : &gl_back_16, 0xffffff);
     lv_obj_center(gl);
     bake(b, k ? g->nextBtn : g->prevBtn);
   }
@@ -826,7 +828,7 @@ void onTouch(lv_event_t* e) {
   } else if (code == LV_EVENT_RELEASED) {
     const bool home = g->homeY >= 0 && g->px0 >= g->homeX - 6 && g->px0 < g->homeX + g->homeBtn.w + 6 &&
                       g->py0 >= g->homeY - 6 && g->py0 < g->homeY + g->homeBtn.h + 6;
-    const bool arrow = g->arrowY >= 0 && g->py0 >= g->arrowY - 10 && g->py0 < g->arrowY + 46 && (g->px0 < 50 || g->px0 >= W - 50);
+    const bool arrow = g->arrowY >= 0 && g->py0 >= g->arrowY - 14 && g->py0 < g->arrowY + 42 && (g->px0 < 46 || g->px0 >= W - 46);
     if (g->down && !g->done) {
       if (home) os::back();  // back to the dog (the coins are in its purse already)
       else if (arrow) pickMap(g->px0 < 50 ? -1 : 1);
@@ -953,8 +955,8 @@ void onTimer(lv_timer_t*) {
       trace::add("run: cannot start: %s", err.c_str());
       os::back();  // closes this screen (onDelete frees everything)
       const bool noRoads = err == T_("no roads installed");
-      message(noRoads ? N_("No roads installed") : N_("Game data missing"),
-              noRoads ? String(T_("Open the Store and add a road pack for PawBoop Run.")).c_str()
+      message(noRoads ? N_("No maps yet") : N_("Game data missing"),
+              noRoads ? String(T_("Add a map from the Store: PawBoop, Run maps.")).c_str()
                       : i18n::fmt(N_("Reinstall PawBoop Run from the Store ({0})."), err).c_str());
     }
     return;

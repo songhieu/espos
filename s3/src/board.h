@@ -12,7 +12,7 @@
 #include "hal/board.h"
 
 constexpr int LCD_W = hal::UI_W, LCD_H = hal::UI_H;  // the UI, portrait, on every board
-constexpr const char* FW_VERSION = "espos-s3-0.5.0";  // 0.5.0: renamed to EspOS, languages, landscape (2026-11-18)
+constexpr const char* FW_VERSION = "espos-s3-0.5.6";  // 0.5.6: the Hồ cá cảnh aquarium, the RGB LED, swipe to close the dog, fonts deflated; 0.5.5 (never released): the dog assistant talks (mic, push to talk, "Gâu" wake word, streamed voice); 0.5.4: PawBoop froze on a letter its font lacked (LVGL assert); dog records read lazily (2026-11-18)
 
 namespace board {
 inline const char* name() { return hal::board().name; }    // "es3c35p", "es3c28p"

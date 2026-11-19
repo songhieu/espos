@@ -18,6 +18,11 @@
 #include "touch.h"
 #include "trace.h"
 #include "os.h"
+#include "led.h"
+#include "wake/wake.h"
+#ifndef NO_PET
+#include "pet/talk.h"
+#endif
 
 // The loop task (UI, LVGL, sync answers) needs about 6.8 KB at boot on the board (measured 2026-11-17 with
 // uxTaskGetStackHighWaterMark); the default 8 KB left too little room. Its stack is internal RAM (it writes flash).
@@ -86,6 +91,11 @@ void setup() {
   remote::begin();
   sound::begin();
   sound::setVolume(desk::settingInt("s3.volume", 45));
+  led::begin();   // the RGB LED: the dog assistant's states, arrivals
+  wake::begin();  // the mic's listener: the "Gâu" wake word (when turned on) and the dog assistant's recordings
+#ifndef NO_PET
+  pet::talk::begin();
+#endif
 }
 
 static uint32_t handlerUs = 0;
@@ -113,6 +123,8 @@ void loop() {
   net::poll();
   if (millis() - n0 > 80) trace::add("slow wifi poll %lu ms", millis() - n0);
   desk::poll();
+  wake::tick();
+  led::tick();
   ota::poll();
   devtools::poll();
   remote::poll();

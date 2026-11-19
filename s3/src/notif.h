@@ -6,7 +6,7 @@
 // keep banners and sounds away but notifications still reach the Center.
 // History (50 newest) and scheduled ones live in LittleFS /sys/notif.json, written a few seconds after a change.
 // The dashboard's server notes (dash "notes") arrive as notifications of the pseudo app "desk" ("EspOS").
-// Mockup: ~/projects/xt/mockups/s3-notif.html.
+// Mockup: mockups/s3-notif.html.
 #include <Arduino.h>
 #include <lvgl.h>
 

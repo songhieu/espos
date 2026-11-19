@@ -1,0 +1,586 @@
+{
+ "name": "dbg",
+ "cfg": {
+  "ch": 64,
+  "k0": 5,
+  "stride": 3,
+  "k": 5,
+  "dil": [
+   1,
+   2,
+   4,
+   4
+  ],
+  "hc": 32,
+  "nout": 2
+ },
+ "receptive_field_ms": 1370,
+ "model_bytes": 37584,
+ "state_bytes": 3496,
+ "int8_weights": 32576,
+ "macs_per_step": 32576,
+ "macs_per_second": 1085866,
+ "c_parity_max_logit_diff": 0.0,
+ "recall": {
+  "0.5": {
+   "clean": {
+    "gau": 0.6749,
+    "gau2": 0.7306,
+    "gau_float": 0.6847,
+    "gau2_float": 0.7472,
+    "early": 0
+   },
+   "noise 10 dB": {
+    "gau": 0.6798,
+    "gau2": 0.7417,
+    "gau_float": 0.6946,
+    "gau2_float": 0.7583,
+    "early": 0
+   },
+   "noise 5 dB": {
+    "gau": 0.6617,
+    "gau2": 0.7028,
+    "gau_float": 0.6667,
+    "gau2_float": 0.7306,
+    "early": 0
+   },
+   "noise 0 dB": {
+    "gau": 0.5172,
+    "gau2": 0.5278,
+    "gau_float": 0.532,
+    "gau2_float": 0.5361,
+    "early": 0
+   },
+   "far + 10 dB": {
+    "gau": 0.6979,
+    "gau2": 0.7111,
+    "gau_float": 0.7028,
+    "gau2_float": 0.7222,
+    "early": 0
+   }
+  },
+  "0.6": {
+   "clean": {
+    "gau": 0.6338,
+    "gau2": 0.6972,
+    "gau_float": 0.6371,
+    "gau2_float": 0.7139,
+    "early": 0
+   },
+   "noise 10 dB": {
+    "gau": 0.6404,
+    "gau2": 0.6944,
+    "gau_float": 0.6552,
+    "gau2_float": 0.7056,
+    "early": 0
+   },
+   "noise 5 dB": {
+    "gau": 0.601,
+    "gau2": 0.6056,
+    "gau_float": 0.6223,
+    "gau2_float": 0.6222,
+    "early": 0
+   },
+   "noise 0 dB": {
+    "gau": 0.4614,
+    "gau2": 0.4556,
+    "gau_float": 0.4663,
+    "gau2_float": 0.4583,
+    "early": 0
+   },
+   "far + 10 dB": {
+    "gau": 0.6388,
+    "gau2": 0.6667,
+    "gau_float": 0.6617,
+    "gau2_float": 0.6917,
+    "early": 0
+   }
+  },
+  "0.7": {
+   "clean": {
+    "gau": 0.5583,
+    "gau2": 0.6111,
+    "gau_float": 0.5698,
+    "gau2_float": 0.625,
+    "early": 0
+   },
+   "noise 10 dB": {
+    "gau": 0.5698,
+    "gau2": 0.6167,
+    "gau_float": 0.5731,
+    "gau2_float": 0.6333,
+    "early": 0
+   },
+   "noise 5 dB": {
+    "gau": 0.5041,
+    "gau2": 0.5139,
+    "gau_float": 0.5172,
+    "gau2_float": 0.5306,
+    "early": 0
+   },
+   "noise 0 dB": {
+    "gau": 0.3695,
+    "gau2": 0.3694,
+    "gau_float": 0.3826,
+    "gau2_float": 0.3806,
+    "early": 0
+   },
+   "far + 10 dB": {
+    "gau": 0.5599,
+    "gau2": 0.5556,
+    "gau_float": 0.5698,
+    "gau2_float": 0.5639,
+    "early": 0
+   }
+  },
+  "0.8": {
+   "clean": {
+    "gau": 0.4959,
+    "gau2": 0.575,
+    "gau_float": 0.514,
+    "gau2_float": 0.5917,
+    "early": 0
+   },
+   "noise 10 dB": {
+    "gau": 0.5074,
+    "gau2": 0.5472,
+    "gau_float": 0.5107,
+    "gau2_float": 0.5667,
+    "early": 0
+   },
+   "noise 5 dB": {
+    "gau": 0.4384,
+    "gau2": 0.4361,
+    "gau_float": 0.4565,
+    "gau2_float": 0.4389,
+    "early": 0
+   },
+   "noise 0 dB": {
+    "gau": 0.3153,
+    "gau2": 0.3,
+    "gau_float": 0.3218,
+    "gau2_float": 0.3111,
+    "early": 0
+   },
+   "far + 10 dB": {
+    "gau": 0.4992,
+    "gau2": 0.5083,
+    "gau_float": 0.509,
+    "gau2_float": 0.5139,
+    "early": 0
+   }
+  },
+  "0.85": {
+   "clean": {
+    "gau": 0.4598,
+    "gau2": 0.5472,
+    "gau_float": 0.4811,
+    "gau2_float": 0.5611,
+    "early": 0
+   },
+   "noise 10 dB": {
+    "gau": 0.4631,
+    "gau2": 0.4917,
+    "gau_float": 0.4729,
+    "gau2_float": 0.5194,
+    "early": 0
+   },
+   "noise 5 dB": {
+    "gau": 0.4122,
+    "gau2": 0.4028,
+    "gau_float": 0.422,
+    "gau2_float": 0.4139,
+    "early": 0
+   },
+   "noise 0 dB": {
+    "gau": 0.2824,
+    "gau2": 0.2833,
+    "gau_float": 0.2923,
+    "gau2_float": 0.275,
+    "early": 0
+   },
+   "far + 10 dB": {
+    "gau": 0.4647,
+    "gau2": 0.4556,
+    "gau_float": 0.4844,
+    "gau2_float": 0.4833,
+    "early": 0
+   }
+  },
+  "0.9": {
+   "clean": {
+    "gau": 0.399,
+    "gau2": 0.4972,
+    "gau_float": 0.4236,
+    "gau2_float": 0.5278,
+    "early": 0
+   },
+   "noise 10 dB": {
+    "gau": 0.4204,
+    "gau2": 0.4556,
+    "gau_float": 0.4351,
+    "gau2_float": 0.4694,
+    "early": 0
+   },
+   "noise 5 dB": {
+    "gau": 0.3727,
+    "gau2": 0.3722,
+    "gau_float": 0.381,
+    "gau2_float": 0.3861,
+    "early": 0
+   },
+   "noise 0 dB": {
+    "gau": 0.2463,
+    "gau2": 0.25,
+    "gau_float": 0.2545,
+    "gau2_float": 0.2556,
+    "early": 0
+   },
+   "far + 10 dB": {
+    "gau": 0.4335,
+    "gau2": 0.4167,
+    "gau_float": 0.445,
+    "gau2_float": 0.4361,
+    "early": 0
+   }
+  },
+  "0.95": {
+   "clean": {
+    "gau": 0.3235,
+    "gau2": 0.4222,
+    "gau_float": 0.3514,
+    "gau2_float": 0.4556,
+    "early": 0
+   },
+   "noise 10 dB": {
+    "gau": 0.3448,
+    "gau2": 0.3861,
+    "gau_float": 0.3662,
+    "gau2_float": 0.3861,
+    "early": 0
+   },
+   "noise 5 dB": {
+    "gau": 0.312,
+    "gau2": 0.3167,
+    "gau_float": 0.3251,
+    "gau2_float": 0.3278,
+    "early": 0
+   },
+   "noise 0 dB": {
+    "gau": 0.1954,
+    "gau2": 0.2056,
+    "gau_float": 0.2003,
+    "gau2_float": 0.2222,
+    "early": 0
+   },
+   "far + 10 dB": {
+    "gau": 0.3629,
+    "gau2": 0.3583,
+    "gau_float": 0.3842,
+    "gau2_float": 0.3806,
+    "early": 0
+   }
+  },
+  "0.97": {
+   "clean": {
+    "gau": 0.2906,
+    "gau2": 0.3861,
+    "gau_float": 0.3087,
+    "gau2_float": 0.4111,
+    "early": 0
+   },
+   "noise 10 dB": {
+    "gau": 0.2956,
+    "gau2": 0.3417,
+    "gau_float": 0.3038,
+    "gau2_float": 0.3528,
+    "early": 0
+   },
+   "noise 5 dB": {
+    "gau": 0.266,
+    "gau2": 0.2889,
+    "gau_float": 0.2759,
+    "gau2_float": 0.2944,
+    "early": 0
+   },
+   "noise 0 dB": {
+    "gau": 0.156,
+    "gau2": 0.1639,
+    "gau_float": 0.1658,
+    "gau2_float": 0.1806,
+    "early": 0
+   },
+   "far + 10 dB": {
+    "gau": 0.3071,
+    "gau2": 0.325,
+    "gau_float": 0.3218,
+    "gau2_float": 0.3444,
+    "early": 0
+   }
+  }
+ },
+ "recall_by_kind_clean_10dB": {
+  "gâu": {
+   "0.8": 0.3635,
+   "0.9": 0.2651
+  },
+  "gâu gâu": {
+   "0.8": 0.5312,
+   "0.9": 0.4333
+  },
+  "gâu gâu gâu": {
+   "0.8": 0.7292,
+   "0.9": 0.6625
+  }
+ },
+ "confusables_per_clip": {
+  "0.5": {
+   "confusable_and_sentences_gau": 0.0381,
+   "confusable_and_sentences_gau2": 0.0082,
+   "other_tone_alone_gau": 0.524,
+   "other_tone_alone_gau2": 0.125
+  },
+  "0.6": {
+   "confusable_and_sentences_gau": 0.0282,
+   "confusable_and_sentences_gau2": 0.0059,
+   "other_tone_alone_gau": 0.4712,
+   "other_tone_alone_gau2": 0.1202
+  },
+  "0.7": {
+   "confusable_and_sentences_gau": 0.0177,
+   "confusable_and_sentences_gau2": 0.0036,
+   "other_tone_alone_gau": 0.399,
+   "other_tone_alone_gau2": 0.0962
+  },
+  "0.8": {
+   "confusable_and_sentences_gau": 0.0131,
+   "confusable_and_sentences_gau2": 0.002,
+   "other_tone_alone_gau": 0.3462,
+   "other_tone_alone_gau2": 0.0769
+  },
+  "0.85": {
+   "confusable_and_sentences_gau": 0.0118,
+   "confusable_and_sentences_gau2": 0.002,
+   "other_tone_alone_gau": 0.2692,
+   "other_tone_alone_gau2": 0.0673
+  },
+  "0.9": {
+   "confusable_and_sentences_gau": 0.0085,
+   "confusable_and_sentences_gau2": 0.0016,
+   "other_tone_alone_gau": 0.25,
+   "other_tone_alone_gau2": 0.0577
+  },
+  "0.95": {
+   "confusable_and_sentences_gau": 0.0049,
+   "confusable_and_sentences_gau2": 0.0007,
+   "other_tone_alone_gau": 0.1779,
+   "other_tone_alone_gau2": 0.0433
+  },
+  "0.97": {
+   "confusable_and_sentences_gau": 0.003,
+   "confusable_and_sentences_gau2": 0.0003,
+   "other_tone_alone_gau": 0.1154,
+   "other_tone_alone_gau2": 0.0337
+  }
+ },
+ "confusables_firing_most_at_0.8": {
+  "Gẫu.": 12,
+  "Gấu gấu!": 10,
+  "Gấu.": 10,
+  "Gầu gầu.": 9,
+  "Gậu.": 9,
+  "Gầu.": 8,
+  "Gấu!": 8,
+  "Gẩu.": 6,
+  "Gu.": 6,
+  "Dâu.": 5,
+  "Râu.": 4,
+  "gấu ơi": 2,
+  "Gown.": 2,
+  "Đâu?": 2,
+  "Ngâu ngâu.": 2
+ },
+ "false_accepts": {
+  "fleurs_vi_test": {
+   "hours": 1.0,
+   "licence": "CC-BY-4.0",
+   "per_hour": {
+    "0.5": [
+     0.0,
+     0.0
+    ],
+    "0.6": [
+     0.0,
+     0.0
+    ],
+    "0.7": [
+     0.0,
+     0.0
+    ],
+    "0.8": [
+     0.0,
+     0.0
+    ],
+    "0.85": [
+     0.0,
+     0.0
+    ],
+    "0.9": [
+     0.0,
+     0.0
+    ],
+    "0.95": [
+     0.0,
+     0.0
+    ],
+    "0.97": [
+     0.0,
+     0.0
+    ]
+   },
+   "count": {
+    "0.5": [
+     0,
+     0
+    ],
+    "0.6": [
+     0,
+     0
+    ],
+    "0.7": [
+     0,
+     0
+    ],
+    "0.8": [
+     0,
+     0
+    ],
+    "0.85": [
+     0,
+     0
+    ],
+    "0.9": [
+     0,
+     0
+    ],
+    "0.95": [
+     0,
+     0
+    ],
+    "0.97": [
+     0,
+     0
+    ]
+   }
+  },
+  "massive_test": {
+   "hours": 1.0,
+   "licence": "CC-BY-4.0",
+   "per_hour": {
+    "0.5": [
+     10.0,
+     7.0
+    ],
+    "0.6": [
+     7.0,
+     2.0
+    ],
+    "0.7": [
+     3.0,
+     2.0
+    ],
+    "0.8": [
+     2.0,
+     1.0
+    ],
+    "0.85": [
+     1.0,
+     1.0
+    ],
+    "0.9": [
+     0.0,
+     1.0
+    ],
+    "0.95": [
+     0.0,
+     0.0
+    ],
+    "0.97": [
+     0.0,
+     0.0
+    ]
+   },
+   "count": {
+    "0.5": [
+     10,
+     7
+    ],
+    "0.6": [
+     7,
+     2
+    ],
+    "0.7": [
+     3,
+     2
+    ],
+    "0.8": [
+     2,
+     1
+    ],
+    "0.85": [
+     1,
+     1
+    ],
+    "0.9": [
+     0,
+     1
+    ],
+    "0.95": [
+     0,
+     0
+    ],
+    "0.97": [
+     0,
+     0
+    ]
+   }
+  },
+  "ALL": {
+   "hours": 2.0,
+   "per_hour": {
+    "0.5": [
+     5.0,
+     3.5
+    ],
+    "0.6": [
+     3.5,
+     1.0
+    ],
+    "0.7": [
+     1.5,
+     1.0
+    ],
+    "0.8": [
+     1.0,
+     0.5
+    ],
+    "0.85": [
+     0.5,
+     0.5
+    ],
+    "0.9": [
+     0.0,
+     0.5
+    ],
+    "0.95": [
+     0.0,
+     0.0
+    ],
+    "0.97": [
+     0.0,
+     0.0
+    ]
+   }
+  }
+ }
+}

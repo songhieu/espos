@@ -573,7 +573,7 @@ func checkLayout(k, v string) string {
 // ---- custom saver: s3.saver_pages (s3desk/docs/saver.md §2; bands, shadows and slideshows since 2026-11-17) ----
 // The same check is in device_sync and save_device_settings: change both. Light: the shape and the ranges the
 // device relies on; unknown keys are kept (a newer editor's). "" when good, else the reason (Vietnamese).
-var saverBg = map[string]bool{"black": true, "color": true, "grad": true, "wall": true, "photo": true}
+var saverBg = map[string]bool{"black": true, "color": true, "grad": true, "wall": true, "photo": true, "tank": true}
 var saverEl = map[string]bool{"time": true, "date": true, "lunar": true, "text": true, "next": true, "alarm": true,
 	"temp": true, "box": true, "photo": true, "w": true}
 
@@ -1053,8 +1053,9 @@ func coord(v string, max float64) (string, bool) {
 }
 
 // checkAssist: s3.assist, the dog assistant's switches (s3desk/src/pet/assist.cpp prefs/setPrefs): "" or a JSON
-// object of at most these keys: on, greet, weather, alarm, meal (0 or 1) and water, move, eyes (minutes between
-// habit reminders, 0 to 600; 0 = off). "" when good, else the reason.
+// object of at most these keys: on, greet, weather, alarm, meal (0 or 1), water, move, eyes (minutes between
+// habit reminders, 0 to 600; 0 = off), the wake word's wake (0-2), wake_word (0-1), wake_sens (1-3) and the RGB LED's
+// led (0-2), led_bright (1-3). "" when good, else the reason.
 // The same function is in device_sync and put_device_settings: keep the two copies identical.
 func checkAssist(v string) string {
 	if v == "" {
@@ -1080,6 +1081,26 @@ func checkAssist(v string) string {
 		case "water", "move", "eyes":
 			if n < 0 || n > 600 {
 				return k + ": 0 đến 600 phút"
+			}
+		case "wake": // the "Gâu" wake word (s3desk/src/wake): 0 off, 1 only on the charger, 2 always
+			if n < 0 || n > 2 {
+				return k + ": 0, 1 hoặc 2"
+			}
+		case "wake_word": // 0 "gâu gâu", 1 "gâu" alone too
+			if n != 0 && n != 1 {
+				return k + ": 0 hoặc 1"
+			}
+		case "wake_sens": // 1 low, 2 normal, 3 high
+			if n < 1 || n > 3 {
+				return k + ": 1 đến 3"
+			}
+		case "led": // the board's RGB LED (s3desk/src/led.h): 0 off, 1 only with the dog, 2 the dog and arrivals
+			if n < 0 || n > 2 {
+				return k + ": 0, 1 hoặc 2"
+			}
+		case "led_bright": // 1 low, 2 normal, 3 high
+			if n < 1 || n > 3 {
+				return k + ": 1 đến 3"
 			}
 		default:
 			return k + ": không có công tắc này"

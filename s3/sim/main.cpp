@@ -40,8 +40,14 @@
 #include "touch.h"
 #include "wid.h"
 #include "trace.h"
+#include "uikit.h"
 #include "pet/pet.h"
+#include "pet/game.h"
+#include "pet/talk.h"
+#include "led.h"
+#include "wake/wake.h"
 #include "run/run.h"
+#include "tank/tank.h"
 #ifdef SIM_LIVE
 #include "live.h"
 #endif
@@ -156,8 +162,10 @@ void tick() {
   lv_timer_handler();
   os::tick();
   desk::poll();
+  wake::tick();
+  led::tick();
   const uint32_t now = live::ms();
-  if (dirty && now - shownAt >= 16) {
+  if ((dirty || live::ledChanged()) && now - shownAt >= 16) {
     live::present(fb.data(), fbW, fbH);
     dirty = false, shownAt = now, frames++;
   }
@@ -181,6 +189,8 @@ void step(uint32_t ms) {
     lv_timer_handler();
     os::tick();
     desk::poll();
+    wake::tick();
+    led::tick();
   }
 }
 
@@ -290,6 +300,51 @@ void runLine(const std::string& line) {
         touch::last = simNow;
         step(10);
       }
+      pressed = false;
+      step(500);
+    } else if (cmd == "moments") {  // every kind of the dog's "firsts" in its album (the book's text checks)
+      const int args[8] = {0, 12, 0, 0, 0, 200, 0, 0};
+      for (int k = 0; k < 8; k++)
+        if (!pet::game::hasMoment(k, args[k])) pet::game::addMoment(k, args[k], "happy", 0);
+    } else if (cmd == "fittext") {  // fittext W H MAXPX MINPX BOLD LINESPACE TEXT: kit::fitText's verdict for TEXT in
+      // a W x H box in the current language's fonts (text checks without the screen that shows it)
+      int w, h, maxPx, minPx, bold, ls;
+      ss >> w >> h >> maxPx >> minPx >> bold >> ls;
+      std::string text;
+      std::getline(ss, text);
+      text.erase(0, text.find_first_not_of(' '));
+      lv_obj_t* l = lv_label_create(lv_layer_top());
+      const int px = kit::fitText(l, text.c_str(), w, h, maxPx, minPx, bold, ls);
+      const char* t = lv_label_get_text(l);
+      int lines = 1;
+      for (const char* c = t; *c; c++) lines += *c == '\n';
+      const lv_font_t* f = lv_obj_get_style_text_font(l, 0);
+      const int need = lines * lv_font_get_line_height(f) + (lines - 1) * ls;
+      std::string flat = t;
+      for (char& ch : flat)
+        if (ch == '\n') ch = '|';
+      fprintf(stderr, "FITTEXT %s %d px, %d lines, %d of %d px, spacing %d: \"%s\"\n", need <= h + 2 ? "ok" : "NO", px, lines, need,
+              h, (int)lv_obj_get_style_text_letter_space(l, 0), flat.c_str());
+      lv_obj_delete(l);
+    } else if (cmd == "flick") {  // flick X0 Y0 X1 Y1 MS: a drag timed by the wall clock (a slow frame does not slow
+      // the finger down, as on the board), then the finger lifts at once
+      int x0, y0, x1, y1, ms;
+      ss >> x0 >> y0 >> x1 >> y1 >> ms;
+      press(x0, y0);
+      step(20);
+#ifdef SIM_LIVE
+      if (live::on) {
+        const uint32_t t0 = live::ms();
+        for (uint32_t t = 0; t < (uint32_t)ms; t = live::ms() - t0) {
+          ptr = {(int32_t)(x0 + (x1 - x0) * (int)t / ms), (int32_t)(y0 + (y1 - y0) * (int)t / ms)};
+          touch::last = simNow;
+          step(2);
+        }
+      }
+#endif
+      ptr = {x1, y1};
+      touch::last = simNow;
+      step(5);
       pressed = false;
       step(500);
     } else if (cmd == "hold") {  // drag and keep the finger down at the end for MS
@@ -510,12 +565,19 @@ void runLine(const std::string& line) {
           lines++;
           t += len + (e ? 1 : 0);
         }
+        int32_t wrapH = 0;
+        if (lv_label_get_long_mode(c) == LV_LABEL_LONG_WRAP) {  // LVGL wraps it itself (CJK has no spaces to break at)
+          lv_point_t sz;
+          lv_text_get_size(&sz, lv_label_get_text(c), f, lv_obj_get_style_text_letter_space(c, 0),
+                           lv_obj_get_style_text_line_space(c, 0), a.x2 - a.x1 + 1, LV_TEXT_FLAG_NONE);
+          tw = sz.x, wrapH = sz.y;
+        }
         const lv_text_align_t al = lv_obj_get_style_text_align(c, 0);
         int32_t x1 = a.x1;
         if (al == LV_TEXT_ALIGN_RIGHT) x1 = a.x2 + 1 - tw;
         else if (al == LV_TEXT_ALIGN_CENTER) x1 = (a.x1 + a.x2 + 1 - tw) / 2;
         Txt t{c, x1, x1 + tw - 1, a.y1, a.y2};
-        t.h = lines * lv_font_get_line_height(f) + (lines - 1) * lv_obj_get_style_text_line_space(c, 0);
+        t.h = wrapH ? wrapH : lines * lv_font_get_line_height(f) + (lines - 1) * lv_obj_get_style_text_line_space(c, 0);
         return t;
       };
       auto flat = [](lv_obj_t* l) {
@@ -531,6 +593,14 @@ void runLine(const std::string& line) {
                         lv_obj_get_scroll_right(o) + lv_obj_get_scroll_left(o) > 0;
         lv_area_t pa;
         lv_obj_get_coords(o, &pa);
+        if (sx && getenv("OVERFLOW_ROWS") && pa.y2 >= 0 && pa.y1 < sh) {  // a row that only fits by scrolling sideways
+          lv_obj_t* first = lv_obj_get_child_count(o) ? lv_obj_get_child(o, 0) : nullptr;
+          lv_obj_t* fl = first && lv_obj_get_child_count(first) ? lv_obj_get_child(first, 0) : nullptr;
+          fprintf(stderr, "OVERFLOW %s row-scrolls \"%s\" by %d px at y %d\n", name.c_str(),
+                  fl && lv_obj_check_type(fl, &lv_label_class) ? lv_label_get_text(fl) : "?",
+                  (int)(lv_obj_get_scroll_right(o) + lv_obj_get_scroll_left(o)), (int)pa.y1);
+          found++;
+        }
         std::vector<Txt> texts;
         for (uint32_t i = 0; i < lv_obj_get_child_count(o); i++) {
           lv_obj_t* c = lv_obj_get_child(o, i);
@@ -640,6 +710,11 @@ void runLine(const std::string& line) {
       ss >> arg;
       run::open("vn.pawboop.run", arg.empty() ? nullptr : arg.c_str());
       step(600);
+    } else if (cmd == "tank") {  // tank CMD: the aquarium's developer commands (src/tank/tank.h dev)
+      std::string rest;
+      std::getline(ss, rest);
+      if (!tank::dev(rest.c_str())) fprintf(stderr, "tank: ? %s\n", rest.c_str());
+      step(100);
     } else if (cmd == "dev") {  // run::dev: auto | manual | god | warp M | end | smooth 0|1 | stats
       std::string rest;
       std::getline(ss, rest);
@@ -663,6 +738,7 @@ void runLine(const std::string& line) {
                       "backswipe | home | back | app ID [ARG] | pet | run [ARG] | dev auto|god|manual|stats | shot [NAME] | "
                       "mem | set KEY VALUE | rot N | saver | wake | wait MS | quit\n"
                       "keys: arrows = swipe, H = home, B = back, S = shot, M = memory, Q = quit; mouse = finger\n");
+    } else if (wake::console(line.c_str()) || pet::talk::console(line.c_str())) {  // WAKE, WAKEREC n, ASK text, TALK
     } else {
       fprintf(stderr, "?? %s (help: the commands)\n", cmd.c_str());
     }
@@ -724,6 +800,9 @@ int main(int argc, char** argv) {
 #endif
   desk::begin();
   os::begin(lcd::simDisp);
+  led::begin();   // the RGB LED: a dot in the window's frame
+  wake::begin();  // the mic's listener (SIM_MIC=file feeds it) and the dog assistant's turns
+  pet::talk::begin();
   step(600);
 #ifdef SIM_LIVE
   if (!script.empty()) {  // its commands first, in real time

@@ -1,5 +1,6 @@
 #pragma GCC optimize("Os")  // a cold screen: built small (the firmware must fit 3.75 MB)
 #include "devtools.h"
+#include "tank/tank.h"
 
 #include <Arduino.h>
 #include "esp_memory_utils.h"
@@ -33,6 +34,10 @@ extern const uint8_t x509_bundle_end[] asm("_binary_x509_crt_bundle_end");
 #include "js/jsrt.h"
 #include "os.h"
 #include "run/run.h"
+#include "wake/wake.h"
+#ifndef NO_PET
+#include "pet/talk.h"
+#endif
 
 namespace devtools {
 namespace {
@@ -108,8 +113,10 @@ void toNative(int x, int y, int& nx, int& ny) {
 }
 
 void run(char* cmd) {
-  if (!strncmp(cmd, "ESPOS:HELLO ", 14)) {
-    const long long ms = atoll(cmd + 14);
+  static constexpr char kHello[] = "ESPOS:HELLO ";          // + the host's epoch ms
+  static constexpr char kProvision[] = "ESPOS:PROVISION ";  // + the link JSON
+  if (!strncmp(cmd, kHello, sizeof(kHello) - 1)) {
+    const long long ms = atoll(cmd + sizeof(kHello) - 1);
     if (ms > 1700000000000LL) {
       timeval tv = {(time_t)(ms / 1000), (suseconds_t)((ms % 1000) * 1000)};
       settimeofday(&tv, nullptr);
@@ -141,9 +148,9 @@ void run(char* cmd) {
     } else {
       Serial.println("WIFIADD_ERR");
     }
-  } else if (!strncmp(cmd, "ESPOS:PROVISION ", 18)) {
+  } else if (!strncmp(cmd, kProvision, sizeof(kProvision) - 1)) {
     String err;
-    if (desk::provision(cmd + 18, err)) Serial.println("ESPOS:OK");
+    if (desk::provision(cmd + sizeof(kProvision) - 1, err)) Serial.println("ESPOS:OK");
     else Serial.printf("ESPOS:ERR %s\n", err.c_str());
   } else if (!strcmp(cmd, "SHOT")) {
     sendBuf("SHOT", lv_snapshot_take(lv_screen_active(), LV_COLOR_FORMAT_RGB565));
@@ -316,6 +323,8 @@ void run(char* cmd) {
     os::showSaver();
   } else if (!strcmp(cmd, "RUNBENCH")) {  // the run game's speed test (docs/run.md): ~35 s of "RUNBENCH ..." lines
     run::bench();
+  } else if (!strncmp(cmd, "TANK ", 5)) {  // TANK bench | bench 20 | free planted neon*7 | time 8 | fps 20 | stats (src/tank)
+    Serial.println(tank::dev(cmd + 5) ? "TANK ok" : "TANK ?");
   } else if (!strncmp(cmd, "RUN ", 4)) {  // RUN auto | manual | god | warp 180 | end | smooth 0 | helper 0 | stats
     Serial.println(run::dev(cmd + 4) ? "RUN ok" : "RUN ?");
   } else if (!strcmp(cmd, "HOMEBENCH")) {
@@ -484,6 +493,10 @@ void run(char* cmd) {
       Serial.printf("TASKS %u\n", (unsigned)got);
       heap_caps_free(st);
     }
+  } else if (wake::console(cmd)) {  // WAKE, WAKEREC n, WAKEPAUSE 0|1, PKGPUT (src/wake/wake.cpp)
+#ifndef NO_PET
+  } else if (pet::talk::console(cmd)) {  // ASK <text>, TALK (src/pet/talk.cpp)
+#endif
   }
 }
 

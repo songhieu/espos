@@ -27,10 +27,17 @@ namespace st = pkg::store;
 constexpr uint32_t ORANGE = 0xff9a1f, GREEN = 0x1f9d4a;
 constexpr int ICON = 60;
 
+// What a card shows that changes while the screen is open (updated in place: rebuilding the ten cards for every
+// progress step or arriving picture stalled the board while a dog downloaded).
+struct Card {
+  lv_obj_t *card = nullptr, *icon = nullptr, *state = nullptr, *track = nullptr, *fill = nullptr;
+  bool drawnIcon = false;  // the placeholder until the store's picture arrives
+  int cw = 0;
+};
 struct Screen {
   lv_obj_t *scr = nullptr, *body = nullptr, *grid = nullptr;
   uint32_t seenPkg = 0, seenStore = 0, seenCat = 0, seenDog = 0;
-  int icons = 0;      // catalog pictures shown (rebuild when more arrive)
+  Card cards[dogs::COUNT];
   String pending;     // the dog being downloaded for the user: chosen once it is in
 };
 Screen* S = nullptr;
@@ -80,6 +87,50 @@ void onCard(lv_event_t* e) {
   trace::add("pet: downloading %s for the chooser", d.key);
 }
 
+// A card's state line: the dog now / tap to choose / on the card that is out / the download and its percent.
+void stateOf(int i, String& what, uint32_t& col, int& pct) {
+  const Pal& p = pal();
+  const dogs::Info& d = dogs::ALL[i];
+  const String id = dogs::pkgId(d.key);
+  const pkg::Package* inst = pkg::find(id.c_str());
+  const st::State state = st::stateOf(id.c_str());
+  pct = -1;
+  col = p.dim;
+  if (state != st::IDLE) {
+    const st::Status ss = st::status();
+    what = st::stateText(state);
+    if (ss.id == id && (state == st::DOWNLOAD || state == st::WRITE)) what += " " + String(ss.pct) + "%", pct = ss.pct;
+    col = ORANGE;
+  } else if (dogs::chosen() == &d && inst) {
+    what = T_("Your dog"), col = GREEN;
+  } else if (inst && !inst->available) {
+    what = T_("Card out");
+  } else if (inst) {
+    what = T_("Tap to choose"), col = p.link;
+  } else {
+    const String sz = sizeOf(d.key);
+    what = sz.length() ? i18n::fmt(N_("Download · {0}"), sz) : String(T_("In the Store"));
+    col = p.link;
+  }
+}
+
+void showState(int i) {
+  Card& k = S->cards[i];
+  String what;
+  uint32_t col;
+  int pct;
+  stateOf(i, what, col, pct);
+  lv_obj_set_style_text_color(k.state, C(col), 0);
+  fitText(k.state, what.c_str(), k.cw - 16, 18, 13, 11, true, 0);
+  lv_obj_align(k.state, LV_ALIGN_TOP_MID, 0, ICON + 40);
+  if (pct < 0) {
+    lv_obj_add_flag(k.track, LV_OBJ_FLAG_HIDDEN);
+  } else {
+    lv_obj_remove_flag(k.track, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_set_size(k.fill, lv_pct(max(2, pct)), 6);
+  }
+}
+
 void card(lv_obj_t* grid, int i, int cw) {
   const Pal& p = pal();
   const dogs::Info& d = dogs::ALL[i];
@@ -87,7 +138,6 @@ void card(lv_obj_t* grid, int i, int cw) {
   const pkg::Package* inst = pkg::find(id.c_str());
   const dogs::Info* cur = dogs::chosen();
   const bool chosen = cur == &d && inst;
-  const st::State state = st::stateOf(id.c_str());
 
   lv_obj_t* c = box(grid, p.cell, 18);
   lv_obj_set_size(c, cw, 216);
@@ -101,50 +151,32 @@ void card(lv_obj_t* grid, int i, int cw) {
   lv_obj_add_event_cb(c, onCard, LV_EVENT_CLICKED, (void*)(intptr_t)i);
 
   // The phone game's portrait (the package's icon.jpg, or the store's copy until it is installed).
+  Card& k = S->cards[i];
+  k = Card();
+  k.card = c, k.cw = cw;
   lv_obj_t* ic = nullptr;
   if (inst) {
     ic = apps::packageIcon(c, id.c_str(), ICON);
   } else if (const lv_image_dsc_t* d2 = app_store::catalogIcon(id.c_str(), ICON)) {
-    ic = img(c, d2), S->icons++;
+    ic = img(c, d2);
   } else {
-    ic = apps::drawnIcon(c, 0xffcf7a, 0xe8892c, "play", ICON);
+    ic = apps::drawnIcon(c, 0xffcf7a, 0xe8892c, "play", ICON), k.drawnIcon = true;
   }
+  k.icon = ic;
   lv_obj_align(ic, LV_ALIGN_TOP_MID, 0, 10);
   if (inst && !inst->available) lv_obj_set_style_opa(ic, LV_OPA_40, 0);
 
   lv_obj_t* n = label(c, d.name, 17, true, p.fg);  // a name: as it is
   lv_obj_align(n, LV_ALIGN_TOP_MID, 0, ICON + 16);
-  // Its state: the dog now / tap to choose / on the card that is out / the download.
-  String what;
-  uint32_t col = p.dim;
-  if (state != st::IDLE) {
-    const st::Status ss = st::status();
-    what = st::stateText(state);
-    if (ss.id == id && (state == st::DOWNLOAD || state == st::WRITE)) what += " " + String(ss.pct) + "%";
-    col = ORANGE;
-  } else if (chosen) {
-    what = T_("Your dog"), col = GREEN;
-  } else if (inst && !inst->available) {
-    what = T_("Card out");
-  } else if (inst) {
-    what = T_("Tap to choose"), col = p.link;
-  } else {
-    const String sz = sizeOf(d.key);
-    what = sz.length() ? i18n::fmt(N_("Download · {0}"), sz) : String(T_("In the Store"));
-    col = p.link;
-  }
-  lv_obj_t* w = label(c, "", 13, true, col);
-  lv_obj_set_style_text_align(w, LV_TEXT_ALIGN_CENTER, 0);
-  fitText(w, what.c_str(), cw - 16, 18, 13, 11, true, 0);
-  lv_obj_align(w, LV_ALIGN_TOP_MID, 0, ICON + 40);
-  if (state == st::DOWNLOAD || state == st::WRITE) {
-    const st::Status ss = st::status();
-    lv_obj_t* t = box(c, p.cell2, 3);
-    lv_obj_set_size(t, cw - 32, 6);
-    lv_obj_align(t, LV_ALIGN_TOP_MID, 0, ICON + 62);
-    lv_obj_t* f = box(t, ORANGE, 3);
-    lv_obj_set_size(f, lv_pct(ss.id == id ? max(2, ss.pct) : 0), 6);
-  }
+  // Its state line and the download's bar (hidden unless downloading): showState() keeps them current.
+  k.state = label(c, "", 13, true, p.dim);
+  lv_obj_set_style_text_align(k.state, LV_TEXT_ALIGN_CENTER, 0);
+  k.track = box(c, p.cell2, 3);
+  lv_obj_set_size(k.track, cw - 32, 6);
+  lv_obj_align(k.track, LV_ALIGN_TOP_MID, 0, ICON + 62);
+  k.fill = box(k.track, ORANGE, 3);
+  lv_obj_set_size(k.fill, 0, 6);
+  showState(i);
   // Who it is (the dog's character, from the store).
   const String desc = descOf(d.key);
   if (desc.length()) {
@@ -160,7 +192,7 @@ void build() {
   const int32_t sy = S->body ? lv_obj_get_scroll_y(S->body) : 0;
   lv_obj_clean(S->body);
   S->seenPkg = pkg::version(), S->seenStore = st::version(), S->seenCat = st::catalogVersion();
-  S->seenDog = dogs::version(), S->icons = 0;
+  S->seenDog = dogs::version();
   hint(S->body, N_("Your dog is your pet, runs in Coin Run and is the voice of the assistant. Each dog has its own character."));
   const int cols = max(2, (os::W() - 16) / 150);
   const int cw = (os::W() - 24 - 8 * (cols - 1)) / cols;
@@ -183,14 +215,21 @@ void watch(lv_timer_t*) {
     S->pending = "";
     return switchDog(k.c_str(), true);
   }
-  int icons = 0;
-  for (int i = 0; i < dogs::COUNT; i++)
-    if (!pkg::find(dogs::pkgId(dogs::ALL[i].key).c_str()) && app_store::catalogIcon(dogs::pkgId(dogs::ALL[i].key).c_str(), ICON))
-      icons++;
-  const bool progress = st::busy();
   if (S->seenPkg != pkg::version() || S->seenStore != st::version() || S->seenCat != st::catalogVersion() ||
-      S->seenDog != dogs::version() || icons != S->icons || progress)
-    build();
+      S->seenDog != dogs::version())
+    return build();  // a dog in or out, a job started or ended, the catalog, the chosen dog
+  for (int i = 0; i < dogs::COUNT; i++) {
+    Card& k = S->cards[i];
+    if (!k.card) continue;
+    if (k.drawnIcon) {  // the store's picture came: in place of the placeholder
+      if (const lv_image_dsc_t* d = app_store::catalogIcon(dogs::pkgId(dogs::ALL[i].key).c_str(), ICON)) {
+        lv_obj_delete(k.icon);
+        k.icon = img(k.card, d), k.drawnIcon = false;
+        lv_obj_align(k.icon, LV_ALIGN_TOP_MID, 0, 10);
+      }
+    }
+    if (st::busy()) showState(i);  // the download's percent
+  }
 }
 
 }  // namespace

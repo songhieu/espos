@@ -16,6 +16,9 @@
 #include "os.h"
 #include "pkg/pkg.h"
 #include "pkg/store.h"
+#if __has_include("tank/tank.h")
+#include "tank/tank.h"  // the saver's live aquarium background
+#endif
 #include "search.h"
 #include "sound.h"
 #include "standby.h"
@@ -1871,6 +1874,18 @@ void fillBgSheet() {
     lv_obj_t* t = tile(r, 44, 66, cur.own && b.t == "photo" && b.id == id.toInt(), pickPhotoBg, id.toInt());
     if (!desksaver::photoImg(t, id.toInt(), 44, 66)) lv_obj_center(glyph(t, &gl_photo_16, 0x9aa3ad));
   }
+#if __has_include("tank/tank.h")
+  if (bgSlides && tank::installedId()) {  // the saver: the user's own aquarium, alive behind the clock (src/tank)
+    r = tileRow(bgBody, N_("Aquarium"));
+    lv_obj_t* t = tile(r, 44, 66, cur.own && b.t == "tank", [](lv_event_t*) {
+      desksaver::Bg nb;
+      nb.t = "tank";
+      setBg({true, keepDim(nb)});
+    }, 0);
+    grad(t, 0x2aa6c9, 0x0b4f6c);
+    lv_obj_center(glyph(t, &gl_drop_16, 0xffffff));
+  }
+#endif
   r = tileRow(bgBody, N_("Solid colour"));
   for (int i = 0; i < 15; i++) {
     const uint32_t c = strtoul(COLOURS[i], nullptr, 16);
@@ -1896,7 +1911,7 @@ void fillBgSheet() {
     }, i);
     grad(t, GRADS[i][0], GRADS[i][1]);
   }
-  if (cur.own && (b.t == "wall" || b.t == "photo")) {
+  if (cur.own && (b.t == "wall" || b.t == "photo" || b.t == "tank")) {
     lv_obj_t* l = label(bgBody, i18n::fmt(N_("Darken for easier reading: {0}%"), String(b.dim)).c_str(), 13, true, 0x6b7280);
     lv_obj_set_style_pad_top(l, 4, 0);
     lv_obj_t* sl = lv_slider_create(bgBody);

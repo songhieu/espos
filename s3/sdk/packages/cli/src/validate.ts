@@ -11,7 +11,7 @@ import { jpegInfo } from "./image.js";
 import { nameProblem, type Problem, type ReadPkg } from "./espk.js";
 import { floatPaths, parse, PyObj, toPlain } from "./pyjson.js";
 
-export const ENGINES = ["js", "pet", "run", "j2me", "lang", "font"]; // lang, font: the OS's language and font packs (docs/i18n.md)
+export const ENGINES = ["js", "pet", "run", "j2me", "lang", "font", "wake", "tank"]; // tank: Hồ cá cảnh (docs/tank.md) // lang, font: the OS's language and font packs (docs/i18n.md)
 export const KINDS = ["js", "native"];
 export const CATEGORIES = ["game", "tool", "study", "health", "widget"];
 export const PERMS = ["sound", "notify", "net", "bg"];

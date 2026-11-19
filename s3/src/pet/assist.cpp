@@ -14,6 +14,7 @@
 #include "os.h"
 #include "packs.h"
 #include "pet.h"
+#include "text.h"
 #include "trace.h"
 #include "uikit.h"
 #include "view.h"
@@ -141,14 +142,16 @@ void face(lv_obj_t* layer, const Speech& s) {
   }
   lv_obj_remove_flag(faceCard, LV_OBJ_FLAG_HIDDEN);
   const int w = os::W() - 24 - 112 - 12;
-  lv_label_set_long_mode(faceSaid, LV_LABEL_LONG_WRAP);
-  lv_obj_set_width(faceSaid, w);
-  lv_label_set_text(faceSaid, s.said.c_str());  // the dog's own words (Lexend, every letter)
-  lv_label_set_long_mode(faceKit, LV_LABEL_LONG_WRAP);
-  lv_obj_set_width(faceKit, w);
-  lv_label_set_text(faceKit, s.kit.c_str());
-  lv_obj_update_layout(faceCard);
-  lv_obj_set_pos(faceKit, 112, 12 + lv_obj_get_height(faceSaid) + 4);
+  // The dog's own words and the kit's, broken into lines to the column (Lexend, every letter; smaller when long).
+  const int h1 = text::words(faceSaid, s.said, w, 3);
+  const int h2 = s.kit.length() ? text::words(faceKit, s.kit, w, 1) : 0;
+  const int hh = h1 + (h2 ? 4 + h2 : 0), ch = constrain(hh + 24, 128, 132);
+  lv_obj_set_height(faceCard, ch);
+  const int top = (ch - hh) / 2;  // the words in the middle of the card, beside the dog
+  lv_obj_set_pos(faceSaid, 112, top);
+  lv_obj_set_pos(faceKit, 112, top + h1 + 4);
+  if (h2) lv_obj_remove_flag(faceKit, LV_OBJ_FLAG_HIDDEN);
+  else lv_obj_add_flag(faceKit, LV_OBJ_FLAG_HIDDEN);
   if (faceView) faceView->play(clipFor(s.moment));
 }
 
@@ -244,6 +247,9 @@ Prefs prefs() {
     p.meal = d["meal"] | 1;
     p.water = constrain(d["water"] | 120, 0, 600), p.move = constrain(d["move"] | 90, 0, 600);
     p.eyes = constrain(d["eyes"] | 60, 0, 600);
+    p.wake = constrain(d["wake"] | 0, 0, 2), p.wakeWord = constrain(d["wake_word"] | 0, 0, 1);
+    p.wakeSens = constrain(d["wake_sens"] | 2, 1, 3);
+    p.led = constrain(d["led"] | 2, 0, 2), p.ledBright = constrain(d["led_bright"] | 2, 1, 3);
   }
   return cached = p;
 }
@@ -252,6 +258,10 @@ void setPrefs(const Prefs& p) {
   JsonDocument d;
   d["on"] = p.on ? 1 : 0, d["greet"] = p.greet ? 1 : 0, d["weather"] = p.weather ? 1 : 0, d["alarm"] = p.alarm ? 1 : 0;
   d["water"] = p.water, d["move"] = p.move, d["eyes"] = p.eyes, d["meal"] = p.meal ? 1 : 0;
+  if (p.wake || p.wakeWord || p.wakeSens != 2) {  // only when changed: a server from before them refuses the keys
+    d["wake"] = p.wake, d["wake_word"] = p.wakeWord, d["wake_sens"] = p.wakeSens;
+  }
+  if (p.led != 2 || p.ledBright != 2) d["led"] = p.led, d["led_bright"] = p.ledBright;
   String s;
   serializeJson(d, s);
   desk::setSetting("s3.assist", s);

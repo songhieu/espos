@@ -15,7 +15,9 @@
 #include "game.h"
 #include "os.h"
 #include "packs.h"
+#include "text.h"
 #include "pet.h"
+#include "talk.h"
 #include "trace.h"
 #include "uikit.h"
 #include "view.h"
@@ -31,7 +33,7 @@ using namespace kit;
 constexpr int CW = 304, VIEW_H = 196;
 constexpr uint32_t INK = 0x2b2f3a, SOFT = 0x8a90a0, PANEL = 0xf3f4f7, WARM = 0xffcf5c, KIT = 0xffb347;
 
-lv_obj_t *layer, *card, *bubble, *said, *answer;
+lv_obj_t *layer, *card, *bubble, *said, *answer, *micBtn, *micHint;
 int textW_ = CW - 48;
 View* view;
 uint32_t touchedAt = 0;
@@ -45,25 +47,23 @@ int openTodos(int* done = nullptr) {
   return open_;
 }
 
-void setLabel(lv_obj_t* l, const String& s, const lv_font_t* f) {
+// The dog's words in the page's font, broken into lines to the bubble's width (bold 14, bold 12 when longer).
+void setLabel(lv_obj_t* l, const String& s, int maxLines) {
   if (!s.length()) return lv_obj_add_flag(l, LV_OBJ_FLAG_HIDDEN);
   lv_obj_remove_flag(l, LV_OBJ_FLAG_HIDDEN);
-  lv_obj_set_style_text_font(l, f, 0);
-  lv_label_set_long_mode(l, LV_LABEL_LONG_WRAP);
-  lv_obj_set_width(l, textW_);
-  lv_label_set_text(l, s.c_str());
+  text::words(l, s, textW_, maxLines);
 }
 
 // The bubble: the dog's words (Lexend: every letter of its lines) and, under them, `extra` (the kit's words in
 // orange, or a line of the device's own in the OS's font).
 void showText(const String& words, const String& extra, bool kitWords) {
   if (!card) return;
-  setLabel(said, words, pk::font(1));
+  setLabel(said, words, os::landscape() ? 6 : 4);
   if (!extra.length()) {
     lv_obj_add_flag(answer, LV_OBJ_FLAG_HIDDEN);
   } else if (kitWords) {
     lv_obj_set_style_text_color(answer, C(KIT), 0);
-    setLabel(answer, extra, pk::font(1));
+    setLabel(answer, extra, 2);
   } else {
     lv_obj_set_style_text_color(answer, C(0xd6dae3), 0);
     lv_obj_remove_flag(answer, LV_OBJ_FLAG_HIDDEN);
@@ -168,15 +168,102 @@ void onChip(lv_event_t* e) {
 
 lv_obj_t* chip(lv_obj_t* parent, const char* text, int k, int w) {
   lv_obj_t* b = box(parent, k == 2 ? WARM : PANEL, 18);
-  lv_obj_set_size(b, w, 40);
+  lv_obj_set_size(b, w, 44);
   lv_obj_add_flag(b, LV_OBJ_FLAG_CLICKABLE);
   lv_obj_set_style_bg_opa(b, LV_OPA_70, LV_STATE_PRESSED);
   lv_obj_t* l = label(b, "", 14, true, k == 2 ? 0x5a3a00 : INK);
   lv_obj_set_style_text_align(l, LV_TEXT_ALIGN_CENTER, 0);
-  fitText(l, text, w - 12, 34, 14, 11, true, 0);
+  fitText(l, text, w - 12, 40, 14, 11, true, 0);  // two bold lines fit (19 px each)
   lv_obj_center(l);
   lv_obj_add_event_cb(b, onChip, LV_EVENT_CLICKED, (void*)(intptr_t)k);
   return b;
+}
+
+// ---- swipe down to close
+lv_point_t dragFrom;
+int dragY = 0;
+bool dragging = false;
+// The last few touch samples: the speed at the release is measured over the last ~60 ms, so a short flick counts
+// in full and a finger that stopped before lifting counts as still.
+constexpr int NS = 8;
+int16_t smpY[NS];
+uint32_t smpT[NS];
+uint32_t smpN = 0;
+
+void sample(int y, uint32_t t) {
+  smpY[smpN % NS] = (int16_t)y, smpT[smpN % NS] = t;
+  smpN++;
+}
+
+float releaseSpeed() {  // px per ms, down > 0
+  if (smpN < 2) return 0;
+  const int last = (int)((smpN - 1) % NS);
+  int old = last;
+  for (uint32_t k = 1; k < NS && k < smpN; k++) {
+    const int i = (int)((smpN - 1 - k) % NS);
+    if (k > 1 && smpT[last] - smpT[i] > 60) break;  // at least the sample before the last
+    old = i;
+  }
+  const uint32_t dt = smpT[last] - smpT[old];
+  return dt ? (float)(smpY[last] - smpY[old]) / (float)dt : 0;
+}
+
+void slideCard(int from, int to, uint32_t ms, bool close) {
+  lv_anim_t a;
+  lv_anim_init(&a);
+  lv_anim_set_var(&a, card);
+  lv_anim_set_values(&a, from, to);
+  lv_anim_set_duration(&a, ms);
+  lv_anim_set_path_cb(&a, close ? lv_anim_path_ease_in : lv_anim_path_overshoot);
+  lv_anim_set_exec_cb(&a, [](void* o, int32_t v) { lv_obj_set_style_translate_y((lv_obj_t*)o, v, 0); });
+  if (close) lv_anim_set_completed_cb(&a, [](lv_anim_t*) { dismiss(); });
+  lv_anim_start(&a);
+}
+
+void onDrag(lv_event_t* e) {
+  if (!card) return;
+  const lv_event_code_t code = lv_event_get_code(e);
+  lv_point_t p;
+  lv_indev_t* in = lv_indev_active();
+  if (in) lv_indev_get_point(in, &p);
+  const uint32_t now = millis();
+  if (code == LV_EVENT_PRESSED) {
+    dragFrom = p, dragY = 0, dragging = false, smpN = 0;
+    sample(p.y, now);
+    return;
+  }
+  if (code == LV_EVENT_PRESSING) {
+    sample(p.y, now);
+    const int dy = p.y - dragFrom.y, dx = p.x - dragFrom.x;
+    if (!dragging && dy > 10 && dy > 2 * abs(dx)) dragging = true;  // down, and more down than sideways
+    if (!dragging) return;
+    touchedAt = now;
+    dragY = dy > 0 ? dy : 0;
+    lv_obj_set_style_translate_y(card, dragY, 0);
+    return;
+  }
+  if (!dragging) return;  // a tap: the card's own children got it
+  dragging = false;
+  sample(p.y, now);
+  const float v = releaseSpeed();
+  const int h = lv_obj_get_height(card);
+  if (dragY > h * 3 / 10 || (v > 0.5f && dragY > 24)) {
+    trace::add("pet: swiped down (%d px, %.2f px/ms)", dragY, v);
+    slideCard(dragY, h + 40, 160, true);
+  } else {
+    trace::add("pet: swipe let go (%d px, %.2f px/ms): stays", dragY, v);
+    slideCard(dragY, 0, 260, false);
+  }
+}
+
+// The words under the mic button: centred under it while they fit, longer ones end 4 px from the card's edge (the
+// button sits 8 px in), never cut. 12 px is the smallest text font.
+void hintText(const char* t) {
+  fitText(micHint, t, 160, 20, 12, 12, true, 0);
+  const char* s = lv_label_get_text(micHint);
+  const int w = lv_text_get_width(s, strlen(s), lv_obj_get_style_text_font(micHint, 0), lv_obj_get_style_text_letter_space(micHint, 0));
+  const int over = (w + 6) / 2 - (lv_obj_get_width(micBtn) / 2 + 4);  // + the backing's padding
+  lv_obj_align_to(micHint, micBtn, LV_ALIGN_OUT_BOTTOM_MID, over > 0 ? -over : 0, 2);
 }
 
 void build() {
@@ -188,12 +275,15 @@ void build() {
   lv_obj_add_event_cb(layer, [](lv_event_t*) {
     view = nullptr, card = bubble = said = answer = nullptr;
     voice::hush();
+    talk::closed();
   }, LV_EVENT_DELETE, nullptr);
 
   // Portrait: name, bubble, the dog, the three chips (a column, as tall as its content). Landscape: the dog on the
   // left, the bubble and the chips in a column on the right.
   const bool land = os::landscape();
-  const int cardW = land ? os::W() - 16 : CW, colX = CW + 8, colW = cardW - colX - 12;
+  // Landscape: the dog in a 200 px window (its middle), the column beside it as wide as the rest.
+  const int stageW = land ? 200 : CW;
+  const int cardW = land ? os::W() - 16 : CW, colX = stageW + 8, colW = cardW - colX - 12;
   textW_ = land ? colW - 24 : CW - 48;
   keep(&card, box(layer, 0xffffff, 26));
   lv_obj_set_width(card, cardW);
@@ -203,12 +293,19 @@ void build() {
   lv_obj_align(card, LV_ALIGN_BOTTOM_MID, 0, -8);
   lv_obj_add_flag(card, LV_OBJ_FLAG_CLICKABLE);  // a tap on the card does not close it
   lv_obj_add_event_cb(card, [](lv_event_t*) { touchedAt = millis(); }, LV_EVENT_PRESSED, nullptr);
+  // Swipe down to close: the card follows the finger; past 30 % of its height or on a quick flick it goes, otherwise
+  // it springs back. Closing stops a turn (talk::closed via the layer's delete), the LED fades, the wake word resumes.
+  lv_obj_remove_flag(card, LV_OBJ_FLAG_SCROLLABLE);
+  lv_obj_add_event_cb(card, onDrag, LV_EVENT_PRESSED, nullptr);
+  lv_obj_add_event_cb(card, onDrag, LV_EVENT_PRESSING, nullptr);
+  lv_obj_add_event_cb(card, onDrag, LV_EVENT_RELEASED, nullptr);
+  lv_obj_add_event_cb(card, onDrag, LV_EVENT_PRESS_LOST, nullptr);
   lv_obj_t* col = clear(card);  // portrait: the column
   lv_obj_set_size(col, land ? colW : cardW, LV_SIZE_CONTENT);
   lv_obj_set_flex_flow(col, LV_FLEX_FLOW_COLUMN);
   lv_obj_set_flex_align(col, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
   lv_obj_set_style_pad_top(col, land ? 46 : 46, 0);
-  lv_obj_set_style_pad_row(col, 8, 0);
+  lv_obj_set_style_pad_row(col, 0, 0);  // the dog right under the bubble, so the bubble's point touches it
   if (land) lv_obj_set_pos(col, colX, 0);
 
   // Who: the paw badge and the dog's name.
@@ -235,13 +332,38 @@ void build() {
 
   // The dog itself: full size, the stage's rows 62..257 (its head to its feet in nearly every clip).
   lv_obj_t* stage = clear(land ? card : col);
-  lv_obj_set_size(stage, CW, VIEW_H);
+  lv_obj_set_size(stage, stageW, VIEW_H);
   if (land) lv_obj_set_pos(stage, 0, 46);
-  view = View::create(stage, CW, VIEW_H, 0, 0xffffff, (320 - CW) / 2, 62);
+  view = View::create(stage, stageW, VIEW_H, 0, 0xffffff, (320 - stageW) / 2, 62);
   lv_obj_set_pos(view->obj(), 0, 0);
   if (!land) {
     lv_obj_t* tail = img(stage, pk::image(pk::piece("tail_down")));  // the game's bubble point, towards the dog
     lv_obj_set_pos(tail, CW / 2 - 6, -1);
+  }
+  // Talk to the dog (the AI assistant, talk.cpp): hold the round button, speak, let go.
+  if (talk::canTalk()) {
+    keep(&micBtn, box(stage, 0xff7a45, 28));
+    lv_obj_set_size(micBtn, 56, 56);
+    lv_obj_align(micBtn, LV_ALIGN_BOTTOM_RIGHT, -8, -22);
+    lv_obj_add_flag(micBtn, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_set_style_outline_color(micBtn, C(0xff7a45), 0);
+    lv_obj_set_style_outline_opa(micBtn, LV_OPA_40, 0);
+    lv_obj_set_style_outline_width(micBtn, 0, 0);
+    lv_obj_center(talk::micIcon(micBtn, 0xffffff));
+    lv_obj_add_event_cb(micBtn, [](lv_event_t*) {
+      touchedAt = millis();
+      talk::press();
+    }, LV_EVENT_PRESSED, nullptr);
+    lv_obj_add_event_cb(micBtn, [](lv_event_t*) { talk::release(); }, LV_EVENT_RELEASED, nullptr);
+    lv_obj_add_event_cb(micBtn, [](lv_event_t*) { talk::release(); }, LV_EVENT_PRESS_LOST, nullptr);
+    keep(&micHint, label(stage, "", 12, true, SOFT));
+    lv_obj_set_style_text_align(micHint, LV_TEXT_ALIGN_CENTER, 0);
+    // A long hint reaches over the dog's picture: a white backing keeps it readable there.
+    lv_obj_set_style_bg_color(micHint, C(0xffffff), 0);
+    lv_obj_set_style_bg_opa(micHint, LV_OPA_80, 0);
+    lv_obj_set_style_radius(micHint, 6, 0);
+    lv_obj_set_style_pad_hor(micHint, 3, 0);
+    hintText(N_("Hold to talk"));  // i18n: under the round mic button, very short
   }
 
   // Three chips: the time, the weather, the game.
@@ -249,12 +371,12 @@ void build() {
   const String play = i18n::fmt(N_("Play with {0}"), dogs::name());
   const char* chips[3] = {N_("What time is it?"), N_("Weather?"), play.c_str()};
   lv_obj_t* row = clear(col);
-  const int cw = land ? colW : (CW - 24 - 16) / 3;
-  lv_obj_set_size(row, land ? colW : CW - 24, land ? 3 * 44 : 40);
+  lv_obj_set_style_margin_top(row, 8, 0);
+  const int cw = ((land ? colW : CW - 24) - 16) / 3;  // a row of three, both ways (two lines each when long)
+  lv_obj_set_size(row, land ? colW : CW - 24, 44);
   for (int k = 0; k < 3; k++) {
     lv_obj_t* c = chip(row, chips[k], k, cw);
-    if (land) lv_obj_set_pos(c, 0, k * 44);
-    else lv_obj_set_pos(c, k * (cw + 8), 0);
+    lv_obj_set_pos(c, k * (cw + 8), 0);
   }
 
   // Slide up.
@@ -306,7 +428,51 @@ void dismiss() {
 bool summoned() { return layer != nullptr; }
 
 void summonTick() {  // from tick(): close after 20 s without a touch
-  if (layer && millis() - touchedAt > 20000 && !voice::busy()) dismiss();
+  if (layer && millis() - touchedAt > 20000 && !voice::busy() && !talk::busy()) dismiss();
 }
+
+// ---------------------------------------------------------------- the AI turn (talk.cpp)
+bool talkOpen() {
+  if (os::saverOn()) os::wake();
+  if (!open_()) return false;
+  voice::hush();
+  return true;
+}
+
+// The dog's clip (nullptr: keep it), and the bubble: `big` in the dog's words (its reply, or what it is doing), `small`
+// under it (what it heard, or a hint). Both empty: the bubble keeps what it shows.
+void talkShow(const char* clip, const String& big, const String& small) {
+  if (!card) return;
+  touchedAt = millis();
+  if (clip && view) {
+    view->onEnd(nullptr, nullptr);
+    view->play(clip);
+  }
+  if (!big.length() && !small.length()) return;
+  setLabel(said, big, os::landscape() ? 7 : 6);
+  if (!small.length()) {
+    lv_obj_add_flag(answer, LV_OBJ_FLAG_HIDDEN);
+  } else {
+    lv_obj_set_style_text_color(answer, C(0xd6dae3), 0);
+    lv_obj_remove_flag(answer, LV_OBJ_FLAG_HIDDEN);
+    fitText(answer, small.c_str(), textW_, 40, 13, 11, false, 2);
+  }
+}
+
+void talkLevel(int pct) {
+  if (micBtn) lv_obj_set_style_outline_width(micBtn, pct < 0 ? 0 : 2 + pct / 8, 0);
+}
+
+void talkButton(int state) {
+  if (!micBtn) return;
+  lv_obj_set_style_bg_color(micBtn, C(state == 1 || state == 3 ? 0xe5484d : state == 2 ? 0xb8bcc6 : 0xff7a45), 0);
+  if (micHint) {
+    // i18n: under the round mic button: held / called by "Gâu" (a tap ends it) / ready
+    const char* h = state == 1 ? N_("Let go to send") : state == 3 ? N_("Tap when done") : N_("Hold to talk");
+    hintText(h);
+  }
+}
+
+void talkTouched() { touchedAt = millis(); }
 
 }  // namespace pet

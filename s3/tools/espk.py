@@ -23,7 +23,7 @@ import sys
 import zlib
 from pathlib import Path
 
-ENGINES = {"js", "pet", "run", "j2me", "lang", "font"}  # lang, font: language packs (docs/i18n.md)
+ENGINES = {"js", "pet", "run", "j2me", "lang", "font", "wake", "tank"}  # lang, font: language packs (docs/i18n.md); wake: a wake word's model; tank: Hồ cá cảnh (docs/tank.md)
 CATEGORIES = {"game", "tool", "study", "health", "widget"}
 PERMS = {"sound", "notify", "net", "bg"}
 # Declarative packages (docs/profiles.md): data only, drawn by the firmware.
@@ -328,7 +328,7 @@ def check(paths):
 # A part's choice in the store (docs/packages.md §4): its group, its English label and that label in other languages
 # ({"vi": "Nhẹ (10 hình/giây)"}), the default of its group. Kept in the part's manifest (or a builder's
 # <id>-<version>-catalog.json, or apps/catalog-text.json "parts"); check_catalog() refuses a catalog that lost them.
-PART_KEYS = ("group", "label", "labels", "default")
+PART_KEYS = ("group", "label", "labels", "default", "board")  # board: the part is for that board ("es3c28p"): the device takes it there
 
 
 def check_catalog(cat, espk_dir=None):
@@ -411,7 +411,7 @@ def install_sim(sim, paths, vol):
         core = next((m for m, _, _ in parts if m.get("part", "core") == "core"), None)
         if not core:
             fail(f"{pid}: the core part is needed")
-        if vol == "flash" and core.get("kind") != "js" and core.get("engine") not in ("lang", "font"):
+        if vol == "flash" and core.get("kind") != "js" and core.get("engine") not in ("lang", "font", "wake"):
             fail(f"{pid}: only kind js, languages and fonts go to {sim}/fs/pkgs; native packages: use the card "
                  f"(default) or the store")
         root = Path(sim) / ("sd/espos/pkgs" if vol == "sd" else "fs/pkgs") / pid
