@@ -1,3 +1,8 @@
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../assets/logo-horizontal-white.svg">
+  <img alt="EspOS" src="../assets/logo-horizontal.svg" height="40">
+</picture>
+
 # EspOS server (self-hosted)
 
 The server side of [EspOS](../README.md): the web app and the API the Xteink X4 reader and

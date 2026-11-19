@@ -1,3 +1,8 @@
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../assets/logo-horizontal-white.svg">
+  <img alt="EspOS" src="../assets/logo-horizontal.svg" height="40">
+</picture>
+
 # EspOS for ESP32-S3 screens
 
 EspOS on small ESP32-S3 colour touch displays: a desk operating system with Home pages of apps

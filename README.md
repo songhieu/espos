@@ -1,4 +1,9 @@
-# EspOS
+<h1>
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/logo-horizontal-white.svg">
+    <img alt="EspOS" src="assets/logo-horizontal.svg" height="64">
+  </picture>
+</h1>
 
 EspOS is an open operating system for ESP32 screens. It runs on two kinds of device today:
 

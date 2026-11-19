@@ -10,6 +10,7 @@ import { Settings } from "./pages/Settings";
 import { Stats } from "./pages/Stats";
 import { LayoutPage } from "./pages/Layout";
 import { Icon } from "./ui";
+import { BrandLogo } from "./brand";
 
 type Route = "library" | "news" | "stats" | "layout" | "devices" | "settings";
 interface Me {
@@ -130,7 +131,7 @@ function Shell({
     <div className="ik ik-app">
       <aside className="ik-side">
         <div className="ik-brand">
-          <span className="ik-mark">E</span>EspOS
+          <BrandLogo height={30} />
         </div>
         <nav className="ik-nav">
           {nav.map((n) => (
@@ -211,7 +212,7 @@ function Login({ api, error, onIn }: { api: Api; error: string | null; onIn: (m:
     <div className="ik ik-login">
       <div className="ik-art">
         <div className="ik-brand light">
-          <span className="ik-mark">E</span>EspOS
+          <BrandLogo height={34} />
         </div>
         <div>
           <h1>
