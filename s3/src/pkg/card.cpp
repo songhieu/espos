@@ -29,7 +29,8 @@ namespace in {
 namespace card {
 namespace {
 
-std::atomic<bool> mounted{false}, badCard{false}, busy{false};
+std::atomic<bool> mounted{false}, badCard{false}, busy{false}, probedOnce{false};
+bool probedTold = false;  // UI loop: the first look was announced (Home greys what is not there)
 std::atomic<uint32_t> ver{1};
 std::atomic<uint64_t> totalB{0}, freeB{0};
 
@@ -134,10 +135,12 @@ void probeTask(void*) {
   for (const char* tag : {"sdmmc_common", "sdmmc_sd", "sdmmc_cmd", "sdmmc_init", "sdmmc_req", "sdmmc_io", "vfs_fat_sdmmc",
                           "sdmmc_periph", "sdmmc"})
     esp_log_level_set(tag, ESP_LOG_NONE);
-  vTaskDelay(pdMS_TO_TICKS(1500));
+  // At once (it waited 1.5 s before 0.5.7): Home is built once the card has answered (pkg::awaitCard), with its apps
+  // and its language font in, instead of being built again a moment later.
   for (;;) {
     if (!mounted) tryMount();
     else if (!busy && sdmmc_get_status(sd) != ESP_OK) unmount();
+    probedOnce = true;
     vTaskDelay(pdMS_TO_TICKS(mounted ? 2500 : 4000));
   }
 }
@@ -153,11 +156,13 @@ void begin() {
     scanNow();
     mounted = true;
   }
+  probedOnce = true;
   lastCheck = millis();
 #else
-  if (!hal::has(hal::CAP_SDCARD) || hal::board().card.bus != hal::CardBus::SDMMC) return;  // no slot
+  if (!hal::has(hal::CAP_SDCARD) || hal::board().card.bus != hal::CardBus::SDMMC) return (void)(probedOnce = true);  // no slot
   // The stack is in PSRAM: this task never touches the internal flash.
-  xTaskCreatePinnedToCoreWithCaps(probeTask, "card", 4096, nullptr, 1, nullptr, 0, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+  // 6 KB (was 4: only 164 B were left on the board after mounting, 0.5.6); PSRAM, so no internal RAM.
+  xTaskCreatePinnedToCoreWithCaps(probeTask, "card", 6144, nullptr, 1, nullptr, 0, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
 #endif
 }
 
@@ -197,7 +202,14 @@ void poll() {
     gone = gonePending;
     gonePending = false;
   }
-  if (!gotScan && !gone) return;
+  if (!gotScan && !gone) {
+    if (probedOnce && !probedTold) {  // looked, nothing found: what it held last time is greyed now
+      probedTold = true;
+      changed();
+    }
+    return;
+  }
+  probedTold = probedOnce;
   {
     std::lock_guard<std::recursive_mutex> l(mu);
     if (gone)
@@ -223,13 +235,16 @@ void poll() {
         }
       String out;
       serializeJson(d, out);
-      writeText(sdCacheFile(), out);
+      // Only when it changed: the first LittleFS write after power-on walks the whole file system (0.57 s on the UI
+      // loop at every boot, measured in QEMU at board speed), and the card nearly always holds what it held.
+      if (readText(sdCacheFile()) != out) writeText(sdCacheFile(), out);
     }
   }
   changed();
 }
 
 bool present() { return mounted; }
+bool probed() { return probedOnce; }
 bool bad() { return badCard && !mounted; }
 uint32_t version() { return ver; }
 

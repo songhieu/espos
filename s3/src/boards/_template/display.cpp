@@ -5,7 +5,7 @@
 //   src/boards/es3c28p/display.cpp  SPI + D/C, a 240x320 panel showing the UI at 2/3 (src/scale.h)
 //
 // The rules every driver keeps (the OS counts on them):
-//   - LVGL draws the 320x480 UI (hal::UI_W x UI_H) in RGB565, in bands, into two buffers in internal RAM (DMA
+//   - LVGL draws the UI (BOARD.display.ui: 320x480) in RGB565, in bands, into two buffers in internal RAM (DMA
 //     capable); flush() sends a band and calls lv_display_flush_ready() once the buffer may be drawn into again.
 //     Internal RAM is tight: two bands of 320 x 80 rows are 100 KB; 40 rows (50 KB) is a fair start.
 //   - Areas LVGL redraws can be widened in an LV_EVENT_INVALIDATE_AREA callback (whole rows: some panels flicker on
@@ -26,7 +26,7 @@ namespace myboard {
 namespace {
 
 constexpr hal::DisplayPins P = BOARD.display.pins;
-constexpr int W = hal::UI_W, H = hal::UI_H;
+constexpr int W = BOARD.display.ui.w, H = BOARD.display.ui.h;
 constexpr int BAND = 40;  // rows LVGL renders at a time
 constexpr size_t BAND_BYTES = W * BAND * 2;
 

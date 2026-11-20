@@ -59,7 +59,7 @@ void roadPlain(const Canvas& c, const uint16_t* src, int X0) {
   for (int y = c.y0; y < c.y1; y++) {
     uint16_t* d = c.row(y);
     if ((y & 1) && y > c.y0) {  // the second row of a source row: a copy
-      memcpy(d, d - W, W * 2);
+      memcpy(d, c.row(y - 1), W * 2);
       continue;
     }
     const uint16_t* s = src + (y >> 1) * ROAD_W + (X0 >> 1);

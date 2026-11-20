@@ -40,6 +40,11 @@ struct Package {
 const std::vector<Package>& list();
 const Package* find(const char* id);
 uint32_t version();  // changes on every install, removal, move, card in/out
+// The memory card has been looked for since power-on (mounted or not there). Until then the apps it held last time
+// are drawn as usual rather than greyed: the card nearly always answers a moment later (0.5.7: Home was built twice).
+bool cardChecked();
+// At boot, before Home is built: waits up to `ms` for the first look for a card and takes in what it found.
+void awaitCard(uint32_t ms);
 void relabel();      // the language changed: names again (i18n.cpp)
 
 // One file of an installed package (any of its parts), e.g. open("vn.pawboop.run", "core/run_dog.pbs", f).

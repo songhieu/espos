@@ -18,6 +18,7 @@
 #include "touch.h"
 #include "trace.h"
 #include "os.h"
+#include "splash.h"
 #include "led.h"
 #include "wake/wake.h"
 #ifndef NO_PET
@@ -35,11 +36,14 @@ static void lvLog(lv_log_level_t, const char* msg) {
 static uint32_t tickMs() { return millis(); }
 
 void setup() {
-  // Ordinary malloc/new/String of 64 bytes or more goes to PSRAM (the build's default kept everything under
+  // Ordinary malloc/new/String of 16 bytes or more goes to PSRAM (the build's default kept everything under
   // 4 KB internal). Internal RAM (~40 KB free while running) is what WiFi, DMA, TLS's AES engine, the SD card
   // and task stacks must have, and they ask for it by name. Measured on the board 2026-11-17: News left 13 KB
   // of headlines in internal RAM, and a sweep of the apps took it from 42 KB to 7 KB (SD reads and TLS failed).
-  heap_caps_malloc_extmem_enable(64);
+  // 0.5.7: 16 instead of 64. The 16-63 byte blocks (map nodes, short Strings, small vectors of every feature since
+  // 0.4.2, each with the heap's own header) had grown to ~12 KB of internal RAM: free internal 107 -> 120 KB and the
+  // largest block 64 -> 76 KB in QEMU (the board was down to 54-56 KB free and TLS handshakes failed).
+  heap_caps_malloc_extmem_enable(16);
   Serial.setRxBufferSize(2048);  // provisioning lines are long
   Serial.begin(115200);
   // Logs must never stall the UI. With the cable in a computer but no program reading the port,
@@ -47,8 +51,12 @@ void setup() {
 #if ARDUINO_USB_CDC_ON_BOOT
   Serial.setTxTimeoutMs(0);
 #endif
+  // A computer that opened the port gets the lines below from the start; with none (a charger, a battery, a computer
+  // not reading) never wait for one: that was 1.5 s of black screen at every power-on (0.5.7). The trace keeps them.
+#if ARDUINO_USB_CDC_ON_BOOT
   uint32_t t0 = millis();
-  while (!Serial && millis() - t0 < 1500) delay(10);
+  while (!Serial && HWCDC::isPlugged() && millis() - t0 < 300) delay(10);
+#endif
   Serial.printf("\n%s boot, PSRAM %u KB free, heap %u KB\n", FW_VERSION, ESP.getFreePsram() / 1024,
                 ESP.getFreeHeap() / 1024);
   trace::begin();
@@ -72,9 +80,11 @@ void setup() {
   heap("display");
   if (!touch::begin(disp)) Serial.println("touch: controller not ready");
   fonts::begin();
+  ota::begin();
+  if (!ota::installing()) splash::show();  // the boot screen at once (EspOS and a bar), then the backlight
   power::poll();
   desk::begin();  // settings and the cached dashboard, before the UI is built from them
-  ota::begin();
+  splash::step(25);
   if (ota::installing()) {
     // Install mode (ota.cpp): only the install screen and WiFi, so the download has the internal RAM.
     ota::beginInstallScreen();
@@ -83,9 +93,8 @@ void setup() {
     heap("install mode");
     return;
   }
-  os::begin(disp);
+  os::begin(disp);  // Home replaces the boot screen (its brightness: os::begin)
   heap("ui");
-  lcd::setBacklight(70);
   net::begin();
   heap("wifi");
   remote::begin();

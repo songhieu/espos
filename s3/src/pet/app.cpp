@@ -30,8 +30,10 @@
 #include "apps.h"
 #include "home.h"
 #include "i18n.h"
+#include "lock.h"
 #include "pkg/pkg.h"
 #include "run/run.h"
+#include "sfx.h"
 
 namespace pet {
 namespace app {
@@ -80,9 +82,11 @@ constexpr int NPARTS = sizeof PARTS / sizeof PARTS[0], SHEET_PART = NPARTS - 1;
 
 struct Game {
   lv_obj_t *scr = nullptr, *img = nullptr, *body = nullptr, *runPill = nullptr;
+  lv_obj_t* trialChip = nullptr;  // "Trial · 3 days left" at the stage's lower left (lock.h); none outside a trial
   lv_obj_t* part[NPARTS] = {};  // landscape: the shown parts (img is not used then)
   lv_image_dsc_t partDsc[NPARTS];
   int arrived = 0;  // coins from the run, to show when she is in front again
+  String dogPkg;    // the dog's package (its sounds: sfx.h)
   lv_image_dsc_t dsc;
   uint16_t *buf = nullptr, *snap = nullptr;  // the screen; the stage before a clip change (rows 80..347)
   lv_timer_t* timer = nullptr;
@@ -418,6 +422,7 @@ void play(const char* name) {
   snapshot();
   g->clip = c, g->info = brain::info(name), g->i = 0, g->loops = 0, g->fade = g->shown ? FADE : 0;
   dog::want(pk::frame(c, 0), 0);
+  sfx::clip(name);  // its sounds follow its pictures
 }
 
 bool say(const pba_clip_t* l, bool force) {
@@ -492,6 +497,7 @@ void dropCoins(int n, bool keep) {
 
 void collect(Coin& c) {
   c.st = 2, c.t = 0, c.x0 = c.x, c.y0 = c.y;
+  sfx::event("coin");  // it flies to her purse
 }
 
 void stepCoins(float dt) {
@@ -536,8 +542,10 @@ void moment(int kind, int arg) {
 void act(int b) {
   if (g->splash > 0) return;
   const char* a = BTN[b];
+  sfx::event("tap");  // every round button (the phone game's ui_tap)
   if (!strcmp(a, "feed")) {
     g->sheet = !g->sheet, g->sayPlaced = false;
+    if (g->sheet) sfx::event("sheet");  // the pantry opens
     return;
   }
   if (g->sheet) g->sheet = false, g->sayPlaced = false;
@@ -545,12 +553,14 @@ void act(int b) {
   if (!strcmp(a, "play")) {
     if (st.need[game::ENERGY] < game::G.playNo) {
       say(voice::lineFor("@no_tired"), true);
+      sfx::event("no_tired");
       const char* n = brain::byRole("sleepy");
       play(n ? n : brain::byRole("idle"));
       return;
     }
     if (st.need[game::FOOD] < game::G.playNo) {
       say(voice::lineFor("@no_hungry"), true);
+      sfx::event("no_hungry");
       const char* n = brain::byRole("hungry");
       play(n ? n : brain::byRole("idle"));
       return;
@@ -576,12 +586,15 @@ void feedTier(int t) {
   if (st.coins < game::G.price[t]) {
     g->sheet = false;
     say(voice::lineFor("@no_coins"), true);
+    sfx::event("no_coins");
     return;
   }
   st.coins -= game::G.price[t];
   g->sheet = false;
   const int v = game::verdict(t);
   game::feedEffect(v);
+  sfx::event("feed");  // the bowl lands, the food pours
+  if (v == 2) sfx::event("love");
   if (v == 0) {  // under her taste: she turns it down (and still nibbles)
     play("yuck");
     say(voice::lineFor("yuck"), true);
@@ -674,6 +687,7 @@ void picture(bool draw) {
   stepCoins(1.0f / FPS);
   if (g->pressT > 0) g->pressT -= 1.0f / FPS;
   const pbs2_frame_t* f = pk::frame(g->clip, g->i);
+  sfx::picture(g->i);
   if (draw) {
     const uint32_t t0 = nowUs();
     int a, b;
@@ -771,6 +785,11 @@ void onTimer(lv_timer_t*) {
   const float dt = fminf(0.25f, (now - g->last) / 1000.0f);
   g->last = now;
   game::advance((uint32_t)(dt * 1000), alone());
+  if (onScreen() && g->splash <= 0) {  // in front (again: the run had the sounds): her sounds and the home tune
+    sfx::open(g->dogPkg.c_str(), false);
+    sfx::home();
+  }
+  sfx::frame(false, onScreen() && g->splash <= 0);
   if (!onScreen()) {
     g->acc = 0;
     return;
@@ -782,13 +801,17 @@ void onTimer(lv_timer_t*) {
       say(voice::lineFor("@hello"), true);
       g->acc = 1.0f / FPS;
       if (g->runPill) lv_obj_remove_flag(g->runPill, LV_OBJ_FLAG_HIDDEN);
+      if (g->trialChip) lv_obj_remove_flag(g->trialChip, LV_OBJ_FLAG_HIDDEN);
       showParts();
     }
     return;
   }
+  if (g->trialChip && g->sheet != lv_obj_has_flag(g->trialChip, LV_OBJ_FLAG_HIDDEN))  // not over the food sheet
+    g->sheet ? lv_obj_add_flag(g->trialChip, LV_OBJ_FLAG_HIDDEN) : lv_obj_remove_flag(g->trialChip, LV_OBJ_FLAG_HIDDEN);
   if (g->arrived > 0) {  // back from the run: the coins are in her purse already (the header shows them)
     showArrived(g->arrived);
     g->arrived = 0;
+    sfx::event("arrived");
     say(voice::lineFor("@coin"), true);  // the dog's own @coin line ("Vàng nè khanh!...")
   }
   game::State& st = game::s();
@@ -798,8 +821,8 @@ void onTimer(lv_timer_t*) {
     dropCoins(1, true);
     if (voice::quietMs() > 3500) say(voice::lineFor("@coin"), false);
   }
-  if (st.levelUp) st.levelUp = false, g->ft.push_back(0), g->next = "@levelup", moment(1, st.lv);
-  if (st.gift) st.gift = false, g->ft.push_back(0), g->next = "@gift";
+  if (st.levelUp) st.levelUp = false, g->ft.push_back(0), g->next = "@levelup", moment(1, st.lv), sfx::event("levelup");
+  if (st.gift) st.gift = false, g->ft.push_back(0), g->next = "@gift", sfx::event("gift");
   if (g->sayT > 0) g->sayT -= dt;
   if (g->next && !voice::busy()) {
     say(voice::lineFor(g->next), false);
@@ -817,10 +840,10 @@ void onTimer(lv_timer_t*) {
   if (g->acc > fd) g->acc = 0;
   if (now - g->statAt > 10000 && g->pics) {
     dog::Stats& ds = dog::stats();
-    trace::add("pet: %lu pics/10s, compose avg %lu max %lu us, %lu rows/pic, late %lu | decode %lu (ahead %lu, inline %lu) avg %lu max %lu us",
+    trace::add("pet: %lu pics/10s, compose avg %lu max %lu us, %lu rows/pic, late %lu | decode %lu (ahead %lu, inline %lu, held %lu) avg %lu max %lu us",
                (unsigned long)g->pics, (unsigned long)(g->composeUs / g->pics), (unsigned long)g->composeMax,
                (unsigned long)(g->rows / g->pics), (unsigned long)g->lateSteps, (unsigned long)ds.pictures,
-               (unsigned long)ds.ahead, (unsigned long)ds.late,
+               (unsigned long)ds.ahead, (unsigned long)ds.late, (unsigned long)ds.held,
                (unsigned long)(ds.ahead + ds.late ? ds.decUs / (ds.ahead + ds.late) : 0), (unsigned long)ds.decMaxUs);
     voice::Stats& vs = voice::stats();
     trace::add("pet: voice %lu lines, %lu packets, decode avg %lu max %lu us, underruns %lu, first sound %lu us",
@@ -835,6 +858,7 @@ void onEvent(lv_event_t* e) {
   const lv_event_code_t code = lv_event_get_code(e);
   lv_point_t p;
   lv_indev_get_point(lv_indev_active(), &p);
+  p.x -= os::colX(), p.y -= os::colY();  // a bigger screen than the 3.5" board's: the page sits in its middle
   const intptr_t k = (intptr_t)lv_event_get_user_data(e);  // landscape: the part touched, 1-based
   if (k > 0) {  // back to the portrait page's screen px
     const Part& pt = PARTS[k - 1];
@@ -853,6 +877,7 @@ void onDelete(lv_event_t*) {
   if (!g) return;
   if (g->timer) lv_timer_delete(g->timer);
   hush();
+  sfx::close(false);
   game::save();
   lv_image_cache_drop(&g->dsc);
   if (g->part[0])
@@ -925,8 +950,11 @@ void open() {
   }
   g = new Game();
   g->buf = buf, g->snap = snap;
+  g->dogPkg = dogs::pkgId(pk::dogKey());
+  sfx::open(g->dogPkg.c_str(), false);
   lv_obj_t* body;
   g->scr = os::screen("PawBoop", &body, os::BARE);
+  os::column(body);  // laid out for 320 x 480 (480 x 320): in the middle of a bigger screen
   lv_obj_set_style_bg_color(g->scr, lv_color_white(), 0);
   g->dsc.header.magic = LV_IMAGE_HEADER_MAGIC;
   g->dsc.header.cf = LV_COLOR_FORMAT_RGB565;
@@ -975,6 +1003,12 @@ void open() {
   fitText(runLabel, N_("Coin Run"), 74, 20, 12, 9, true, 0);  // i18n: the run game's name on a small orange pill
   lv_obj_center(runLabel);
   lv_obj_add_event_cb(g->runPill, openRun, LV_EVENT_CLICKED, nullptr);
+  lv_obj_add_event_cb(g->runPill, [](lv_event_t*) { sfx::event("tap"); }, LV_EVENT_CLICKED, nullptr);
+  // The trial's days (lock.h): the stage's lower left corner, clear of her and of the buttons.
+  if ((g->trialChip = lock::chip(body, true))) {
+    lv_obj_update_layout(g->trialChip);
+    lv_obj_set_pos(g->trialChip, land ? 8 : 12, (land ? PARTS[0].dy + (STAGE_B - STAGE_VIS) - 30 : STAGE_B - 30) - SB);
+  }
   lv_obj_add_event_cb(g->scr, onDelete, LV_EVENT_DELETE, nullptr);
   lv_obj_add_event_cb(g->scr, [](lv_event_t*) { os::barDark(true); }, LV_EVENT_SCREEN_LOADED, nullptr);
   voice::setMuted(game::s().muted);
@@ -984,6 +1018,7 @@ void open() {
     g->splash = 1.8f;
     splashScreen();
     lv_obj_add_flag(g->runPill, LV_OBJ_FLAG_HIDDEN);  // shown with the game
+    if (g->trialChip) lv_obj_add_flag(g->trialChip, LV_OBJ_FLAG_HIDDEN);
   } else {
     render(0, BH);
     idleNext();

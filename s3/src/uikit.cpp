@@ -400,4 +400,16 @@ String ago(int64_t thenMs, int64_t nowMs) {
   return i18n::plural((int)(m / 1440), NP_("{n} day ago|{n} days ago"));
 }
 
+lv_obj_t* qr(lv_obj_t* parent, const char* text, int size) {
+  lv_obj_t* b = box(parent, 0xffffff, size / 10);
+  lv_obj_set_size(b, size, size);
+  lv_obj_t* q = lv_qrcode_create(b);
+  lv_qrcode_set_size(q, size - 2 * max(6, size / 12));
+  lv_qrcode_set_dark_color(q, lv_color_black());
+  lv_qrcode_set_light_color(q, lv_color_white());
+  lv_qrcode_update(q, text, strlen(text));
+  lv_obj_center(q);
+  return b;
+}
+
 }  // namespace kit

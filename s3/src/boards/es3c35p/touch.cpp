@@ -13,7 +13,7 @@
 namespace es3c35p {
 namespace {
 
-constexpr int LCD_W = hal::UI_W, LCD_H = hal::UI_H;  // the UI: the panel's own size here
+constexpr int LCD_W = BOARD.display.ui.w, LCD_H = BOARD.display.ui.h;  // the UI: the panel's own size here
 esp_lcd_touch_handle_t tp;
 SemaphoreHandle_t intr;
 

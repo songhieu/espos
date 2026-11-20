@@ -1,3 +1,4 @@
+#pragma GCC optimize("Os")  // cold code: built small (0.5.7 flash diet; the app slot is full)
 // Java (J2ME) games on the device: engine "j2me" of packages (src/pkg/pkg.cpp). The design: mockups/s3-j2me.html.
 //   - The game's 240x320 screen on top (full screen: no status bar), the keypad under it: soft keys and the menu
 //     (⋯) on the first row, the arrows with OK on the left, 0-9 * # on the right.
@@ -22,6 +23,7 @@
 #include "../home.h"
 #include "../fonts.h"
 #include "../os.h"
+#include "../pet/pet.h"  // summoned(): the dog's pop-up pauses the game
 #include "../pkg/pkg.h"
 #include "../sound.h"
 #include "../trace.h"
@@ -83,6 +85,7 @@ struct Game {
   std::atomic<int> refs{2};          // the UI and the VM's task: the last one to let go frees the game
   std::string failure;               // why it could not run (under mu)
   bool muted = false;
+  bool covered = false;  // the dog's pop-up is over the game: paused (as for the menu), shown again when it closes
   // UI (only the UI thread touches these)
   lv_obj_t *scr = nullptr, *img = nullptr, *softLeft = nullptr, *softRight = nullptr, *menu = nullptr;
   int scale = 256;  // landscape: a game too wide for 100 px of keys a side is drawn smaller (LVGL's 1/256 steps)
@@ -327,6 +330,12 @@ void vmTask(void* arg) {
 // ---------------------------------------------------------------- UI
 void onTimer(lv_timer_t* t) {
   Game* g = (Game*)lv_timer_get_user_data(t);
+  // The dog's pop-up (a "Gâu" call): the game is paused while it is up (hideNotify), shown again after (showNotify).
+  const bool covered = pet::summoned();
+  if (covered != g->covered && lv_screen_active() == g->scr) {
+    g->covered = covered;
+    if (!g->menu) g->host.post(covered ? 7 : 8);
+  }
   int y1, y2;
   std::string l, r, fail;
   bool soft = false;
@@ -639,7 +648,10 @@ void open(const char* pkgId, const char* arg) {
   g->dataDir = dataDir(p);
   if (FILE* f = fopen((g->dataDir + "screen").c_str(), "r")) {
     int w = 0, h = 0;
-    if (fscanf(f, "%dx%d", &w, &h) == 2 && w >= 96 && h >= 96 && w <= GAME_MAX_W && h <= GAME_MAX_H) g->gw = w, g->gh = h;
+    char line[24];  // fgets + sscanf, not fscanf: newlib's stream scanner is 9 KB of the app slot (0.5.7)
+    if (fgets(line, sizeof line, f) && sscanf(line, "%dx%d", &w, &h) == 2 && w >= 96 && h >= 96 && w <= GAME_MAX_W &&
+        h <= GAME_MAX_H)
+      g->gw = w, g->gh = h;
     fclose(f);
   }
   g->back565 = (uint16_t*)psram(g->gw * g->gh * 2);

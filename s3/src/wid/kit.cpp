@@ -5,6 +5,7 @@
 #include "../data.h"
 #include "../desk.h"
 #include "../fonts.h"
+#include "../net.h"
 #include "../theme.h"
 
 namespace wid {
@@ -146,7 +147,32 @@ const char* noData() {
   return desk::link() == desk::Link::Linked ? N_("Waiting for the next sync") : N_("Link EspOS to get data");
 }
 
+bool firstDataComing() {
+  return desk::link() == desk::Link::Linked && desk::lastSyncMs() == 0 && net::savedCount() > 0 && millis() < 120000;
+}
+
+// No dashboard yet and the first sync after power-on on its way (linked, a network saved, none done yet): grey bars
+// stand where the data will come, instead of words about waiting or "nothing today" (0.5.7). Two minutes without it:
+// the words again (os.cpp rebuilds Home then).
+bool skeleton(lv_obj_t* p, int x, int y, int w, int h, uint32_t color) {
+  if (!desk::dash().isNull() || !firstDataComing()) return false;
+  static const uint8_t PCT[] = {45, 85, 65};
+  for (int i = 0, yy = y; i < 3 && yy + 10 <= y + h; i++) {
+    const int bh = i || h < 40 ? 10 : 16;
+    lv_obj_t* b = lv_obj_create(p);
+    lv_obj_remove_style_all(b);
+    lv_obj_set_pos(b, x, yy);
+    lv_obj_set_size(b, w * PCT[i] / 100, bh);
+    lv_obj_set_style_radius(b, bh / 2, 0);
+    lv_obj_set_style_bg_color(b, lv_color_hex(color), 0);
+    lv_obj_set_style_bg_opa(b, i ? LV_OPA_20 : LV_OPA_30, 0);
+    yy += bh + 10;
+  }
+  return true;
+}
+
 void empty(Card c, const char* text, uint32_t color, int y) {
+  if (skeleton(c.o, 0, y, c.w, c.h - y, color)) return;
   fit(c.o, text, 0, y, c.w, c.h - y, 14, 12, false, color, 3);
 }
 

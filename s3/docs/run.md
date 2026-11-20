@@ -28,6 +28,7 @@ in the phone game). Where the brief and the page differ, the page was followed.
   17/s, the arrows, every dog running; QEMU (the real firmware): Bao's run from the card.
 
 ## One game: PawBoop (the run earns her food)
+
 - Home shows PawBoop only. In the pet screen's header, between the level chip and the coin chip (x 152..231,
   y 33..54), an orange pill "Chạy lấy xu" (the run's own orange, `src/pet/app.cpp`). Tapping it:
   installed and available -> `pkg::run("vn.pawboop.run", "pet")`, the run opens over her screen (the back gesture
@@ -128,7 +129,7 @@ that is a tap (start, run again).
   uses every 2nd one (`World::skip`, TJpgDec), the live simulator at the board's speed every one (`media::fast()`).
 - Card reads (`pkg::in::readAt`): plain `open`/`lseek`/`read`. A 14 KB road picture: 2.3 ms; through stdio's 128-byte
   FILE buffer it was 8.2 ms, unbuffered stdio 380 ms (one byte a call). `CARDBENCH <path>` on the dev console
-  measures the ways.
+  of a qa build (env s3desk-qa) measures the ways.
 - Dog (289 KB) and things (1.1 MB) PBS2 packs: memory-mapped when installed in the internal flash (no copy); from the
   card only their tables and frame records are in PSRAM, a frame's bytes are read when it is decoded.
 - Sprites are decoded into a cache in PSRAM (up to 3 MB, PSRAM free - 1 MB: 618 KB from the card), least recently

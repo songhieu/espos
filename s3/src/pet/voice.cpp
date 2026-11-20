@@ -7,6 +7,7 @@
 
 #include "dog.h"
 #include "packs.h"
+#include "sfx.h"
 #include "sound.h"
 #include "trace.h"
 
@@ -37,7 +38,7 @@ struct Last {
   uint32_t key;  // hash of the file and the moment; 0 = free
   char name[16];
 };
-constexpr int LASTS = 160;
+constexpr int LASTS = 256;  // the lines' moments and the game's sounds (sfx.cpp)
 Last* lasts = nullptr;
 Last* lastFor(const void* file, const char* on) {
   uint32_t h = 2166136261u ^ (uint32_t)(uintptr_t)file;
@@ -61,6 +62,7 @@ inline int16_t gain(int v) {
 bool makeDecoder() {
   if (dec) return true;
   int err = 0;
+  std::lock_guard<std::mutex> lk(opusLock());
   dec = opus_decoder_create(RATE, 1, &err);  // ~18 KB, lands in PSRAM
   if (err != OPUS_OK) dec = nullptr, trace::add("pet: opus decoder %d", err);
   return dec;
@@ -79,7 +81,10 @@ bool decodeClip(const Item& it, Out out, volatile uint32_t* gen = nullptr, uint3
   }
   const uint8_t* end = p + l->bytes;
   int16_t pcm[960];
-  opus_decoder_ctl(dec, OPUS_RESET_STATE);  // every clip starts clean
+  {
+    std::lock_guard<std::mutex> lk(opusLock());
+    opus_decoder_ctl(dec, OPUS_RESET_STATE);  // every clip starts clean
+  }
   uint32_t skip = it.pack->head()->pre_skip, left = l->samples;
   bool go = true;
   for (int k = 0; k < l->packets && left && p + 2 <= end; k++) {
@@ -89,9 +94,14 @@ bool decodeClip(const Item& it, Out out, volatile uint32_t* gen = nullptr, uint3
     }
     const int len = p[0] | p[1] << 8;
     if (p + 2 + len > end) break;
-    const uint32_t t0 = nowUs();
-    const int got = opus_decode(dec, p + 2, len, pcm, 960, 0);
-    const uint32_t us = nowUs() - t0;
+    int got;
+    uint32_t us;
+    {
+      std::lock_guard<std::mutex> lk(opusLock());
+      const uint32_t t0 = nowUs();
+      got = opus_decode(dec, p + 2, len, pcm, 960, 0);
+      us = nowUs() - t0;
+    }
     st.packets++, st.decUs += us, st.decMaxUs = max(st.decMaxUs, us);
     p += 2 + len;
     if (got <= 0) break;
@@ -209,7 +219,7 @@ void play(const Item* items, int n) {
   // Start the speaker once the decoder has the first packet out (a few ms; a card read first), so a line never
   // begins with a gap of silence.
   for (int k = 0; k < 30 && g.w - g.r == 0 && !g.done; k++) vTaskDelay(1);
-  sound::stream(pull, &g);
+  sfx::voice(pull, &g);  // into the mix with the game's sounds (sfx.h)
 }
 void stopDecoder() {  // whatever the task decodes is not wanted any more (it may point at a dog going away)
   portENTER_CRITICAL(&vLock);
@@ -241,7 +251,7 @@ void play(const Item* items, int n) {
     });
     simPcm.insert(simPcm.end(), (size_t)items[k].gapMs * (RATE / 1000), 0);
   }
-  sound::stream(pull, nullptr);
+  sfx::voice(pull, nullptr);
 }
 #endif
 
@@ -254,13 +264,18 @@ void begin(const Item* items, int n) {
   endMs = startMs + ms;
   st.lines++;
   trace::add("pet: says %.16s%s%s", items[0].clip->name, n > 1 ? " + kit" : "", mute ? " (muted)" : "");
-  if (mute) sound::stopStream();
+  if (mute) sfx::voice(nullptr, nullptr);
   else play(items, n);
 }
 
 }  // namespace
 
 Stats& stats() { return st; }
+
+std::mutex& opusLock() {
+  static std::mutex m;
+  return m;
+}
 
 const pba_clip_t* of(const pk::Pba& pack, const char* on) {
   if (!on || !pack.ok()) return nullptr;
@@ -335,13 +350,13 @@ bool say(const Item* items, int n) {
 void hush() {  // as the page: the dog counts as quiet for long, so its own talk may come next
   everSpoke = false;
   cur = nullptr;
-  sound::stopStream();
+  sfx::voice(nullptr, nullptr);  // the voice fades out; the game's sounds go on
   stopDecoder();
 }
 
 void setMuted(bool m) {
   mute = m;
-  if (m) sound::stopStream();
+  if (m) sfx::voice(nullptr, nullptr);
 }
 bool muted() { return mute; }
 

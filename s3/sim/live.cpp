@@ -21,9 +21,13 @@
 #include "desk.h"
 #include "realsize.h"
 #include "sound.h"
+#include "cues.h"
 #include "mic.h"
 #include <atomic>
 #include <chrono>
+#include <mutex>
+#include <string>
+#include <thread>
 
 namespace live {
 bool on = false;
@@ -289,6 +293,12 @@ namespace sound {
 namespace {
 constexpr int RATE = 16000;
 SDL_AudioDeviceID dev = 0;
+// SIM_MUTE=1: no speaker at all; the same callback is paced by the clock, 20 ms at a time as the board's sound task
+// (SDL's dummy driver runs slower than real time), so SIM_WAV records the right timing without a sound.
+bool muted = false;
+std::mutex muteMx;
+void lockDev() { muted ? muteMx.lock() : SDL_LockAudioDevice(dev); }
+void unlockDev() { muted ? muteMx.unlock() : SDL_UnlockAudioDevice(dev); }
 int vol = 45;
 std::vector<int16_t> tones, voice, clickWave;  // what plays next (filled under the device lock)
 size_t toneAt = 0, voiceAt = 0;
@@ -309,12 +319,27 @@ float gainFor(int v) {
   return powf(10.0f, ((reg - 0xBF) * 0.5f - 12.0f) / 20.0f);
 }
 
+// SIM_ECHO: the speaker's samples as they are handed to SDL, each chunk stamped with the wall clock when it came,
+// so the mic thread can take what was playing 25 ms before its own block (the board's speaker-to-mic path).
+constexpr int ECHO_RING = 1 << 17;  // 8 s
+int16_t echoRing[ECHO_RING];
+std::atomic<int64_t> echoIdx{0}, echoStart{0}, echoAtUs{0};  // samples written; the last chunk's first; when it came
+int64_t nowUs() {
+  return std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
+}
+void echoPut(const int16_t* out, int n) {
+  const int64_t i0 = echoIdx;
+  for (int i = 0; i < n; i++) echoRing[(i0 + i) & (ECHO_RING - 1)] = out[i];
+  echoStart = i0, echoAtUs = nowUs();
+  echoIdx = i0 + n;
+}
+
 void callback(void*, Uint8* bytes, int len) {
   int16_t* out = (int16_t*)bytes;
   const int n = len / 2;
-  short pulled[2048];
+  static short pulled[8192];  // (the dummy driver asks for more than 320 at a time)
   int have = 0;
-  if (sPull && n <= 2048) {
+  if (sPull && n <= 8192) {
     have = sPull(pulled, n, sCtx);
     if (have <= 0) sPull = nullptr, have = 0;  // it ended
   }
@@ -329,19 +354,24 @@ void callback(void*, Uint8* bytes, int len) {
       if (clickAt >= (int)clickWave.size()) clickAt = -1;
     }
     out[i] = (int16_t)std::max(-32768, std::min(32767, (int)(v * gainNow)));
+    if (i < 8192) pulled[i] = (short)std::max(-32768, std::min(32767, v));  // before the volume, for SIM_WAV
     loud = loud || out[i] > 64 || out[i] < -64;
   }
+  // SIM_WAV=path: what the speaker plays, as it plays (16 kHz mono s16le, before the volume), to check timing.
+  static FILE* wav = getenv("SIM_WAV") ? fopen(getenv("SIM_WAV"), "wb") : nullptr;
+  if (wav) fwrite(pulled, 2, std::min(n, 8192), wav);
   if (loud || sPull) lastOutMs = nowMs();
+  echoPut(out, n);
 }
 
 bool allowed() { return dev && vol > 0 && !desk::settingInt("s3.dnd", 0); }
 
 void queueTone(std::vector<int16_t>&& t, float gain) {
-  SDL_LockAudioDevice(dev);
+  lockDev();
   tones = std::move(t), toneAt = 0;
   voice.clear(), voiceAt = 0;  // chime, test and alarm stop the stream
   gainNow = gain;
-  SDL_UnlockAudioDevice(dev);
+  unlockDev();
 }
 
 void note(std::vector<int16_t>& o, int n, float (*wave)(int, int, float), float hz) {
@@ -352,7 +382,8 @@ void note(std::vector<int16_t>& o, int n, float (*wave)(int, int, float), float 
 bool begin() {
   SDL_AudioSpec want = {}, got = {};
   want.freq = RATE, want.format = AUDIO_S16SYS, want.channels = 1, want.samples = 320, want.callback = callback;
-  dev = SDL_OpenAudioDevice(nullptr, 0, &want, &got, 0);
+  muted = getenv("SIM_MUTE") != nullptr;
+  dev = muted ? 1 : SDL_OpenAudioDevice(nullptr, 0, &want, &got, 0);
   if (!dev) {
     fprintf(stderr, "[sim] no speaker: %s\n", SDL_GetError());
     return false;
@@ -365,6 +396,19 @@ bool begin() {
     clickWave.push_back((int16_t)((sinf(2 * M_PI * 2800 * i / RATE) * 0.7f + noise * 0.3f) * env * 14000));
   }
   gainNow = gainFor(vol);
+  if (muted) {
+    std::thread([] {
+      static int16_t b[320];
+      auto next = std::chrono::steady_clock::now();
+      for (;;) {
+        next += std::chrono::milliseconds(20);
+        std::this_thread::sleep_until(next);
+        std::lock_guard<std::mutex> l(muteMx);
+        callback(nullptr, (Uint8*)b, sizeof b);
+      }
+    }).detach();
+    return true;
+  }
   SDL_PauseAudioDevice(dev, 0);
   return true;
 }
@@ -372,16 +416,16 @@ bool begin() {
 void setVolume(int percent) {
   vol = std::max(0, std::min(100, percent));
   if (!dev) return;
-  SDL_LockAudioDevice(dev);
+  lockDev();
   gainNow = gainFor(vol);
-  SDL_UnlockAudioDevice(dev);
+  unlockDev();
 }
 
 void click() {
   if (!allowed() || !desk::settingInt("s3.click", 1)) return;
-  SDL_LockAudioDevice(dev);
+  lockDev();
   clickAt = 0;
-  SDL_UnlockAudioDevice(dev);
+  unlockDev();
 }
 
 void chime() {
@@ -396,15 +440,22 @@ void chime() {
 
 void blip() {
   if (!dev || vol <= 0) return;
-  std::vector<int16_t> t;
-  for (float hz : {988.0f, 1319.0f})
-    note(t, RATE * 70 / 1000, [](int k, int n, float f) {
-      return sinf(2 * M_PI * f * k / RATE) * std::min(1.0f, k / 40.0f) * std::min(1.0f, (n - k) / 160.0f) * 9000;
-    }, hz);
-  SDL_LockAudioDevice(dev);
+  std::vector<int16_t> t(cues::length(cues::LISTEN, RATE));  // the board's cue, sample for sample (src/cues.h)
+  cues::render(cues::LISTEN, RATE, t.data());
+  lockDev();
   tones = std::move(t), toneAt = 0;  // over the stream, not instead of it
   gainNow = gainFor(vol);
-  SDL_UnlockAudioDevice(dev);
+  unlockDev();
+}
+
+void blipEnd() {
+  if (!dev || vol <= 0) return;
+  std::vector<int16_t> t(cues::length(cues::SENT, RATE));  // the board's cue, sample for sample (src/cues.h)
+  cues::render(cues::SENT, RATE, t.data());
+  lockDev();
+  tones = std::move(t), toneAt = 0;
+  gainNow = gainFor(vol);
+  unlockDev();
 }
 
 void test() {
@@ -435,10 +486,10 @@ void alarmBeep() {
 // beforehand, or the AI's voice arriving from the network (silence while it waits).
 void stream(Pull pull, void* ctx) {
   if (!dev) return;
-  SDL_LockAudioDevice(dev);
+  lockDev();
   sPull = pull, sCtx = ctx;
   voice.clear(), voiceAt = 0;
-  SDL_UnlockAudioDevice(dev);
+  unlockDev();
 }
 
 void stopStream() { stream(nullptr, nullptr); }
@@ -447,12 +498,36 @@ bool outputSince(uint32_t ms) { return nowMs() - lastOutMs < (int64_t)ms; }
 
 bool streaming() {
   if (!dev) return false;
-  SDL_LockAudioDevice(dev);
+  lockDev();
   const bool s = sPull != nullptr || voiceAt < voice.size();
-  SDL_UnlockAudioDevice(dev);
+  unlockDev();
   return s;
 }
 }  // namespace sound
+
+// The mic's block plus what the speaker played 25 ms before (SIM_ECHO dB: 0 = the board's level, the dog's voice
+// at an average -30..-35 dBFS at the mic) and the room's tail (a 50 ms loop at 0.5: ~0.5 s to fade 60 dB).
+void simEcho(int16_t* b, int n) {
+  static const char* e = getenv("SIM_ECHO");
+  if (!e) return;
+  static const float g = powf(10.0f, (float)atof(e) / 20.0f);
+  static float tail[800];  // the room: the last 50 ms of what came back
+  static int ti = 0;
+  static int64_t wantIdx = -1;
+  const int64_t idx = sound::echoIdx, start = sound::echoStart, at = sound::echoAtUs;
+  // Playing now: the last chunk's first sample came at `at`, the rest follow at 16 kHz; 25 ms later it is heard.
+  const int64_t playing = std::min(idx, start + (sound::nowUs() - at) * 16 / 1000);
+  const int64_t from = playing - 400 - n;
+  if (wantIdx < 0 || llabs(from - wantIdx) > 3200) wantIdx = from;  // a steady read position (no jumps)
+  for (int i = 0; i < n; i++, wantIdx++) {
+    const float sp = wantIdx >= 0 && wantIdx < idx && idx - wantIdx < sound::ECHO_RING
+                         ? sound::echoRing[wantIdx & (sound::ECHO_RING - 1)] * g : 0;
+    const float v = sp + 0.5f * tail[ti];
+    tail[ti] = v, ti = (ti + 1) % 800;
+    b[i] = (int16_t)std::max(-32768.0f, std::min(32767.0f, b[i] + v));
+  }
+}
+
 
 void simLed(uint8_t r, uint8_t g, uint8_t b) {
   live::ledRgb = (uint32_t)r << 16 | (uint32_t)g << 8 | b;
@@ -466,10 +541,70 @@ std::atomic<mic::Sink> micSink{nullptr};
 int16_t micBlock[160];
 int micFill = 0;
 int micPeak = 0, micBlocks = 0;
-FILE* micRec = nullptr;  // SIM_MIC=live: everything it hears, for the wake word's training (SIM_MIC_REC=0: not kept)
+// SIM_MIC=live keeps ONLY the moments around the wake word (privacy: never the room non-stop,
+// never plain conversation): 6 s before and 4 s after each call, or a near miss that was a real try (a score of 0.5
+// or more), longer while events follow each other (30 s at most), as FLAC in
+// $SIM_MIC_REC/win-<time>-<call|near>-<score>.flac, only when SIM_MIC_REC names a folder.
+constexpr float NEAR_BAR = 0.5f;
+constexpr int REC_RATE = 16000, PRE = 6 * REC_RATE, POST = 4 * REC_RATE, WIN_MAX = 30 * REC_RATE;
+bool recOn = false;
+std::mutex recMu;
+std::vector<int16_t> recRing(PRE);       // the last 6 s
+size_t recPos = 0;                       // samples written to the ring, ever
+std::vector<int16_t> recWin;             // the window being kept
+size_t recUntil = 0;                     // keep appending up to this sample count (recPos)
+std::string recName;
+
+void recFlush(std::vector<int16_t> pcm, std::string name) {  // a thread: ffmpeg writes the FLAC (lossless)
+  std::thread([pcm = std::move(pcm), name] {
+    const std::string dir = std::string(getenv("SIM_MIC_REC")) + "/";
+    const std::string cmd = "ffmpeg -v error -y -f s16le -ar 16000 -ac 1 -i - -compression_level 8 '" + dir +
+                            name + ".flac'";
+    FILE* f = popen(cmd.c_str(), "w");
+    if (!f) return;
+    fwrite(pcm.data(), 2, pcm.size(), f);
+    pclose(f);
+    fprintf(stderr, "[sim] kept %.1f s around the wake word: %s.flac\n", pcm.size() / (float)REC_RATE, name.c_str());
+  }).detach();
+}
+
+void recFeed(const int16_t* in, int n) {
+  std::lock_guard<std::mutex> g(recMu);
+  for (int i = 0; i < n; i++) {
+    recRing[recPos % PRE] = in[i];
+    recPos++;
+    if (recWin.empty()) continue;
+    recWin.push_back(in[i]);
+    if (recPos >= recUntil || recWin.size() >= (size_t)WIN_MAX) {  // 4 s after the last event (30 s at most)
+      recFlush(std::move(recWin), recName);
+      recWin.clear(), recUntil = 0;
+    }
+  }
+}
+}  // namespace
+
+void simWakeEvent(const char* kind, float score) {
+  if (!recOn || (strcmp(kind, "call") && score < NEAR_BAR)) return;
+  std::lock_guard<std::mutex> g(recMu);
+  if (recWin.empty()) {  // a new window: the last 6 s first
+    const size_t have = std::min(recPos, (size_t)PRE);
+    recWin.reserve(PRE + POST);
+    for (size_t k = recPos - have; k < recPos; k++) recWin.push_back(recRing[k % PRE]);
+    char b[96];
+    snprintf(b, sizeof b, "win-%ld-%s-%.2f", (long)time(nullptr), kind, score);
+    recName = b;
+  } else if (!strcmp(kind, "call") && recName.find("-call-") == std::string::npos) {
+    char b[96];  // a near miss that became a call: the window is named after the call
+    snprintf(b, sizeof b, "win-%ld-call-%.2f", (long)time(nullptr), score);
+    recName = b;
+  }
+  recUntil = recPos + POST;
+}
+
+namespace {
 void micCallback(void*, Uint8* bytes, int len) {
   const int16_t* in = (const int16_t*)bytes;
-  if (micRec) fwrite(bytes, 1, len, micRec), fflush(micRec);
+  if (recOn) recFeed(in, len / 2);
   for (int i = 0; i < len / 2; i++) {
     micPeak = std::max(micPeak, std::abs((int)in[i]));
     if (++micBlocks >= 16000 * 10) {  // every 10 s: is the microphone hearing anything (permission, input device)?
@@ -485,20 +620,37 @@ void micCallback(void*, Uint8* bytes, int len) {
   }
 }
 }  // namespace
+bool simLiveSound() { return true; }  // PawBoop's loops and music play here (sfx.cpp)
+
 bool simLiveMic(mic::Sink sink, bool on) {
   micSink = on ? sink : nullptr;
   if (!micDev) {
     SDL_AudioSpec want = {}, got = {};
     want.freq = 16000, want.format = AUDIO_S16SYS, want.channels = 1, want.samples = 160, want.callback = micCallback;
-    micDev = SDL_OpenAudioDevice(nullptr, 1, &want, &got, 0);
+    // The system's default input, by its real name; never a phone (an "iPhone Microphone" offered through
+    // Continuity): then the Mac's own microphone, which is what a board on the desk would hear.
+    char* defName = nullptr;
+    SDL_AudioSpec defSpec;
+    if (SDL_GetDefaultAudioInfo(&defName, &defSpec, 1) != 0) defName = nullptr;
+    std::string name = defName ? defName : "";
+    if (defName) SDL_free(defName);
+    if (name.empty() || name.find("iPhone") != std::string::npos) {
+      std::string pick;
+      for (int i = 0; i < SDL_GetNumAudioDevices(1); i++) {
+        const char* n = SDL_GetAudioDeviceName(i, 1);
+        if (!n || strstr(n, "iPhone")) continue;
+        if (strstr(n, "MacBook") || strstr(n, "Built-in")) { pick = n; break; }
+        if (pick.empty() && strstr(n, "Microphone")) pick = n;
+      }
+      if (!pick.empty()) name = pick;
+    }
+    micDev = SDL_OpenAudioDevice(name.empty() ? nullptr : name.c_str(), 1, &want, &got, 0);
     if (!micDev) return fprintf(stderr, "[sim] no microphone: %s\n", SDL_GetError()), false;
     if (getenv("SIM_MIC_REC") && *getenv("SIM_MIC_REC") && strcmp(getenv("SIM_MIC_REC"), "0")) {  // a folder
-      char path[512];
-      snprintf(path, sizeof path, "%s/live-%ld.raw", getenv("SIM_MIC_REC"), (long)time(nullptr));
-      micRec = fopen(path, "wb");
-      fprintf(stderr, "[sim] recording the microphone to %s\n", micRec ? path : "(failed)");
+      recOn = true;
+      fprintf(stderr, "[sim] keeping only ~10 s of the microphone around each call or near miss of %.1f+ (SIM_MIC_REC/win-*.flac)\n", NEAR_BAR);
     }
-    fprintf(stderr, "[sim] microphone: %s, %d Hz\n", SDL_GetAudioDeviceName(0, 1) ? SDL_GetAudioDeviceName(0, 1) : "default", got.freq);
+    fprintf(stderr, "[sim] microphone: %s, %d Hz\n", name.empty() ? "the system's default input" : name.c_str(), got.freq);
   }
   SDL_PauseAudioDevice(micDev, on ? 0 : 1);
   return true;

@@ -18,6 +18,55 @@
 #define HOT __attribute__((optimize("O2")))
 
 namespace tank {
+#ifndef TANK_OLD_MATH  // (tank_int.h)
+HOT float fsin(float x) {
+  const float k = x * 0.15915494f;
+  x -= 6.2831853f * (float)(int)(k + (k >= 0 ? 0.5f : -0.5f));  // -pi..pi
+  if (x > 1.5707964f) x = 3.1415927f - x;
+  else if (x < -1.5707964f) x = -3.1415927f - x;
+  const float x2 = x * x;
+  return x * (1 + x2 * (-0.16666667f + x2 * (0.0083333310f + x2 * -0.00019840874f)));
+}
+float fcos(float x) { return fsin(x + 1.5707964f); }
+HOT float fsqrt(float x) {  // x >= 0: 1/sqrt by the bit guess and two Newton steps (multiplies only), times x
+  if (x <= 0) return 0;
+  union {
+    float f;
+    uint32_t i;
+  } v = {x};
+  v.i = 0x5F3759DFu - (v.i >> 1);
+  float y = v.f;
+  const float h = 0.5f * x;
+  y *= 1.5f - h * y * y, y *= 1.5f - h * y * y;
+  return x * y;
+}
+HOT float fpow(float x, float p) {
+  if (x <= 0) return 0;
+  union {
+    float f;
+    uint32_t i;
+  } v = {x};
+  int e = (int)(v.i >> 23 & 255) - 127;
+  v.i = (v.i & 0x007FFFFF) | 0x3F800000;  // 1..2
+  float m = v.f;
+  if (m > 1.4142135f) m *= 0.5f, e++;
+  const float t = (m - 1) / (m + 1), t2 = t * t, l = e + t * (2.8853901f + t2 * (0.96179669f + t2 * (0.57707801f + t2 * 0.41219858f)));
+  float y = p * l;  // 2^y
+  if (y < -126) return 0;
+  if (y > 127) y = 127;
+  int i = (int)y;
+  if (y < i) i--;
+  const float f = y - i, q = 1 + f * (0.69314718f + f * (0.24022650f + f * (0.055504109f + f * (0.0096181291f + f * 0.0013333558f))));
+  v.i = (uint32_t)(i + 127) << 23;
+  return q * v.f;
+}
+#endif
+#if TANK_QA
+uint32_t fishQa[4];  // the fish part: µs in shadows, bodies, spots; body pixels
+bool qaPlain = false;  // the fish read by rows and the sway worked out per row, as before (tank plaincmp)
+#else
+constexpr bool qaPlain = false;
+#endif
 
 Scene* sc = nullptr;
 
@@ -70,6 +119,7 @@ struct Frame {  // what prepare() works out once a frame
   int tr, tg, tb;
   uint16_t rayLut[480 + 480 + 2];
   float lut[480 + 480 + 2];  // (here, not on the loop task's stack)
+  float sway[6][480];        // each plant's sideways shift per frame row (blitRows asked it for every piece)
   int rayX0[5], rayX1[5], nray = 0;  // where the beams are (lut index ranges)
   int rayK[3];
   bool raysOn = false;
@@ -94,13 +144,35 @@ HOT inline __attribute__((always_inline)) int sample(const Spr* s, int x, int y,
   *col = mix(t, b, fy);
   return a;
 }
-// one sprite pixel: shade (32 = as it is), the light, the fog, alpha (0..256)
-HOT inline __attribute__((always_inline)) void put(uint16_t* d, uint32_t c, int a, int shade, int alpha, const Look_& K) {
+// the same from a fish's picture by columns (Spr::t): the same numbers, read down the column
+HOT inline __attribute__((always_inline)) int sampleT(const Spr* s, int x, int y, uint32_t* col) {
+  const int x0 = x >> 8, y0 = y >> 8;
+  if (x0 < -1 || x0 >= s->w || y0 < -1 || y0 >= s->h) return 0;
+  const int fx = (x & 255) >> 3, fy = (y & 255) >> 3;
+  const uint32_t* T = s->t + x0 * s->th + y0;
+  const uint32_t p00 = T[0], p01 = T[1], p10 = T[s->th], p11 = T[s->th + 1];
+  const int a00 = p00 >> 16, a10 = p10 >> 16, a01 = p01 >> 16, a11 = p11 >> 16;
+  const int at = a00 + (((a10 - a00) * fx) >> 5), ab = a01 + (((a11 - a01) * fx) >> 5), a = at + (((ab - at) * fy) >> 5);
+  if (a < 3) return 0;
+  const uint32_t t = mix(ex((uint16_t)p00), ex((uint16_t)p10), fx), b = mix(ex((uint16_t)p01), ex((uint16_t)p11), fx);
+  *col = mix(t, b, fy);
+  return a;
+}
+// The algae film as the things are drawn: their colour veiled by the film's weight under them (the background
+// carries it already: film(thing over bg) = film(thing) over film(bg)). Set by draw(); nullptr: no film.
+const uint8_t* filmNow = nullptr;
+const uint8_t* filmTNow = nullptr;  // the same by columns (when made)
+uint32_t filmGNow = 0;
+int filmFW = 0, filmFH = 0;
+
+// one sprite pixel: shade (32 = as it is), the light, the fog, the film (0..32), alpha (0..256)
+HOT inline __attribute__((always_inline)) void put(uint16_t* d, uint32_t c, int a, int shade, int alpha, const Look_& K, int fw) {
   if (shade < 32) c = mix(c, 0, 32 - shade);
   else if (shade > 32) c = mix(c, 0x07E0F81Fu, (shade - 32) >> 1);
   if (K.tr != 256)
     c = ((((c >> 11) & 31) * K.tr >> 8) << 11) | ((((c >> 21) & 63) * K.tg >> 8) << 21) | ((c & 31) * K.tb >> 8);
   if (K.fog) c = mix(c, K.fogc, K.fog);
+  if (fw) c = mix(c, filmGNow, fw);
   a = (a * alpha) >> 8;
   *d = pk(mix(ex(*d), c, (a + 4) >> 3));
 }
@@ -108,9 +180,13 @@ HOT inline __attribute__((always_inline)) void put(uint16_t* d, uint32_t c, int 
 // THE FISH BLIT (tank_ref.c blit_fish), clipped to the piece t.
 HOT void blitFish(const Tgt& t, const Chain& ch, const Look_& K, long& touched) {
   const Spr* s = ch.s;
+#if !TANK_QA
+  if (!s->t) return;
+#endif
   const int n = NSEG, dir = ch.dir, alpha = ch.alpha;
   const float vs = ch.vs, hh = s->h * vs, ox = ch.ox, oy = ch.oy;
   const int iv = (int)(65536.0f / vs);  // 16.16: no drift between the pieces of the picture
+  const float ivs = 1 / vs;
   for (int i = 0; i < n; i++) {
     float xa = ox + dir * ch.PX[i], xb = ox + dir * ch.PX[i + 1], ya = ch.PY[i], yb = ch.PY[i + 1], sa = ch.SH[i],
           sb = ch.SH[i + 1], ua = (float)i / n, ub = (float)(i + 1) / n, tt;
@@ -127,12 +203,35 @@ HOT void blitFish(const Tgt& t, const Chain& ch, const Look_& K, long& touched) 
       if (Y0 < t.y0) Y0 = t.y0;
       if (Y1 > t.y1 - 1) Y1 = t.y1 - 1;
       if (Y1 < Y0) continue;
-      int sy = (int)(((Y0 + 0.5f - yt) / vs - 0.5f) * 65536.0f);
+      if (s->cs) {  // only between the first and the last coloured row of the two columns sampled (one more each side)
+        const int c0 = sx >> 8;
+        int lo = s->h, hi = -1;
+        for (int c = c0 < 0 ? 0 : c0; c <= c0 + 1 && c < s->w; c++)
+          if (s->cs[2 * c] <= s->cs[2 * c + 1]) lo = std::min(lo, (int)s->cs[2 * c]), hi = std::max(hi, (int)s->cs[2 * c + 1]);
+        if (lo > hi) continue;
+        Y0 = std::max(Y0, (int)floorf((lo - 1 + 0.5f) * vs + yt - 0.5f));
+        Y1 = std::min(Y1, (int)ceilf((hi + 1 + 0.5f) * vs + yt - 0.5f));
+        if (Y1 < Y0) continue;
+      }
+      int sy = (int)(((Y0 + 0.5f - yt) * ivs - 0.5f) * 65536.0f);
       uint16_t* d = t.at(X, Y0);
+      const bool fc = filmTNow != nullptr;  // the film by columns: read straight down
+      const uint8_t* w = fc ? filmTNow + X * filmFH + Y0 : filmNow ? filmNow + Y0 * filmFW + X : nullptr;
+      const int ws = fc ? 1 : filmFW;
+      const bool hw = w != nullptr;
       uint32_t c;
-      for (int Y = Y0; Y <= Y1; Y++, sy += iv, d += t.dy) {
-        const int a = sample(s, sx, sy >> 8, &c);
-        if (a) put(d, c, a, shade, alpha, K), touched++;
+#if TANK_QA
+      if (!s->t || qaPlain) {  // the pictures by rows (shots: tank plaincmp)
+        for (int Y = Y0; Y <= Y1; Y++, sy += iv, d += t.dy, w += ws) {
+          const int a = sample(s, sx, sy >> 8, &c);
+          if (a) put(d, c, a, shade, alpha, K, hw ? *w : 0), touched++;
+        }
+        continue;
+      }
+#endif
+      for (int Y = Y0; Y <= Y1; Y++, sy += iv, d += t.dy, w += ws) {  // (spr() gives every fish its columns)
+        const int a = sampleT(s, sx, sy >> 8, &c);
+        if (a) put(d, c, a, shade, alpha, K, hw ? *w : 0), touched++;
       }
     }
   }
@@ -140,26 +239,39 @@ HOT void blitFish(const Tgt& t, const Chain& ch, const Look_& K, long& touched) 
 
 // THE PLANT BLIT (blit_rows): row by row, each row shifted sideways; a = 0 is the plain scaled blit.
 HOT void blitRows(const Tgt& t, const Spr* s, float x0, float ytop, float hs, float vs, float a, float pw, float ph, float k,
-              bool flip, int alpha, const Look_& K, long& touched) {
-  const float ww = s->w * hs, hh = s->h * vs;
+              bool flip, int alpha, const Look_& K, long& touched, const float* sway = nullptr) {
+  const float ww = s->w * hs, hh = s->h * vs, ihh = 1 / hh, ivs = 1 / vs, ihs = 1 / hs;  // (the S3 divides in software)
   const int ih = (int)(65536.0f / hs);
   int Y0 = (int)ceilf(ytop - 1), Y1 = (int)floorf(ytop + hh);
   if (Y0 < t.y0) Y0 = t.y0;
   if (Y1 > t.y1 - 1) Y1 = t.y1 - 1;
   for (int Y = Y0; Y <= Y1; Y++) {
-    const float yr = Y + 0.5f - ytop, tt = clampf(1 - yr / hh, 0, 1), dx = a != 0 ? a * powf(tt, pw) * sinf(ph - k * tt) : 0;
-    const int sy = (int)((yr / vs - 0.5f) * 256.0f);
+    const float yr = Y + 0.5f - ytop,
+                dx = sway && !qaPlain ? sway[Y] : a != 0 ? a * fpow(clampf(1 - yr * ihh, 0, 1), pw) * fsin(ph - k * clampf(1 - yr * ihh, 0, 1)) : 0;
+    const int sy = (int)((yr * ivs - 0.5f) * 256.0f);
     int X0 = (int)ceilf(x0 + dx - 1), X1 = (int)floorf(x0 + dx + ww);
     if (X0 < t.x0) X0 = t.x0;
     if (X1 > t.x1 - 1) X1 = t.x1 - 1;
     if (X1 < X0) continue;
-    int sx = (int)(((X0 + 0.5f - x0 - dx) / hs - 0.5f) * 65536.0f);
+    if (s->rs) {  // only between the first and the last coloured column of the two rows sampled (one more each side)
+      const int r0 = sy >> 8;
+      int lo = s->w, hi = -1;
+      for (int r = r0 < 0 ? 0 : r0; r <= r0 + 1 && r < s->h; r++)
+        if (s->rs[2 * r] <= s->rs[2 * r + 1]) lo = std::min(lo, (int)s->rs[2 * r]), hi = std::max(hi, (int)s->rs[2 * r + 1]);
+      if (lo > hi) continue;
+      const float qa = flip ? s->w - 1 - (hi + 1) : lo - 1, qb = flip ? s->w - 1 - (lo - 1) : hi + 1;
+      X0 = std::max(X0, (int)floorf((qa + 0.5f) * hs + x0 + dx - 0.5f));
+      X1 = std::min(X1, (int)ceilf((qb + 0.5f) * hs + x0 + dx - 0.5f));
+      if (X1 < X0) continue;
+    }
+    int sx = (int)(((X0 + 0.5f - x0 - dx) * ihs - 0.5f) * 65536.0f);
     uint16_t* d = t.at(X0, Y);
+    const uint8_t* w = filmNow ? filmNow + Y * filmFW + X0 : nullptr;
     uint32_t c;
     const int fl = (s->w - 1) << 8;
-    for (int X = X0; X <= X1; X++, sx += ih, d += t.dx) {
+    for (int X = X0; X <= X1; X++, sx += ih, d += t.dx, w++) {
       const int v = sample(s, flip ? fl - (sx >> 8) : sx >> 8, sy, &c);
-      if (v) put(d, c, v, 32, alpha, K), touched++;
+      if (v) put(d, c, v, 32, alpha, K, filmNow ? *w : 0), touched++;
     }
   }
 }
@@ -175,7 +287,7 @@ HOT void disc(const Tgt& t, float cx, float cy, float rx, float ry, uint16_t col
     const float uy = (Y + 0.5f - cy) * iry, uy2 = uy * uy;
     uint16_t* d = t.at(X0, Y);
     for (int X = X0; X <= X1; X++, d += t.dx) {
-      const float ux = (X + 0.5f - cx) * irx, a = clampf((1 - sqrtf(ux * ux + uy2)) * m + 0.5f, 0, 1) * al;
+      const float ux = (X + 0.5f - cx) * irx, a = clampf((1 - fsqrt(ux * ux + uy2)) * m + 0.5f, 0, 1) * al;
       const int w = (int)(a * 32.0f + 0.5f);
       if (w) *d = pk(mix(ex(*d), c, w));
     }
@@ -186,16 +298,16 @@ HOT void bubble(const Tgt& t, float cx, float cy, float r, float al) {
   X0 = std::max(X0, t.x0), Y0 = std::max(Y0, t.y0), X1 = std::min(X1, t.x1 - 1), Y1 = std::min(Y1, t.y1 - 1);
   if (X1 < X0 || Y1 < Y0) return;
   const uint32_t c = ex(rgb565(236, 248, 255));
-  const float out2 = (r + 0.45f) * (r + 0.45f), gr = r * 0.34f + 0.5f, gr2 = gr * gr;
+  const float out2 = (r + 0.45f) * (r + 0.45f), gr = r * 0.34f + 0.5f, gr2 = gr * gr, igr = 1 / gr;
   for (int Y = Y0; Y <= Y1; Y++) {
     uint16_t* p = t.at(X0, Y);
     for (int X = X0; X <= X1; X++, p += t.dx) {
       const float dx = X + 0.5f - cx, dy = Y + 0.5f - cy, d2 = dx * dx + dy * dy;
       if (d2 > out2) continue;  // past the rim: nothing (the glint is inside)
-      const float d = sqrtf(d2);
-      float a = clampf(1 - fabsf(d - r + 0.5f) / 0.9f, 0, 1) * 0.62f + (d < r ? 0.07f : 0);
+      const float d = fsqrt(d2);
+      float a = clampf(1 - fabsf(d - r + 0.5f) * (1 / 0.9f), 0, 1) * 0.62f + (d < r ? 0.07f : 0);
       const float gx = dx + r * 0.38f, gy = dy + r * 0.38f, g2 = gx * gx + gy * gy;
-      if (g2 < gr2) a += (1 - sqrtf(g2) / gr) * 0.5f;
+      if (g2 < gr2) a += (1 - fsqrt(g2) * igr) * 0.5f;
       if (a > 1) a = 1;
       const int w = (int)(a * al * 32.0f + 0.5f);
       if (w) *p = pk(mix(ex(*p), c, w));
@@ -249,7 +361,7 @@ void Scene::pick(Fish* f) {  // the next place to swim to
   if (f->S->style == ST_perch) tx = f->hx + rnd(-38, 38), ty = f->hy + rnd(-26, 26);
   else if (rnd(0, 1) < st->lap) tx = f->x < VW / 2 ? rnd(VW * 0.56f, VW - m) : rnd(m, VW * 0.44f), ty = f->y + rnd(-55, 55);
   else {
-    const float r = st->lap > 0.4f ? 90 : 60, on = cosf(f->yaw) >= 0 ? 1 : -1;
+    const float r = st->lap > 0.4f ? 90 : 60, on = fcos(f->yaw) >= 0 ? 1 : -1;
     tx = rnd(0, 1) < 0.72f ? f->x + on * rnd(r * 0.3f, r) : f->x + rnd(-r, r);
     ty = f->y + rnd(-r * 0.6f, r * 0.6f);
     if (tx < m || tx > VW - m) tx = f->x - on * rnd(r * 0.3f, r);
@@ -313,15 +425,17 @@ void Scene::setView(bool l, float s) {
   const float kx = (float)vw / VW, ky = (float)vh / VH;
   VW = vw, VH = vh, land = l, SC = s, FW = (int)(VW * s + 0.5f), FH = (int)(VH * s + 0.5f);
   AC = (VW + 15) / 16, AR = (VH + 15) / 16;
-  heap_caps_free(bgRaw), heap_caps_free(bgc);
+  heap_caps_free(bgRaw), heap_caps_free(bgc), heap_caps_free(filmW), heap_caps_free(filmT), filmT = nullptr;
   bgRaw = (uint16_t*)heap_caps_malloc(FW * FH * 2, MALLOC_CAP_SPIRAM);
   bgc = (uint16_t*)heap_caps_malloc(FW * FH * 2, MALLOC_CAP_SPIRAM);
+  filmW = (uint8_t*)heap_caps_calloc(1, FW * FH, MALLOC_CAP_SPIRAM);
   bgLoad = bgBad = true, bgTint[0] = -1;
+  filmX0 = filmX1 = 0, filmSoft = false;  // (a part left from the other size: made again whole at the next prepare)
   free(rayFade);
   rayFade = (uint8_t*)malloc(FH);
   rayY0 = (int)(TOPY * 0.5f * SC), rayY1 = (int)(FH * 0.66f);
   for (int Y = 0; Y < FH; Y++)
-    rayFade[Y] = Y < rayY0 || Y >= rayY1 ? 0 : (uint8_t)(255 * powf(1 - (float)(Y - rayY0) / (rayY1 - rayY0), 1.3f));
+    rayFade[Y] = Y < rayY0 || Y >= rayY1 ? 0 : (uint8_t)(255 * fpow(1 - (float)(Y - rayY0) / (rayY1 - rayY0), 1.3f));
   free(algF);
   algF = (uint8_t*)malloc(FW);
   const float cell = 16 * SC;
@@ -401,13 +515,13 @@ void Scene::tapGlass(float x, float y) {  // nearby fish start away, a puffer pu
     if (hypotf(f->x - x, f->y - y) > 95) continue;
     if (f->S->puffs) f->puff = 2.6f;
     if (f->S->style == ST_crawl) {
-      if (strcmp(f->S->id, "snail") && !f->S->fixed) f->kx = -cosf(f->yaw) * 70, f->ky = -34;
+      if (strcmp(f->S->id, "snail") && !f->S->fixed) f->kx = -fcos(f->yaw) * 70, f->ky = -34;
       continue;
     }
     float b0, b1;
     band(f, &b0, &b1);
     const float a = atan2f(f->y - y, f->x - x) + rnd(-0.4f, 0.4f);
-    f->flee = rnd(0.55f, 0.9f), f->fx = clampf(f->x + cosf(a) * 130, 20, VW - 20), f->fy = clampf(f->y + sinf(a) * 70, b0, b1);
+    f->flee = rnd(0.55f, 0.9f), f->fx = clampf(f->x + fcos(a) * 130, 20, VW - 20), f->fy = clampf(f->y + fsin(a) * 70, b0, b1);
     if (f->S->style == ST_perch) f->fx = f->hx, f->fy = f->hy;
     f->beat = true;
   }
@@ -442,6 +556,7 @@ float Scene::wipe(float x, float y, float r) {  // the sponge clears the algae c
     float s = 0;
     for (int i = 0; i < AC * AR; i++) s += algae[i];
     algaeOn = s > 0.5f;
+    filmDirty((int)((x - r - 16) * SC), (int)((y - r - 16) * SC), (int)((x + r + 16) * SC) + 1, (int)((y + r + 16) * SC) + 1);
   }
   return got;
 }
@@ -450,16 +565,29 @@ void Scene::setAlgae(float level) {  // 0..100: the cells' cover grows from the 
   float sum = 0;
   for (int i = 0; i < n; i++) sum += algae[i];
   const float want = level / 100 * n * 0.5f;
-  int guard = 0;
+  int guard = 0, i0 = AC, j0 = AR, i1 = -1, j1 = -1;
   while (sum < want && guard++ < 400) {
     const int i = (int)rnd(0, AC - 0.01f), j = (int)rnd(0, AR - 0.01f);
     const float edge = std::min(std::min(i, AC - 1 - i), std::min(j > 2 ? AR - 1 - j : 9, 9)) / 9.0f;
     if (rnd(0, 1) < edge * 0.85f) continue;
     float& a = algae[j * AC + i];
     const float add = std::min(1 - a, 0.25f);
+    if (add <= 0) continue;
     a += add, sum += add;
+    i0 = std::min(i0, i), j0 = std::min(j0, j), i1 = std::max(i1, i), j1 = std::max(j1, j);
   }
+  const bool was = algaeOn;
   algaeOn = sum > 0.5f;
+  // The game asks every tick while the tank has less than its level; the film is made again only where cells grew
+  // (a cell's weight reaches the next cell's centre), all of it when it comes or goes.
+  if (algaeOn != was) filmDirty(0, 0, 1 << 14, 1 << 14);
+  else if (i1 >= 0) filmDirty((int)((i0 - 1) * 16 * SC), (int)((j0 - 1) * 16 * SC), (int)((i1 + 2) * 16 * SC) + 1, (int)((j1 + 2) * 16 * SC) + 1);
+}
+void Scene::filmDirty(int x0, int y0, int x1, int y1) {
+  x0 = std::max(0, x0), y0 = std::max(0, y0), x1 = std::min(FW, x1), y1 = std::min(FH, y1);
+  if (x0 >= x1 || y0 >= y1) return;
+  if (filmX0 >= filmX1) filmX0 = x0, filmY0 = y0, filmX1 = x1, filmY1 = y1;
+  else filmX0 = std::min(filmX0, x0), filmY0 = std::min(filmY0, y0), filmX1 = std::max(filmX1, x1), filmY1 = std::max(filmY1, y1);
 }
 float Scene::algaeLevel() const {
   float s = 0;
@@ -467,7 +595,7 @@ float Scene::algaeLevel() const {
   for (int i = 0; i < n; i++) s += algae[i];
   return s / n * 200;
 }
-void Scene::clearAlgae() { memset(algae, 0, sizeof algae), algaeOn = false; }
+void Scene::clearAlgae() { memset(algae, 0, sizeof algae), algaeOn = false, filmDirty(0, 0, 1 << 14, 1 << 14); }
 
 Fish* Scene::fishAt(float x, float y) {
   Fish* best = nullptr;
@@ -542,7 +670,7 @@ void stepFish(Scene& s, Fish* f, float dt) {
       }
       const float a = atan2f(ay, ax) + rnd(-0.35f, 0.35f);
       s.band(f, &b0, &b1);
-      f->flee = rnd(0.5f, 0.85f), f->fx = clampf(f->x + cosf(a) * 115, 20, s.VW - 20), f->fy = clampf(f->y + sinf(a) * 60, b0, b1);
+      f->flee = rnd(0.5f, 0.85f), f->fx = clampf(f->x + fcos(a) * 115, 20, s.VW - 20), f->fy = clampf(f->y + fsin(a) * 60, b0, b1);
       f->beat = true;
       break;
     }
@@ -552,7 +680,7 @@ void stepFish(Scene& s, Fish* f, float dt) {
   } else if ((pi = nearestFood(s, f)) >= 0) {
     FoodI* p = &s.food[pi];
     tx = p->x, ty = p->y, tz = p->z, sd = st->vmax * 0.72f, rush = true, f->wait = 0;
-    const float dsc = 0.74f + 0.26f * f->z / ZD, nx = f->x + cosf(f->yaw) * L * dsc * 0.36f, ny = f->y - sinf(f->pitch) * L * dsc * 0.36f;
+    const float dsc = 0.74f + 0.26f * f->z / ZD, nx = f->x + fcos(f->yaw) * L * dsc * 0.36f, ny = f->y - fsin(f->pitch) * L * dsc * 0.36f;
     if (fabsf(nx - p->x) < 5 + L * 0.06f && fabsf(ny - p->y) < 5 + hgt * 0.12f) {
       const int kind = p->kind;
       const float val = p->food;
@@ -561,7 +689,7 @@ void stepFish(Scene& s, Fish* f, float dt) {
       if (s.onEat) s.onEat(kind, val);
     }
   } else if (s.fingerOn && !low && S->style != ST_upright && hypotf(s.fingerX - f->x, s.fingerY - f->y) < 170) {
-    tx = s.fingerX + sinf(f->seed * 7) * 22, ty = s.fingerY + cosf(f->seed * 5) * 16, tz = ZD - 10 - fmodf(f->seed, 20);
+    tx = s.fingerX + fsin(f->seed * 7) * 22, ty = s.fingerY + fcos(f->seed * 5) * 16, tz = ZD - 10 - fmodf(f->seed, 20);
     sd = st->v * 1.5f, f->wait = 0, s.played += dt;
   } else if (f->school >= 0 && s.schools[f->school].n) {  // keep station on the school
     School* q = &s.schools[f->school];
@@ -596,7 +724,7 @@ void stepFish(Scene& s, Fish* f, float dt) {
     }
   }
   if (low) ty = s.floorY(tz) - hgt * 0.5f - (rush ? 0 : f->hop);
-  else ty += sinf(s.Tm * f->mw + f->seed) * st->mea;
+  else ty += fsin(s.Tm * f->mw + f->seed) * st->mea;
   tz = clampf(tz + f->zp * 26, 3, ZD - 3);
   if (S->fixed) {  // a starfish: creeps, never turns
     const float dx = tx - f->x, dz = tz - f->z, d = hypotf(dx, dz) + 0.01f, v = (st->v < d ? st->v : d) * (sd > 0 ? 1 : 0);
@@ -605,7 +733,7 @@ void stepFish(Scene& s, Fish* f, float dt) {
     return;
   }
   // heading: turn toward the target, but stay side-on to the glass
-  const float hx = cosf(f->yaw), dy = ty - f->y, dzw = tz - f->z;
+  const float hx = fcos(f->yaw), dy = ty - f->y, dzw = tz - f->z;
   float dx = tx - f->x;
   if (dx > -7 && dx < 7) dx = hx >= 0 ? 7 : -7;
   if (sd <= 0.01f && !rush) dx = hx >= 0 ? 40 : -40;
@@ -618,7 +746,7 @@ void stepFish(Scene& s, Fish* f, float dt) {
   float k = dt * 3.2f;
   f->pitch += (wp - f->pitch) * (k > 1 ? 1 : k);
   // effort and speed
-  float aligned = cosf(err), eff;
+  float aligned = fcos(err), eff;
   if (aligned < 0) aligned = 0;
   if (st->glide > 0 && !rush) {
     if (f->beat) {
@@ -633,12 +761,12 @@ void stepFish(Scene& s, Fish* f, float dt) {
   if (f->spd < 0) f->spd = 0;
   f->ph += dt * 6.2832f * (st->f0 + st->f1 * f->amp) * (s.sleeping ? 0.6f : 1);
   // move
-  const float cp = cosf(f->pitch), lm = st->lift * (f->hop > 40 ? 3.5f : 1),
+  const float cp = fcos(f->pitch), lm = st->lift * (f->hop > 40 ? 3.5f : 1),
               wl = clampf(dy * 1.2f, -lm, lm) * (low ? 1 : sd > 0.01f || f->wait > 0 ? 1 : 0.3f);
   k = dt * 2.5f;
   f->lift += (wl - f->lift) * (k > 1 ? 1 : k);
-  const float vy = -f->spd * sinf(f->pitch) + f->lift + f->ky;
-  f->x += (f->spd * cp * cosf(f->yaw) + f->kx) * dt, f->z += f->spd * cp * sinf(f->yaw) * 0.6f * dt, f->y += vy * dt;
+  const float vy = -f->spd * fsin(f->pitch) + f->lift + f->ky;
+  f->x += (f->spd * cp * fcos(f->yaw) + f->kx) * dt, f->z += f->spd * cp * fsin(f->yaw) * 0.6f * dt, f->y += vy * dt;
   k = dt * 4;
   if (k > 1) k = 1;
   f->kx -= f->kx * k, f->ky -= f->ky * k, f->vyS += (vy - f->vyS) * k;
@@ -682,7 +810,7 @@ void Scene::step(float dt) {
   for (int i = nfood - 1; i >= 0; i--) {
     FoodI* p = &food[i];
     if (!p->lying) {
-      p->y += p->vy * dt, p->x += sinf(Tm * 2.1f + p->s) * 5 * dt;
+      p->y += p->vy * dt, p->x += fsin(Tm * 2.1f + p->s) * 5 * dt;
       const float fy = floorY(p->z) - 1.5f;
       if (p->y >= fy) p->y = fy, p->lying = true, p->rest = 0;
     } else if ((p->rest += dt) > foodRest) {
@@ -694,7 +822,7 @@ void Scene::step(float dt) {
     CoinI* c = &coins[i];
     c->t += dt;
     if (!c->rest) {
-      c->y += c->vy * dt, c->x += sinf(Tm * 1.7f + c->s) * 7 * dt;
+      c->y += c->vy * dt, c->x += fsin(Tm * 1.7f + c->s) * 7 * dt;
       const float fy = coinY(c->z);
       if (c->y >= fy) c->y = fy, c->rest = true;
     }
@@ -707,15 +835,15 @@ void Scene::step(float dt) {
   }
   if (rnd(0, 1) < dt * 0.25f && nfish && nbub < MAXBUB) {
     const Fish* f = &fish[(int)rnd(0, nfish - 0.01f)];
-    if (f->S->style != ST_crawl) bub[nbub++] = {f->x + cosf(f->yaw) * f->S->w * 0.35f, f->y, rnd(0.6f, 1.1f), rnd(24, 36), rnd(0, 6)};
+    if (f->S->style != ST_crawl) bub[nbub++] = {f->x + fcos(f->yaw) * f->S->w * 0.35f, f->y, rnd(0.6f, 1.1f), rnd(24, 36), rnd(0, 6)};
   }
   for (int i = nbub - 1; i >= 0; i--) {
     Bub* b = &bub[i];
-    b->y -= b->v * dt, b->x += sinf(Tm * 3.1f + b->s) * 7 * dt, b->r += dt * 0.12f;
+    b->y -= b->v * dt, b->x += fsin(Tm * 3.1f + b->s) * 7 * dt, b->r += dt * 0.12f;
     if (b->y <= TOPY - 8) bub[i] = bub[--nbub];
   }
   for (auto& p : specks) {
-    p.x += sinf(Tm * 0.3f + p.s) * 2.2f * dt + 0.8f * dt, p.y += cosf(Tm * 0.23f + p.s * 1.7f) * 1.6f * dt;
+    p.x += fsin(Tm * 0.3f + p.s) * 2.2f * dt + 0.8f * dt, p.y += fcos(Tm * 0.23f + p.s * 1.7f) * 1.6f * dt;
     if (p.x > VW + 4) p.x = -4;
   }
   for (int i = nrings - 1; i >= 0; i--)
@@ -729,28 +857,100 @@ void Scene::step(float dt) {
 // ---------------------------------------------------------------- the picture
 namespace {
 // the background as it is now; made again when the light or the dirt moved by a visible step (not every frame)
+// The background as it is now: per channel the picture's value to the one shown (murk, light), made again with the
+// tint or the haze; then baked (bake()) with the algae film.
+uint8_t lr[32], lg[64], lb[32];
 void makeBg(Scene& s) {
   const bool marine = D.look[s.look].marine;
   const int murk[3] = {marine ? 96 : 98, marine ? 128 : 112, marine ? 104 : 52};
   const float h = s.hazeNow * 0.34f;
-  uint8_t lr[32], lg[64], lb[32];  // per channel: the picture's value to the one shown
+  uint8_t r[32], g6[64], b[32];
   for (int v = 0; v < 64; v++) {
     const int g = (v * 255 + 31) / 63, c = (std::min(v, 31) * 255 + 15) / 31;
-    lg[v] = (uint8_t)std::min(63, (int)((g * (1 - h) + murk[1] * h) * s.tintNow[1]) >> 2);
+    g6[v] = (uint8_t)std::min(63, (int)((g * (1 - h) + murk[1] * h) * s.tintNow[1]) >> 2);
     if (v < 32) {
-      lr[v] = (uint8_t)std::min(31, (int)((c * (1 - h) + murk[0] * h) * s.tintNow[0]) >> 3);
-      lb[v] = (uint8_t)std::min(31, (int)((c * (1 - h) + murk[2] * h) * s.tintNow[2]) >> 3);
+      r[v] = (uint8_t)std::min(31, (int)((c * (1 - h) + murk[0] * h) * s.tintNow[0]) >> 3);
+      b[v] = (uint8_t)std::min(31, (int)((c * (1 - h) + murk[2] * h) * s.tintNow[2]) >> 3);
     }
   }
-  const int n = s.FW * s.FH;
-  const uint16_t* src = s.bgRaw;
-  uint16_t* d = s.bgc;
-  for (int i = 0; i < n; i++) {
-    const uint16_t c = src[i];
-    d[i] = (uint16_t)(lr[c >> 11] << 11 | lg[c >> 5 & 63] << 5 | lb[c & 31]);
-  }
+  const uint32_t green = ex(rgb565(44 * s.tintNow[0], 96 * s.tintNow[1], 30 * s.tintNow[2]));
+  const bool fresh = s.bgBad;  // a new picture: all of it now; the haze or the light drifting: a few rows a picture
   for (int i = 0; i < 3; i++) s.bgTint[i] = s.tintNow[i];
   s.bgHaze = s.hazeNow, s.bgBad = false;
+  // the water clearing or the lamp fading move the tables a step now and then: the same tables, nothing to make
+  if (!fresh && green == s.filmG && !memcmp(r, lr, 32) && !memcmp(g6, lg, 64) && !memcmp(b, lb, 32)) return;
+  memcpy(lr, r, 32), memcpy(lg, g6, 64), memcpy(lb, b, 32);
+  s.filmG = green;
+  s.filmDirty(0, 0, 1 << 14, 1 << 14);
+  s.filmSoft = !fresh;
+}
+
+// The part filmX0.. of the background made again: the film's weight a pixel from the algae grid (the grid smoothed,
+// a little grain: as the page), then bgc = the picture as it is now under that film. Integers; a row's empty cells
+// are skipped whole.
+HOT void bake(Scene& s) {
+  const int X0 = s.filmX0, X1 = s.filmX1, FW = s.FW, FH = s.FH;
+  const uint32_t green = s.filmG;
+  const float cell = 16 * s.SC;
+  int rowA[33];
+  // Blocks of 16 rows: each column's 16 pixels of the block are one run in the column-wise copies (bgc when bgCols,
+  // filmT), not 16 cache lines. A soft change makes 48 rows a picture.
+  const int Yend = s.filmSoft ? std::min(s.filmY1, s.filmY0 + 48) : s.filmY1;
+  if (s.algaeOn && !s.filmT) s.filmT = (uint8_t*)heap_caps_calloc(1, FW * FH, MALLOC_CAP_SPIRAM);
+  for (int B = s.filmY0; B < Yend; B += 16) {
+    const int BE = std::min(Yend, B + 16);
+    for (int Y = B; Y < BE; Y++) {
+      uint8_t* w = s.filmW + Y * FW;
+      memset(w + X0, 0, X1 - X0);
+      bool any = false;
+      if (s.algaeOn) {
+        const float gy = clampf((Y + 0.5f) / cell - 0.5f, 0, s.AR - 1.001f);
+        const int j = (int)gy, fy = (int)((gy - j) * 256);
+        for (int i = 0; i < s.AC; i++) {
+          const float a = s.algae[j * s.AC + i] * (256 - fy) / 256 + s.algae[(j + 1) * s.AC + i] * fy / 256;
+          rowA[i] = (int)(a * 1024), any |= rowA[i] > 20;
+        }
+        rowA[s.AC] = rowA[s.AC - 1];
+      }
+      for (int i = 0; any && i < s.AC; i++) {  // between cell centres i and i + 1 (the edges: clamped as the reference)
+        if (rowA[i] < 20 && rowA[i + 1] < 20) continue;
+        const int xa = std::max(X0, i == 0 ? 0 : (int)algX[i]), xb = std::min(X1, i == s.AC - 1 ? FW : (int)algX[i + 1]);
+        const int a0 = rowA[i], da = rowA[i + 1] - rowA[i];
+        for (int X = xa; X < xb; X++) {
+          const int a = a0 + ((da * algF[X]) >> 8);                                // 0..1024
+          const int grain = 154 + 12 * ((((X * 37 + Y * 91) ^ (X * Y)) & 3));     // (0.6 + 0.14 * k / 3) * 256
+          const int v = (a * grain) >> 13;                                         // 0..32
+          w[X] = v > 32 ? 32 : v < 0 ? 0 : v;
+        }
+      }
+      if (!s.bgCols) {
+        const uint16_t* src = s.bgRaw + Y * FW;
+        uint16_t* d = s.bgc + Y * FW;
+        for (int X = X0; X < X1; X++) {
+          const uint16_t c = src[X];
+          const uint16_t o = (uint16_t)(lr[c >> 11] << 11 | lg[c >> 5 & 63] << 5 | lb[c & 31]);
+          d[X] = w[X] ? pk(mix(ex(o), green, w[X])) : o;
+        }
+      }
+    }
+    if (s.bgCols)
+      for (int X = X0; X < X1; X++) {
+        uint16_t* d = s.bgc + X * FH + B;
+        for (int Y = B; Y < BE; Y++) {
+          const uint16_t c = s.bgRaw[Y * FW + X];
+          const uint16_t o = (uint16_t)(lr[c >> 11] << 11 | lg[c >> 5 & 63] << 5 | lb[c & 31]);
+          const int w = s.filmW[Y * FW + X];
+          *d++ = w ? pk(mix(ex(o), green, w)) : o;
+        }
+      }
+    if (s.filmT)
+      for (int X = X0; X < X1; X++) {
+        uint8_t* d = s.filmT + X * FH + B;
+        for (int Y = B; Y < BE; Y++) *d++ = s.filmW[Y * FW + X];
+      }
+  }
+  if (Yend < s.filmY1) s.filmY0 = Yend;
+  else s.filmX0 = s.filmX1 = 0, s.filmSoft = false;
 }
 
 void chainOf(Scene& s, const Fish* f, float dsc, Chain& ch, Look_& K) {
@@ -759,28 +959,28 @@ void chainOf(Scene& s, const Fish* f, float dsc, Chain& ch, Look_& K) {
   const float S = s.SC, L = f->S->w * f->size * dsc * S;
   const Spr* sp = f->half->w >= L * 0.98f ? f->half : f->pic;
   const float vs0 = L / sp->w, hgt = sp->h * vs0;
-  const float wob = st->wob != 0 ? st->wob * sinf(f->ph) * (0.35f + 0.65f * f->amp) : 0, yaw = f->yaw + wob;
-  const int face = cosf(yaw) >= 0 ? 1 : -1;
+  const float wob = st->wob != 0 ? st->wob * fsin(f->ph) * (0.35f + 0.65f * f->amp) : 0, yaw = f->yaw + wob;
+  const int face = fcos(yaw) >= 0 ? 1 : -1;
   const float A = s.wag ? st->A * (0.22f + 0.78f * f->amp) : 0, bend = clampf(-f->om * 0.22f, -1.1f, 1.1f),
               tp = tanf(clampf(f->pitch, -0.6f, 0.6f)), ds = L / n,
-              drape = clampf(-f->vyS * 0.05f, -0.35f, 0.35f) * hgt * (st->A > 0.5f ? 0.5f : 0.25f), sy = sinf(yaw) * face;
+              drape = clampf(-f->vyS * 0.05f, -0.35f, 0.35f) * hgt * (st->A > 0.5f ? 0.5f : 0.25f), sy = fsin(yaw) * face;
   float x = 0, pivot = 0;
   const int ip = (int)(n * PIVOT + 0.5f);
   for (int i = 0; i <= n; i++) {
-    const float u = (float)i / n, env = st->env[i], wave = sinf(f->ph - st->k * u), local = A * env * wave + bend * st->u13[i];
+    const float u = (float)i / n, env = st->env[i], wave = fsin(f->ph - st->k * u), local = A * env * wave + bend * st->u13[i];
     ch.PX[i] = x;
     if (i == ip) pivot = x;
-    ch.SH[i] = clampf(1 + 0.28f * sinf(local) + 0.06f * sy, 0.72f, 1.3f);
-    ch.PY[i] = (s.wag ? hgt * st->dy * env * (0.2f + 0.8f * f->amp) * sinf(f->ph - st->k * u - 0.9f) : 0) + drape * u * u;
+    ch.SH[i] = clampf(1 + 0.28f * fsin(local) + 0.06f * sy, 0.72f, 1.3f);
+    ch.PY[i] = (s.wag ? hgt * st->dy * env * (0.2f + 0.8f * f->amp) * fsin(f->ph - st->k * u - 0.9f) : 0) + drape * u * u;
     if (i < n) {
-      const float um = (i + 0.5f) / n, am = yaw + A * st->envM[i] * sinf(f->ph - st->k * um) + bend * st->um13[i],
-                  c = cosf(am), sn = sinf(am);
+      const float um = (i + 0.5f) / n, am = yaw + A * st->envM[i] * fsin(f->ph - st->k * um) + bend * st->um13[i],
+                  c = fcos(am), sn = fsin(am);
       x += ds * sqrtf(c * c + THICK * THICK * sn * sn);
     }
   }
   for (int i = 0; i <= n; i++) ch.PY[i] += (ch.PX[i] - pivot) * tp;
-  const float bob = st->bob != 0 ? sinf(s.Tm * 1.25f + f->seed) * st->bob * S * (1.2f - f->amp) : 0,
-              wy = st->wob != 0 ? sinf(f->ph * 2) * 0.6f * S * f->amp : 0;
+  const float bob = st->bob != 0 ? fsin(s.Tm * 1.25f + f->seed) * st->bob * S * (1.2f - f->amp) : 0,
+              wy = st->wob != 0 ? fsin(f->ph * 2) * 0.6f * S * f->amp : 0;
   float puff = 1;
   if (f->puff > 0) {
     float k = f->puff * 2.5f, k2 = (2.6f - f->puff) * 6;
@@ -810,6 +1010,7 @@ void boxOf(Item& it, float x0, float y0, float x1, float y1) {
 
 void Scene::prepare() {
   if (!fr || !geo) return;
+  const uint32_t p0 = micros();
   if (bgLoad && bgRaw) {
     if (!background(D.look[look].id, land, FW, FH, bgRaw)) memset(bgRaw, 0, FW * FH * 2);
     bgLoad = false, bgBad = true;
@@ -817,6 +1018,10 @@ void Scene::prepare() {
   if (bgBad || fabsf(bgHaze - hazeNow) > 0.01f || fabsf(bgTint[0] - tintNow[0]) > 0.006f ||
       fabsf(bgTint[1] - tintNow[1]) > 0.006f || fabsf(bgTint[2] - tintNow[2]) > 0.006f)
     if (bgRaw && bgc) makeBg(*this);
+  if (bgColsWant != bgCols) bgCols = bgColsWant, filmDirty(0, 0, 1 << 14, 1 << 14), filmSoft = false;  // the other way round: all again, now
+  if (filmX0 < filmX1 && bgRaw && bgc && filmW) bake(*this);
+  const uint32_t p1 = micros();
+  prep[0] += p1 - p0;
   Frame& F = *fr;
   const float S = SC, hz = hazeNow;
   const bool marine = D.look[look].marine;
@@ -838,6 +1043,14 @@ void Scene::prepare() {
     const float dsc = 0.74f + 0.26f * p.z / ZD, w = k.w * p.s * dsc * S, kk = w / p.pic->w, by = (floorY(p.z) + 3) * S,
                 sw = fabsf(k.a * p.s * dsc * S) + 1;
     boxOf(*it, p.x * S - w / 2 - sw, by - p.pic->h * kk, p.x * S + w / 2 + sw, by + 3 * S);
+    // its sway, row by row (as blitRows worked it out)
+    const float a = k.a * p.s * dsc * S, ytop = by - p.pic->h * kk, hh = p.pic->h * kk, ihh = 1 / hh;
+    const int Y0 = std::max(0, (int)ceilf(ytop - 1)), Y1 = std::min(FH - 1, (int)floorf(ytop + hh));
+    float* T = F.sway[i];
+    for (int Y = Y0; Y <= Y1; Y++) {
+      const float tt = clampf(1 - (Y + 0.5f - ytop) * ihh, 0, 1);
+      T[Y] = a != 0 ? a * fpow(tt, k.pw) * fsin(p.ph - k.k * tt) : 0;
+    }
   }
   for (int i = 0; i < ndecor; i++) {
     const DecorI& d = decor[i];
@@ -872,8 +1085,17 @@ void Scene::prepare() {
     it->fog = it->fog * 4 / 10;
     boxOf(*it, coins[i].x * S - 9 * S, coins[i].y * S - 9 * S, coins[i].x * S + 9 * S, coins[i].y * S + 9 * S);
   }
-  std::stable_sort(F.items, F.items + n, [](const Item& a, const Item& b) { return a.z < b.z; });
+  // far to near, equals kept in order: an insertion sort (a few dozen items; std::stable_sort cost 1.9 KB of flash
+  // and a buffer each picture)
+  for (int a = 1; a < n; a++) {
+    const Item it = F.items[a];
+    int b = a - 1;
+    for (; b >= 0 && F.items[b].z > it.z; b--) F.items[b + 1] = F.items[b];
+    F.items[b + 1] = it;
+  }
   F.n = n;
+  const uint32_t p2 = micros();
+  prep[1] += p2 - p1;
   // the beams of light (draw_rays' table, worked out once a frame)
   F.raysOn = rays > 0 && lamp;
   F.nray = 0;
@@ -882,8 +1104,8 @@ void Scene::prepare() {
     float* lut = F.lut;
     memset(lut, 0, sizeof(float) * (nl + 1));
     for (int k = 0; k < 5; k++) {
-      const float c = (0.12f + k * 0.21f + 0.06f * sinf(Tm * 0.13f * (1 + k * 0.37f) + k * 2.1f)) * nl * 0.82f,
-                  w = (10 + 9 * ((k * 7) % 3)) * S, a = (0.45f + 0.55f * sinf(Tm * 0.21f * (1 + k * 0.23f) + k * 1.9f)) * 26 * rays;
+      const float c = (0.12f + k * 0.21f + 0.06f * fsin(Tm * 0.13f * (1 + k * 0.37f) + k * 2.1f)) * nl * 0.82f,
+                  w = (10 + 9 * ((k * 7) % 3)) * S, a = (0.45f + 0.55f * fsin(Tm * 0.21f * (1 + k * 0.23f) + k * 1.9f)) * 26 * rays;
       if (a <= 0) continue;
       const int i0 = std::max(0, (int)floorf(c - w)), i1 = std::min(nl - 1, (int)ceilf(c + w));
       for (int i = i0; i <= i1; i++) {
@@ -905,6 +1127,7 @@ void Scene::prepare() {
     }
     for (int c = 0; c < 3; c++) F.rayK[c] = (int)(geo->light[c] / 255.0f * tintNow[c] * (c == 1 ? 63 : 31) / 255.0f * 4096 + 0.5f);
   }
+  prep[2] += micros() - p2;
 }
 
 HOT void Scene::draw(const Tgt& t, bool withRays) {
@@ -916,15 +1139,28 @@ HOT void Scene::draw(const Tgt& t, bool withRays) {
     const uint32_t n = micros();
     prof[k] += n - pt, pt = n;
   };
+  filmNow = algaeOn ? filmW : nullptr, filmTNow = algaeOn ? filmT : nullptr, filmGNow = filmG, filmFW = FW, filmFH = FH;
   // 1. the background
   if (bgc) {
-    const int w = t.x1 - t.x0;
-    for (int Y = t.y0; Y < t.y1; Y++) {
-      const uint16_t* s = bgc + Y * FW + t.x0;
-      uint16_t* d = t.at(t.x0, Y);
-      if (t.dx == 1) memcpy(d, s, w * 2);
-      else
-        for (int X = 0; X < w; X++, d += t.dx) *d = s[X];
+    bgColsWant = t.dx != 1 && t.dy == 1;  // (made so at the next prepare())
+    if (!bgCols) {
+      const int w = t.x1 - t.x0;
+      for (int Y = t.y0; Y < t.y1; Y++) {
+        const uint16_t* s = bgc + Y * FW + t.x0;
+        uint16_t* d = t.at(t.x0, Y);
+        if (t.dx == 1) memcpy(d, s, w * 2);
+        else
+          for (int X = 0; X < w; X++, d += t.dx) *d = s[X];
+      }
+    } else {
+      const int h = t.y1 - t.y0;
+      for (int X = t.x0; X < t.x1; X++) {
+        const uint16_t* s = bgc + X * FH + t.y0;
+        uint16_t* d = t.at(X, t.y0);
+        if (t.dy == 1) memcpy(d, s, h * 2);
+        else
+          for (int Y = 0; Y < h; Y++, d += t.dy) *d = s[Y];
+      }
     }
   }
   lap(0);
@@ -940,7 +1176,8 @@ HOT void Scene::draw(const Tgt& t, bool withRays) {
       const PlantK& k = D.plant[p.k];
       const float w = k.w * p.s * dsc * S, kk = w / p.pic->w, by = (floorY(p.z) + 3) * S;
       disc(t, p.x * S, by - 2 * S, w * 0.42f, 3.2f * S * dsc, 0, 0.22f, 3 * S);
-      blitRows(t, p.pic, p.x * S - w / 2, by - p.pic->h * kk, kk, kk, k.a * p.s * dsc * S, k.pw, p.ph, k.k, p.flip, 256, K, touched);
+      blitRows(t, p.pic, p.x * S - w / 2, by - p.pic->h * kk, kk, kk, k.a * p.s * dsc * S, k.pw, p.ph, k.k, p.flip, 256, K, touched,
+               F.sway[i]);
     } else if (it.kind == 1) {
       const DecorI& d = decor[i];
       const float w = d.w * dsc * S, kk = w / d.pic->w, by = (floorY(d.z) + 2) * S;
@@ -948,8 +1185,23 @@ HOT void Scene::draw(const Tgt& t, bool withRays) {
       blitRows(t, d.pic, d.x * S - w / 2, by - d.pic->h * kk, kk, kk, 0, 1, 0, 0, false, 256, K, touched);
     } else if (it.kind == 2) {
       const Chain& ch = F.chains[i];
+#if TANK_QA  // the fish part's pieces (the stats line): shadows, the body and its pixels, the spots
+      const uint32_t q0 = micros();
+      const long px0 = touched;
+#endif
       if (ch.shA > 0) disc(t, ch.shX, ch.shY, ch.shRx, ch.shRy, 0, ch.shA, ch.shE);
+#if TANK_QA
+      const uint32_t q1 = micros();
+#endif
       blitFish(t, ch, K, touched);
+#if TANK_QA
+      const uint32_t q2 = micros();
+      fishQa[0] += q1 - q0, fishQa[1] += q2 - q1, fishQa[3] += touched - px0;
+      struct Spots {
+        uint32_t t0;
+        ~Spots() { fishQa[2] += micros() - t0; }
+      } spots{q2};
+#endif
       if (ch.sick)  // white spot: six dots that ride on the body
         for (int k = 1; k <= 6; k++) {
           const float u = 0.14f + fmodf(ch.seed * k * 0.377f, 1) * 0.6f, v = (fmodf(ch.seed * k * 0.731f, 1) - 0.5f) * 0.46f;
@@ -965,7 +1217,7 @@ HOT void Scene::draw(const Tgt& t, bool withRays) {
       const float r = S * dsc;
       if (p.kind == F_sink) disc(t, p.x * S, p.y * S, 2.4f * r, 1.7f * r, rgb565(74 * tintNow[0], 92 * tintNow[1], 40 * tintNow[2]), 0.95f, 1);
       else if (p.kind == F_live) {
-        const float a = Tm * 7 + p.s, wx = cosf(a) * 1.6f * r, wy = sinf(a * 1.3f) * 1.2f * r;
+        const float a = Tm * 7 + p.s, wx = fcos(a) * 1.6f * r, wy = fsin(a * 1.3f) * 1.2f * r;
         disc(t, p.x * S - wx, p.y * S - wy, 1.2f * r, 1.2f * r, rgb565(205 * tintNow[0], 48 * tintNow[1], 44 * tintNow[2]), 0.95f, 1);
         disc(t, p.x * S + wx, p.y * S + wy, 1.2f * r, 1.2f * r, rgb565(225 * tintNow[0], 70 * tintNow[1], 60 * tintNow[2]), 0.95f, 1);
       } else disc(t, p.x * S, p.y * S, 1.5f * r, 1.5f * r, rgb565(150 * tintNow[0], 96 * tintNow[1], 44 * tintNow[2]), 0.95f, 1);
@@ -974,9 +1226,9 @@ HOT void Scene::draw(const Tgt& t, bool withRays) {
       if (!coin) coin = sprNamed(P_THINGS, "coin");
       const CoinI& c = coins[i];
       if (!coin) continue;
-      const float w = 11 * dsc * S, kk = w / coin->w, tw = 0.82f + 0.18f * fabsf(sinf(c.t * 2.2f + c.s));
+      const float w = 11 * dsc * S, kk = w / coin->w, tw = 0.82f + 0.18f * fabsf(fsin(c.t * 2.2f + c.s));
       blitRows(t, coin, c.x * S - w * tw / 2, c.y * S - w / 2, kk * tw, kk, 0, 1, 0, 0, false, 256, K, touched);
-      if (sinf(c.t * 3 + c.s) > 0.93f) disc(t, (c.x - 2) * S, (c.y - 2) * S, 2.2f * S, 2.2f * S, rgb565(255, 255, 235), 0.8f, 2 * S);
+      if (fsin(c.t * 3 + c.s) > 0.93f) disc(t, (c.x - 2) * S, (c.y - 2) * S, 2.2f * S, 2.2f * S, rgb565(255, 255, 235), 0.8f, 2 * S);
     }
     lap(it.kind <= 1 ? 1 : it.kind == 2 ? 2 : 3);
   }
@@ -1017,50 +1269,20 @@ HOT void Scene::draw(const Tgt& t, bool withRays) {
     const uint32_t c = ex(r.gold ? rgb565(255, 220, 90) : 0xFFFF);
     for (int j = 0; j < m; j++) {
       const float a = (float)j / m * 6.2832f;
-      const int X = (int)lroundf(r.x * S + cosf(a) * rr), Y = (int)lroundf(r.y * S + sinf(a) * rr);
+      const int X = (int)lroundf(r.x * S + fcos(a) * rr), Y = (int)lroundf(r.y * S + fsin(a) * rr);
       if (X < t.x0 || Y < t.y0 || X >= t.x1 || Y >= t.y1) continue;
       uint16_t* d = t.at(X, Y);
       *d = pk(mix(ex(*d), c, al));
     }
   }
-  // 6. the algae film on the front glass: the grid smoothed, a little grain. Integers; a row's empty cells are
-  //    skipped whole (the film is there most of the time: a float a pixel over the screen cost 80 ms in QEMU).
-  if (algaeOn) {
-    const uint32_t green = ex(rgb565(44 * tintNow[0], 96 * tintNow[1], 30 * tintNow[2]));
-    const float cell = 16 * S;
-    int rowA[32];
-    for (int Y = t.y0; Y < t.y1; Y++) {
-      const float gy = clampf((Y + 0.5f) / cell - 0.5f, 0, AR - 1.001f);
-      const int j = (int)gy, fy = (int)((gy - j) * 256);
-      bool any = false;
-      for (int i = 0; i < AC; i++) {
-        const float a = algae[j * AC + i] * (256 - fy) / 256 + algae[(j + 1) * AC + i] * fy / 256;
-        rowA[i] = (int)(a * 1024), any |= rowA[i] > 20;
-      }
-      rowA[AC] = rowA[AC - 1];
-      if (!any) continue;
-      for (int i = 0; i < AC; i++) {  // between cell centres i and i + 1 (the edges: clamped as the reference)
-        if (rowA[i] < 20 && rowA[i + 1] < 20) continue;
-        const int xa = i == 0 ? 0 : algX[i], xb = i == AC - 1 ? FW : algX[i + 1];
-        const int X0 = std::max(t.x0, xa), X1 = std::min(t.x1, xb);
-        if (X0 >= X1) continue;
-        const int a0 = rowA[i], da = rowA[i + 1] - rowA[i];
-        uint16_t* d = t.at(X0, Y);
-        for (int X = X0; X < X1; X++, d += t.dx) {
-          const int a = a0 + ((da * algF[X]) >> 8);  // 0..1024
-          const int grain = 154 + 12 * ((((X * 37 + Y * 91) ^ (X * Y)) & 3));  // (0.6 + 0.14 * k / 3) * 256
-          const int w = (a * grain) >> 13;                                         // 0..32
-          if (w > 0) *d = pk(mix(ex(*d), green, w > 32 ? 32 : w));
-        }
-      }
-    }
-  }
+  // 6. (the algae film: baked into the background and given to the things as they are drawn, see bake())
+  filmNow = nullptr;  // (the screens over the water are on the glass: no film)
   lap(6);
 }
 
 void freeScene() {
   if (!sc) return;
-  heap_caps_free(sc->bgRaw), heap_caps_free(sc->bgc);
+  heap_caps_free(sc->bgRaw), heap_caps_free(sc->bgc), heap_caps_free(sc->filmW), heap_caps_free(sc->filmT);
   sc->~Scene();
   heap_caps_free(sc);
   sc = nullptr;

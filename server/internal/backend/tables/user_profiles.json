@@ -42,6 +42,20 @@
       "required": false,
       "type": "text",
       "unique": false
+    },
+    {
+      "code": "web_lang",
+      "default": null,
+      "help": "The web app's language (espos.dev/app), set by the person's choice there: vi or en; empty = not chosen yet. The account emails (auth_mail_*) use it. Not the devices' language (their sys.lang).",
+      "indexed": false,
+      "label": "Web language",
+      "options": [],
+      "position": 4,
+      "read_only": false,
+      "ref_table": null,
+      "required": false,
+      "type": "text",
+      "unique": false
     }
   ],
   "label": "User profiles",

@@ -11,6 +11,7 @@
 #include "appopts.h"
 #include "art.h"
 #include "board.h"
+#include "brand.h"
 #include "data.h"
 #include "desk.h"
 #include "desksaver.h"
@@ -795,10 +796,8 @@ void openUpdate() {
   lv_obj_t* s = os::screen(N_("Update"), &body);
   // The version card.
   lv_obj_t* v = cell(body, 12);
-  lv_obj_t* ico = box(v, 0x1c1c1e, 9);
-  lv_obj_set_size(ico, 36, 36);
-  lv_obj_t* os_ = label(ico, "OS", 14, true, 0xffffff);
-  lv_obj_center(os_);
+  lv_obj_t* ico = brand::mark(v, 32, pal().fg);  // the EspOS mark (brand.h), in the 36 px slot
+  lv_obj_set_pos(ico, 2, 2);
   lv_obj_t* name = label(v, ("EspOS " + upd::shortVer(FW_VERSION)).c_str(), 15, true, pal().fg);
   lv_obj_align(name, LV_ALIGN_TOP_LEFT, 46, 0);
   lv_obj_t* bl = label(v, board::label(), 12, false, pal().dim);

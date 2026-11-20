@@ -23,7 +23,7 @@ extern "C" const unsigned st77922_vendor_init_cmds_size;
 namespace es3c35p {
 namespace {
 
-constexpr int LCD_W = hal::UI_W, LCD_H = hal::UI_H;  // the UI (the panel's own size here)
+constexpr int LCD_W = BOARD.display.ui.w, LCD_H = BOARD.display.ui.h;  // the UI (the panel's own size here)
 constexpr hal::DisplayPins P = BOARD.display.pins;
 constexpr int TE_PIN = P.te;
 constexpr int TVDL_MS = 13;                    // vendor BSP_SYNC_TASK_CONFIG

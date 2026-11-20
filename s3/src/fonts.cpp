@@ -83,9 +83,35 @@ uint32_t fold(uint32_t c) {
   }
   return 0;
 }
+bool viMissed = false;  // a Vietnamese letter drawn without the package (i18n.cpp then fetches it)
+struct LangFont;
+LangFont* loadOne(const char* id, int px, bool bold);
+const lv_font_t* langFontOf(LangFont* f);
+bool bareDsc(const lv_font_t* f, lv_font_glyph_dsc_t* d, uint32_t letter, uint32_t next);
+// The Vietnamese font package, whatever the language shown (the dogs speak Vietnamese; news, events, names can be
+// Vietnamese): this text size's file is read on the first Vietnamese letter drawn at that size (~10 KB of PSRAM a size,
+// only the sizes used), and this copy turns into that font. Tried again whenever the packages change.
+bool viLetter(const lv_font_t* f, lv_font_glyph_dsc_t* d, uint32_t letter, uint32_t next) {
+  lv_font_t* m = const_cast<lv_font_t*>(f);
+  const uint32_t ver = pkg::version();
+  if ((uint32_t)(uintptr_t)m->user_data != ver) {
+    m->user_data = (void*)(uintptr_t)ver;
+    for (const Entry& e : table)
+      if (e.bare == m)
+        if (LangFont* v = loadOne("dev.espos.font.vi", e.px, e.bold)) {
+          const lv_font_t* vf = langFontOf(v);
+          m->dsc = vf->dsc, m->get_glyph_dsc = vf->get_glyph_dsc, m->get_glyph_bitmap = vf->get_glyph_bitmap;
+          return m->get_glyph_dsc(m, d, letter, next);
+        }
+  }
+  return false;
+}
 bool bareDsc(const lv_font_t* f, lv_font_glyph_dsc_t* d, uint32_t letter, uint32_t next) {
   const uint32_t b = fold(letter);
-  return b && lv_font_get_glyph_dsc_fmt_txt(f, d, b, next);
+  if (!b) return false;
+  if (viLetter(f, d, letter, next)) return true;
+  viMissed = true;
+  return lv_font_get_glyph_dsc_fmt_txt(f, d, b, next);
 }
 
 // A language's font (a font package's r<px>.bin / b<px>.bin, written by tools/i18n.py font), little endian:
@@ -166,6 +192,19 @@ LangFont* parse(const uint8_t* b, uint32_t len) {
   return f;
 }
 
+const lv_font_t* langFontOf(LangFont* f) { return &f->font; }
+
+// One size of a font package (the Vietnamese one, read on demand): exactly that size and weight, or nullptr.
+LangFont* loadOne(const char* id, int px, bool bold) {
+  char name[12];
+  snprintf(name, sizeof name, "%c%d.bin", bold ? 'b' : 'r', px);
+  pkg::File file;
+  if (!pkg::open(id, name, file)) return nullptr;
+  const uint8_t* b = file.data();
+  if (!b || ((uintptr_t)b & 3)) b = pkg::loadAll(file);  // LittleFS or the card: a copy in PSRAM
+  return b ? parse(b, file.size()) : nullptr;
+}
+
 LangSet* loadSet(const char* id) {
   for (LangSet* s : sets)
     if (s->id == id) return s;
@@ -231,7 +270,8 @@ void chain(LangSet* s) {
 
 // Most built-in fonts keep their glyph bitmaps deflated in flash (src/fonts/zfonts.c, tools/fontconv/zfonts.py; 2026-11-19:
 // 237 KB -> 87 KB, for the aquarium): one inflate into PSRAM here, and those fonts get a PSRAM copy of their
-// descriptions pointing into it. Without PSRAM they borrow the nearest font that is not deflated (never a crash).
+// descriptions pointing into it. Without PSRAM they borrow ub_r14, the one kept raw (never a crash). 0.5.7: the 12, 16
+// px and bold 14 px went in too (26 KB of the app slot; +41 KB of PSRAM).
 lv_font_fmt_txt_dsc_t* zdsc = nullptr;
 uint32_t inflateUs = 0;  // what it cost at boot (fonts::inflateMs)
 void inflateFonts() {
@@ -262,6 +302,8 @@ void inflateFonts() {
   for (int i = 0; i < ZFONTS_N; i++) {
     zdsc[i] = *(const lv_font_fmt_txt_dsc_t*)zfonts[i].font->dsc;
     zdsc[i].glyph_bitmap = bits + zfonts[i].off;
+    // Fonts other code reaches by name (the Java games' 12/14/16 px): their own descriptions are in RAM (0.5.7).
+    if (zfonts[i].inplace) ((lv_font_fmt_txt_dsc_t*)zfonts[i].font->dsc)->glyph_bitmap = bits + zfonts[i].off;
   }
   inflateUs = micros() - t0;
 }
@@ -271,7 +313,7 @@ void drawable(Entry& e) {
   for (int i = 0; i < ZFONTS_N; i++)
     if (zfonts[i].font == e.src) {
       if (zdsc) e.font.dsc = &zdsc[i];
-      else if (UB_ZFONTS) e.font = e.bold ? ub_b16 : ub_r16;
+      else if (UB_ZFONTS) e.font = ub_r14;  // the one font kept raw in flash
     }
 }
 
@@ -291,6 +333,12 @@ void begin() {
   }
   chain(nullptr);
   Serial.printf("fonts: %d deflated fonts, %u KB inflated in %lu ms\n", ZFONTS_N, (unsigned)(zfonts_raw / 1024), (unsigned long)(inflateUs / 1000));
+}
+
+bool missedVietnamese() {
+  const bool m = viMissed;
+  viMissed = false;
+  return m;
 }
 
 bool useLang(const char* fontPkg) {

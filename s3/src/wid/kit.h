@@ -76,6 +76,10 @@ int posterPx(const char* s, int px, bool bold, int w);
 void poster(lv_obj_t* p, const PLine* lines, int n, int x, int y, int w, int h, int gap = 2);
 // "Waiting for the next sync" or "Link EspOS to get data" (marked: the helpers translate it).
 const char* noData();
+// Linked, a network saved, no sync yet since power-on (2 minutes at most): empty() draws a skeleton for noData().
+bool firstDataComing();
+// Then: a skeleton of grey bars in x, y, w, h (true), or nothing (false: draw the words).
+bool skeleton(lv_obj_t* p, int x, int y, int w, int h, uint32_t color);
 // A grey message filling the card from y down.
 void empty(Card c, const char* text, uint32_t color, int y);
 

@@ -7,7 +7,11 @@
 #include <Preferences.h>
 #include <sys/time.h>
 
+#include "esp_mac.h"
+#include "esp_system.h"
+
 #include <deque>
+#include <mutex>
 #include <map>
 #include <vector>
 
@@ -25,6 +29,9 @@
 
 #include "i18n.h"
 #include "led.h"
+#include "lic.h"
+#include "lock.h"
+#include "claim.h"
 
 // The IDF's built-in root certificates (CONFIG_MBEDTLS_CERTIFICATE_BUNDLE): the server's
 // certificate is checked, never skipped.
@@ -58,9 +65,33 @@ uint32_t changeCount = 0;
 JsonDocument dashDoc(&psram);
 uint32_t dashVer = 0;
 
+// The dashboard's content without the server's clock (now_ms, next_s change at every sync): a sync bringing the same
+// weather, events and prices neither rewrites dash.json nor rebuilds Home (0.5.7: both happened at every sync).
+struct SigWriter {
+  uint32_t h = 2166136261u;
+  size_t write(uint8_t c) {
+    h = (h ^ c) * 16777619u;
+    return 1;
+  }
+  size_t write(const uint8_t* b, size_t n) {
+    for (size_t i = 0; i < n; i++) write(b[i]);
+    return n;
+  }
+};
+uint32_t dashSig(JsonObjectConst d) {
+  SigWriter w;
+  for (JsonPairConst kv : d) {
+    if (!strcmp(kv.key().c_str(), "now_ms") || !strcmp(kv.key().c_str(), "next_s")) continue;
+    w.write((const uint8_t*)kv.key().c_str(), strlen(kv.key().c_str()));
+    serializeJson(kv.value(), w);
+  }
+  return w.h;
+}
+uint32_t dashSigNow = 0;
+
 std::map<String, String> vals;           // merged settings
 std::map<String, uint32_t> dirty;        // changed on the device: key -> millis() of the change
-int64_t settingsRev = 0;
+int64_t settingsRev = 0, savedRev = -1;  // savedRev: the rev in settings.json
 uint32_t settingsVer = 0;
 
 bool inFlight = false;
@@ -120,7 +151,7 @@ uint32_t codeExpires = 0, nextPoll = 0;
 // change saved on the web shows here within about a minute instead of at the next sync (dash.interval_min). It rides
 // the kept connection (KEEP_IDLE_MS > PING_MS keeps it open); it never opens a fresh one without internal RAM to
 // spare, nor while a screen that asked for the RAM (releaseConnection: a game, a download) is still open.
-constexpr uint32_t PING_MS = 60000;
+constexpr uint32_t PING_MS = 45000;  // 0.5.7: 45 s (was 60), so the kept connection never idles past KEEP_IDLE_MS
 constexpr size_t PING_MIN_INTERNAL = 40 * 1024;  // to open a fresh connection for a ping
 constexpr uint32_t PING_FW_GAP_MS = 120000;      // "fw" starts at most one sync in this long
 uint32_t nextPing = 0, fwActedAt = 0;
@@ -163,8 +194,11 @@ NetworkClientSecure* keepTls = nullptr;
 HTTPClient* keepHttp = nullptr;
 uint32_t keepUsed = 0;
 // The server keeps an idle connection open for minutes (measured from a computer on 2026-11-16: still the same
-// socket after 100 s idle). Dropping ours after 15 s cost a 3-5 s handshake on almost every request.
-constexpr uint32_t KEEP_IDLE_MS = 90000;
+// socket after 100 s idle; 2026-11-19: Cloudflare closes it after 400 s idle). Dropping ours after 15 s cost a 3-5 s
+// handshake on almost every request. On the board (0.5.6) kept connections still died sooner on the way (a router or
+// the carrier forgetting an idle connection): 50 s, with the ping every 45 s keeping the one in use warm, and a
+// request that fails at once on it is sent again on a fresh one (http()).
+constexpr uint32_t KEEP_IDLE_MS = 50000;
 constexpr size_t KEEP_MIN_INTERNAL = 24 * 1024;
 volatile bool dropKeep = false, keepOpen = false;
 
@@ -209,6 +243,7 @@ int raw(const Request& r) {
   return up ? 200 : -1;
 }
 
+void hwHeaders(HTTPClient& h);
 int http(const Request& r, String& out, Response* res) {
   const String url = r.url.length() ? r.url : api + r.path;
   for (int attempt = 0; attempt < 2; attempt++) {
@@ -221,14 +256,18 @@ int http(const Request& r, String& out, Response* res) {
     h.collectHeaders(keep, 1);
     if (!r.url.length()) h.addHeader("Content-Type", "application/json");
     if (r.token.length()) h.addHeader("Authorization", "Device " + r.token);
+    if (!r.url.length()) hwHeaders(h);  // the trial's hardware id, to our API only (never to storage links)
+    const uint32_t sent = millis();
     const int code = r.post ? h.POST(r.body) : h.GET();
     keepUsed = millis();
     keepOpen = code > 0;
-    if (code < 0 && attempt == 0) {
-      // A kept connection that died under us: once more on a fresh one.
+    // A kept connection the server had closed fails at once (-2/-3 in under ~2 s, 0.5.6 on the board: "Couldn't
+    // reach the server"): once more on a fresh one. A slow failure (a timeout) is resent only when it is a GET, never
+    // a POST that may have reached the server (0.5.7).
+    if (code < 0 && attempt == 0 && (millis() - sent < 3000 || !r.post)) {
       h.end();
       dropKept();
-      trace::add("http %d on a kept connection, retrying fresh", code);
+      trace::add("http %d after %lu ms, retrying on a fresh connection", code, millis() - sent);
       continue;
     }
     if (code == 301 || code == 302 || code == 307) {
@@ -334,6 +373,61 @@ void loadLink() {
   state = token.length() == 64 ? Link::Linked : Link::None;
 }
 
+// settings.json and dash.json are written by a small task of their own (0.5.7): a LittleFS write took 110-320 ms of
+// the UI loop, and up to 1.8 s when LittleFS tidied its records (QEMU at board speed), at every change made on the
+// device. The UI loop makes the text (its own snapshot); the task writes the newest text of each file, then ends.
+// A restart waits for it (esp_register_shutdown_handler). Its stack is internal RAM: flash writes turn the cache off.
+std::mutex fsMu;
+String fsBody[2];           // settings, dashboard: the newest text not written yet
+bool fsWant[2] = {false, false};
+volatile bool fsBusy = false;
+const char* const FS_PATH[2] = {SETTINGS_FILE, DASH_FILE};
+
+void writeNow(int k, const String& body) {
+  File f = LittleFS.open(FS_PATH[k], "w");
+  if (f) f.write((const uint8_t*)body.c_str(), body.length()), f.close();
+}
+
+void fsWriter(void*) {
+  for (;;) {
+    String body;
+    int k = -1;
+    {
+      std::lock_guard<std::mutex> l(fsMu);
+      for (int i = 0; i < 2 && k < 0; i++)
+        if (fsWant[i]) k = i, fsWant[i] = false, body = std::move(fsBody[i]), fsBody[i] = String();
+      if (k < 0) {
+        fsBusy = false;
+        break;
+      }
+    }
+    const uint32_t t0 = millis();
+    writeNow(k, body);
+    trace::add("saved %s (%u B) in %lu ms, stack %u B never used", FS_PATH[k], (unsigned)body.length(), millis() - t0,
+               (unsigned)uxTaskGetStackHighWaterMark(nullptr));
+  }
+  vTaskDelete(nullptr);
+}
+
+void fsWaitAll() {  // a restart: the last change in first (at most 3 s)
+  for (int i = 0; i < 300 && fsBusy; i++) vTaskDelay(pdMS_TO_TICKS(10));
+}
+
+void writeLater(int k, String&& body) {
+  static bool hooked = false;
+  if (!hooked) hooked = true, esp_register_shutdown_handler(fsWaitAll);
+  std::lock_guard<std::mutex> l(fsMu);
+  fsBody[k] = std::move(body);
+  fsWant[k] = true;
+  if (fsBusy) return;  // the running task takes it next
+  fsBusy = true;
+  if (xTaskCreatePinnedToCore(fsWriter, "fsw", 5120, nullptr, 1, nullptr, 0) != pdPASS) {
+    fsBusy = fsWant[k] = false;
+    writeNow(k, fsBody[k]);  // no room for the task: as before, on this loop
+    fsBody[k] = String();
+  }
+}
+
 void saveSettings() {
   JsonDocument d(&psram);
   d["rev"] = settingsRev;
@@ -341,8 +435,10 @@ void saveSettings() {
   for (auto& kv : vals) v[kv.first] = kv.second;
   JsonArray dk = d["d"].to<JsonArray>();
   for (auto& kv : dirty) dk.add(kv.first);
-  File f = LittleFS.open(SETTINGS_FILE, "w");
-  if (f) serializeJson(d, f), f.close();
+  String body;
+  serializeJson(d, body);
+  writeLater(0, std::move(body));
+  savedRev = settingsRev;
 }
 
 void loadSettings() {
@@ -350,7 +446,7 @@ void loadSettings() {
   if (!f) return;
   JsonDocument d(&psram);
   if (deserializeJson(d, f) == DeserializationError::Ok) {
-    settingsRev = d["rev"] | (int64_t)0;
+    settingsRev = savedRev = d["rev"] | (int64_t)0;
     for (JsonPairConst kv : d["v"].as<JsonObjectConst>()) vals[kv.key().c_str()] = kv.value().as<const char*>();
     for (JsonVariantConst k : d["d"].as<JsonArrayConst>()) dirty[k.as<const char*>()] = 0;
   }
@@ -358,8 +454,9 @@ void loadSettings() {
 }
 
 void saveDash() {
-  File f = LittleFS.open(DASH_FILE, "w");
-  if (f) serializeJson(dashDoc, f), f.close();
+  String body;
+  serializeJson(dashDoc, body);
+  writeLater(1, std::move(body));
 }
 
 void loadDash() {
@@ -367,6 +464,7 @@ void loadDash() {
   if (!f) return;
   if (deserializeJson(dashDoc, f) != DeserializationError::Ok) dashDoc.clear();
   f.close();
+  dashSigNow = dashDoc.isNull() ? 0 : dashSig(dashDoc.as<JsonObjectConst>());
   dashVer++;
 }
 
@@ -383,6 +481,14 @@ String sha256hex(const String& s) {
   uint8_t out[32];
   mbedtls_sha256((const uint8_t*)s.c_str(), s.length(), out, 0);
   return hex(out, 32);
+}
+
+// The hardware for the trial (one trial per board, admin-users' contract 2026-11-19): X-Espos-Hwid = SHA-256 of
+// "espos-hw:" + the base MAC as 12 lowercase hex, X-Espos-Mac4 = its last 4 hex digits. The MAC itself is never sent.
+void hwHeaders(HTTPClient& h) {
+  String m4;
+  h.addHeader("X-Espos-Hwid", hwid(&m4));
+  h.addHeader("X-Espos-Mac4", m4);
 }
 
 int versionCode(const char* v) {
@@ -461,7 +567,7 @@ String buildSyncBody() {
     JsonObject dg = d["diag"].to<JsonObject>();
     diag::fill(dg);
     dg["board"] = board::name();  // the web shows which screen this is (board.h: found at boot)
-    dg["ping"] = PING_MS / 1000;  // this firmware asks every minute: the web says a change arrives within that
+    dg["ping"] = PING_MS / 1000;  // how often this firmware asks (45 s): the web says a change arrives within that
     // Remote control (remote.h): where the web EspOS opens the device's page, and its PIN (only while it is on).
     if (remote::enabled()) dg["rc_on"] = 1;
     const String rc = remote::url();
@@ -511,7 +617,7 @@ String buildSyncBody() {
 }
 
 void applySettings(JsonObjectConst server, uint32_t requestAt) {
-  bool any = false;
+  bool any = false, settled = false;
   for (JsonPairConst kv : server) {
     const String k = kv.key().c_str();
     auto dk = dirty.find(k);
@@ -519,8 +625,10 @@ void applySettings(JsonObjectConst server, uint32_t requestAt) {
     const String v = kv.value().as<const char*>() ? kv.value().as<const char*>() : "";
     if (vals[k] != v) vals[k] = v, any = true;
   }
-  for (auto it = dirty.begin(); it != dirty.end();) it = it->second <= requestAt ? dirty.erase(it) : std::next(it);
-  saveSettings();
+  for (auto it = dirty.begin(); it != dirty.end();)
+    if (it->second <= requestAt) it = dirty.erase(it), settled = true;
+    else ++it;
+  if (any || settled || settingsRev != savedRev) saveSettings();  // a LittleFS write on the UI loop: only when something changed (0.5.7)
   if (any) settingsVer++;
 }
 
@@ -537,10 +645,15 @@ void applySync(JsonDocument& doc) {
   }
   settingsRev = doc["settings_rev"] | settingsRev;
   if (!doc["settings"].isNull()) applySettings(doc["settings"], syncStartedAt);
+  lic::fromSync(doc["lic"]);  // the account's licence (lic.h): none = no licensing, as before
   if (!doc["dashboard"].isNull()) {
-    dashDoc.set(doc["dashboard"]);
-    saveDash();
-    dashVer++;
+    const uint32_t sig = dashSig(doc["dashboard"].as<JsonObjectConst>());
+    if (sig != dashSigNow || dashDoc.isNull()) {
+      dashDoc.set(doc["dashboard"]);
+      saveDash();
+      dashSigNow = sig;
+      dashVer++;
+    }
   }
   // WiFi changes made on the web; acknowledged on the next sync.
   wifiAcks.erase(wifiAcks.begin(), wifiAcks.begin() + min(acksSent.size(), wifiAcks.size()));
@@ -580,6 +693,10 @@ void handle(Response* r) {
   inFlight = false;
   JsonDocument& doc = *r->doc;
   const char* err = doc["error"] | "";
+  // A blocked account (2026-11-19): every route answers 403 account_disabled. The token stays, lock.h shows a calm
+  // screen over Home, syncing keeps its pace; the first 200 of a sync or a ping ends it.
+  if (r->status == 403 && !strcmp(err, "account_disabled")) lock::account(doc["state"] | "blocked");
+  else if (r->status == 200 && (r->job == Job::Sync || r->job == Job::Ping)) lock::account(nullptr);
   switch (r->job) {
     case Job::Raw:
       if (rawDoneNow) rawDoneNow(rawCtxNow);
@@ -652,19 +769,26 @@ void handle(Response* r) {
       }
       break;
     case Job::Sync:
-      nextPing = millis() + PING_MS;  // the sync brought everything: the next ping a minute from now
+      nextPing = millis() + PING_MS;  // the sync brought everything: the next ping PING_MS from now
       if (r->status == 200) {
+        const uint32_t dashVerBefore = dashVer;
         applySync(doc);
+        if (claim::pending()) claim::claimed();  // someone entered the code: this unit is theirs
         planPhotos();
         pkg::store::afterSync();  // reconcile s3.pkgs (install, move, remove what the web asked)
         failures = 0;
         lastErr = "";
         nextSync = millis() + intervalMs();
-        trace::add("sync ok: dashboard %s, settings rev %lld", doc["dashboard"].isNull() ? "none" : "new",
-                   (long long)settingsRev);
+        trace::add("sync ok: dashboard %s, settings rev %lld",
+                   doc["dashboard"].isNull() ? "none" : dashVer != dashVerBefore ? "new" : "same", (long long)settingsRev);
       } else if (r->status == 401 && !strcmp(err, "unauthorized")) {
         trace::add("sync: token refused, unlinking");
         unlink();
+      } else if (r->status == 401 && !strcmp(err, "not_linked") && claim::pending()) {
+        nextSync = millis() + 5000;  // waiting for its owner to enter the code (claim.h): asked every 5 s
+      } else if (r->status == 403 && !strcmp(err, "account_disabled")) {
+        lastErr = T_("Your account is locked");
+        nextSync = millis() + intervalMs();  // the normal pace: it may open again any time
       } else {
         failures++;
         lastErr = r->status < 0 ? String(T_("Couldn't reach the server")) : i18n::fmt(N_("Server error {0}"), String(r->status));
@@ -711,6 +835,19 @@ void* tlsCalloc(size_t n, size_t size) {
 void tlsFree(void* p) { heap_caps_free(p); }
 
 // ---------------------------------------------------------------- public
+String hwid(String* mac4) {
+  static String id, m4;
+  if (!id.length()) {
+    uint8_t m[6] = {};
+    esp_read_mac(m, ESP_MAC_BASE);
+    const String mac = hex(m, 6);
+    id = sha256hex("espos-hw:" + mac), m4 = mac.substring(8);
+  }
+  if (mac4) *mac4 = m4;
+  return id;
+}
+String tokenSha8() { return token.length() ? sha256hex(token).substring(0, 8) : String(); }
+
 void releaseConnection() {
   dropKeep = true;
   pingHold = true;  // no ping reopens it while the screen that asked is open (pingReady)
@@ -894,6 +1031,7 @@ bool provision(const char* json, String& err) {
     settingsVer++;
   }
   becomeLinked(tok, d["device"]);
+  if (d["claim"].is<const char*>()) claim::set(d["claim"], d["claim_url"] | "");  // a unit for sale (claim.h)
   return true;
 }
 

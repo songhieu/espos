@@ -31,6 +31,7 @@ class Pba {
   bool mapped() const { return map_ != nullptr; }
   float seconds(const pba_clip_t* l) const { return (float)l->samples / head()->rate; }
   uint32_t bytes() const { return len_; }  // what it holds in PSRAM
+  const pkg::File& file() const { return file_; }  // where it is (sfx.cpp streams a tune from it)
 
  private:
   const uint8_t* head_ = nullptr;  // header + clips + texts

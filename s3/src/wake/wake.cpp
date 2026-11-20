@@ -6,15 +6,23 @@
 
 #include <sys/stat.h>
 
+#include <atomic>
 #include <cmath>
 
 #include "../desk.h"
+#include "../i18n.h"
 #include "../mic.h"
 #include "../pet/assist.h"
+#include "../pet/sfx.h"  // bedOnly(): a tune alone does not stop the wake word
+#include "../notif.h"
 #include "../pkg/pkg.h"
+#include "../pkg/store.h"
 #include "../power.h"
 #include "../sound.h"
 #include "../trace.h"
+#ifdef SIM
+void simWakeEvent(const char* kind, float score);  // sim/live.cpp keeps ~10 s of the live microphone around it
+#endif
 #include "wake_fe.h"
 #include "wake_rt.h"
 
@@ -35,6 +43,22 @@ int16_t* ring = nullptr;
 volatile uint32_t clock_ = 0;  // samples seen
 volatile float lvl = -96, flr = -60;
 volatile bool levelsReset = true;  // the mic (re)opened: the levels start afresh
+// vadTake's counts (the mic task adds, the UI loop takes them with a swap): blocks above the floor + vadRel, blocks,
+// the loudest level in centi-dB.
+volatile float vadRel = 9, vadMin = -60;
+volatile uint32_t vadMuteUntil = 0;  // in mic samples (clock_)
+constexpr uint32_t VAD_ECHO_MS = 400;  // the speaker's sound and its echo in the room, after the last sample written
+std::atomic<uint32_t> vadLoudN{0}, vadN{0}, vadOursN{0};
+std::atomic<int32_t> vadPeakC{-9000};
+// The speech-start score, block by block in order (loud +10 ms, quiet -5 ms, never under 0): its highest value since
+// vadRestart, packed with the restart's number (16 bits each) so a take never sees a score from before the restart.
+std::atomic<uint32_t> vadGen{0}, vadBest{0};
+uint32_t micGen = 0;
+// The mic while the speaker plays (the speaker-to-mic level, for the game music's level and the wake word's bar):
+// 10 ms blocks while anything played, their summed dB and loudest; the same for a tune alone. Logged once a minute.
+volatile uint32_t spkN = 0, bedN = 0;
+volatile float spkSum = 0, spkMax = -90, bedSum = 0, bedMax = -90;
+int32_t vadScore = 0, vadMax = 0;
 // The detector (state touched by the mic task only while `det` is true; changed by the UI with det false).
 volatile bool det = false, held = false, paused_ = false;
 wfe_t* fe = nullptr;
@@ -48,9 +72,11 @@ volatile uint32_t firedAt = 0, fires = 0, frames = 0, usSum = 0, usMax = 0;
 int warm = 0;
 float lastP[2] = {0, 0}, peakP[2] = {0, 0};
 volatile float secP[2] = {0, 0};
-volatile float firedP[2] = {0, 0};  // the best of the current second (logged when it came near: the near misses)
+volatile float firedP[2] = {0, 0};
+volatile bool firedBed = false;  // it fired over a game's tune (the bar BED_UP higher)  // the best of the current second (logged when it came near: the near misses)
 // The capture: 0 idle, 1 wanted (the mic task copies the ring from capFrom, then records), 2 recording, 3 stopped.
 volatile int capState = 0;
+volatile uint32_t capDoneAt = 0;  // when a capture filled up or was stopped (state 3: waiting for its owner)
 int16_t* cap = nullptr;  // 22 samples of room for the WAV header, then the sound
 volatile uint32_t capLen = 0;
 uint32_t capCap = 0, capFrom = 0;
@@ -87,6 +113,29 @@ void push(const int16_t* pcm, int n) {
   for (float h : hist) m = h < m ? h : m;
   lvl = db;
   flr = m;
+  if (sound::outputSince(20)) {
+    spkN = spkN + 1, spkSum = spkSum + db, spkMax = db > spkMax ? db : spkMax;
+    if (pet::sfx::bedOnly(300)) bedN = bedN + 1, bedSum = bedSum + db, bedMax = db > bedMax ? db : bedMax;
+  }
+  vadN.fetch_add(1, std::memory_order_relaxed);
+  // Our own sound is never speech: talk.cpp's mute (the ack, on the mic clock), and whatever the speaker played in
+  // the last VAD_ECHO_MS but a game's tune (the speaker sits next to the mic: on the board the dog's voice comes back
+  // at -30..-35 dBFS, peaks -12, and the room carries it ~0.3 s more; the I2S buffer plays ~40 ms after the write).
+  // A dry run on the board (2026-11-20, build 7) took the ack's tail for a question; the sim with SIM_ECHO did too.
+  const bool ours = (int32_t)(c - vadMuteUntil) < 0 || (sound::outputSince(VAD_ECHO_MS) && !pet::sfx::bedOnly(VAD_ECHO_MS));
+  const bool loud = db > m + vadRel && db > vadMin && !ours;
+  if (ours) vadOursN.fetch_add(1, std::memory_order_relaxed);
+  if (loud) vadLoudN.fetch_add(1, std::memory_order_relaxed);
+  const uint32_t g = vadGen.load(std::memory_order_relaxed) & 0xffff;
+  if (g != micGen) micGen = g, vadScore = vadMax = 0;
+  const int32_t blockMs = n * 1000 / 16000;
+  vadScore = loud ? vadScore + blockMs : max<int32_t>(0, vadScore - blockMs / 2);
+  vadMax = max(vadMax, vadScore);
+  vadBest.store(micGen << 16 | (uint32_t)min<int32_t>(vadMax, 0xffff), std::memory_order_relaxed);
+  const int32_t cdb = (int32_t)(db * 100);
+  int32_t p = vadPeakC.load(std::memory_order_relaxed);
+  while (!ours && cdb > p && !vadPeakC.compare_exchange_weak(p, cdb, std::memory_order_relaxed)) {
+  }
 }
 
 void captureBlock(const int16_t* pcm, int n) {
@@ -106,11 +155,19 @@ void captureBlock(const int16_t* pcm, int n) {
   const int m = (int)min<uint32_t>(n, capCap - len);
   memcpy(cap + 22 + len, pcm, m * 2);
   capLen = len + m;
-  if (capLen >= capCap) capState = 3;
+  if (capLen >= capCap) capState = 3, capDoneAt = millis();
 }
 
+// A game's tune or ambience alone (pet::sfx::bedOnly: no voice, no effect for GATE_MS) does not stop the wake word
+// (PawBoop plays music most of the time); the bar is BED_UP higher then. Measured 2026-11-20 with the board's
+// detector on the 9 tunes (10 min) under the room's floor: 1-2 false calls per 10 min at the normal bar, 0-1 with
+// +0.05, calls heard about the same. Anything else the speaker plays (the dog's lines, effects, the AI's voice)
+// still stops it (its own "gâu" must never call it).
+constexpr float BED_UP = 0.05f;
+
 void detect(const int16_t* pcm, int n) {
-  if (held || paused_ || sound::outputSince(GATE_MS)) {
+  const bool out = sound::outputSince(GATE_MS), bed = out && pet::sfx::bedOnly(GATE_MS);
+  if (held || paused_ || (out && !bed)) {
     reset = true;  // the device's own sound, a turn or a pause: start afresh after it
     return;
   }
@@ -123,7 +180,9 @@ void detect(const int16_t* pcm, int n) {
   const uint32_t t0 = micros();
   int8_t f[WFE_BANDS];
   wfe_frame(fe, pcm, f);
-  const int r = ewm_push(&net, f, thr);
+  float bar[EWM_MAX_OUT];
+  for (int o = 0; o < EWM_MAX_OUT; o++) bar[o] = bed && thr[o] < 1 ? min(thr[o] + BED_UP, 0.99f) : thr[o];  // 2 = off
+  const int r = ewm_push(&net, f, bed ? bar : thr);
   const uint32_t us = micros() - t0;
   frames = frames + 1;
   usSum = usSum + us;
@@ -140,6 +199,7 @@ void detect(const int16_t* pcm, int n) {
   }
   if (r > 0 && !fired && capState == 0) {
     firedP[0] = net.prob[0], firedP[1] = net.h->nout > 1 ? net.prob[1] : 0;  // the scores that fired (for the log)
+    firedBed = bed;
     firedAt = clock_;
     fires = fires + 1;
     fired = true;
@@ -245,11 +305,49 @@ void begin() {
   applyThr();
 }
 
+// The wake word turned on (on the web or here) while the listener is not on the device: it is fetched from the
+// store by itself, with a notification, once the catalog has it (the person said yes when turning it on; 0.5.6
+// waited for a second tap on "Download" in the dog's book). Tried again every 10 minutes while it is missing.
+void fetchModel() {
+  static uint32_t triedAt = 0;
+  static bool told = false;
+  if (mode_ == OFF || modelInstalled() || desk::link() != desk::Link::Linked) return;
+  if (triedAt && millis() - triedAt < 10 * 60 * 1000UL) return;
+  const pkg::store::Entry* e = pkg::store::entry(PKG);
+  if (!e) {  // the catalog is not here yet (or old): ask for it, look again in a minute
+    pkg::store::refresh(false);
+    triedAt = millis() - 9 * 60 * 1000UL;
+    return;
+  }
+  triedAt = millis();
+  String why;
+  const bool ok = pkg::store::install(*e, pkg::store::defaultParts(*e), pkg::FLASH, why);
+  trace::add("wake: the listener is missing: %s%s", ok ? "downloading it" : "could not start: ", ok ? "" : why.c_str());
+  if (ok && !told) {
+    told = true;
+    // i18n: a notification while the device downloads the small "Gâu" wake-word listener by itself
+    notif::Opts o;
+    o.tag = "wake", o.sound = false, o.badge = false;
+    notif::post("pet", T_("Getting the \"Gâu\" listener"), T_("The dog will hear its name in a moment."), o);
+  }
+}
+
 void tick() {
   const uint32_t ms = millis();
+  static uint32_t spkAt = 0;
+  if (ms - spkAt >= 60000) {
+    spkAt = ms;
+    if (spkN >= 100) {  // a second or more of the speaker in the last minute
+      const uint32_t n = spkN, b = bedN;
+      trace::add("wake: mic while the speaker played %.1f s: avg %.0f, loudest %.0f dBFS (floor %.0f; a tune alone %.1f s: avg %.0f, loudest %.0f)",
+                 n / 100.0f, spkSum / n, spkMax, flr, b / 100.0f, b ? bedSum / b : -90.0f, bedMax);
+    }
+    spkN = bedN = 0, spkSum = bedSum = 0, spkMax = bedMax = -90;
+  }
   if (ms - lastCheck >= 500) {
     lastCheck = ms;
     readPrefs();
+    fetchModel();
     const bool want = wantDetector() && loadModel();
     if (want != det) {
       if (want) {
@@ -266,15 +364,30 @@ void tick() {
   static uint32_t lastSec = 0;
   if (det && ms - lastSec >= 1000) {  // the scores that came near in the last second (0.2 and up)
     lastSec = ms;
-    if (secP[0] >= 0.2f || secP[1] >= 0.2f) trace::add("wake: best gau %.3f gau2 %.3f", secP[0], secP[1]);
+    if (secP[0] >= 0.2f || secP[1] >= 0.2f) {
+      trace::add("wake: best gau %.3f gau2 %.3f", secP[0], secP[1]);
+#ifdef SIM
+      simWakeEvent("near", fmaxf(secP[0], secP[1]));
+#endif
+    }
     secP[0] = secP[1] = 0;
   }
   if (fired) {
     fired = false;
-    trace::add("wake: heard (gau %.3f, gau2 %.3f; bars %.2f / %.2f)", firedP[0], firedP[1], thr[0], thr[1]);
+    trace::add("wake: heard (gau %.3f, gau2 %.3f; bars %.2f / %.2f%s)", firedP[0], firedP[1], thr[0], thr[1],
+               firedBed ? ", over a tune: +0.05" : "");
+#ifdef SIM
+    simWakeEvent("call", fmaxf(firedP[0], firedP[1]));
+#endif
     if (cb) cb(firedAt);
   }
   if (recSecs && capState == 3) dumpRec();
+  // A finished recording nobody took for 30 s (a bug elsewhere, as 0.5.6's closed pop-up): the wake word waits for
+  // no recording, so it would never fire again. Freed, and said in the trace.
+  if (!recSecs && capState == 3 && millis() - capDoneAt > 30000) {
+    trace::add("wake: a recording nobody took for 30 s, freed");
+    captureFree();
+  }
 }
 
 bool modelInstalled() {
@@ -312,7 +425,7 @@ bool captureStart(uint32_t fromSample, int maxMs) {
 }
 
 void captureStop() {
-  if (capState == 1 || capState == 2) capState = 3;
+  if (capState == 1 || capState == 2) capState = 3, capDoneAt = millis();
 }
 
 bool capturing() { return capState == 1 || capState == 2; }
@@ -350,8 +463,56 @@ void captureFree() {
 
 float levelDb() { return lvl; }
 float floorDb() { return flr; }
+void vadSet(float relDb, float minDb) { vadRel = relDb, vadMin = minDb; }
+void vadRestart() { vadGen.fetch_add(1); }
+void vadMute(uint32_t forMs) { vadMuteUntil = clock_ + forMs * (RATE / 1000); }
+uint32_t vadSpeechMs() {
+  const uint32_t b = vadBest.load(), g = vadGen.load() & 0xffff;
+  return (b >> 16) == g ? (b & 0xffff) : 0;
+}
+Vad vadTake() {
+  Vad v;
+  const uint32_t blockMs = WFE_HOP * 1000 / RATE;
+  v.ms = vadN.exchange(0) * blockMs;
+  v.loudMs = vadLoudN.exchange(0) * blockMs;
+  v.oursMs = vadOursN.exchange(0) * blockMs;
+  v.peakDb = vadPeakC.exchange(-9000) / 100.0f;
+  return v;
+}
 
 bool console(const char* cmd) {
+#if defined(ESPOS_QA) || defined(SIM)
+  // QA: PKGINSTALL <id> / PKGREMOVE <id>: a store package installed to internal flash or removed, as the store page
+  // does (board stress tests: a flash write while something else reads; answers in the trace's store: lines).
+  if (!strncmp(cmd, "PKGINSTALL ", 11) || !strncmp(cmd, "PKGREMOVE ", 10)) {
+    const bool add = cmd[3] == 'I';
+    const char* id = cmd + (add ? 11 : 10);
+    String why;
+    bool ok = false;
+    if (add) {
+      const pkg::store::Entry* e = pkg::store::entry(id);
+      ok = e && pkg::store::install(*e, pkg::store::defaultParts(*e), pkg::FLASH, why);
+      if (!e) {  // the catalog is not here yet (the board loads it when the store needs it): ask for it now
+        pkg::store::refresh(false);
+        why = "not in the catalog yet: asked for it, send again in ~10 s";
+      }
+    } else {
+      ok = pkg::store::remove(id, why);
+    }
+    Serial.printf("%s %s %s %s\n", add ? "PKGINSTALL" : "PKGREMOVE", id, ok ? "ok:" : "refused:", why.length() ? why.c_str() : "queued");
+    trace::add("qa: %s %s %s %s", add ? "PKGINSTALL" : "PKGREMOVE", id, ok ? "ok:" : "refused:", why.length() ? why.c_str() : "queued");
+    return true;
+  }
+  if (!strncmp(cmd, "PKGSTATUS ", 10)) {  // QA: PKGSTATUS <id>: installed (version, volume) or not, a job for it or not
+    const pkg::Package* p = pkg::find(cmd + 10);
+    const pkg::store::Status s = pkg::store::status();
+    const String line = String(cmd + 10) + (p ? " installed " + p->version + (p->vol == pkg::SD ? " card" : " flash") : " not installed") +
+                        ", store job: " + (pkg::store::busy() ? s.id + " " + String((int)s.state) : String("none"));
+    Serial.printf("PKGSTATUS %s\n", line.c_str());
+    trace::add("qa: PKGSTATUS %s", line.c_str());
+    return true;
+  }
+#endif
   if (!strcmp(cmd, "WAKE")) {
     const mic::Stats m = mic::stats();
     Serial.printf("WAKE mode %d word %s sens %d paused %d model %s listening %d thr %.3f/%.3f\n", mode_, word ? "gau" : "gau2",

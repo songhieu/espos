@@ -1,3 +1,4 @@
+#pragma GCC optimize("Os")  // cold code: built small (0.5.7 flash diet; the app slot is full)
 // Classes: the class file parser, linking (field layout, vtables), resolution of constant pool references, array
 // classes, java.lang.Class mirrors, and static initialization (docs/j2me.md "Classes").
 #if defined(ESP_PLATFORM) && !defined(J2ME_NO_OS)

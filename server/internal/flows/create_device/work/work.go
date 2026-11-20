@@ -252,7 +252,7 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 	name := strings.TrimSpace(wm.Str(b["name"]))
 	hash := strings.ToLower(strings.TrimSpace(wm.Str(b["token_hash"])))
 	if name == "" || len([]rune(name)) > 40 {
-		return map[string]any{"status": 422, "body": map[string]any{"error": "Tên máy: 1–40 ký tự"}}
+		return map[string]any{"status": 422, "body": map[string]any{"error": "Tên máy: 1–40 ký tự", "code": "device_name_length"}}
 	}
 	if !hashRe.MatchString(hash) {
 		return map[string]any{"status": 422, "body": map[string]any{"error": "token_hash"}}
@@ -291,15 +291,15 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 			return wm.Fail(gerr)
 		}
 		if !ok {
-			return map[string]any{"status": 422, "body": map[string]any{"error": "Không tìm thấy thành phố"}}
+			return map[string]any{"status": 422, "body": map[string]any{"error": "Không tìm thấy thành phố", "code": "city_not_found"}}
 		}
 		vals["dash.lat"] = lat
 		vals["dash.lon"] = lon
 		vals["dash.city"] = found
 	}
 	kind := wm.Str(b["kind"])
-	if kind != "s3" {
-		kind = "x4"
+	if kind != "s3" && kind != "bot" {
+		kind = "x4" // the EspOS Bot (kind "bot", 2026-11-20) and the S3 say so; anything else is an X4
 	}
 	dev, err := wm.Insert("devices", map[string]any{
 		"user_id": uid, "user_email": email, "name": name, "token_hash": hash, "revoked": false, "kind": kind,

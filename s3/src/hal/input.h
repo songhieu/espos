@@ -18,7 +18,7 @@ struct InputDesc {
 
 // The input driver: src/boards/<name>/touch.cpp. begin() runs once at boot (from touch::begin()), on the board's I2C
 // bus (touch::i2cBus(), made on first use): reset the controller, check it answers, start a task that reads every
-// report and hands it to touch::report(x, y, down, ms). x, y: the UI's portrait coordinates (0..UI_W-1, 0..UI_H-1, before the screen's
+// report and hands it to touch::report(x, y, down, ms). x, y: the UI's portrait coordinates (0..uiW()-1, 0..uiH()-1, before the screen's
 // rotation; a panel smaller than the UI maps back through its UiMap); ms: millis() when it was read.
 // false: the controller does not answer.
 struct Input {

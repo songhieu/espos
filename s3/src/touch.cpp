@@ -209,15 +209,17 @@ void report(int16_t x, int16_t y, bool down, uint32_t ms) {
 }
 
 void feed(int x, int y, bool down) {
-  report((int16_t)constrain(x, 0, LCD_W - 1), (int16_t)constrain(y, 0, LCD_H - 1), down, millis());
+  const int w = hal::uiW(), h = hal::uiH();
+  report((int16_t)constrain(x, 0, w - 1), (int16_t)constrain(y, 0, h - 1), down, millis());
 }
 
 void toNative(int x, int y, int& nx, int& ny) {
   nx = x, ny = y;  // the inverse of toScreen()
+  const int W = hal::uiW(), H = hal::uiH();
   switch (lv_display_get_rotation(display)) {
-    case LV_DISPLAY_ROTATION_90: nx = y, ny = LCD_H - 1 - x; break;
-    case LV_DISPLAY_ROTATION_180: nx = LCD_W - 1 - x, ny = LCD_H - 1 - y; break;
-    case LV_DISPLAY_ROTATION_270: nx = LCD_W - 1 - y, ny = x; break;
+    case LV_DISPLAY_ROTATION_90: nx = y, ny = H - 1 - x; break;
+    case LV_DISPLAY_ROTATION_180: nx = W - 1 - x, ny = H - 1 - y; break;
+    case LV_DISPLAY_ROTATION_270: nx = W - 1 - y, ny = x; break;
     default: break;
   }
 }

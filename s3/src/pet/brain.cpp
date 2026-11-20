@@ -1,3 +1,4 @@
+#pragma GCC optimize("Os")  // cold code (events, saves, ticks): size first (s3-perf, 2026-11-20)
 #include "brain.h"
 
 #include <Arduino.h>

@@ -7,6 +7,7 @@ void setVolume(int percent);  // 0..100
 void click();                 // a short soft tick for a tap (skipped when muted or in Do Not Disturb)
 void chime();                 // two notes, e.g. for a finished sync the user asked for
 void blip();                  // two soft quick notes: the dog heard its name (the wake word); not muted by Do Not Disturb
+void blipEnd();               // the same falling, softer: the question is sent, the dog is thinking
 void test();                  // a short tune to check the speaker (ignores Do Not Disturb)
 void alarmBeep();             // four loud beeps for an alarm or a timer (ignores Do Not Disturb)
 

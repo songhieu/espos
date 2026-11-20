@@ -39,7 +39,7 @@ bool searchAt(int32_t x, int32_t y);
 void openSearch();
 bool settingsChanged();  // s3.home changed on the web: true when the pages must be redrawn
 void toFirstPage();
-void bench();  // dev console
+void bench();  // dev console (ESPOS_QA builds only)
 // A big game opens (PawBoop, its run, a Java game): Home's page pictures (one a page, 250-300 KB of PSRAM each) are
 // let go; Home takes them again when it is idle in front.
 void releasePictures();

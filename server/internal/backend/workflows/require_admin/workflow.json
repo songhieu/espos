@@ -1,23 +1,95 @@
 {
   "code": "require_admin",
-  "name": "Guard: an EspOS admin (variable admin_users)",
+  "name": "Guard: an EspOS admin (owners: variable admin_users; others: table admin_roles)",
   "draft": {
     "nodes": [
-      { "id": "in", "type": "function_in" },
-      { "id": "chk", "type": "code", "config": {
-          "source": { "$file": "nodes/chk.go" },
-          "input": { "user": "{{ input.user }}", "admins": "{{ var.admin_users }}" } } },
-      { "id": "ok", "type": "branch", "config": { "rules": [ { "left": "{{ chk.ok }}", "op": "eq", "right": true } ] } },
-      { "id": "pass", "type": "return", "config": { "data": { "user_id": "{{ chk.user_id }}" } } },
-      { "id": "deny", "type": "return", "config": { "deny": true, "status": 403, "body": { "error": "admins only" } } },
-      { "id": "boom", "type": "return", "config": { "deny": true, "status": 500, "body": { "error": "{{ chk.error }}" } } }
+      {
+        "id": "in",
+        "type": "function_in"
+      },
+      {
+        "id": "chk",
+        "type": "code",
+        "config": {
+          "source": {
+            "$file": "nodes/chk.go"
+          },
+          "input": {
+            "user": "{{ input.user }}",
+            "admins": "{{ var.admin_users }}"
+          }
+        }
+      },
+      {
+        "id": "ok",
+        "type": "branch",
+        "config": {
+          "rules": [
+            {
+              "left": "{{ chk.ok }}",
+              "op": "eq",
+              "right": true
+            }
+          ]
+        }
+      },
+      {
+        "id": "pass",
+        "type": "return",
+        "config": {
+          "data": {
+            "user_id": "{{ chk.user_id }}",
+            "role": "{{ chk.role }}"
+          }
+        }
+      },
+      {
+        "id": "deny",
+        "type": "return",
+        "config": {
+          "deny": true,
+          "status": 403,
+          "body": {
+            "error": "admins only"
+          }
+        }
+      },
+      {
+        "id": "boom",
+        "type": "return",
+        "config": {
+          "deny": true,
+          "status": 500,
+          "body": {
+            "error": "{{ chk.error }}"
+          }
+        }
+      }
     ],
     "edges": [
-      { "from": "in", "to": "chk" },
-      { "from": "chk", "to": "ok" },
-      { "from": "chk", "to": "boom", "port": "error" },
-      { "from": "ok", "to": "pass", "port": "true" },
-      { "from": "ok", "to": "deny", "port": "false" }
+      {
+        "from": "in",
+        "to": "chk"
+      },
+      {
+        "from": "chk",
+        "to": "ok"
+      },
+      {
+        "from": "chk",
+        "to": "boom",
+        "port": "error"
+      },
+      {
+        "from": "ok",
+        "to": "pass",
+        "port": "true"
+      },
+      {
+        "from": "ok",
+        "to": "deny",
+        "port": "false"
+      }
     ]
   }
 }

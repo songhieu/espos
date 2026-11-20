@@ -10,6 +10,7 @@
 #include "trace.h"
 
 #ifndef SIM
+#include "esp_jpeg_dec.h"  // Espressif's decoder (lib/esp_new_jpeg, as the run game): ~5x TJpgDec on the board
 #include "freertos/FreeRTOS.h"
 #include "freertos/idf_additions.h"
 #include "freertos/semphr.h"
@@ -40,6 +41,8 @@ struct Ctx {
   uint16_t* full = nullptr;  // full-size colours when the picture is wanted at half size
   uint8_t* fullA = nullptr;
   uint8_t* data = nullptr;   // a picture's bytes read from the memory card (pk::dataMax())
+  uint8_t* whole = nullptr;  // header + scan + end in one piece (Espressif's decoder takes one buffer)
+  uint32_t wholeCap = 0;
   uint8_t hdr[1024];         // the shared JPEG header with this box's size
 };
 
@@ -75,6 +78,12 @@ int output(JDEC* jd, void* bitmap, JRECT* r) {
 }
 
 void* psram(size_t n) { return heap_caps_malloc(n, MALLOC_CAP_SPIRAM); }
+// Colours: 16-byte aligned (Espressif's decoder writes straight into them).
+#ifdef SIM
+void* psram16(size_t n) { return psram(n); }
+#else
+void* psram16(size_t n) { return heap_caps_aligned_alloc(16, n, MALLOC_CAP_SPIRAM); }  // heap_caps_free() frees it
+#endif
 
 bool ensure(Ctx& c) {
   if (!c.pool) c.pool = (uint8_t*)psram(POOL);
@@ -86,8 +95,9 @@ bool ensure(Ctx& c) {
 
 void freeCtx(Ctx& c) {
   heap_caps_free(c.pool), heap_caps_free(c.mask), heap_caps_free(c.vsum), heap_caps_free(c.full), heap_caps_free(c.fullA);
-  heap_caps_free(c.data);
-  c.pool = c.mask = c.vsum = c.fullA = c.data = nullptr;
+  heap_caps_free(c.data), heap_caps_free(c.whole);
+  c.pool = c.mask = c.vsum = c.fullA = c.data = c.whole = nullptr;
+  c.wholeCap = 0;
   c.full = nullptr;
 }
 
@@ -102,6 +112,50 @@ bool jpeg(Ctx& c, const pbs2_frame_t* f, const uint8_t* d8, uint16_t* out) {
   Src s = {{c.hdr, d8, EOI}, {d->hdr_len, f->scan_len, 2}, 0, 0, out, f->bw, f->bh};
   if (jd_prepare(&c.jd, input, c.pool, POOL, &s) != JDR_OK) return false;
   return jd_decomp(&c.jd, output, 0) == JDR_OK;
+}
+
+// The same with Espressif's decoder (the board): the header, the scan and FF D9 copied into one buffer first.
+// false: refused or not built in (the simulator); TJpgDec then.
+bool fastJpeg(Ctx& c, const pbs2_frame_t* f, const uint8_t* d8, uint16_t* out) {
+#ifdef SIM
+  (void)c, (void)f, (void)d8, (void)out;
+  return false;
+#else
+  if ((uintptr_t)out & 15) return false;
+  const pbs2_head_t* d = pk::dog();
+  if (d->hdr_len > sizeof c.hdr) return false;
+  const uint32_t n = d->hdr_len + f->scan_len + 2;
+  if (c.wholeCap < n) {
+    heap_caps_free(c.whole);
+    c.whole = (uint8_t*)psram(n + 8192), c.wholeCap = c.whole ? n + 8192 : 0;
+    if (!c.whole) return false;
+  }
+  memcpy(c.whole, pk::jpegHeader(), d->hdr_len);
+  c.whole[d->dims_off] = f->bh >> 8, c.whole[d->dims_off + 1] = f->bh & 255;
+  c.whole[d->dims_off + 2] = f->bw >> 8, c.whole[d->dims_off + 3] = f->bw & 255;
+  memcpy(c.whole + d->hdr_len, d8, f->scan_len);
+  c.whole[n - 2] = 0xFF, c.whole[n - 1] = 0xD9;
+  jpeg_dec_config_t cfg = DEFAULT_JPEG_DEC_CONFIG();
+  cfg.output_type = JPEG_PIXEL_FORMAT_RGB565_LE;
+  jpeg_dec_handle_t h = nullptr;
+  if (jpeg_dec_open(&cfg, &h) != JPEG_ERR_OK || !h) return false;
+  jpeg_dec_io_t io = {};
+  io.inbuf = c.whole, io.inbuf_len = (int)n;
+  jpeg_dec_header_info_t hi = {};
+  int len = 0;
+  bool ok = jpeg_dec_parse_header(h, &io, &hi) == JPEG_ERR_OK && hi.width == f->bw && hi.height == f->bh &&
+            jpeg_dec_get_outbuf_len(h, &len) == JPEG_ERR_OK && len == f->bw * f->bh * 2;
+  if (ok) {
+    io.outbuf = (uint8_t*)out;
+    ok = jpeg_dec_process(h, &io) == JPEG_ERR_OK;
+  }
+  jpeg_dec_close(h);
+  if (!ok) {
+    static bool told = false;
+    if (!told) told = true, trace::add("pet: fast JPEG decoder refused %ux%u (TJpgDec instead)", f->bw, f->bh);
+  }
+  return ok;
+#endif
 }
 
 // The 1-bit mask of a picture's box: run lengths, transparent first, alternating; a byte 255 = the run goes on.
@@ -141,7 +195,7 @@ void soften(Ctx& c, int w, int h, uint8_t* a) {
 bool fit(Pic& p, int px) {
   if (p.cap >= px) return true;
   heap_caps_free(p.rgb), heap_caps_free(p.a);
-  p.rgb = (uint16_t*)psram(px * 2);
+  p.rgb = (uint16_t*)psram16(px * 2);
   p.a = (uint8_t*)psram(px);
   p.cap = p.rgb && p.a ? px : 0;
   return p.cap;
@@ -158,13 +212,13 @@ bool decodeInto(Ctx& c, const pbs2_frame_t* f, int shift, Pic& p) {
   const uint8_t* d8 = pk::data(f, c.data);  // in place, or read from the memory card
   if (!d8) return false;
   if (!shift) {
-    if (!jpeg(c, f, d8, p.rgb) || !unmask(f, d8, c.mask)) return false;
+    if (!(fastJpeg(c, f, d8, p.rgb) || jpeg(c, f, d8, p.rgb)) || !unmask(f, d8, c.mask)) return false;
     soften(c, w, h, p.a);
     return p.f = f, true;
   }
-  if (!c.full) c.full = (uint16_t*)psram(MAX_PX * 2);
+  if (!c.full) c.full = (uint16_t*)psram16(MAX_PX * 2);
   if (!c.fullA) c.fullA = (uint8_t*)psram(MAX_PX);
-  if (!c.full || !c.fullA || !jpeg(c, f, d8, c.full) || !unmask(f, d8, c.mask)) return false;
+  if (!c.full || !c.fullA || !(fastJpeg(c, f, d8, c.full) || jpeg(c, f, d8, c.full)) || !unmask(f, d8, c.mask)) return false;
   soften(c, w, h, c.fullA);
   // Half size: 2x2 means, colours weighted by alpha so the edge does not pick up the JPEG's background.
   const int hw = w >> 1, hh = h >> 1;
@@ -244,7 +298,8 @@ void startWorker() {
   if (worker) return;
   mtx = xSemaphoreCreateMutex();
   // Core 0 next to WiFi and sound (the UI runs on core 1); the stack lives in PSRAM (internal RAM is scarce).
-  if (xTaskCreatePinnedToCoreWithCaps(workerTask, "petdec", 4096, nullptr, 2, &worker, 0, MALLOC_CAP_SPIRAM) != pdPASS)
+  // Priority 3, as desk's worker: a TLS handshake shares core 0 with the dog's pictures instead of stopping them.
+  if (xTaskCreatePinnedToCoreWithCaps(workerTask, "petdec", 8192, nullptr, 3, &worker, 0, MALLOC_CAP_SPIRAM) != pdPASS)
     worker = nullptr, trace::add("pet: no decode task, decoding inline");
 }
 #else
@@ -272,6 +327,44 @@ int find(const pbs2_frame_t* f, int shift) {
 
 Stats& stats() { return st; }
 
+// DOGBENCH: the dog's pictures (the first n of a clip, full size) with Espressif's decoder and with TJpgDec, the ms
+// a picture each and how far the colours differ (0..31/63 a channel). The UI loop's own decoder context.
+String bench(const char* clipName, int n) {
+  const pbs2_clip_t* c = pk::clip(clipName);
+  if (!c) return "no such clip";
+  Ctx& x = syncCtx();
+  if (!ensure(x)) return "no memory";
+  uint16_t* a = (uint16_t*)psram16(MAX_PX * 2);
+  uint16_t* b = (uint16_t*)psram16(MAX_PX * 2);
+  if (!a || !b) return heap_caps_free(a), heap_caps_free(b), String("no memory");
+  uint32_t fastUs = 0, slowUs = 0, done = 0, refused = 0, dmax = 0;
+  for (int i = 0; i < n && i < (int)c->count; i++) {
+    const pbs2_frame_t* f = pk::frame(c, i);
+    if (!f || !f->bw || (uint32_t)f->bw * f->bh > MAX_PX) continue;
+    const uint8_t* d8 = pk::data(f, x.data);
+    if (!d8) continue;
+    uint32_t t0 = micros();
+    const bool fa = fastJpeg(x, f, d8, a);
+    fastUs += micros() - t0, t0 = micros();
+    const bool sl = jpeg(x, f, d8, b);
+    slowUs += micros() - t0;
+    if (!fa) refused++;
+    if (fa && sl)
+      for (uint32_t k = 0; k < (uint32_t)f->bw * f->bh; k++) {
+        const int dr = abs((a[k] >> 11) - (b[k] >> 11)), dg = abs(((a[k] >> 5) & 63) - ((b[k] >> 5) & 63)),
+                  db = abs((a[k] & 31) - (b[k] & 31));
+        dmax = max<uint32_t>(dmax, max(dr, max(dg, db)));
+      }
+    done++;
+  }
+  heap_caps_free(a), heap_caps_free(b);
+  char out[160];
+  snprintf(out, sizeof out, "%s: %lu pictures, Espressif %.1f ms, TJpgDec %.1f ms a picture, %lu refused, colours differ by %lu at most",
+           clipName, (unsigned long)done, done ? fastUs / 1000.0f / done : 0, done ? slowUs / 1000.0f / done : 0,
+           (unsigned long)refused, (unsigned long)dmax);
+  return out;
+}
+
 const Pic* get(const pbs2_frame_t* f, int shift) {
   if (!f) return nullptr;
 #ifndef SIM
@@ -280,7 +373,19 @@ const Pic* get(const pbs2_frame_t* f, int shift) {
   lock();
   int i = find(f, shift);
 #ifndef SIM
-  while (i >= 0 && slots[i].state == 1) {  // the background decoder is on it: wait for it
+  // The background decoder is on it: wait for it a moment (a picture takes ~10-30 ms), never long. A TLS handshake
+  // on core 0 (desk's worker, ~2 s of maths) used to keep the decoder from running, and this wait froze the whole
+  // UI loop that long: every new connection with the dog on screen was a ~2 s "slow loop" (0.5.7 test builds on the
+  // board; the wake turn's question window was lost in it). Past 40 ms the dog keeps its current picture.
+  const uint32_t w0 = millis();
+  while (i >= 0 && slots[i].state == 1) {
+    if (millis() - w0 > 40 && current >= 0 && slots[current].state == 2) {
+      slots[current].used = ++useClock;
+      st.held++;
+      const Pic* p = &slots[current].pic;
+      unlock();
+      return p;
+    }
     unlock();
     vTaskDelay(1);
     lock();

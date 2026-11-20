@@ -1,3 +1,4 @@
+#pragma GCC optimize("Os")  // widgets/JS glue built once per change: size over speed (0.5.7 flash diet)
 // The weather family (docs/widgets.md §3): now, hourly, days, detail (feels, humidity, wind, UV, air) and sun,
 // each a small piece of app_weather on its sky. web/app/src/os/wid/weather.ts draws the same.
 #include <ArduinoJson.h>

@@ -27,6 +27,9 @@
 #include "logic.h"
 #include "media.h"
 #include "os.h"
+#include "lock.h"
+#include "pkg/pkg.h"
+#include "pkg/store.h"
 #ifndef SIM
 #include "lcd.h"
 #endif
@@ -39,6 +42,7 @@
 #include "pet/dogs.h"
 #include "pet/game.h"
 #include "pet/pet.h"
+#include "pet/sfx.h"
 #include "pet/voice.h"
 #endif
 
@@ -53,7 +57,8 @@ constexpr int W = 320, H = 480;
 // the HUD at the top of that window; only those rows are built. Portrait: all of it, the HUD under the status bar.
 constexpr int CROP_Y = 112;
 int HUD_DY = os::SB_H;
-int offX = 0, offY = 0;  // where the picture's (0, 0) is on the screen (landscape: 80, -CROP_Y)
+int offX = 0, offY = 0;  // where the picture's (0, 0) is on the screen (landscape: 80, -CROP_Y; 2.8" portrait: 20, 0)
+constexpr uint16_t SIDES = (0x1d >> 3) << 11 | (0x17 >> 2) << 5 | (0x12 >> 3);  // the dark sides, 0x1d1712
 constexpr int LOOK = 5;           // road pictures planned ahead (the one shown included)
 constexpr int SWIPE = 22;         // px of finger travel = a move (the page)
 
@@ -102,10 +107,23 @@ struct Screen {
   media::Sprite homeBtn, coinNote;  // drawn once by LVGL (the game draws past LVGL)
   media::Sprite prevBtn, nextBtn;   // the start card's "‹ ›": the map the run starts in (more than one installed)
   int arrowY = -1;                  // where they are this picture (-1: not shown)
+  // After the trial (lock.h): an installed paid map shows on the start card with a lock (a tap: the way to unlock
+  // it), the run itself stays in G.map; the trial's chip above the card.
+  int lockedMap = -1;
+  media::Sprite lockPill, chip;
+  String chipFor;
   // the dog's run lines (its voice pack): start card, a heart lost, the dizzy end, a new best
   int heardHearts = -1;
   State heardState = OVER;  // (so the first start card is heard)
   bool newBest = false, bestSaid = false;
+  // the game's sounds (pet/sfx.h, the phone game's runner sounds): what the last picture had
+  struct {
+    int lane = 0, coins = 0, hearts = -1, map = -1, streak = 0;
+    const pbs2_clip_t* clip = nullptr;
+    State state = OVER;
+    bool results = false, feet = false;
+    uint32_t coinAt = 0;
+  } snd;
   int homeX = 0, homeY = -1;        // where "Về nhà" is this picture (-1: not shown)
   // switches
   bool smooth = true, autopilot = false, god = false;
@@ -268,10 +286,17 @@ void card() {
   g->arrowY = -1;
   if (G.state == MENU) {
     char nm[32];
-    snprintf(nm, sizeof nm, "menu_%s", g->world.maps[G.map].id.c_str());
+    const int shownMap = g->lockedMap >= 0 ? g->lockedMap : G.map;
+    snprintf(nm, sizeof nm, "menu_%s", g->world.maps[shownMap].id.c_str());
     if (const pbu_piece_t* mp = g->ui.piece(nm)) g->ui.pixels(mp);  // read now (once a map), not while drawing
     addPieceAt(nm);
-    if (g->prevBtn.rgb && g->nextBtn.rgb && g->world.nextMap(G.map) != G.map) {  // more than one map: choose
+    int choices = 0;
+    for (const MapInfo& m : g->world.maps) choices += m.road >= 0 || m.locked;
+    if (const pbu_piece_t* p = g->ui.piece(nm)) {
+      if (g->lockedMap >= 0 && g->lockPill.rgb)
+        addSprite(&g->lockPill, p->x + (p->w - g->lockPill.w) / 2, p->y + p->h - g->lockPill.h - 10, 255);  // over "Tap to start"
+    }
+    if (g->prevBtn.rgb && g->nextBtn.rgb && choices > 1) {  // more than one map: choose
       const pbu_piece_t* p = g->ui.piece(nm);
       // Centred on the card's middle, each in the margin beside it (the card: x 34..285).
       const int cx = p ? p->x : 34, cw = p ? p->w : 252;
@@ -284,6 +309,11 @@ void card() {
       const int y = p ? p->y + p->h : 293;
       addSprite(&g->coinNote, (W - g->coinNote.w) / 2, y + 8, 255);
       g->homeX = (W - g->homeBtn.w) / 2, g->homeY = y + 8 + g->coinNote.h + 10;
+    }
+    // The trial's chip: above the card; on its side (the HUD sits right above the card) under it, or under "Back home".
+    if (const pbu_piece_t* p = g->ui.piece(nm); p && g->chip.rgb) {
+      const int cy = !offY ? p->y - g->chip.h - 10 : g->homeY >= 0 ? g->homeY + g->homeBtn.h + 8 : p->y + p->h + 8;
+      addSprite(&g->chip, (W - g->chip.w) / 2, cy, 255);
     }
   } else if (G.state == OVER && G.overT > 1.2) {
     const bool four = G.last.bonus > 0;
@@ -334,6 +364,23 @@ void bakeArrows() {
     lv_obj_center(gl);
     bake(b, k ? g->nextBtn : g->prevBtn);
   }
+}
+
+void bakeLock() {
+  lv_obj_t* b = box(g->scr, 0x1d1f24, 16);  // "🔒 Locked now" over a locked map's card
+  lv_obj_set_style_bg_opa(b, 232, 0);
+  lv_obj_set_size(b, LV_SIZE_CONTENT, 32);
+  lv_obj_set_style_pad_hor(b, 14, 0);
+  lv_obj_set_flex_flow(b, LV_FLEX_FLOW_ROW);
+  lv_obj_set_flex_align(b, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+  lv_obj_set_style_pad_column(b, 7, 0);
+  lock::glyph(b, 14, 0xffffff);
+  label(b, N_("Locked now"), 14, true, 0xffffff);
+  bake(b, g->lockPill);
+  uint16_t* rgb;
+  uint8_t* a;
+  int w, h;
+  if (lock::chipPicture(true, rgb, a, w, h)) g->chip = {nullptr, w, h, rgb, a};
 }
 
 void bakeFromPet() {
@@ -519,7 +566,14 @@ namespace run {
 namespace {
 #endif
 
-void fillBand(uint16_t* dst, int y, int rows, void*) { render(draw::Canvas{dst, y, y + rows}); }
+// A band of the panel's rows: the picture's 320 in the middle of a wider screen (the 2.8" board's 360), dark sides.
+void fillBand(uint16_t* dst, int y, int rows, void*) {
+  if (!offX) return render(draw::Canvas{dst, y, y + rows});
+  const int sw = os::W();
+  for (int r = 0; r < rows; r++)
+    for (int x = 0; x < offX; x++) dst[r * sw + x] = dst[r * sw + sw - 1 - x] = SIDES;
+  render(draw::Canvas{dst + offX, y, y + rows, sw});
+}
 
 // One picture: built, then sent straight to the panel below the status bar (LVGL draws the status bar's rows
 // from the buffer first, in the same tear period), or drawn whole into the buffer for LVGL.
@@ -771,7 +825,9 @@ void startBench() {}
 #endif
 
 // ------------------------------------------------------------------ the screen
-bool onScreen() { return g && g->scr && lv_screen_active() == g->scr && !os::saverOn(); }
+// The dog's pop-up over the run (a "Gâu" call, the Control Center's dog): the run stops where it is (one picture
+// through LVGL, the clock held) and goes on when the pop-up closes, as the pet game does (pet/app.cpp onScreen).
+bool onScreen() { return g && g->scr && lv_screen_active() == g->scr && !os::saverOn() && !pet::summoned(); }
 
 void act(Act a) {
   if (!g || !g->shown) return;
@@ -790,18 +846,22 @@ void pickMap(int dir) {
   Game& G = g->game;
   if (G.state != MENU) return;
   const World& Wd = g->world;
-  int m = G.map;
-  if (dir > 0) {
-    m = Wd.nextMap(m);
-  } else {
-    for (int k = 1; k < (int)Wd.maps.size(); k++) {  // the previous installed one
-      const int i = (G.map - k + (int)Wd.maps.size()) % (int)Wd.maps.size();
-      if (Wd.maps[i].road >= 0) {
-        m = i;
-        break;
-      }
+  const int n = Wd.maps.size(), from = g->lockedMap >= 0 ? g->lockedMap : G.map;
+  int m = from;
+  for (int k = 1; k < n; k++) {  // the next / previous installed one (a locked one too: shown with its lock)
+    const int i = ((from + (dir > 0 ? k : -k)) % n + n) % n;
+    if (Wd.maps[i].road >= 0 || Wd.maps[i].locked) {
+      m = i;
+      break;
     }
   }
+  if (m == from) return;
+  if (Wd.maps[m].locked) {
+    g->lockedMap = m;
+    trace::add("run: shows locked map %s", Wd.maps[m].id.c_str());
+    return;
+  }
+  g->lockedMap = -1;
   if (m == G.map) return;
   G.begin(&g->world, m);
   Preferences p;
@@ -809,6 +869,14 @@ void pickMap(int dir) {
   p.putString("map", Wd.maps[m].id);
   p.end();
   trace::add("run: start map %s", Wd.maps[m].id.c_str());
+}
+
+// A tap on a locked map's start card: the way to unlock it, in the game's warm style (lock.h).
+void lockedTap() {
+  const String id = "vn.pawboop.map." + g->world.maps[g->lockedMap].id;
+  const pkg::store::Entry* e = pkg::store::entry(id.c_str());
+  const pkg::Package* p = pkg::find(id.c_str());
+  lock::sheet((e ? e->name : p ? p->name : g->world.maps[g->lockedMap].id).c_str(), lock::Look::Pet);
 }
 
 void onTouch(lv_event_t* e) {
@@ -830,8 +898,12 @@ void onTouch(lv_event_t* e) {
                       g->py0 >= g->homeY - 6 && g->py0 < g->homeY + g->homeBtn.h + 6;
     const bool arrow = g->arrowY >= 0 && g->py0 >= g->arrowY - 14 && g->py0 < g->arrowY + 42 && (g->px0 < 46 || g->px0 >= W - 46);
     if (g->down && !g->done) {
+#ifndef NO_PET
+      if (home || arrow) pet::sfx::event("tap");
+#endif
       if (home) os::back();  // back to the dog (the coins are in its purse already)
       else if (arrow) pickMap(g->px0 < 50 ? -1 : 1);
+      else if (g->lockedMap >= 0 && g->game.state == MENU) lockedTap();
       else act(TAP);
     }
     g->down = false;
@@ -890,6 +962,53 @@ void heard(const Game& G) {
   g->heardHearts = G.hearts, g->heardState = G.state;
 }
 
+// The phone game's runner sounds, from what changed since the last picture (pet/sfx.h; sfx.json says which).
+void sounds(const Game& G) {
+#ifndef NO_PET
+  auto& o = g->snd;
+  const World& Wd = g->world;
+  if (G.map != o.map) {  // the start card's map, or a gate passed in the run (its tune and ambience crossfade)
+    if (o.map >= 0 && G.state == RUN && o.state == RUN) pet::sfx::event("gate");
+    pet::sfx::world(("vn.pawboop.map." + Wd.maps[G.map].id).c_str());
+    o.map = G.map;
+  }
+  if (G.state == RUN && o.state != RUN) {  // a run starts: the map's tune instead of the menu's
+    pet::sfx::event("start");
+    pet::sfx::music(nullptr);
+    o.lane = G.lane, o.coins = G.coins, o.hearts = G.hearts, o.streak = 0, o.results = false;
+  }
+  if (G.state == RUN) {
+    if (G.lane != o.lane) pet::sfx::event(G.lane < o.lane ? "left" : "right");
+    if (G.clip != o.clip) {
+      if (G.clip == Wd.cJump) pet::sfx::event("jump");
+      else if (G.clip == Wd.cSlide) pet::sfx::event("slide");
+      else if (o.clip == Wd.cJump) pet::sfx::event("land");
+    }
+    const uint32_t now = millis();
+    if (G.coins > o.coins) {  // a streak: 1-5 coin_1, 6-11 coin_2, then coin_3; 0.6 s without a coin ends it
+      if (now - o.coinAt > 600) o.streak = 0;
+      o.streak += G.coins - o.coins, o.coinAt = now;
+      pet::sfx::event(o.streak <= 5 ? "coin1" : o.streak <= 11 ? "coin2" : "coin3");
+    }
+    if (G.hearts > o.hearts) pet::sfx::event("heart");
+    if (G.hearts < o.hearts) pet::sfx::event("hit"), o.streak = 0;
+    // The footsteps: on the ground only (not in the air, not sliding), as fast as she runs.
+    const bool feet = G.clip != Wd.cJump && G.clip != Wd.cSlide;
+    if (feet != o.feet) pet::sfx::event("run", feet), o.feet = feet;
+    if (feet) pet::sfx::loopPitch("run", std::min(1.5, std::max(0.8, G.v / 11.0)));
+  } else if (o.feet) {
+    pet::sfx::event("run", false), o.feet = false;
+  }
+  if (G.state == OVER && o.state == RUN) pet::sfx::event("crash"), o.streak = 0;
+  if (G.state == OVER && G.overT > 1.2 && !o.results) {  // the results: their jingle, the menu's tune again
+    o.results = true;
+    pet::sfx::event(g->newBest ? "best" : "results");
+    pet::sfx::music("menu");
+  }
+  o.state = G.state, o.lane = G.lane, o.clip = G.clip, o.coins = G.coins, o.hearts = G.hearts;
+#endif
+}
+
 void begin() {  // the packs are in: the game starts (the start card)
   Screen* s = g;
   const media::Pack* packs[2] = {&s->dog, &s->th};
@@ -916,6 +1035,10 @@ void begin() {  // the packs are in: the game starts (the start card)
   s->game.begin(&s->world, start);
   s->game.best = loadBest() / 100.0;
   s->ready = true;
+#ifndef NO_PET
+  pet::sfx::open(s->dogPkg.c_str(), true);  // the runner's sounds; the menu's tune on the start card
+  pet::sfx::music("menu");
+#endif
   s->readyAt = millis();
   s->win = Win();
   s->win.at = millis();
@@ -962,6 +1085,9 @@ void onTimer(lv_timer_t*) {
     return;
   }
   if (!onScreen()) {
+#ifndef NO_PET
+    pet::sfx::frame(true, false);  // its sounds wait (the saver, the store over it ...)
+#endif
     // Going away: the whole picture into LVGL's buffer once (what shows of this screen from now is LVGL's).
     if (g->wasOn) present(true);
     g->wasOn = false, g->acc = 0;
@@ -989,6 +1115,10 @@ void onTimer(lv_timer_t*) {
   if (G.best > before && !G.noPay) saveBest(G.best);  // not a developer's run
   if (G.best > before && G.state != MENU) g->newBest = true;
   heard(G);
+  sounds(G);
+#ifndef NO_PET
+  pet::sfx::frame(true, true);
+#endif
   if (g->autopilot && G.state == OVER && G.overT > 2) G.act(TAP);
   benchStep();
   if (now - g->win.at > 10000 && g->win.pics) {
@@ -1006,6 +1136,9 @@ void onDelete(lv_event_t* e);
 void teardown(Screen* s, bool deleting) {
   if (s->timer) lv_timer_delete(s->timer);
   s->timer = nullptr;
+#ifndef NO_PET
+  if (g == s) pet::sfx::close(true);
+#endif
   if (!deleting && lv_obj_is_valid(s->scr)) {  // deleted later by the OS: not by us twice
     lv_obj_remove_event_cb_with_user_data(s->scr, onDelete, s);
   }
@@ -1020,6 +1153,7 @@ void teardown(Screen* s, bool deleting) {
   heap_caps_free(s->sm.rows);
   heap_caps_free((void*)s->homeBtn.rgb), heap_caps_free((void*)s->coinNote.rgb);
   heap_caps_free((void*)s->prevBtn.rgb), heap_caps_free((void*)s->nextBtn.rgb);
+  heap_caps_free((void*)s->lockPill.rgb), heap_caps_free((void*)s->chip.rgb);
   if (g == s) g = nullptr;
   delete s;
   trace::add("run: closed");
@@ -1039,7 +1173,7 @@ void open(const char* pkgId, const char* arg) {
   if (g) teardown(g, false);  // its screen is on its way out (apps::open -> os::closeApps deletes it later)
   const bool land = os::landscape();
   HUD_DY = land ? CROP_Y : os::SB_H;
-  offX = land ? (os::W() - W) / 2 : 0, offY = land ? -CROP_Y : 0;
+  offX = (os::W() - W) / 2, offY = land ? -CROP_Y : 0;
 #ifndef SIM
   desk::releaseConnection();  // the kept HTTPS connection holds internal RAM the decoders want
 #endif
@@ -1078,7 +1212,7 @@ void open(const char* pkgId, const char* arg) {
   g->img = lv_image_create(g->scr);  // the whole screen, under the status bar and the OS gesture strips
   lv_image_set_src(g->img, &g->dsc);
   lv_obj_set_pos(g->img, offX, 0);
-  if (land) {  // dark sides, no status bar; a swipe on the sides plays too
+  if (land || offX) {  // dark sides (landscape; a wider screen), no status bar; a swipe on the sides plays too
     lv_obj_set_style_bg_color(g->scr, lv_color_hex(0x1d1712), 0);
     os::fullScreenFor(g->scr, true);
     for (lv_event_code_t c : {LV_EVENT_PRESSED, LV_EVENT_PRESSING, LV_EVENT_RELEASED, LV_EVENT_PRESS_LOST})
@@ -1092,6 +1226,7 @@ void open(const char* pkgId, const char* arg) {
   os::barDarkFor(g->scr, true);  // dark status bar text over the road's light sky
   if (g->fromPet) bakeFromPet();
   bakeArrows();
+  bakeLock();
   lv_display_add_event_cb(lv_display_get_default(), onRefr, LV_EVENT_REFR_START, nullptr);
   lv_display_add_event_cb(lv_display_get_default(), onRefr, LV_EVENT_REFR_READY, nullptr);
   g->last = millis();

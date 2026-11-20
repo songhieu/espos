@@ -7,8 +7,10 @@
 
 namespace hal {
 
-// The OS lays out every screen, app, widget and package for this, portrait, on every board.
-constexpr int UI_W = 320, UI_H = 480;
+// The UI's size (the OS's pixels, portrait) is the board's own: DisplayDesc::ui.w x ui.h, read at run time with
+// hal::uiW() / uiH() (hal/board.h). 320x480 on the 3.5" board; 360x480 on the 2.8" one, whose 240x320 panel shows it at
+// 2/3, the whole panel. Screens follow os::W() / os::H(); what is laid out for 320 (games, saver pages, widgets) keeps
+// 320 and sits in the middle (docs/boards.md).
 
 enum class PanelType : uint8_t { TFT, OLED, EPAPER };
 enum class ColorFormat : uint8_t { RGB565, GRAY4, MONO };  // what the panel takes; the UI is rendered in RGB565
@@ -25,14 +27,15 @@ struct PanelDesc {
   uint8_t rotations;   // the rotations the driver turns to: bit n = LV_DISPLAY_ROTATION_<n x 90>; others stay portrait
 };
 
-// Where the UI_W x UI_H UI goes on the panel: scaled by num/den (1/1; 2/3 on a 240x320 panel, each panel pixel the
-// area average of the UI pixels it covers: src/scale.h), its top-left corner at (x, y) on the panel. Touches come back
-// the same way (the touch driver's job).
+// The UI (w x h, portrait) and where it goes on the panel: scaled by num/den (1/1; 2/3 on a 240x320 panel, each panel
+// pixel the area average of the UI pixels it covers: src/scale.h), its top-left corner at (x, y) on the panel. Touches
+// come back the same way (the touch driver's job).
 struct UiMap {
+  uint16_t w, h;
   uint8_t num, den;
   int16_t x, y;
-  constexpr int w() const { return UI_W * num / den; }
-  constexpr int h() const { return UI_H * num / den; }
+  constexpr int pw() const { return w * num / den; }  // its size on the panel
+  constexpr int ph() const { return h * num / den; }
 };
 
 // The panel's bus. QSPI: d0..d3. SPI: d0 = MOSI, d1 = MISO, dc = data/command. te: the tear signal. -1: none.
@@ -49,7 +52,7 @@ struct DisplayDesc {
 // The panel driver: src/boards/<name>/display.cpp fills one in. Every call from the LVGL thread; lcd.h says what each
 // means to the OS.
 struct Display {
-  // The bus, the panel, the backlight (off), and an LVGL display UI_W x UI_H in RGB565, partial mode, with its own
+  // The bus, the panel, the backlight (off), and an LVGL display ui.w x ui.h in RGB565, partial mode, with its own
   // band buffers; its flush callback sends each band to the panel (scaled, turned, byte-swapped as the panel needs).
   lv_display_t* (*begin)();
   void (*setRotation)(lv_display_rotation_t r);  // one it cannot do: stay portrait

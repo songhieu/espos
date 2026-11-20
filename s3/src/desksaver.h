@@ -85,6 +85,11 @@ int heldPicKB();  // PSRAM held by background pictures (walls and photos)
 lv_obj_t* photoImg(lv_obj_t* parent, int id, int w, int h);
 // A container at the element's box with the element in it (text, box, photo or widget).
 lv_obj_t* drawEl(lv_obj_t* parent, const El& e);
+// A page's own screen: 320 x 480, or 480 x 320 turned (the 3.5" board's, and the web editor's). A bigger screen (the
+// 2.8" board's 360 x 480) shows it in its middle, the background over the whole screen: canvas() is that holder, in a
+// parent the size of the screen (at 0,0); the elements go in it at their own x, y.
+constexpr int PAGE_W = 320, PAGE_H = 480;
+lv_obj_t* canvas(lv_obj_t* parent, bool land);
 // Text sizes: the sizes an element may use, largest first, and the one its label uses now.
 std::vector<uint8_t> sizes(const El& e);
 int sizeShown(lv_obj_t* elBox);

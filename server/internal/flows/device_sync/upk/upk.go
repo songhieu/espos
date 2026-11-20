@@ -21,6 +21,9 @@ func kindOf(row map[string]any, fw string) string {
 	if strings.HasPrefix(fw, "espos-s3-") {
 		return "s3"
 	}
+	if strings.HasPrefix(fw, "espos-bot-") {
+		return "bot"
+	}
 	return "x4"
 }
 

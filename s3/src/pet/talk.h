@@ -14,9 +14,12 @@ void begin();  // after sound::begin and wake::begin: hooks the wake word
 void press();
 void release();
 bool busy();       // a turn is on: listening, sending, waiting or speaking
+bool warming();    // the TLS connection for the question is being made (core 0 is busy: the dog moves at half speed)
 bool listening();  // recording the person now
 bool canTalk();    // a mic, linked to an account
+bool canChat();    // linked to an account (typed turns: the chips; no mic needed)
 void closed();     // the pop-up closed: a turn stops
+void askNews();    // the pop-up's "Today's news" chip: a typed turn, the dog sums up today's news
 
 // A white mic drawn with LVGL (the art has no mic glyph): about 16 x 24 px, centred in `parent`.
 lv_obj_t* micIcon(lv_obj_t* parent, uint32_t color);

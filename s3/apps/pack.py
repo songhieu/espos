@@ -113,6 +113,22 @@ for e in catalog["packages"]:
         if k in o:
             e.setdefault(k, o[k])
 
+# The admin's paid marks (docs/lock.md: "paid", "free_ids") belong to the package, not to a version: kept whenever
+# the catalog is built again (lost, every paid item would turn free). A part's private storage "key" (the server's
+# signed links, GET /v1/device/pkg-link) only for the same version.
+for e in catalog["packages"]:
+    o = old.get(e["id"])
+    if not o:
+        continue
+    for k in ("paid", "free_ids"):
+        if k in o:
+            e.setdefault(k, o[k])
+    if o.get("code") == e.get("code"):
+        keys = {q["id"]: q["key"] for q in o.get("parts", []) if q.get("key")}
+        for part in e["parts"]:
+            if part["id"] in keys:
+                part.setdefault("key", keys[part["id"]])
+
 errs = espk.check_catalog(catalog, out)
 if errs:
     sys.exit("catalog.json refused:\n  " + "\n  ".join(errs))

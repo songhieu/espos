@@ -35,6 +35,7 @@ struct MapInfo {
   String id;
   std::vector<int> kinds[3];  // JUMP, SLIDE, BLOCK -> ThingType indexes (run.json maps.<id>.things)
   int road = -1;              // installed road file (index in World::roads), -1 = not installed
+  bool locked = false;        // installed but paid and locked after the trial (lock.h): shown, not run
   int pictures = 160;         // its loop, in 0.4 m pictures
 };
 

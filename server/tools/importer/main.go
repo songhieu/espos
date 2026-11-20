@@ -134,6 +134,7 @@ var accountEvents = map[string]bool{
 	"user.registered":             true,
 	"user.verification_requested": true,
 	"password.reset_requested":    true,
+	"user.deleted":                true,
 }
 
 // skipReason says why a hosted workflow is left out, or "" to import it:
@@ -156,6 +157,9 @@ func skipReason(wf, code string, routed map[string]bool) string {
 		} `json:"draft"`
 	}
 	must(json.Unmarshal(raw, &doc))
+	if strings.HasPrefix(code, "admin_") && !keptAdmin[code] {
+		return "the hosted service's administration (users, roles, licences, stock); this server has one account"
+	}
 	for _, n := range doc.Draft.Nodes {
 		switch n.Type {
 		case "event_trigger":
@@ -179,8 +183,13 @@ func skipReason(wf, code string, routed map[string]bool) string {
 	return ""
 }
 
+// The admin workflows this server keeps (its one account's own page needs them); every other admin_* is the hosted
+// service's administration: its guards (admin_require_active, admin_device_active, admin_lic) are dropped from the
+// routes, so here nothing is blocked or licensed (the device then locks nothing, docs: s3/docs/lock.md).
+var keptAdmin = map[string]bool{"admin_me": true, "admin_sign": true}
+
 // The dog assistant's workflows that need no secret themselves but exist only for it (its actions, its memories).
-var assistantOnly = map[string]bool{"assist_apply": true, "list_assist_memories": true, "delete_assist_memory": true}
+var assistantOnly = map[string]bool{"assist_apply": true, "assist_sweep": true, "list_assist_memories": true, "delete_assist_memory": true}
 
 // nodesNeedSecret: a code node of the workflow reads a hosted secret ({{ secret.name }} in its source).
 func nodesNeedSecret(dir string) bool {
@@ -331,6 +340,17 @@ type Route struct {
 }
 
 func importRoutes(src, dst string, skip map[string]string) {
+	dropped := map[string]bool{}
+	defer func() {
+		var names []string
+		for g := range dropped {
+			names = append(names, g)
+		}
+		sort.Strings(names)
+		if len(names) > 0 {
+			log.Printf("guards left out of the routes (their workflows are left out): %s", strings.Join(names, ", "))
+		}
+	}()
 	raw, err := os.ReadFile(src)
 	must(err)
 	var hosted []struct {
@@ -363,7 +383,15 @@ func importRoutes(src, dst string, skip map[string]string) {
 			log.Printf("skipped %s %s (its workflow %s is left out)", r.Method, r.Path, wf)
 			continue
 		}
-		rt := Route{Method: r.Method, Path: r.Path, Auth: r.AuthMode, Guards: r.Guards, Workflow: wf}
+		var guards []string
+		for _, g := range r.Guards {
+			if skip[g] != "" {
+				dropped[g] = true
+				continue
+			}
+			guards = append(guards, g)
+		}
+		rt := Route{Method: r.Method, Path: r.Path, Auth: r.AuthMode, Guards: guards, Workflow: wf}
 		if r.PerMin != nil {
 			rt.PerMin = *r.PerMin
 		}

@@ -1,0 +1,15 @@
+# The router's password changed: the saved one is refused three times, the setup WiFi opens by itself with
+# "Sai mật khẩu WiFi"; the new password typed on the phone page joins it; standby again.
+serial ESPOS:PROVISION {"token":"SIMTOKENSIMTOKENSIMTOKENSIMTOKENSIMTOKENSIMTOKENSIMTOKENSIMTOKEN","api":"http://127.0.0.1:8098","wifi":[{"ssid":"Home WiFi","pass":"x"}]}
+wait 3000
+expect online yes
+serial NETSIM newpass
+wait 25000
+expect portal on
+shot 1_wrong_password
+wait 4000
+shot 2_setup
+curl -d 's=Home+WiFi&t=&p=newpass&l=vi' http://localhost:${BOT_SIM_PORTAL_PORT}/save
+wait 4500
+expect online yes
+shot 3_back

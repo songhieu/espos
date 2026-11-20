@@ -1,3 +1,4 @@
+#pragma GCC optimize("Os")  // cold code (events, saves, ticks): size first (s3-perf, 2026-11-20)
 #include "game.h"
 
 #include <Arduino.h>
@@ -108,11 +109,12 @@ void load() {
       a[n++] = strtol(c, (char**)&c, 10);
       if (*c == ',') c++;
     }
-    if (n >= 20 && a[0] == 1) {  // version 1
+    if (n >= 19 && a[0] == 1) {  // version 1 (19 numbers; 21 with the sound switches)
       for (int k = 0; k < 4; k++) st.need[k] = a[1 + k] / 100.0f;
       st.coins = a[5], st.xp = a[6], st.touchXp = a[7], st.touchDay = a[8], st.poweredMin = a[9];
       st.giftDay = a[10], st.giftPowered = a[11], st.found = a[12], st.findIn = a[13];
       st.streak = a[14], st.best = a[15], st.careDay = a[16], st.muted = a[17], st.notify = a[18];
+      if (n >= 21) st.sfx = a[19], st.music = a[20];
       st.lv = levelOf(st.xp);
     }
   } else {  // a new Biscuit: start.board (50 coins); the first day's gift comes the next day
@@ -126,11 +128,11 @@ void load() {
 
 void save() {
   char b[200];
-  snprintf(b, sizeof b, "1,%d,%d,%d,%d,%d,%d,%d,%lu,%lu,%lu,%lu,%d,%d,%d,%d,%lu,%d,%d", (int)(st.need[0] * 100),
+  snprintf(b, sizeof b, "1,%d,%d,%d,%d,%d,%d,%d,%lu,%lu,%lu,%lu,%d,%d,%d,%d,%lu,%d,%d,%d,%d", (int)(st.need[0] * 100),
            (int)(st.need[1] * 100), (int)(st.need[2] * 100), (int)(st.need[3] * 100), st.coins, st.xp, st.touchXp,
            (unsigned long)st.touchDay, (unsigned long)st.poweredMin, (unsigned long)st.giftDay,
            (unsigned long)st.giftPowered, st.found, (int)st.findIn, st.streak, st.best, (unsigned long)st.careDay,
-           st.muted, st.notify);
+           st.muted, st.notify, st.sfx, st.music);
   Preferences p;
   p.begin("pet", false);
   p.putString("st", b);

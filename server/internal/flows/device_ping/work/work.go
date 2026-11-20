@@ -51,6 +51,10 @@ var syncKeys = []string{
 // device_sync's s3Shared keys: the web's own settings a colour desk shows and changes too.
 var sharedKeys = []string{"dash.city", "dash.lat", "dash.lon", "dash.ics_url", "sys.tz_min"}
 
+// The EspOS Bot's keys: device_sync's botDefaults and botShared (scripts/check-bot-keys.py checks the two match).
+var botPingKeys = []string{"bot.style", "bot.screens", "bot.bright", "bot.night", "bot.dog", "bot.wake", "bot.follow", "bot.voice", "bot.volume",
+	"bot.alarms", "bot.ota", "sys.lang", "dash.city", "dash.lat", "dash.lon", "sys.tz_min"}
+
 // kindOf: the board stored on the row, else told by the firmware it last reported (device_sync's kindOf, which
 // reads the firmware name from the request; a device that synced once has its kind stored).
 func kindOf(row map[string]any) string {
@@ -59,6 +63,9 @@ func kindOf(row map[string]any) string {
 	}
 	if strings.HasPrefix(wm.Str(row["fw"]), "espos-s3-") {
 		return "s3"
+	}
+	if strings.HasPrefix(wm.Str(row["fw"]), "espos-bot-") {
+		return "bot"
 	}
 	return "x4"
 }
@@ -151,7 +158,16 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 			rev = v
 		}
 	}
+	if kind == "bot" {
+		// The EspOS Bot's keys only (device_sync answers a bot exactly these): scripts/check-bot-keys.py.
+		for _, k := range botPingKeys {
+			take(at[k])
+		}
+	}
 	for _, k := range syncKeys {
+		if kind == "bot" {
+			break
+		}
 		if strings.HasPrefix(k, "s3.") && kind != "s3" {
 			continue // the colour desk's keys go to the colour desk only
 		}
@@ -169,6 +185,13 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 		}
 		take(int64(wm.Num(row["name_ms"])))
 		take(int64(wm.Num(row["fw_auto_ms"])))
+	}
+
+	// The licence's newest change (hosted only: the guard admin_lic; device_sync raises settings_rev the same way).
+	if g, ok := wmIn["guards"].(map[string]any); ok {
+		if l, isMap := g["admin_lic"].(map[string]any); isMap && l["lic"] != nil {
+			take(int64(wm.Num(l["lic_ms"])))
+		}
 	}
 
 	// ---- fw: firmware news the device has not heard yet (its last sync came before it) ----

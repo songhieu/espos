@@ -1,8 +1,8 @@
 #pragma once
 // ES3C28P (LCDWIKI 2.8" ESP32-S3 display, 16 MB flash, 8 MB octal PSRAM): ILI9341V 240x320 over SPI at 40 MHz + D/C
 // (display.cpp), FT6336G touch at I2C 0x38 (touch.cpp), an ES8311 codec, an SDIO card slot, a battery on a 1:2
-// divider. The 320x480 UI goes to the panel at 2/3: 213x320 from x 13, 13 px of black each side; in landscape the
-// 480x320 UI is 320x213 from row 13 (docs/boards.md).
+// divider. Its UI is 360x480 (since 2026-11-20; before, the 3.5" board's 320x480 at 213x320 between black bars), at 2/3
+// the whole panel; 480x360 in landscape (docs/boards.md).
 // Pins from the vendor's page (lcdwiki.com/2.8inch_ESP32-S3_Display, read 2026-11-17), not yet tried on a board.
 #include "hal/board.h"
 
@@ -15,10 +15,10 @@ inline constexpr hal::Board BOARD = {
     // screen.fast and audio.in from the vendor's page (40 MHz SPI ~31 ms a panel; the codec's ADC wired to GPIO 6), not
     // yet seen on a board.
     .caps = hal::PROFILE_FULL,
-    // All four ways: landscape is the 480x320 UI at 2/3 (320x213 on the turned panel, display.cpp).
+    // All four ways: landscape is the 480x360 UI at 2/3 (the turned panel's 320x240, display.cpp).
     .display = {.panel = {.w = 240, .h = 320, .type = hal::PanelType::TFT, .format = hal::ColorFormat::RGB565,
                           .bits = 16, .refresh = hal::Refresh::INSTANT, .rotations = 0b1111},
-                .ui = {.num = 2, .den = 3, .x = 13, .y = 0},
+                .ui = {.w = 360, .h = 480, .num = 2, .den = 3, .x = 0, .y = 0},  // the whole panel
                 .pins = {.cs = 10, .sclk = 12, .d0 = 11, .d1 = 13, .d2 = -1, .d3 = -1, .dc = 46, .rst = -1, .bl = 45,
                          .te = -1}},  // backlight: high = on
     .i2c = {.sda = 16, .scl = 15},

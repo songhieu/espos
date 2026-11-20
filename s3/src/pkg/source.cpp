@@ -56,7 +56,7 @@ class SimSource : public Source {
     if (pos_ >= size_) return n = 0, true;
     const size_t want = min<uint64_t>(sizeof buf_, size_ - pos_);
     pace(pos_ + want);
-    if (abortAll) return err = T_("stopped"), false;
+    if (abortAll || abortJob) return err = T_("stopped"), false;
     n = fread(buf_, 1, want, f_);
     if (!n) return err = T_("cannot read"), false;
     p = buf_;
@@ -77,7 +77,7 @@ class SimSource : public Source {
 void paceStart() { t0 = millis(); }
 void pace(uint64_t done) {
   const int r = rate();
-  while (!abortAll && r > 0 && (uint64_t)(millis() - t0) * r * 1024 / 1000 < done) {
+  while (!abortAll && !abortJob && r > 0 && (uint64_t)(millis() - t0) * r * 1024 / 1000 < done) {
     idle = true;
     usleep(200);
   }
@@ -173,6 +173,7 @@ class NetSource : public Source {
     const uint32_t t0 = millis();
     while (!(s.state == 2 && s.block == consumed_)) {
       if (failed_) return err = T_("the network dropped midway"), false;
+      if (abortJob) return err = T_("stopped"), false;
       if (alive_ <= 0 && !(s.state == 2 && s.block == consumed_)) return err = T_("the network dropped midway"), false;
       if (millis() - t0 > 120000) return err = T_("the network is too slow"), false;
       delay(10);
@@ -201,7 +202,7 @@ class NetSource : public Source {
   bool chunk(NetworkClientSecure& tls, HTTPClient& h, uint32_t b0, uint32_t b1) {
     const uint32_t end = min<uint32_t>(size_, b1 * BLOCK);
     uint32_t pos = b0 * BLOCK;
-    for (int attempt = 0; pos < end && !stop_ && !failed_; attempt++) {
+    for (int attempt = 0; pos < end && !stop_ && !failed_ && !abortJob; attempt++) {
       if (attempt >= 8) return false;
       if (attempt) delay(600 * attempt);
       tls.stop();
@@ -217,7 +218,7 @@ class NetSource : public Source {
       NetworkClient* st = h.getStreamPtr();
       uint32_t last = millis(), reads = 0;
       int bad = 0;
-      while (pos < end && !stop_) {
+      while (pos < end && !stop_ && !abortJob) {
         if (pos / BLOCK >= consumed_ + (uint32_t)nslots_) {  // the installer is behind: no free slot yet
           delay(5);
           continue;
@@ -248,7 +249,7 @@ class NetSource : public Source {
         }
       }
       h.end();
-      if (pos < end && !stop_) trace::add("pkg download cut at %u, resuming", (unsigned)pos);
+      if (pos < end && !stop_ && !abortJob) trace::add("pkg download cut at %u, resuming", (unsigned)pos);
     }
     return pos >= end;
   }
@@ -266,7 +267,7 @@ class NetSource : public Source {
       h.setReuse(false);
       h.setConnectTimeout(10000);
       h.setTimeout(20000);
-      while (!me->stop_ && !me->failed_) {
+      while (!me->stop_ && !me->failed_ && !abortJob) {
         // One connection: the whole rest of the file on one stream (no handshake per chunk). Two: 512 KB chunks.
         const uint32_t step = me->workers_ > 1 ? CHUNK : me->blocks_;
         const uint32_t b0 = me->nextChunk_.fetch_add(1) * step;

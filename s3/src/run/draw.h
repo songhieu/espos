@@ -11,9 +11,10 @@ namespace draw {
 constexpr int W = 320, H = 480;
 
 struct Canvas {
-  uint16_t* px;  // the first pixel of row y0
-  int y0, y1;    // the rows it holds: [y0, y1)
-  uint16_t* row(int y) const { return px + (y - y0) * W; }
+  uint16_t* px;    // the first pixel of row y0
+  int y0, y1;      // the rows it holds: [y0, y1)
+  int stride = W;  // pixels from a row to the next (a wider screen's band: the 2.8" board's 360)
+  uint16_t* row(int y) const { return px + (y - y0) * stride; }
 };
 
 inline uint16_t blend(uint16_t d, uint16_t s, int a) {  // src over dst, a = 0..255 (fw/pb_ref.c)

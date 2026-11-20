@@ -5,6 +5,8 @@
 // volume. When the dog talks follows the page's speak(): an action cuts what it says, its own talk waits for quiet.
 #include <stdint.h>
 
+#include <mutex>
+
 #include "formats.h"
 
 namespace pet {
@@ -39,6 +41,10 @@ uint32_t startedAt();                         // millis() when it started
 void setMuted(bool muted);                    // bubbles still show, no sound
 bool muted();
 void release();  // forget the dog's lines (another dog's packs come)
+
+// lib/opus keeps its scratch in ONE global pseudo-stack (NONTHREADSAFE_PSEUDOSTACK): every opus_* call of any task
+// (this file's decoder task, sfx.cpp's) holds this lock.
+std::mutex& opusLock();
 
 struct Stats {
   uint32_t lines = 0, packets = 0, decUs = 0, decMaxUs = 0, underruns = 0, firstSoundUs = 0, readFails = 0;

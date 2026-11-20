@@ -27,7 +27,9 @@ tools/sim-live.sh --reset         # a fresh sim/data-live (from sim/data-run + t
   click setting; Biscuit's voice lines.
 - **Commands** typed in the terminal, the same as a script's (`help`; the board's dev console words work too: `TAP`,
   `DRAG`, `APP`, `HOME`): tap, long, drag, swipe, homeswipe, backswipe, home, back, app, pet, dismiss, run, dev,
-  bench, shot, window (the whole window as a PNG), mem, set, rot, saver, wake, wait, quit.
+  bench, shot, window (the whole window as a PNG), mem, set, rot, saver, wake, wait, quit; `splash PCT` the boot
+  screen with its bar at PCT (`splash end`: Home again), `cover PKG PCT` an app's opening cover (`cover end`).
+  `SIM_NO_SYNC=1`: no sync yet since power-on (the widgets' skeletons when there is no dashboard, 0.5.7).
 - **The board's speed** (default): the run game's decoders run in their own thread like the board's core 0 task and
   each job takes the board's time (src/run/media.cpp `pad`: a road picture 16.3 ms + 3.3 ms from the card, a
   sprite 1 ms + 0.36 us a pixel; ES3C35P, 2026-11-17). What a late wake-up of the computer's sleep costs comes off the
@@ -103,9 +105,10 @@ queue: gestures, slop, click as on the board). Keys as the live simulator's; dev
 - Linked to EspOS (2026-11-17): `APP settings account` showed a pairing code fetched over HTTPS; confirmed on
   the web it syncs like the board. tools/qemu/run.sh puts a new firmware into the image and keeps its data (NVS:
   the link token; LittleFS; the card), as flashing the board; `--fresh` starts over unlinked.
-- The 2.8" board (ES3C28P, docs/boards.md) in QEMU (2026-11-17): the window is its 240x320 panel; the 320x480 UI
-  is kept in PSRAM and goes to the panel at 2/3 (src/scale.h, as src/boards/es3c28p/display.cpp on the board), 13 px of black
-  each side; the viewer maps the mouse back to the UI's coordinates and shows it at a 2.8" panel's size. Checked:
+- The 2.8" board (ES3C28P, docs/boards.md) in QEMU (2026-11-17): the window is its 240x320 panel; its UI (360x480
+  since 2026-11-20) is kept in PSRAM and goes to the panel at 2/3, the whole window (src/scale.h, as
+  src/boards/es3c28p/display.cpp on the board); the viewer maps the mouse back to the UI's coordinates and shows it at a
+  2.8" panel's size. Checked:
   Home, the app library, Settings, PawBoop, the run game from the card at 19.7 pictures a second.
 - Not the board: QEMU's speed is the computer's (no PSRAM, cache or card timing; use the live simulator's board
   speed for that), internal RAM is more free (no WiFi driver: 112 KB with the network up), no touch controller,
@@ -116,6 +119,15 @@ queue: gestures, slop, click as on the board). Keys as the live simulator's; dev
   (and the mouse) to show it the right way up. Both boards, all four rotations (`ROT n` on the dev console).
 - Screen tours in any language and rotation: `python3 tools/i18n_tour.py TAG OUT --rot 1 [--sim PATH] [--data DIR]`
   (docs/i18n.md): every screen shot and checked for cut or overlapping text.
+
+## Timing at the board's speed in QEMU (2026-11-19)
+
+QEMU at its own speed runs the firmware ~10 times faster than the board and changes with the computer's load. With
+`-icount shift=2,align=off,sleep=off` the guest's clock follows the instructions it runs (4 ns each), which matched the
+board for CPU work (the art inflated in 58 ms against the board's 64 ms; float and PSRAM heavy work came out ~1.8 times
+faster than the board): use it to compare a change before and after from the same copy of the flash image. It runs
+~10 times slower than real time. QEMU's network (slirp) ends TCP on this computer, so lwIP's 5.7 KB receive window
+and WiFi's power save never limit a download there: download speeds only on the board.
 
 ## Other emulators (researched 2026-11-17)
 

@@ -1,0 +1,20 @@
+# The volume switches: Vol- down 10; Vol+ twice quickly up 10; Vol+ once talks (as BOOT).
+serial ESPOS:PROVISION {"token":"SIMTOKENSIMTOKENSIMTOKENSIMTOKENSIMTOKENSIMTOKENSIMTOKENSIMTOKEN","api":"http://127.0.0.1:8098","wifi":[{"ssid":"Home WiFi","pass":"x"}]}
+wait 3000
+expect ui standby
+voldown
+wait 200
+expect ui note
+shot vol_50
+wait 1800
+volup
+wait 100
+volup
+wait 300
+shot vol_60
+wait 2000
+volup
+wait 600
+expect ui listen
+shot talk_by_head_pat
+serial SET bot.volume 60

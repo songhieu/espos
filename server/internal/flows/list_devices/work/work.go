@@ -38,6 +38,9 @@ func devKind(r map[string]any) string {
 	if strings.HasPrefix(wm.Str(r["fw"]), "espos-s3-") {
 		return "s3"
 	}
+	if strings.HasPrefix(wm.Str(r["fw"]), "espos-bot-") {
+		return "bot"
+	}
 	return "x4"
 }
 

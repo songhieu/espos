@@ -13,6 +13,9 @@ const lv_font_t* text(int px, bool bold = false);  // nearest size that has ever
 // (i18n.cpp): every text size falls back to the package's nearest size. nullptr: the built-in fonts only. false when
 // the package has no readable font.
 bool useLang(const char* fontPkg);
+// Vietnamese letters come from the package dev.espos.font.vi whenever it is in, whatever the language (read size by size
+// on demand). Without it they show without their marks, and this says so once (i18n.cpp then fetches the package).
+bool missedVietnamese();
 // A font file of that layout (r<px>.bin / b<px>.bin, tools/i18n.py esf) from an app's package, e.g. PawBoop's
 // bubble fonts (Lexend). The bytes must stay (memory-mapped or a PSRAM copy, 4-byte aligned). Letters it lacks
 // come from the built-in text size `px` (and the language's font). nullptr when the file is not one.

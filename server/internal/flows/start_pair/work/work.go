@@ -24,8 +24,8 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 		name = "Xteink X4"
 	}
 	kind := wm.Str(body["kind"])
-	if kind != "s3" {
-		kind = "x4"
+	if kind != "s3" && kind != "bot" {
+		kind = "x4" // the EspOS Bot (kind "bot", 2026-11-20) and the S3 say so; anything else is an X4
 	}
 	now := time.Now().UnixMilli()
 	// Free a code (or token) left by an expired attempt.

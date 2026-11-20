@@ -32,11 +32,14 @@
 #include "apps.h"
 #include "desk.h"
 #include "fonts.h"
+#include "hal/board.h"
 #include "home.h"
 #include "notif.h"
 #include "os.h"
 #include "saveredit.h"
 #include "sound.h"
+#include "splash.h"
+#include "pkg/pkg.h"
 #include "touch.h"
 #include "wid.h"
 #include "trace.h"
@@ -48,6 +51,8 @@
 #include "wake/wake.h"
 #include "run/run.h"
 #include "tank/tank.h"
+#include "lock.h"
+#include "claim.h"
 #ifdef SIM_LIVE
 #include "live.h"
 #endif
@@ -90,6 +95,17 @@ void flush(lv_display_t* d, const lv_area_t* a, uint8_t* px) {
     for (int x = a->x1; x <= a->x2; x++)
       if (x >= 0 && y >= 0 && x < fbW && y < fbH) fb[y * fbW + x] = src[(y - a->y1) * w + (x - a->x1)];
   dirty = true;
+  static const bool stat = getenv("SIM_FLUSHSTAT") != nullptr;  // pixels drawn a second: the UI's drawing work
+  if (stat) {
+    static uint64_t px = 0;
+    static uint32_t from = 0, n = 0;
+    px += (uint64_t)lv_area_get_width(a) * lv_area_get_height(a), n++;
+    if (simNow - from >= 1000) {
+      fprintf(stderr, "[sim] drawn %llu px in %u flushes (%.1f screens) in the last second\n", (unsigned long long)px, n,
+              px / (double)(fbW * fbH));
+      px = 0, n = 0, from = simNow;
+    }
+  }
   lv_display_flush_ready(d);
 }
 
@@ -128,6 +144,7 @@ bool scripted = false;  // a command is moving the finger: the mouse waits
 std::mutex pendMtx;
 std::deque<std::string> pending;  // commands from the terminal and from keys
 uint32_t liveT0 = 0, shownAt = 0, frames = 0, framesAt = 0;
+int stallMs = 0;  // "stall MS": the next UI loop blocks that long
 void push(const std::string& c) {
   std::lock_guard<std::mutex> g(pendMtx);
   pending.push_back(c);
@@ -144,8 +161,9 @@ void title() {
   size_t ps, in, peak;
   simHeap(ps, in, peak);
   char t[200];
-  snprintf(t, sizeof t, "EspOS · ES3C35P 320×480 · %s · %u hình/giây · PSRAM còn %zu KB",
-           simBoard ? "tốc độ mạch" : "tốc độ máy tính", frames, heap_caps_get_free_size(MALLOC_CAP_SPIRAM) / 1024);
+  snprintf(t, sizeof t, "EspOS · %s %d×%d · %s · %u hình/giây · PSRAM còn %zu KB", hal::board().name, hal::uiW(),
+           hal::uiH(), simBoard ? "tốc độ mạch" : "tốc độ máy tính", frames,
+           heap_caps_get_free_size(MALLOC_CAP_SPIRAM) / 1024);
   live::setTitle(t);
 }
 // One pass of the board's loop(): the finger, LVGL, the OS; the window at most 60 times a second.
@@ -160,6 +178,11 @@ void tick() {
   }
   simNow = 1000 + (live::ms() - liveT0);
   lv_timer_handler();
+  // SIM_LOOP_MS=N: every UI loop takes N ms more (the board's slow loops: a game drawing at 6 pictures a second);
+  // "stall MS" (a script line) blocks one loop that long (a TLS handshake starving the UI, 0.5.7 test builds).
+  static const int extraMs = getenv("SIM_LOOP_MS") ? atoi(getenv("SIM_LOOP_MS")) : 0;
+  if (extraMs > 0) live::sleepMs(extraMs);
+  if (stallMs > 0) live::sleepMs(stallMs), stallMs = 0;
   os::tick();
   desk::poll();
   wake::tick();
@@ -248,12 +271,12 @@ void drag(int x0, int y0, int x1, int y1, int ms, int after) {
 namespace lcd {
 // As the board: the run game sends its pictures straight to the panel below the status bar (80-row bands).
 bool direct(int y0, int y1, void (*fill)(uint16_t*, int, int, void*), void* ctx, bool) {
-  if (fbW != 320) return false;
-  static uint16_t band[320 * 80];
+  if (fbW > fbH) return false;  // portrait only, as the boards
+  static uint16_t band[480 * 80];
   for (int y = y0; y < y1; y += 80) {
     const int rows = std::min(80, y1 - y);
     fill(band, y, rows, ctx);
-    memcpy(&fb[y * fbW], band, rows * 320 * 2);
+    memcpy(&fb[y * fbW], band, rows * fbW * 2);
   }
   dirty = true;
   return true;
@@ -702,8 +725,18 @@ void runLine(const std::string& line) {
       ss >> arg;
       app_pet::open(arg.empty() ? nullptr : arg.c_str());
       step(600);
+#ifdef SIM_LIVE
+    } else if (cmd == "stall") {  // stall MS: one UI loop blocks MS ms (live only: a TLS handshake on the board)
+      ss >> stallMs;
+      step(50);
+#endif
     } else if (cmd == "dismiss") {  // close Biscuit's pop-up
       pet::dismiss();
+      step(300);
+    } else if (cmd == "summon") {  // summon [REASON]: Biscuit's pop-up over the current screen, as the control centre's tile
+      std::string r;
+      ss >> r;
+      pet::summon(r.empty() ? "cc" : r.c_str());
       step(300);
     } else if (cmd == "run") {  // the run game directly: run [ARG] (a map, "bench", "pet")
       std::string arg;
@@ -715,6 +748,24 @@ void runLine(const std::string& line) {
       std::getline(ss, rest);
       if (!tank::dev(rest.c_str())) fprintf(stderr, "tank: ? %s\n", rest.c_str());
       step(100);
+    } else if (cmd == "claim") {  // claim set CODE [URL] | claim done | claim ESPOS:... (Kho máy's USB lines)
+      std::string rest;
+      std::getline(ss, rest);
+      if (!rest.empty() && rest[0] == ' ') rest = rest.substr(1);
+      if (!rest.compare(0, 4, "set ")) {
+        const size_t sp = rest.find(' ', 4);
+        claim::set(rest.substr(4, sp == std::string::npos ? std::string::npos : sp - 4).c_str(),
+                   sp == std::string::npos ? "" : rest.substr(sp + 1).c_str());
+      } else if (rest == "done") claim::claimed();
+      else if (!rest.compare(0, 5, "step ")) claim::devStep(atoi(rest.c_str() + 5));
+      else if (!claim::usb(rest.c_str())) fprintf(stderr, "claim: ? %s\n", rest.c_str());
+      step(300);
+    } else if (cmd == "lock") {  // lock CMD: the trial and paid content (src/lock.h dev: lic {json} | marks {json} | card)
+      std::string rest;
+      std::getline(ss, rest);
+      if (!rest.empty() && rest[0] == ' ') rest = rest.substr(1);
+      if (!lock::dev(rest.c_str())) fprintf(stderr, "lock: ? %s\n", rest.c_str());
+      step(300);
     } else if (cmd == "dev") {  // run::dev: auto | manual | god | warp M | end | smooth 0|1 | stats
       std::string rest;
       std::getline(ss, rest);
@@ -731,6 +782,29 @@ void runLine(const std::string& line) {
       dirty = true;
       step(100);
 #endif
+    } else if (cmd == "splash") {  // splash PCT: the boot screen (src/splash.cpp) with its bar at PCT; "splash end": Home
+      std::string a;
+      ss >> a;
+      if (a == "end") {
+        lv_obj_remove_flag(lv_layer_top(), LV_OBJ_FLAG_HIDDEN);
+        os::rebuild();
+      } else {
+        lv_obj_add_flag(lv_layer_top(), LV_OBJ_FLAG_HIDDEN);  // at boot there is no status bar yet
+        splash::show();
+        splash::step(atoi(a.c_str()));
+      }
+      step(100);
+    } else if (cmd == "cover") {  // cover PKG PCT: an app's opening cover (splash::cover); "cover end" takes it away
+      std::string id, pct;
+      ss >> id >> pct;
+      if (id == "end") {
+        splash::coverDone();
+      } else {
+        const pkg::Package* p = pkg::find(id.c_str());
+        splash::cover(id.c_str(), p ? p->name.c_str() : id.c_str());
+        splash::coverStep(atoi(pct.c_str()));
+      }
+      step(100);
     } else if (cmd == "quit" || cmd == "exit") {
       quitting = true;
     } else if (cmd == "help") {
@@ -777,7 +851,7 @@ int main(int argc, char** argv) {
   if (getenv("SIM_QUIET")) trace::quiet = true;
   lv_init();
   lv_tick_set_cb([]() -> uint32_t { return simNow; });
-  lcd::simDisp = lv_display_create(320, 480);
+  lcd::simDisp = lv_display_create(hal::uiW(), hal::uiH());  // the build's board (EXTRA=-DBOARD_ES3C28P: 360x480)
   lv_display_set_flush_cb(lcd::simDisp, flush);
   lv_display_set_buffers(lcd::simDisp, drawBuf, nullptr, sizeof drawBuf, LV_DISPLAY_RENDER_MODE_PARTIAL);
   touch::dev = lv_indev_create();
@@ -789,7 +863,7 @@ int main(int argc, char** argv) {
     }, c, nullptr);
   fonts::begin();
 #ifdef SIM_LIVE
-  if (!live::begin(320, 480, zoom)) {
+  if (!live::begin(hal::uiW(), hal::uiH(), zoom)) {
     fprintf(stderr, "[sim] no window\n");
     return 1;
   }

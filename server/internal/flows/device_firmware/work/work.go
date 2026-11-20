@@ -16,6 +16,9 @@ func devKind(r map[string]any) string {
 	if strings.HasPrefix(wm.Str(r["fw"]), "espos-s3-") {
 		return "s3"
 	}
+	if strings.HasPrefix(wm.Str(r["fw"]), "espos-bot-") {
+		return "bot"
+	}
 	return "x4"
 }
 
@@ -70,7 +73,7 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 			}
 		}
 		if len(fw) != 1 {
-			return map[string]any{"status": 409, "body": map[string]any{"error": "Chưa có bản firmware nào trên server"}}
+			return map[string]any{"status": 409, "body": map[string]any{"error": "Chưa có bản firmware nào trên server", "code": "no_firmware"}}
 		}
 		state := map[string]any{"state": "requested", "version": wm.Str(fw[0]["version"]), "at": now}
 		if _, err := wm.Update("devices", devID, map[string]any{"fw_req": wm.Int(fw[0]["code"]), "ota_state": state}); err != nil {

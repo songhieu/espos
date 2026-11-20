@@ -1,3 +1,8 @@
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../assets/logo-horizontal-white.svg">
+  <img alt="EspOS" src="../assets/logo-horizontal.svg" height="40">
+</picture>
+
 # EspOS firmware for the Xteink X4
 
 This folder is the reader side of [EspOS](../README.md): a fork of

@@ -1,3 +1,4 @@
+#pragma GCC optimize("Os")  // cold code: built small (0.5.7 flash diet; the app slot is full)
 #include "net.h"
 
 #include <Preferences.h>
@@ -6,6 +7,9 @@
 #include <algorithm>
 
 #include "i18n.h"
+#include "ota.h"
+#include "pkg/store.h"
+#include "power.h"
 #include "trace.h"
 
 #ifdef ESPOS_QEMU
@@ -33,7 +37,8 @@ State st = State::Off;
 String target, targetPass, lastError;
 bool userConnect = false;   // started from the screen: report errors, save on success
 uint32_t connectStart = 0, changeCount = 0;
-int attempt = 0;  // a refused join is tried once more before giving up
+int attempt = 0;  // a refused join is tried again before giving up (auto-join: 3 times, a moment apart)
+uint32_t retryAt = 0;  // when that next try starts (0: none waiting)
 
 bool scanBusy = false, scanWanted = false;
 enum class Auto { Waiting, Scanning, Trying } autoPhase = Auto::Waiting;
@@ -177,6 +182,7 @@ void startConnect(const String& ssid, const String& pass, bool user) {
   lastError = "";
   refusal = 0;
   attempt = 0;
+  retryAt = 0;
   evGotIp = evDisc = false;
   connectStart = millis();
   st = State::Connecting;
@@ -187,6 +193,7 @@ void startConnect(const String& ssid, const String& pass, bool user) {
 }
 
 void fail(const char* why) {
+  retryAt = 0;
   trace::add("wifi fail \"%s\" (reason %d): %s", target.c_str(), refusal, why);
   WiFi.disconnect(false, false);
   if (userConnect) lastError = why;
@@ -278,11 +285,14 @@ void poll() {
     const bool authLike = reason == WIFI_REASON_AUTH_FAIL || reason == WIFI_REASON_AUTH_EXPIRE ||
                           reason == WIFI_REASON_4WAY_HANDSHAKE_TIMEOUT || reason == WIFI_REASON_HANDSHAKE_TIMEOUT ||
                           reason == WIFI_REASON_ASSOC_FAIL || reason == WIFI_REASON_CONNECTION_FAIL;
-    if (st == State::Connecting && authLike && attempt == 0) {
-      attempt = 1;
-      trace::add("wifi retry \"%s\" after reason %d", target.c_str(), reason);
+    // A join of our own (not the user's typing) is tried 3 times, 1, 2 and 3 s apart: on 2026-11-18 the board's
+    // retry at once was refused again within 0.1 s and WiFi came 12 s later, after two scans (0.5.7).
+    if (st == State::Connecting && authLike && attempt < (userConnect ? 1 : 3)) {
+      attempt++;
+      trace::add("wifi retry \"%s\" after reason %d (%d)", target.c_str(), reason, attempt);
       WiFi.disconnect(false, false);
-      WiFi.begin(target.c_str(), targetPass.length() ? targetPass.c_str() : nullptr);
+      retryAt = userConnect ? 0 : (now + 1000u * attempt) | 1;
+      if (!retryAt) WiFi.begin(target.c_str(), targetPass.length() ? targetPass.c_str() : nullptr);
       connectStart = millis();
     } else if (st == State::Connecting) {
       const char* why = reasonText(reason, rssiOf(target));
@@ -297,7 +307,30 @@ void poll() {
       changed();
     }
   }
+  if (retryAt && st == State::Connecting && (int32_t)(now - retryAt) >= 0) {
+    retryAt = 0;
+    WiFi.begin(target.c_str(), targetPass.length() ? targetPass.c_str() : nullptr);
+    connectStart = millis();
+  }
   if (st == State::Connecting && millis() - connectStart > CONNECT_TIMEOUT_MS) fail(T_("The network took too long to answer."));
+  // WiFi power save (the S3's default, modem sleep) holds what the router sends until the next beacon: up to a few
+  // tenths of a second on every round trip, which with lwIP's 5.7 KB window kept a download near 20 KB/s and made each
+  // TLS handshake slower (0.5.7). Awake on USB power and while something downloads; on the battery it sleeps otherwise.
+#ifndef ESPOS_QEMU  // no radio there
+  static uint32_t psAt = 0;
+  static int psNow = -1;
+  if (st != State::Connected) {
+    psNow = -1;  // chosen again once joined
+  } else if (now - psAt >= 1000) {
+    psAt = now;
+    const int want = power::usb() || pkg::store::busy() || ota::installing() || ota::running() ? 0 : 1;
+    if (want != psNow) {
+      psNow = want;
+      WiFi.setSleep(want ? WIFI_PS_MIN_MODEM : WIFI_PS_NONE);
+      trace::add("wifi power save %s", want ? "on" : "off");
+    }
+  }
+#endif
 
   if (scanBusy) {
     const int n = WiFi.scanComplete();

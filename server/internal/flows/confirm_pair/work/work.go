@@ -228,6 +228,38 @@ func geocode(city string) (string, string, string, bool, error) {
 	return fmt.Sprintf("%.4f", wm.Num(r["latitude"])), fmt.Sprintf("%.4f", wm.Num(r["longitude"])), wm.Str(r["name"]), true, nil
 }
 
+// placeOf (2026-11-19): the city, its coordinates and the time zone of the person's newest other device, so a device
+// paired again (or a second one) starts where the person is, not in Hà Nội: the dog assistant and the weather widget
+// read these. Empty when the person has no other device (the web's defaults stay).
+func placeOf(uid, newID int) (map[string]string, error) {
+	devs, err := wm.QueryOpts("devices", map[string]any{"filters": []map[string]any{
+		{"column": "user_id", "op": "eq", "value": uid}, {"column": "revoked", "op": "eq", "value": false}},
+		"order_by": "id", "desc": true, "limit": 10})
+	if err != nil {
+		return nil, err
+	}
+	for _, d := range devs {
+		id := wm.Int(d["id"])
+		if id == newID {
+			continue
+		}
+		rows, qerr := wm.QueryOpts("device_settings", map[string]any{"filters": []map[string]any{
+			{"column": "device_id", "op": "eq", "value": id},
+			{"column": "skey", "op": "in", "value": []any{"dash.city", "dash.lat", "dash.lon", "sys.tz_min"}}}, "limit": 10})
+		if qerr != nil {
+			return nil, qerr
+		}
+		got := map[string]string{}
+		for _, r := range rows {
+			got[wm.Str(r["skey"])] = wm.Str(r["svalue"])
+		}
+		if got["dash.city"] != "" && got["dash.lat"] != "" && got["dash.lon"] != "" {
+			return got, nil
+		}
+	}
+	return map[string]string{}, nil
+}
+
 func putSetting(deviceID, userID int, k, v string, ms int64) error {
 	_, err := wm.Upsert("device_settings", []string{"device_id", "skey"}, map[string]any{
 		"device_id": deviceID, "user_id": userID, "skey": k, "svalue": v, "updated_ms": ms, "source": "web",
@@ -248,7 +280,7 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 	email := wm.Str(in["email"])
 	code := strings.TrimSpace(strings.ReplaceAll(wm.Str(b["code"]), " ", ""))
 	if len(code) != 6 {
-		return map[string]any{"status": 422, "body": map[string]any{"error": "Mã gồm 6 chữ số"}}
+		return map[string]any{"status": 422, "body": map[string]any{"error": "Mã gồm 6 chữ số", "code": "pair_code_format"}}
 	}
 	now := time.Now().UnixMilli()
 	rows, err := wm.QueryOpts("pairings", map[string]any{"filters": []map[string]any{{"column": "code", "op": "eq", "value": code}}, "limit": 1})
@@ -256,7 +288,7 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 		return wm.Fail(err)
 	}
 	if len(rows) != 1 || wm.Str(rows[0]["status"]) != "pending" || int64(wm.Num(rows[0]["expires_ms"])) < now {
-		return map[string]any{"status": 404, "body": map[string]any{"error": "Mã không đúng hoặc đã hết hạn"}}
+		return map[string]any{"status": 404, "body": map[string]any{"error": "Mã không đúng hoặc đã hết hạn", "code": "pair_code_invalid"}}
 	}
 	pr := rows[0]
 	name := strings.TrimSpace(wm.Str(b["name"]))
@@ -267,8 +299,8 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 		name = "Xteink X4"
 	}
 	kind := wm.Str(pr["kind"])
-	if kind != "s3" {
-		kind = "x4"
+	if kind != "s3" && kind != "bot" {
+		kind = "x4" // the EspOS Bot (kind "bot", 2026-11-20) and the S3 say so; anything else is an X4
 	}
 	dev, err := wm.Insert("devices", map[string]any{
 		"user_id": uid, "user_email": email, "name": name, "token_hash": wm.Str(pr["token_hash"]), "revoked": false,
@@ -283,7 +315,14 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 			return wm.Fail(perr)
 		}
 	}
+	place, perr := placeOf(uid, id)
+	if perr != nil {
+		return wm.Fail(perr)
+	}
 	for k, v := range webDefaults {
+		if p, ok := place[k]; ok && p != "" {
+			v = p
+		}
 		if perr := putSetting(id, uid, k, v, now); perr != nil {
 			return wm.Fail(perr)
 		}
@@ -295,5 +334,10 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 	_ = geocode
 	_ = fmt.Sprintf
 	_ = url.QueryEscape
-	return map[string]any{"status": 201, "body": map[string]any{"device": map[string]any{"id": id, "name": name}}}
+	city := webDefaults["dash.city"]
+	if place["dash.city"] != "" {
+		city = place["dash.city"]
+	}
+	// city: where its weather (and the dog assistant's) is for, taken from the person's other device when there is one.
+	return map[string]any{"status": 201, "body": map[string]any{"device": map[string]any{"id": id, "name": name, "city": city}}}
 }

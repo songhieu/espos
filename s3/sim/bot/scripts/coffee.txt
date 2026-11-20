@@ -1,0 +1,13 @@
+# The calendar page gives way to the coffee screen 06:00-09:00 local only; the coffee screen's greeting follows the
+# local hour. Run with a fake local clock: BOT_SIM_TIME=08:00 (or 16:50, 23:00) tools/bot/sim.sh --headless ...
+serial ESPOS:PROVISION {"token":"SIMTOKENSIMTOKENSIMTOKENSIMTOKENSIMTOKENSIMTOKENSIMTOKENSIMTOKEN","api":"http://127.0.0.1:8098","wifi":[{"ssid":"Home WiFi","pass":"x"}]}
+wait 3000
+serial SET bot.night
+serial SET bot.screens [{"id":"date_page","s":4},{"id":"coffee","s":4}]
+wait 1500
+serial SETTINGS
+shot first
+wait 4200
+serial SETTINGS
+shot second
+wait 300

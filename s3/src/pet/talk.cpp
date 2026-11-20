@@ -14,12 +14,17 @@
 #include "../desk.h"
 #include "../i18n.h"
 #include "../led.h"
+#include "../lic.h"
+#include "../lock.h"
 #include "../net.h"
 #include "../sound.h"
 #include "../trace.h"
 #include "../uikit.h"
 #include "../wake/wake.h"
+#include "assist.h"
 #include "dogs.h"
+#include "../cues.h"
+#include "dog.h"
 #include "packs.h"
 #include "pet.h"
 #include "voice.h"
@@ -31,6 +36,8 @@ void talkShow(const char* clip, const String& big, const String& small);  // the
 void talkLevel(int pct);                                           // the mic button's ring, < 0: none
 void talkButton(int state);  // 0 ready, 1 recording (held), 2 busy, 3 recording after "Gâu" (a tap ends it)
 void talkTouched();                                                // keeps the pop-up open
+void talkLock(const char* url);  // the way to unlock talking: the QR in place of the button and the chips
+void talkTrial(int left);        // the "{n} left" chip of a trial (< 0: none)
 
 namespace talk {
 namespace {
@@ -42,16 +49,35 @@ St st = St::Idle;
 uint32_t stAt = 0;
 bool byWake = false, heard = false, typed = false;
 uint32_t lastLoud = 0, quietUntil = 0;  // quietUntil: our own "I'm here" sound, not the person speaking
-uint32_t heardAt = 0;                    // when the question began (0.28 s of speech before it)
-uint16_t endWait = 800;                  // the quiet that ended the last question (the turn's log)
+uint32_t warmAskedAt = 0;  // when the warm-up was asked for (warmFn)
+uint32_t heardAt = 0;                    // when the question began (0.24 s of speech before it)
+uint16_t endWait = 2000;                 // the pause that ended the last question (the turn's log; 8000 = the cap)
+float spPeak = -90, turnFloor = -60;     // this question's loudest moment (decaying), the room's floor when it began
+int silentMs = 0;                        // how long the level has sat right at the floor
 int loudMs = 0;                          // how long it has been loud lately (speech, not a knock)
+// The question window (owner, 2026-11-20): the question must begin within QUESTION_MS, counted from the end of the
+// dog's "I'm here" (the ack: ears up only once it has spoken), or from the decision when there is no ack. Speech
+// begins at the floor + SPEAK_DB for 0.24 s (soft speech at the owner's distance peaks 12-14 dB over a -60 floor).
+constexpr uint32_t QUESTION_MS = 6000;
+constexpr float SPEAK_DB = 7;
+uint32_t winFrom = 0, stepAt = 0;        // the window's start; the last listening step (loudMs counts real time)
+float winPeak = -90;                     // the window's loudest moment (the "no question" log)
+int winLoudMs = 0, winOursMs = 0;        // how long it was loud in the window, all told; our own sound in it
 // A wake turn: the 250 ms after the call decide whether the person paused (then the "I'm here" sound) or speaks on;
 // `again`: listening once more after the dog's "say it again" line; trimMs: how much of the recording's start to
 // leave out (the call itself: the server needs only what follows).
 bool decided = false, pausedAfterCall = false, again = false, retryPending = false;
 // Follow-up: after the dog has answered, it keeps listening for a while (no call needed): the talk flows.
 bool followUp = false;
-constexpr uint32_t FOLLOW_MS = 6000;
+// After a spoken answer: the next question must START within FOLLOW_MS (the ears up, no call needed) and be close to
+// the device: FOLLOW_DB above the room's floor and louder than FOLLOW_MIN (owner, 2026-11-19: talk across the room was
+// taken as questions with 6 s and floor + 9 dB). Setting s3.assist "follow" (default on).
+constexpr uint32_t FOLLOW_MS = 2750;  // 250 ms deciding + 2.5 s
+constexpr float FOLLOW_DB = 15, FOLLOW_MIN = -42;
+// The dog's answer ended with a question to the person (the server's "asks", 2026-11-20): the answer is expected, so
+// the follow-up listens as after a call (QUESTION_MS, any speech at SPEAK_DB), not only for close speech.
+bool lastAsks = false, asksFollow = false;
+bool dryRun = false;  // WAKEFIRE DRY (board checks): the whole listening, but nothing is ever sent
 String lastReply;  // the answer stays in the bubble while it listens for the next question
 int trimMs = 0;
 lv_timer_t* timer = nullptr;
@@ -69,7 +95,7 @@ struct Ex {
   volatile bool head = false, done = false, cancel = false, voice = false, cut = false;
   String assist, text;
   int rate = RATE;
-  uint32_t tStart = 0, tHead = 0, tFirst = 0, tEnd = 0, pcmBytes = 0;
+  uint32_t tStart = 0, tSent = 0, tHead = 0, tFirst = 0, tEnd = 0, pcmBytes = 0;  // tSent: the request written
 };
 Ex ex;
 volatile bool exBusy = false;
@@ -243,6 +269,7 @@ bool readBody(NetworkClientSecure* c, bool chunked, long clen, bool voice) {
 bool exchange(void*, NetworkClientSecure* c, const char* host, const char* token) {
   if (!c) {
     ex.status = -1;
+    ex.tEnd = millis();
     ex.done = true;
     return false;
   }
@@ -252,12 +279,15 @@ bool exchange(void*, NetworkClientSecure* c, const char* host, const char* token
   h += "\r\n";
   if (!writeAll(c, (const uint8_t*)h.c_str(), h.length()) || (!ex.get && !writeAll(c, ex.body, ex.len))) {
     ex.status = -2;
+    ex.tEnd = millis();
     ex.done = true;
     return false;
   }
+  ex.tSent = millis();
   String line;
   if (!readLine(c, line, 25000, 200) || !line.startsWith("HTTP/1.")) {
     ex.status = -3;
+    ex.tEnd = millis();
     ex.done = true;
     return false;
   }
@@ -268,6 +298,7 @@ bool exchange(void*, NetworkClientSecure* c, const char* host, const char* token
   for (;;) {
     if (!readLine(c, line, 10000, 6000)) {
       ex.status = -3;
+      ex.tEnd = millis();
       ex.done = true;
       return false;
     }
@@ -294,10 +325,26 @@ bool exchange(void*, NetworkClientSecure* c, const char* host, const char* token
   ex.cut = !whole;
   ex.tEnd = millis();
   ex.done = true;
-  return whole && !close;
+  // Not kept after a streamed voice answer: on a test board the next request on that connection always died
+  // (no status line, 12 s and 43 s later; the server closes it after streaming), and its resend cost the upload twice.
+  return whole && !close && !ex.voice;
 }
 
+// While the person speaks (1-8 s), a fresh connection is made for the question: the kept one may be one the server
+// closed while idle (seen on a test board: the question then failed and went again, the upload twice), and a
+// handshake done now costs nothing later.
+bool warmFn(void*, NetworkClientSecure* c, const char* host, const char*) {
+  if (!c) return false;
+  // Started late (desk had just made a fresh connection, ~2 s, or another request had just used it): keep it.
+  // Started at once: desk handed over the connection its ping keeps warm, and the server drops idle ones well before
+  // that ping comes again (9q on the board, 2026-11-20: the question failed on it 3 times out of 4, each resend
+  // ~1.5 s + a handshake later): a fresh one, made while the person speaks.
+  if (millis() - warmAskedAt > 600) return c->connected();
+  c->stop();
+  return c->connect(host, 443) == 1;  // kept when it is up
+}
 #else
+bool warmFn(void*, NetworkClientSecure*, const char*, const char*) { return false; }
 // The simulator: the same turn through wake/tools/simnet.py (the live API over HTTPS; the device token only in the
 // environment, SIM_DEVICE_TOKEN from wake/tools/simpair.py), its bytes read back in odd-sized pieces so the carried
 // byte is tested the way Cloudflare cuts the stream.
@@ -305,8 +352,23 @@ bool exchange(void*, NetworkClientSecure*, const char*, const char*) {
   if (const char* fake = getenv("SIM_FAKE_ASSIST")) {  // tests: "silent" (nothing made out) or "voice" (1 s of tone)
     delay(800);
     ex.tHead = millis();
+    if (!strcmp(fake, "trial_ended") || !strcmp(fake, "no_ai")) {  // tests: the AI is locked (402)
+      ex.text = String("{\"locked\":\"") + fake + "\",\"buy_url\":\"https://espos.dev/app#/buy\"}";
+      ex.status = 402, ex.head = true;
+      ex.tEnd = millis();
+      ex.done = true;
+      return true;
+    }
     if (!strcmp(fake, "voice")) {
-      ex.assist = "{\"heard\":\"mấy giờ rồi\",\"reply\":\"Mười giờ rồi bây.\",\"mood\":\"happy\"}";
+      // SIM_FAKE_REPLY: the dog's words (a long one: the bubble's scroll); a typed turn hears what it sent.
+      JsonDocument q, r;
+      if (ex.json) deserializeJson(q, (const char*)ex.body, ex.len);
+      r["heard"] = ex.json ? (const char*)(q["text"] | "") : "mấy giờ rồi";
+      r["reply"] = getenv("SIM_FAKE_REPLY") ? getenv("SIM_FAKE_REPLY") : "Mười giờ rồi bây.";
+      r["mood"] = "happy";
+      if (getenv("SIM_FAKE_ASKS")) r["asks"] = true;  // tests: the dog's answer ends with a question
+      ex.assist = "";
+      serializeJson(r, ex.assist);
       ex.status = 200, ex.voice = true, ex.head = true;
       uint8_t b[640];
       const int secs = getenv("SIM_FAKE_SECS") ? constrain(atoi(getenv("SIM_FAKE_SECS")), 1, 3) : 1;  // the ring holds 4 s
@@ -327,6 +389,7 @@ bool exchange(void*, NetworkClientSecure*, const char*, const char*) {
   }
   if (!getenv("SIM_DEVICE_TOKEN")) {
     ex.status = -1;
+    ex.tEnd = millis();
     ex.done = true;
     return false;
   }
@@ -382,8 +445,23 @@ bool exchange(void*, NetworkClientSecure*, const char*, const char*) {
 }
 #endif
 
+bool netRetried = false;  // this turn was sent again once already
+
+// A kept connection the server closed while it was idle fails at once, before any answer (-2: the request could not
+// be written, -3: no status line): seen on a test board, the first question after a pause. The turn is sent
+// again once on a new connection (the failed one is closed), so its sound is kept for that; a slow failure is not
+// retried (the server may have the question already).
+bool staleFail() {
+  if (netRetried || !ex.tEnd) return false;
+  if (ex.status == -2) return true;  // could not even write the request
+  // No status line: a dead connection says so at once after the request is written (a long recording takes a while
+  // to upload); a server still thinking keeps it open far longer.
+  return ex.status == -3 && ex.tSent && ex.tEnd - ex.tSent < 3000;
+}
+
 void onDone(void*) {
   exBusy = false;
+  if (staleFail()) return;  // handleJson sends it again
   heap_caps_free(ex.base ? ex.base : ex.body);
   ex.body = ex.base = nullptr;
 }
@@ -416,7 +494,7 @@ bool submit(const String& path, uint8_t* body, uint32_t len, bool json, bool get
   ex.path = path, ex.body = body, ex.base = base, ex.len = len, ex.json = json, ex.get = get;
   ex.status = 0, ex.head = ex.done = ex.cancel = ex.voice = ex.cut = false;
   ex.assist = "", ex.text = "", ex.rate = RATE;
-  ex.tStart = millis(), ex.tHead = ex.tFirst = ex.tEnd = 0, ex.pcmBytes = 0;
+  ex.tStart = millis(), ex.tSent = ex.tHead = ex.tFirst = ex.tEnd = 0, ex.pcmBytes = 0;
   if (!ring) ring = (int16_t*)heap_caps_malloc(RING * 2, MALLOC_CAP_SPIRAM);
   if (!ring) return false;
   wpos = rpos = 0, underruns = 0, hasCarry = false, playing = false;
@@ -436,6 +514,7 @@ String turnPath() {
 
 void step(lv_timer_t*);
 const char* sayAgain();
+void showLock();
 void listenAgain();
 void listenFollowUp();
 
@@ -443,7 +522,15 @@ void startTimer() {
   if (!timer) timer = lv_timer_create(step, 40, nullptr);
 }
 
+// A question waiting to go (desk's one raw slot busy): a recording (pendingBase: its buffer, to free) or a chip's JSON.
+uint8_t *pendingWav = nullptr, *pendingBase = nullptr;
+uint32_t pendingLen = 0;
+bool pendingJson = false;
+
 void finish() {
+  if (wake::capturing() || st == St::Listen) wake::captureFree();  // a turn never ends with a recording held
+  if (pendingBase) heap_caps_free(pendingBase);  // a question that never went (the pop-up closed while it waited)
+  pendingWav = pendingBase = nullptr;
   set(St::Idle);
   led::mode(led::Mode::Done);
   followUp = again = false;
@@ -469,32 +556,40 @@ void cancelTurn() {
   if (wake::capturing()) wake::captureStop();
 }
 
+volatile bool warmBusy = false;  // the warm-up job is running (the question waits for it)
+
+void warmUp() {
+  if (!warmBusy && desk::rawSend(warmFn, [](void*) { warmBusy = false; }, nullptr)) warmBusy = true, warmAskedAt = millis();
+}
+
 bool startListening(uint32_t fromSample, int maxMs, bool wakeTurn) {
+  warmUp();
   voice::hush();
   wake::hold(true);
   if (!wake::captureStart(fromSample, maxMs)) {
     wake::hold(false);
     return false;
   }
-  byWake = wakeTurn, heard = false, typed = false, lastLoud = millis(), fallback = 0;
+  byWake = wakeTurn, heard = false, typed = false, lastLoud = millis(), fallback = 0, dryRun = false;
   set(St::Listen);
   led::mode(led::Mode::Listen);
   startTimer();
   talkButton(wakeTurn ? 3 : 1);
   talkShow("alert", T_(wakeTurn ? N_("I'm listening") : N_("Listening")),
            T_(wakeTurn ? N_("Say what you need") : N_("Let go to send")));
-  loudMs = 0, quietUntil = 0;
+  loudMs = 0, quietUntil = 0, stepAt = millis();
   return true;
 }
 
-uint8_t *pendingWav = nullptr, *pendingBase = nullptr;  // a recording waiting (pendingBase: its buffer, to free)
-uint32_t pendingLen = 0;
 
 void trySubmit() {
-  if (exBusy) return;
+  if (exBusy || warmBusy) return;  // (the warm-up holds desk's one raw slot for a moment)
+  netRetried = false;
   uint8_t *w = pendingWav, *base = pendingBase;
   pendingWav = pendingBase = nullptr;
-  if (!submit(turnPath(), w, pendingLen, false, false, base)) {
+  const bool json = pendingJson;
+  pendingJson = false;
+  if (!submit(turnPath(), w, pendingLen, json, false, base)) {
     heap_caps_free(base);
     return failShow("look_up", nullptr, net::state() == net::State::Connected ? N_("Can't reach the server") : N_("No internet"));
   }
@@ -519,29 +614,47 @@ uint8_t* trimWav(uint8_t* w, uint32_t& bytes, int ms) {
 
 void send() {
   const bool capped = !wake::capturing();  // the capture filled up: the longest turn
+  if (dryRun) {  // the turn is measured and logged, nothing goes to the server (no AI call)
+    trace::add("talk: dry run: the question would go now (%d ms recorded, speech began %ld ms into the window, ended %u ms "
+               "after the last speech; peak %.0f, floor %.0f dBFS)", wake::captureMs(), (long)(int32_t)(heardAt - winFrom),
+               (unsigned)endWait, spPeak, turnFloor);
+    dryRun = false;
+    wake::captureFree();
+    talkShow("happy", String(), String());
+    return finish();
+  }
   uint32_t bytes = 0;
   uint8_t* base = wake::wav(bytes);
   if (!base) return finish();
   uint8_t* w = byWake ? trimWav(base, bytes, trimMs) : base;
   if (byWake && capped) trace::add("talk: wake word turn, %u ms of sound (the longest turn)", (unsigned)((bytes - 44) / 32));
-  else if (byWake) trace::add("talk: wake word turn, %u ms of sound (ended by %u ms of quiet)", (unsigned)((bytes - 44) / 32), (unsigned)endWait);
+  else if (byWake && endWait == 8000) trace::add("talk: wake word turn, %u ms of sound (8 s of question: the cap)", (unsigned)((bytes - 44) / 32));
+  else if (byWake) trace::add("talk: wake word turn, %u ms of sound (began %ld ms into the window, ended %u ms after the last "
+                              "speech; peak %.0f, floor %.0f dBFS)", (unsigned)((bytes - 44) / 32),
+                              (long)(int32_t)(heardAt - winFrom), (unsigned)endWait, spPeak, turnFloor);
   else trace::add("talk: push to talk turn, %u ms of sound", (unsigned)((bytes - 44) / 32));
   talkButton(2);
   talkLevel(-1);
   talkShow("look_up", T_("Thinking"), "");
   led::mode(led::Mode::Think);
+  if (byWake && assist::prefs().ack) sound::blipEnd();  // heard, sent: the dog is thinking (the recording is done)
   heap_caps_free(pendingBase);
-  pendingWav = w, pendingBase = base, pendingLen = bytes;
+  pendingWav = w, pendingBase = base, pendingLen = bytes, pendingJson = false;
   set(St::Send);
   trySubmit();
 }
 
 void applyWords(JsonDocument& d) {
+  if (fallback != 1) {  // (fallback 1: the words of a turn already counted, fetched again)
+    lic::usedTurn();
+    talkTrial(lic::ai() == lic::Ai::Trial ? lic::aiLeft() : -1);
+  }
   if (d["cid"].is<const char*>()) cid = d["cid"].as<const char*>();
   if ((d["done"].is<JsonArray>() && d["done"].size()) || d["saved"] == true) desk::syncNow();  // its change comes now
   const String reply = d["reply"] | "", said = d["heard"] | "";
   const char* mood = d["mood"] | "stand";
   lastReply = reply;
+  lastAsks = d["asks"] == true;
   trace::add("talk: heard \"%.80s\" -> \"%.120s\" (%s)", said.c_str(), reply.c_str(), mood);
   talkShow(mood, reply, said.length() ? "“" + said + "”" : String());
 }
@@ -550,7 +663,8 @@ void handleJson() {
   JsonDocument d;
   deserializeJson(d, ex.text);
   const int s = ex.status;
-  trace::add("talk: answer %d (%s) in %lu ms", s, d["silent"] == true ? "nothing made out" : d["error"] | "", (unsigned long)(ex.tEnd - ex.tStart));
+  trace::add("talk: answer %d (%s) in %lu ms", s, d["silent"] == true ? "nothing made out" : d["error"] | "",
+             (unsigned long)((ex.tEnd ? ex.tEnd : millis()) - ex.tStart));
   if (s == 200 && d["silent"] == true) {  // nothing the server could make out after "Gâu gâu": ask again, listen again
     const pba_clip_t* l = voice::lineFor("alert");
     if (l) voice::speak(l, true);
@@ -571,6 +685,19 @@ void handleJson() {
     applyWords(d);
     return set(St::After);
   }
+  if (s == 402) {  // the AI is not allowed (the trial is over, or none on this account): the dog says so, the QR
+    lic::locked(d["locked"] | "no_ai", d["buy_url"] | "");
+    return showLock();
+  }
+  if (s == 403 && !strcmp(d["error"] | "", "account_disabled")) {  // the account is blocked (or being deleted): not
+    // an AI error, nothing to retry; the device keeps its token and says it calmly (the OS's own screen says more)
+    trace::add("talk: the account is %s", d["state"] | "blocked");
+    lock::account(d["state"] | "blocked");  // the OS's calm screen for it (tank-game's lock.h); the same state again: nothing
+    // i18n: the dog's pop-up when the person's EspOS account is blocked or being deleted (calm, not an error)
+    talkShow("stand", T_("Your account is locked"), T_("See espos.dev for details"));
+    led::mode(led::Mode::Done);
+    return set(St::After);
+  }
   if (s == 401) return failShow("look_up", nullptr, N_("Pair this device again in Settings"));
   if (s == 413 || s == 422) return failShow("alert", "alert", N_("Say it again, please"));
   if (s == 429) return failShow("no_tired", "no_tired", N_("Wait a moment, then ask again"));
@@ -584,6 +711,18 @@ void handleJson() {
   if (s == 502 && fallback == 0 && !ex.assist.length()) {  // the voice failed after the turn was saved: its words
     fallback = 1;
     if (submit("/v1/device/assist/say?n=last&format=json", nullptr, 0, false, true)) return set(St::Wait);
+  }
+  if (staleFail() && ex.body) {
+    netRetried = true;
+    trace::add("talk: no answer on the kept connection (%d after %lu ms): sending again on a new one", s,
+               (unsigned long)(ex.tEnd - ex.tStart));
+    uint8_t *b = ex.body, *base = ex.base;
+    const uint32_t n = ex.len;
+    const String path = ex.path;
+    const bool json = ex.json, get = ex.get;
+    ex.body = ex.base = nullptr;
+    if (submit(path, b, n, json, get, base)) return set(St::Wait);
+    heap_caps_free(base ? base : b);
   }
   if (s < 0) return failShow("look_up", nullptr, N_("Can't reach the server"));
   failShow("no_tired", "no_tired", N_("Something went wrong, try again"));
@@ -601,33 +740,87 @@ void step(lv_timer_t*) {
       if (byWake) {
         // After "Gâu gâu": the call's own tail (250 ms) is not the question. Then: quiet = the person waits for the
         // dog, who answers at once (a short soft sound); loud = the question follows in the same breath. The question
-        // is speech (loud 0.28 s; our sound not counted). It ends after 0.8 s of quiet while it is short, 1.2 s once
-        // the person has been speaking ~2 s (a long sentence has thinking pauses); the capture's length caps the turn.
-        // "Gâu gâu" and silence is never sent: after 5 s the dog says it is here and the person can call again.
-        const bool loud = millis() >= quietUntil && lv > fl + 9 && lv > -60;
+        // is speech (loud 0.24 s; our sound not counted). Its end (owner, 2026-11-19, on the board's mic in a room
+        // with a fan and a TV: "ngừng đọc cỡ 2s là gửi"): speech = within 10 dB of this question's own peak (the
+        // room's noise never is); 2 s after the last speech it goes, 1.2 s when the room is plainly quiet (under the
+        // floor + 3 dB, the floor taken when the question began); 8 s after it began at most.
+        // "Gâu gâu" and silence is never sent: 6 s after its ack the dog says it is here and the person can call again.
+        const uint32_t now = millis(), dt = now - stepAt;
+        stepAt = now;
+        const bool ours = now < quietUntil;  // our own sound (the ack, or the end of the answer)
+        // What the mic heard since the last step, every 10 ms of it (wake::vadTake): a step can come late (a game
+        // drawing at 6 pictures a second, a TLS handshake) and nothing said meanwhile is lost.
+        const wake::Vad v = wake::vadTake();
+        const bool strict = followUp && !asksFollow && !heard;  // close speech only (no question was asked)
+        const bool loud = !ours && (strict ? lv > fl + FOLLOW_DB && lv > FOLLOW_MIN
+                                           : lv > fl + (decided ? SPEAK_DB : 9) && lv > -60);
+        if (strict) wake::vadSet(FOLLOW_DB, FOLLOW_MIN);
+        else wake::vadSet(SPEAK_DB, -60);
         // While waiting for the question after a call, the wake word stays on: a new "Gâu gâu" starts afresh.
         wake::hold(heard || again || followUp);
+        bool decidedNow = false;
         if (!decided && t >= 250) {
-          decided = true;
+          decided = decidedNow = true;
           pausedAfterCall = !loud;
           trimMs = again || followUp ? 0 : pausedAfterCall ? 1100 : 950;  // keep 0.1 s (0.25 s speaking on) before the call ended
           if (pausedAfterCall && !again && !followUp) {
-            sound::blip();
-            quietUntil = millis() + 400;
+            // The dog answers its name at once (owner: heard from across the room): a word in its own voice, a
+            // beep, or nothing (s3.assist "ack"). Its sound is not the question: not counted as speech, and cut
+            // from the recording (trimmed up to its end), and the wake word does not hear it (the speaker gate).
+            const uint8_t how = assist::prefs().ack;
+            uint32_t ackMs = 0;
+            if (how == 2) {
+              assist::Speech sp;
+              if (assist::line("ack", sp) && assist::play(sp)) ackMs = sp.items[0].clip->samples / (RATE / 1000);
+            }
+            if (!ackMs && how) sound::blip(), ackMs = cues::length(cues::LISTEN, 1000);  // (its length in ms)
+            quietUntil = millis() + ackMs + 250;
+            wake::vadMute(ackMs + 250);  // the mic task too: a late step still never counts the ack
+            trimMs += ackMs + 350;  // the call and the ack, to its very end
           }
+          winFrom = max(millis(), quietUntil), winPeak = -90, winLoudMs = winOursMs = 0;
           trace::add("talk: %s (level %.0f, floor %.0f dBFS)", followUp ? "follow-up: listening" : again ? "listening again"
                      : pausedAfterCall ? "pause after the call: ack sound" : "speaking on", lv, fl);
         }
-        loudMs = decided && loud ? loudMs + 40 : max(0, loudMs - 20);
-        if (loud && heard) lastLoud = millis();
-        if (!heard && loudMs >= 280) {
-          heard = true, lastLoud = heardAt = millis();
-          talkShow(nullptr, T_("Listening"), T_("Say what you need"));
+        // The speech start: the mic task's score since the last restart (loud 10 ms +10, quiet -5: a knock fades,
+        // speech builds up), restarted until the call's tail and our own sound are over. Never in the step that
+        // decides: its score still holds the call's own tail when that step comes late (a slow loop: 9q on the board
+        // took "gâu gâu" for the question 4 times in 15 and sent the turn 2 s later, "began -560 ms into the window").
+        const bool oursNow = millis() < quietUntil;
+        if (decided && !decidedNow && !ours && !oursNow && !heard) {
+          loudMs = (int)wake::vadSpeechMs();
+          if (v.peakDb > winPeak) winPeak = v.peakDb;
+          winLoudMs += v.loudMs, winOursMs += v.oursMs;
+        } else if (!heard) {
+          wake::vadRestart();
+          loudMs = 0;
         }
-        endWait = heard && millis() - heardAt > 1700 ? 1200 : 800;
-        if (heard && millis() - lastLoud > endWait) return send();
-        if (!heard && t > (followUp ? FOLLOW_MS : 5250)) {
-          trace::add("talk: no question after the %s", followUp ? "answer" : again ? "retry line" : "wake word");
+        if (!heard && loudMs >= (followUp ? 280 : 240)) {
+          heard = true, lastLoud = heardAt = millis();
+          spPeak = max(lv, v.peakDb), turnFloor = fl, silentMs = 0;
+          talkShow(nullptr, T_("Listening"), T_("Say what you need"));
+        } else if (heard && !ours) {
+          // Speech = within 10 dB of this question's own peak (which forgets 2 dB a second) and over the floor + 6.
+          spPeak = v.peakDb > spPeak ? v.peakDb : spPeak - 0.002f * dt;
+          if (v.ms && v.peakDb > spPeak - 10 && v.peakDb > turnFloor + 6) lastLoud = millis();
+          silentMs = v.peakDb < turnFloor + 3 ? silentMs + (int)v.ms : 0;
+        }
+        if (heard) {
+          const uint32_t pause = millis() - lastLoud;
+          if (pause >= 2000 || (pause >= 1200 && silentMs >= 1200)) {
+            endWait = pause >= 2000 ? 2000 : 1200;
+            return send();
+          }
+          if (millis() - heardAt >= 8000) {
+            endWait = 8000;
+            return send();
+          }
+        }
+        // (signed: winFrom is the ack's end, later than `now` while the ack plays)
+        if (!heard && (followUp && !asksFollow ? t > FOLLOW_MS
+                                               : decided && (int32_t)(now - winFrom) > (int32_t)QUESTION_MS)) {
+          trace::add("talk: no question after the %s (loudest %.0f, floor %.0f dBFS, loud %d ms, our sound %d ms)",
+                     followUp ? "answer" : again ? "retry line" : "wake word", winPeak, fl, winLoudMs, winOursMs);
           wake::captureFree();
           if (followUp) {  // the answer stays in the bubble; back to waiting for "Gâu gâu" (the pop-up stays a while)
             talkShow("happy", String(), String());
@@ -641,6 +834,8 @@ void step(lv_timer_t*) {
       return;
     }
     case St::Send:
+      if (warmBusy && t > 6000) warmBusy = false;  // a warm-up that never came back does not hold the question
+      if (t > 45000) return failShow("look_up", nullptr, N_("Can't reach the server"));  // the slot never came free
       return trySubmit();
     case St::Wait:
       if (ex.head && ex.voice) {
@@ -694,9 +889,18 @@ void step(lv_timer_t*) {
 void onWake(uint32_t at) {
   const bool waiting = st == St::Listen && byWake && !heard && !again && !followUp;  // called again before asking
   if ((st != St::Idle && st != St::After && !waiting) || !canTalk()) return;
+  if (lock::accountBlocked()) {  // the account is blocked: nothing is recorded or sent; the pop-up says it calmly
+    if (talkOpen()) talkShow("stand", T_("Your account is locked"), T_("See espos.dev for details"));
+    return;
+  }
+  if (lic::aiLocked()) {  // the wake word still works: it brings the dog, who says how to unlock talking
+    trace::add("talk: called by the wake word, talking is locked");
+    return showLock();
+  }
   if (!talkOpen()) return;
   if (waiting) wake::captureFree();
-  if (!startListening(at - (uint32_t)(RATE * 6 / 5), 15200, true)) return;  // from 1.2 s before: the call itself too
+  // From 1.2 s before (the call itself too); 1.2 + 0.25 + the ack + the 6 s window + 8 s of question at most.
+  if (!startListening(at - (uint32_t)(RATE * 6 / 5), 17000, true)) return;
   led::mode(led::Mode::Wake);
   decided = false, again = false, followUp = false, trimMs = 0, quietUntil = 0;
   trace::add("talk: called by the wake word%s", waiting ? " (again)" : "");
@@ -704,17 +908,82 @@ void onWake(uint32_t at) {
 
 // After the dog's answer: FOLLOW_MS of listening without the call, the ears up (its own voice not counted).
 void listenFollowUp() {
-  if (!startListening(wake::now(), 12000, true)) return set(St::After);
+  if (!assist::prefs().follow) return set(St::After);  // the setting: every question starts with the call
+  asksFollow = lastAsks;
+  if (!startListening(wake::now(), asksFollow ? 15000 : 12000, true)) return set(St::After);
   talkShow(nullptr, lastReply.length() ? lastReply : String(T_("I'm listening")), T_("Listening"));  // its answer stays
   decided = false, again = false, followUp = true, trimMs = 0, quietUntil = millis() + 400;
-  trace::add("talk: follow-up: listening %lu s, no call needed", (unsigned long)(FOLLOW_MS / 1000));
+  wake::vadMute(400);
+  if (asksFollow) trace::add("talk: follow-up: the dog asked, listening %lu ms for the answer", (unsigned long)QUESTION_MS);
+  else trace::add("talk: follow-up: listening %lu ms for close speech, no call needed", (unsigned long)FOLLOW_MS);
 }
 
-// After the dog's "say it again" line: listen once more for 5 s (no call needed).
+// After the dog's "say it again" line: listen once more for 6 s (no call needed).
 void listenAgain() {
-  if (!startListening(wake::now(), 10000, true)) return;
+  if (!startListening(wake::now(), 14500, true)) return;
   talkShow(nullptr, T_("Listening"), T_("Say what you need"));
   decided = false, again = true, followUp = false, trimMs = 0, quietUntil = 0;
+}
+
+// Talking is locked (lic.h): the trial is over, or the account has no AI. Each dog says it its own way, in its own
+// voice (assist.pba "ai_trial_end" / "ai_locked", dog packages 1.0.1; an older package: the words only), and the QR
+// in the pop-up opens the page that unlocks it. The bubble's words are these (the voice is Vietnamese).
+const char* lockLineOf(const String& k, bool trial) {
+  // i18n: the dog's own words when its free trial of talking is over: scan the QR code under it to keep chatting.
+  // Each dog its manner (as "Didn't catch that"); short, the QR is right under it.
+  if (trial) {
+    if (k == "bao") return T_("Your free talks are used up, kid. Scan the code below to keep going. I'll wait.");
+    if (k == "momo") return T_("The free talks are over, man. Scan this code and we keep chatting. No rush.");
+    if (k == "boop") return T_("BOSS, THE FREE TALKS ARE OVER! SCAN THIS CODE, BOSS! I'VE GOT TONS TO SAY!");
+    if (k == "leaf") return T_("Sweetie, our free talks are all used up. Scan this code so we can keep talking!");
+    if (k == "volt") return T_("The free preview is over, audience! Scan this code to see the rest of my show!");
+    if (k == "byte") return T_("Beep. Your trial talks have ended. Please scan the code to continue.");
+    if (k == "shiba") return T_("Free talks are over. Scan the code. I'll wait.");
+    if (k == "corgi") return T_("Darling, our free talks are over. Scan this code so the princess can keep chatting!");
+    if (k == "husky") return T_("Alas, our free talks have ended! Scan this code and let me speak again!");
+    if (k == "golden") return T_("Trial class is over, team! Scan this code and the coach keeps teaching! Go!");
+    return T_("Your free trial of talking is over. Scan the code to keep chatting.");
+  }
+  // i18n: the dog's own words when talking is not on for this device's account: scan the QR code to turn it on
+  if (k == "bao") return T_("Talking isn't open on this device, kid. Scan the code below. I'll wait.");
+  if (k == "momo") return T_("Talking isn't open yet, man. Scan this code and we'll chat. No rush.");
+  if (k == "boop") return T_("BOSS, TALKING ISN'T ON! SCAN THIS CODE, BOSS! HURRY!");
+  if (k == "leaf") return T_("Sweetie, talking isn't open yet. Scan this code so we can chat!");
+  if (k == "volt") return T_("The curtain isn't up yet, audience! Scan this code to put me on air!");
+  if (k == "byte") return T_("Beep. Talking is not activated. Please scan the code.");
+  if (k == "shiba") return T_("Talking isn't on. Scan the code. I'll wait.");
+  if (k == "corgi") return T_("Darling, talking isn't open yet. Scan this code so the princess can chat with you!");
+  if (k == "husky") return T_("Alas, the door to talking is still locked! Scan this code and let me speak!");
+  if (k == "golden") return T_("Talking class hasn't started yet, team! Scan this code and the coach comes in! Go!");
+  return T_("Talking isn't on for this device yet. Scan the code to turn it on.");
+}
+
+uint32_t lockShownAt = 0, lockSyncAt = 0;
+
+void showLock() {
+  if (wake::capturing()) wake::captureFree();
+  // Unlocked on the phone a moment ago? The next sync brings the new licence (at most every 30 s from here).
+  if (!lockSyncAt || millis() - lockSyncAt > 30000) lockSyncAt = millis(), desk::syncNow();
+  if (!talkOpen()) return finish();
+  const bool trial = !strcmp(lic::lockedWhy(), "trial_ended");
+  const dogs::Info* d = dogs::chosen();
+  bool voiced = false;
+  if (millis() - lockShownAt > 3000 || !voice::busy()) {  // called again at once: the line is not started twice
+    assist::Speech s;
+    voiced = assist::line(trial ? "ai_trial_end" : "ai_locked", s) && assist::play(s);
+  }
+  lockShownAt = millis();
+  talkShow("plead", lockLineOf(d ? d->key : "", trial), "");
+  String url = lic::buyUrl();
+  if (!url.length()) url = ESPOS_WEB;  // the server sent no address: the web, where the account is
+  talkLock(url.c_str());
+  talkButton(0);
+  talkLevel(-1);
+  led::mode(led::Mode::Done);
+  trace::add("talk: locked (%s), %s, the QR opens %s", trial ? "the trial is over" : "no AI",
+             voiced ? "the dog says it" : "no recorded line (words only)", url.c_str());
+  set(St::After);
+  startTimer();
 }
 
 // "I didn't catch that", each dog its own way (the server heard nothing after "Gâu gâu", or could not make it out).
@@ -754,6 +1023,8 @@ void press() {
     return;
   }
   if (st != St::Idle) cancelTurn();  // talking over the dog: it stops, you speak
+  if (lock::accountBlocked()) return talkShow("stand", T_("Your account is locked"), T_("See espos.dev for details"));
+  if (lic::aiLocked()) return showLock();  // nothing is recorded: the dog says how to unlock talking
   if (!startListening(wake::now() - RATE / 10, 12100, false)) talkShow("look_up", T_("The microphone isn't working"), "");
 }
 
@@ -768,14 +1039,18 @@ void release() {
 }
 
 bool busy() { return st != St::Idle; }
+bool warming() { return warmBusy; }
 bool listening() { return st == St::Listen; }
 bool canTalk() { return sound::micChannel() && desk::link() == desk::Link::Linked; }
+bool canChat() { return desk::link() == desk::Link::Linked; }
 
 void closed() {  // the pop-up went away: the turn stops
   if (st == St::Idle) return;
   trace::add("talk: pop-up closed: the turn stops (state %d)", (int)st);
   cancelTurn();
-  if (wake::capturing()) wake::captureFree();
+  // Always freed (0.5.6 freed it only while still capturing: cancelTurn had just stopped it, so a pop-up closed while
+  // listening left the recording held, and the wake word, which waits for no recording, never fired again).
+  wake::captureFree();
   finish();
 }
 
@@ -801,39 +1076,71 @@ lv_obj_t* micIcon(lv_obj_t* parent, uint32_t color) {
   return m;
 }
 
+// A typed turn (the pop-up's chips, the console): the same request as a spoken one with {"text"} in place of the
+// recording (and "intent": what the chip asks for, the server's hint), the same answer: words, mood, voice.
+static bool askText(const String& text, const char* intent) {
+  if (st != St::Idle && st != St::After) return false;
+  JsonDocument d;
+  d["text"] = text;
+  if (intent) d["intent"] = intent;
+  const String k = dogKey();
+  if (k.length()) d["dog"] = k;
+  String body;
+  serializeJson(d, body);
+  uint8_t* b = (uint8_t*)heap_caps_malloc(body.length() + 1, MALLOC_CAP_SPIRAM);
+  if (!b) return false;
+  memcpy(b, body.c_str(), body.length());
+  if (st == St::After) finish();
+  byWake = false, typed = true, fallback = 0;
+  pendingWav = pendingBase = b, pendingLen = body.length(), pendingJson = true;
+  wake::hold(true);
+  startTimer();
+  talkShow("look_up", T_("Thinking"), text);
+  led::mode(led::Mode::Think);
+  trace::add("talk: asked by a chip (%s)", intent ? intent : "text");
+  set(St::Send);
+  trySubmit();  // at once, or at the next step when the slot is busy (a warm-up, a turn being stopped)
+  return true;
+}
+
+// The pop-up's "Today's news" chip: the dog sums up today's news (the server looks it up: "intent": "news").
+void askNews() {
+  if (desk::link() != desk::Link::Linked) {
+    talkShow("look_up", T_(net::state() == net::State::Connected ? N_("Link this device to your account first")
+                                                                 : N_("No internet")), "");
+    return;
+  }
+  if (lock::accountBlocked()) return talkShow("stand", T_("Your account is locked"), T_("See espos.dev for details"));
+  if (lic::aiLocked()) return showLock();
+  if (st != St::Idle && st != St::After) cancelTurn(), finish();  // a turn on: it stops, the news goes
+  // i18n: what the "Today's news" chip asks the dog: sent to the AI, and shown in the bubble under its answer
+  askText(T_("What's in today's news?"), "news");
+}
+
 bool console(const char* cmd) {
-  if (!strncmp(cmd, "ASK ", 4)) {
-    if (st != St::Idle || !talkOpen()) return Serial.println("ASK busy"), true;
-    JsonDocument d;
-    d["text"] = cmd + 4;
-    const String k = dogKey();
-    if (k.length()) d["dog"] = k;
-    String body;
-    serializeJson(d, body);
-    uint8_t* b = (uint8_t*)heap_caps_malloc(body.length() + 1, MALLOC_CAP_SPIRAM);
-    if (!b) return true;
-    memcpy(b, body.c_str(), body.length());
-    byWake = false, typed = true, fallback = 0;
-    wake::hold(true);
-    startTimer();
-    talkShow("look_up", T_("Thinking"), "");
-    led::mode(led::Mode::Think);
-    if (!submit(turnPath(), b, body.length(), true, false)) {
-      heap_caps_free(b);
-      Serial.println("ASK offline");
-      finish();
-      return true;
-    }
-    set(St::Wait);
-    Serial.println("ASK sent");
+  if (!strncmp(cmd, "ASK ", 4)) {  // ASK <text>; ASK NEWS: the pop-up's "Today's news" chip
+    if (!talkOpen()) return Serial.println("ASK busy"), true;
+    const bool news = !strcmp(cmd + 4, "NEWS");
+    const bool sent = news ? (askNews(), st == St::Send || st == St::Wait) : askText(cmd + 4, nullptr);
+    Serial.println(sent ? "ASK sent" : "ASK busy");
     return true;
   }
   if (!strncmp(cmd, "SAYAGAIN ", 9)) {  // SAYAGAIN <dog key>: that dog's "say it again" line in the pop-up (text checks)
     if (talkOpen()) talkShow("alert", sayAgainOf(cmd + 9), "");
     return true;
   }
-  if (!strcmp(cmd, "WAKEFIRE")) {  // as if "Gâu gâu" was heard now (tests, demos)
+  if (!strcmp(cmd, "WAKEFIRE") || !strcmp(cmd, "WAKEFIRE DRY")) {  // as if "Gâu gâu" was heard now (tests, demos)
+    // DRY: the window, the ack and the speech counting run as usual, but nothing is sent (no AI call).
     onWake(wake::now());
+    dryRun = cmd[8] == ' ' && st == St::Listen;
+    return true;
+  }
+  if (!strncmp(cmd, "DOGBENCH", 8)) {  // DOGBENCH [clip]: the dog's picture decoders on 20 pictures of a clip
+    Serial.printf("DOGBENCH %s\n", dog::bench(cmd[8] == ' ' ? cmd + 9 : "happy", 20).c_str());
+    return true;
+  }
+  if (!strcmp(cmd, "SUMMON")) {  // the pop-up over what is shown, as a call brings it (no turn, no app closed)
+    talkOpen();
     return true;
   }
   if (!strncmp(cmd, "LED ", 4)) {  // LED wake|listen|think|speak|error|done|receive: show a state (tests, demos)

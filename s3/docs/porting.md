@@ -42,9 +42,10 @@ Two kinds of hardware support:
   with another kind (another codec, a card on SPI, a fuel gauge) adds a value to the enum in `src/hal/` and its case in
   that OS driver.
 
-The UI is 320x480 portrait on every board (`hal::UI_W` x `hal::UI_H`). Screens, apps, widgets, JS packages and the run
-game are laid out for it. A board whose panel is another size shows the UI scaled (`UiMap`): the ES3C28P shows it at
-2/3, 213x320 centred on its 240x320 panel.
+The UI's size is the board's (`display.ui.w` x `ui.h`, read with `hal::uiW()` / `hal::uiH()`): 320x480 on the
+ES3C35P, 360x480 on the ES3C28P, whose 240x320 panel shows it at 2/3, the whole panel (`UiMap`). Screens follow it
+(`os::W()` / `os::H()`); what is laid out for 320x480 (the games, the saver's pages, widget boxes) keeps that size in
+the middle (`os::colX()` / `colY()`). Keep the UI at least 320 wide and 480 high (portrait).
 
 ## The descriptor
 
@@ -58,7 +59,7 @@ two strings) and the board's drivers read it at compile time.
 | `chip` | `ESP32S3` | |
 | `caps` | `PROFILE_FULL` | What the board has (below). |
 | `display.panel` | 240x320, TFT, RGB565, 16 bits, `INSTANT`, rotations `0b0101` | `rotations`: bit n = `LV_DISPLAY_ROTATION_<n x 90>` the driver can do. |
-| `display.ui` | `{2, 3, 13, 0}` | The UI scaled by 2/3, its corner at (13, 0) on the panel. 1:1 boards: `{1, 1, 0, 0}`. |
+| `display.ui` | `{360, 480, 2, 3, 0, 0}` | The UI (360x480) scaled by 2/3, the whole panel. 1:1 boards: `{320, 480, 1, 1, 0, 0}`. |
 | `display.pins` | cs 10, sclk 12, d0 (MOSI) 11, d1 (MISO) 13, dc 46, bl 45 | QSPI panels use d0..d3; `te` is the tear signal. |
 | `i2c` | sda 16, scl 15 | The board's own bus: touch and codec. |
 | `input` | `TOUCH`, 0x38, rst 18, irq 17 | |
@@ -153,15 +154,14 @@ the table is exported (`es3c28p::display`).
 What the ES3C28P's driver does, and why:
 - SPI at 40 MHz with a D/C line (`esp_lcd_new_panel_io_spi`), the ILI9341 init from the vendor (`MADCTL 0x48`: portrait,
   BGR). No tear signal on this board.
-- LVGL renders the 320x480 UI in bands of 78 rows (a multiple of 3); an `LV_EVENT_INVALIDATE_AREA` callback widens each
+- LVGL renders the 360x480 UI in bands of 69 rows (a multiple of 3); an `LV_EVENT_INVALIDATE_AREA` callback widens each
   area to whole rows aligned to 3, so every band scales cleanly.
 - Each band goes through `scale::down32` (src/scale.h: each panel pixel the area average of the 3x3 UI pixels it covers)
   into one of two small DMA buffers, sent while LVGL renders the next band.
-- `begin()` clears the whole panel once (the 13-pixel bars each side are never drawn again) and leaves the backlight off.
-- `direct()` (the run game's fast path) does the same with the game's rows; `mirror()`/`frame()` keep the 320x480 UI
+- `begin()` clears the whole panel once (before the first picture) and leaves the backlight off.
+- `direct()` (the run game's fast path) does the same with the game's rows; `mirror()`/`frame()` keep the 360x480 UI
   for the remote viewer.
-- Portrait only: `setRotation` keeps 90/270 portrait (a 3:4 panel turned would need its own layouts), so
-  `panel.rotations` is `0b0101`.
+- All four ways: landscape turns the panel itself (MADCTL) and sends the 480x360 UI at 2/3 (docs/boards.md).
 
 A first port can return `false` from `direct()` (the game then draws through LVGL) and leave `setRotation` portrait.
 Internal RAM is the tight resource: LVGL's two band buffers are the biggest use (ES3C35P: 2 x 50 KB). Look at the boot
@@ -172,12 +172,12 @@ log's `heap after display` line.
 `touch.cpp` fills in a `hal::Input` with one function, `begin()`, called by `touch::begin()` at boot. `touch::i2cBus()`
 gives it the board's I2C bus (`hal::i2c()`: made on first use on the descriptor's `i2c` pins, shared with the codec).
 It resets the controller, checks it answers, and starts a task on core 0 that reads every report and calls
-`touch::report(x, y, down, ms)`. Coordinates are the UI's portrait ones (0..319, 0..479);
+`touch::report(x, y, down, ms)`. Coordinates are the UI's portrait ones (0..uiW()-1, 0..uiH()-1);
 LVGL turns them with the screen. The OS side (the queue, the system gestures, the 20 px slop, the tap click) is
 `src/touch.cpp` and is the same for every board.
 
 ES3C28P: the FT6336G is polled 100 times a second (its interrupt line is not needed), and each point goes back through
-the `UiMap`: `x = (px - 13) * 3 / 2`, `y = py * 3 / 2`.
+the `UiMap`: `x = px * 3 / 2`, `y = py * 3 / 2`.
 
 ### 6. Write `probe()`
 
@@ -216,7 +216,7 @@ and its case to that file.
 
 - **Build**: `~/.platformio/penv/bin/pio run -e s3desk` (the image for every board), and the simulator
   (`make -C sim -j8`). The simulator uses only the descriptor (`src/boards/boards.cpp`, `EXTRA=-DBOARD_ES3C28P` for
-  the 2.8" one's); the UI it shows is the same 320x480 on every board.
+  the 2.8" one's: its 360x480 UI).
 - **QEMU** (docs/simulator.md) runs the real firmware with the build's board: `src/boards/qemu/qemu.h` takes the
   board's descriptor less what QEMU does not emulate (codec, battery, radio), and QEMU's virtual panel shows the UI 1:1
   or, with `BOARD_ES3C28P`, at 2/3 like the 2.8" panel (`src/boards/qemu/display.cpp`). The ES3C28P was checked this

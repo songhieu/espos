@@ -70,8 +70,12 @@ bool install(const Entry& e, const std::vector<String>& parts, Vol v, String& wh
 bool update(const char* id, String& why);  // same parts and place, the catalog's newer version
 bool remove(const char* id, String& why);
 bool move(const char* id, Vol to, String& why);
+// Stops an install that waits or is downloading (0.5.7): nothing of it stays, the old version (an update) neither
+// changes. false once it is writing its list (too late to stop safely) or for any other job.
+bool cancel(const char* id);
+bool cancellable(const char* id);
 
-enum State : uint8_t { IDLE, QUEUED, DOWNLOAD, WRITE, MOVE, REMOVE, COMPACT, DONE, ERROR };
+enum State : uint8_t { IDLE, QUEUED, DOWNLOAD, WRITE, MOVE, REMOVE, COMPACT, DONE, ERROR, CHECK };  // CHECK: 0.5.7
 struct Status {
   String id, name;
   State state = IDLE;
@@ -80,6 +84,7 @@ struct Status {
   uint64_t done = 0, total = 0;
   String err;
   uint32_t seq = 0;  // bumps on every change
+  bool cancelled = false;  // ERROR because the user stopped it
 };
 Status status();                 // the running job, or the last one that ended
 State stateOf(const char* id);   // QUEUED, the running job's state, or IDLE

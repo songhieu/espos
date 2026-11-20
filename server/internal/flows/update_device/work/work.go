@@ -29,7 +29,7 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 	if v, ok := b["name"]; ok {
 		n := strings.TrimSpace(wm.Str(v))
 		if n == "" || len([]rune(n)) > 40 {
-			return map[string]any{"status": 422, "body": map[string]any{"error": "Tên máy: 1–40 ký tự"}}
+			return map[string]any{"status": 422, "body": map[string]any{"error": "Tên máy: 1–40 ký tự", "code": "device_name_length"}}
 		}
 		vals["name"] = n
 		vals["name_ms"] = time.Now().UnixMilli() // a colour desk's own rename wins only when newer (device_sync)

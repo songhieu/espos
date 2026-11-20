@@ -1,3 +1,4 @@
+#pragma GCC optimize("Os")  // cold code: built small (0.5.7 flash diet; the app slot is full)
 #include "apps.h"
 
 #include <ctime>
@@ -5,6 +6,7 @@
 
 #include "art.h"
 #include "fonts.h"
+#include "lock.h"
 #include "lunar.h"
 #include "notif.h"
 #include "os.h"
@@ -46,6 +48,7 @@ std::vector<App> builtin = {
 std::vector<App> list;          // built-in apps, then installed ones
 std::deque<String> pool;        // installed apps' strings (pointers stay valid for good)
 uint32_t listVer = 0;
+uint32_t shownSig = 0, shownVer = 0;  // what Home draws of the list (version())
 
 const char* intern(const String& s) {
   for (const String& p : pool)
@@ -74,7 +77,7 @@ void rebuildList() {
       // PawBoop keeps its app id "pet" (widgets, notifications, Home) and its pictures; it sits before the store.
       App a = {"pet", "PawBoop", &ic_pet_52, &ic_pet_40, &ic_pet_28, nullptr, nullptr};
       a.pkg = intern(p.id);
-      a.off = !p.available;
+      a.off = !p.available && (p.vol != pkg::SD || pkg::cardChecked());
       size_t at = list.size();
       for (size_t i = 0; i < list.size(); i++)
         if (!strcmp(list[i].id, "store")) at = i;
@@ -87,12 +90,24 @@ void rebuildList() {
     a.bg1 = p.bg1, a.bg2 = p.bg2;
     a.glyph = intern(p.glyph);
     a.pkg = a.id;
-    a.off = !p.available;
+    a.off = !p.available && (p.vol != pkg::SD || pkg::cardChecked());
     // Keep the built-ins first; an installed app with a built-in's id is ignored.
     bool clash = false;
     for (const App& b : builtin) clash |= !strcmp(b.id, a.id);
     if (!clash) list.push_back(a);
   }
+  // What Home shows of it: ids, names, pictures, greyed or not, versions (a new icon.jpg).
+  uint32_t h = 2166136261u;
+  auto mix = [&h](const char* s) {
+    for (; s && *s; s++) h = (h ^ (uint8_t)*s) * 16777619u;
+    h = (h ^ 0xffu) * 16777619u;
+  };
+  for (const App& a : list) {
+    mix(a.id), mix(a.name), mix(a.glyph);
+    h = (h ^ a.bg1 ^ (a.bg2 << 1) ^ (a.off ? 0x55u : 0xaau)) * 16777619u;
+  }
+  for (const pkg::Package& p : pkg::list()) mix(p.id.c_str()), mix(p.version.c_str()), h = (h ^ p.icon) * 16777619u;
+  if (h != shownSig) shownSig = h, shownVer++;
 }
 
 // ---- package icons: icon.jpg decoded once per size, corners rounded into an alpha channel (no clipping layer).
@@ -221,6 +236,11 @@ const std::vector<App>& all() {
   return list;
 }
 
+uint32_t version() {
+  rebuildList();
+  return shownVer;
+}
+
 const App* find(const char* id) {
   if (!id) return nullptr;
   rebuildList();
@@ -236,6 +256,7 @@ void open(const char* id, const char* arg) {
     os::toast(N_("Needs the memory card"));
     return;
   }
+  if (a && a->pkg && lock::locked(a->pkg)) return lock::sheet(a->name, lock::Look::Os);  // paid, locked now (lock.h)
   // Like a phone: opening an app replaces the one on screen (no stacks of the same app).
   os::closeApps();
   setRoute(id, arg);

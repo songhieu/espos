@@ -1,25 +1,190 @@
 {
   "code": "admin_sign",
-  "name": "Admin: signed upload URL for a store file (the web's admin page)",
+  "name": "Admin: signed upload URL for a store file: public apps-s3/, or private paid-s3/ for paid packages",
   "draft": {
     "nodes": [
-      { "id": "in", "type": "http_in" },
-      { "id": "check", "type": "code", "config": { "source": { "$file": "nodes/check.go" }, "input": { "body": "{{ input.body }}" } } },
-      { "id": "isok", "type": "branch", "config": { "rules": [ { "left": "{{ check.ok }}", "op": "eq", "right": true } ] } },
-      { "id": "sign", "type": "storage_sign", "config": { "key": "{{ check.key }}", "method": "PUT", "visibility": "public", "max_bytes": 67108864, "ttl_seconds": 900 } },
-      { "id": "out", "type": "respond", "config": { "status": 201, "body": { "key": "{{ check.key }}", "url": "{{ sign.url }}", "expires_at": "{{ sign.expires_at }}" } } },
-      { "id": "bad", "type": "respond", "config": { "status": 422, "body": { "error": "{{ check.why }}" } } },
-      { "id": "fail", "type": "respond", "config": { "status": 500, "body": { "error": "{{ check.error }}" } } },
-      { "id": "fail2", "type": "respond", "config": { "status": 422, "body": { "error": "{{ sign.error }}" } } }
+      {
+        "id": "in",
+        "type": "http_in"
+      },
+      {
+        "id": "check",
+        "type": "code",
+        "config": {
+          "source": {
+            "$file": "nodes/check.go"
+          },
+          "input": {
+            "body": "{{ input.body }}"
+          }
+        }
+      },
+      {
+        "id": "isok",
+        "type": "branch",
+        "config": {
+          "rules": [
+            {
+              "left": "{{ check.ok }}",
+              "op": "eq",
+              "right": true
+            }
+          ]
+        }
+      },
+      {
+        "id": "priv",
+        "type": "branch",
+        "config": {
+          "rules": [
+            {
+              "left": "{{ check.private }}",
+              "op": "eq",
+              "right": true
+            }
+          ]
+        }
+      },
+      {
+        "id": "sign",
+        "type": "storage_sign",
+        "config": {
+          "key": "{{ check.key }}",
+          "method": "PUT",
+          "visibility": "public",
+          "max_bytes": 67108864,
+          "ttl_seconds": 900
+        }
+      },
+      {
+        "id": "out",
+        "type": "respond",
+        "config": {
+          "status": 201,
+          "body": {
+            "key": "{{ check.key }}",
+            "url": "{{ sign.url }}",
+            "expires_at": "{{ sign.expires_at }}"
+          }
+        }
+      },
+      {
+        "id": "bad",
+        "type": "respond",
+        "config": {
+          "status": 422,
+          "body": {
+            "error": "{{ check.why }}"
+          }
+        }
+      },
+      {
+        "id": "fail",
+        "type": "respond",
+        "config": {
+          "status": 500,
+          "body": {
+            "error": "{{ check.error }}"
+          }
+        }
+      },
+      {
+        "id": "fail2",
+        "type": "respond",
+        "config": {
+          "status": 422,
+          "body": {
+            "error": "{{ sign.error }}"
+          }
+        }
+      },
+      {
+        "id": "signp",
+        "type": "storage_sign",
+        "config": {
+          "key": "{{ check.key }}",
+          "method": "PUT",
+          "visibility": "private",
+          "max_bytes": 67108864,
+          "ttl_seconds": 900
+        }
+      },
+      {
+        "id": "outp",
+        "type": "respond",
+        "config": {
+          "status": 201,
+          "body": {
+            "key": "{{ check.key }}",
+            "url": "{{ signp.url }}",
+            "expires_at": "{{ signp.expires_at }}",
+            "private": true
+          }
+        }
+      },
+      {
+        "id": "fail3",
+        "type": "respond",
+        "config": {
+          "status": 422,
+          "body": {
+            "error": "{{ signp.error }}"
+          }
+        }
+      }
     ],
     "edges": [
-      { "from": "in", "to": "check" },
-      { "from": "check", "to": "isok" },
-      { "from": "check", "to": "fail", "port": "error" },
-      { "from": "isok", "to": "sign", "port": "true" },
-      { "from": "isok", "to": "bad", "port": "false" },
-      { "from": "sign", "to": "out" },
-      { "from": "sign", "to": "fail2", "port": "error" }
+      {
+        "from": "in",
+        "to": "check"
+      },
+      {
+        "from": "check",
+        "to": "isok"
+      },
+      {
+        "from": "check",
+        "to": "fail",
+        "port": "error"
+      },
+      {
+        "from": "isok",
+        "to": "bad",
+        "port": "false"
+      },
+      {
+        "from": "sign",
+        "to": "out"
+      },
+      {
+        "from": "sign",
+        "to": "fail2",
+        "port": "error"
+      },
+      {
+        "from": "isok",
+        "to": "priv",
+        "port": "true"
+      },
+      {
+        "from": "priv",
+        "to": "signp",
+        "port": "true"
+      },
+      {
+        "from": "priv",
+        "to": "sign",
+        "port": "false"
+      },
+      {
+        "from": "signp",
+        "to": "outp"
+      },
+      {
+        "from": "signp",
+        "to": "fail3",
+        "port": "error"
+      }
     ]
   }
 }

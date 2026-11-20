@@ -42,13 +42,13 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 	ssid := strings.TrimSpace(wm.Str(b["ssid"]))
 	pass := wm.Str(b["pass"])
 	if len(ssid) == 0 || len(ssid) > 32 {
-		return map[string]any{"status": 422, "body": map[string]any{"error": "Tên WiFi từ 1 đến 32 ký tự"}}
+		return map[string]any{"status": 422, "body": map[string]any{"error": "Tên WiFi từ 1 đến 32 ký tự", "code": "wifi_ssid_length"}}
 	}
 	if op != "add" && op != "remove" {
 		return map[string]any{"status": 422, "body": map[string]any{"error": "bad op"}}
 	}
 	if op == "add" && pass != "" && (len(pass) < 8 || len(pass) > 63) {
-		return map[string]any{"status": 422, "body": map[string]any{"error": "Mật khẩu WiFi từ 8 đến 63 ký tự (để trống nếu mạng không có mật khẩu)"}}
+		return map[string]any{"status": 422, "body": map[string]any{"error": "Mật khẩu WiFi từ 8 đến 63 ký tự (để trống nếu mạng không có mật khẩu)", "code": "wifi_password_length"}}
 	}
 	if op == "remove" {
 		pass = ""

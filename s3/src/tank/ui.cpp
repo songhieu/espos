@@ -4,16 +4,52 @@
 // (lay()), so upright and on its side share one description; sizes and colours are the page's. Text: Ubuntu, bold
 // 12-16 and regular 12/16, never cut with "…" (whole items or whole words go).
 #pragma GCC optimize("Os")
+#include <chrono>
 #include <cmath>
 
 #include "tank_int.h"
+#include "../lock.h"
+
+#define HOT __attribute__((optimize("O2")))  // the per-pixel loops (the file is -Os)
 
 namespace tank {
 namespace ui {
 
 bool saver = false, homeLine = false;
+#if TANK_QA
+bool layersOff = false;
+uint32_t us();  // (below: the stats' clock)
+#endif
 
 namespace {
+
+// The trial's chip under the top bar (lock.h): drawn once by LVGL (every language's letters), padded like the packs'
+// pictures; made again when its words change (the days left), freed with the screen.
+Spr chip;
+uint8_t* chipMem = nullptr;
+String chipFor;
+float chipT = 99;
+void chipFree() { heap_caps_free(chipMem), chipMem = nullptr, chip = Spr(), chipFor = ""; }
+void chipMake() {
+  const String t = lock::chipText();
+  if (t == chipFor) return;
+  chipFree();
+  chipFor = t;
+  uint16_t* rgb;
+  uint8_t* al;
+  int w, h;
+  if (!t.length() || !lock::chipPicture(true, rgb, al, w, h)) return;
+  const int st = w + 2, n = st * (h + 2);
+  chipMem = (uint8_t*)heap_caps_calloc(n * 3, 1, MALLOC_CAP_SPIRAM);
+  if (chipMem) {
+    uint16_t* c = (uint16_t*)chipMem;
+    uint8_t* a = chipMem + n * 2;
+    for (int y = 0; y < h; y++)
+      for (int x = 0; x < w; x++) c[(y + 1) * st + x + 1] = rgb[y * w + x], a[(y + 1) * st + x + 1] = al[y * w + x];
+    chip.w = w, chip.h = h, chip.st = st, chip.c = c + st + 1, chip.a = a + st + 1;
+  }
+  heap_caps_free(rgb);
+}
 
 using namespace gfx;
 constexpr float ROW_H = 66;
@@ -22,6 +58,8 @@ const char* const TABS[7] = {"Cá", "Cây", "Đồ", "Máy", "Hồ", "Sổ", "Vi
 struct Toast {
   String s;
   float t;
+  String l0, l1;  // its lines and box, measured at its first picture (draw() runs once a piece)
+  float w = 0, h = 0;
 };
 struct Float {
   String s;
@@ -57,12 +95,25 @@ struct Fx {
 inline uint16_t H(uint32_t c) { return hex565(c); }
 int A(float a) { return (int)(a * 256 + 0.5f); }
 
+uint32_t fnv(uint32_t h, const void* p, size_t n) {
+  for (const uint8_t* b = (const uint8_t*)p; n--; b++) h = (h ^ *b) * 16777619u;
+  return h;
+}
+std::vector<uint32_t> rowKeys;  // what each row says (its words and numbers): its cached picture is kept while it holds
+
 void refreshRows() {
   rows = game::shop(tab);
+  rowKeys.clear();
+  for (const game::Row& r : rows) {
+    uint32_t h = 2166136261u;
+    for (const String* x : {&r.name, &r.sub, &r.note, &r.tag}) h = fnv(h, x->c_str(), x->length() + 1);
+    const int v[] = {r.art, (int)r.artPack, r.up, r.count, r.price, r.bad, r.warn, r.can, r.dim, r.shade, r.look, r.paid, r.act, r.arg};
+    rowKeys.push_back(fnv(h, v, sizeof v) | 1);
+  }
   fitted.clear();
   const Lay L = lay();
   for (const game::Row& r : rows) {
-    const bool hasBtn = (r.price >= 0 && !r.tag.length()) || r.tag.length();
+    const bool hasBtn = (r.price >= 0 && !r.tag.length()) || r.tag.length() || r.paid;
     const float room = L.shW - 74 - (hasBtn ? 98 : 14);
     fitted.push_back({fit1(r.name.c_str(), 13, true, room), fit1(r.sub.c_str(), 12, false, room), fit1(r.note.c_str(), 12, false, L.shW - 74 - 14)});
   }
@@ -143,27 +194,249 @@ int hit(float x, float y, int& i, int& row, bool& btn) {
   return H_WATER;
 }
 
-// ---------------------------------------------------------------- drawing pieces
-void bar(const Tgt& t, float x, float y, float w, float v, uint32_t col, int a) {
-  rrect(t, x, y, w, 7, 3.5f, H(0x142840), a * 41 / 256);  // rgba(20,40,60,.16)
-  const float k = std::max(0.08f, std::min(1.0f, v / 100));
-  rrect(t, x, y, w * k, 7, 3.5f, v < 30 ? (sinf(pulse * 6) > 0 ? H(0xe5484d) : H(0xf08a8d)) : H(col), a);
+// ---------------------------------------------------------------- prepared layers
+// Drawn piece by piece every picture, the top bar and the dock took 15-32 ms a picture on the board (0.5.6,
+// 2026-11-20: glass with its soft shadow, icons shrunk from their pictures, pills, text). Now each is made when what it
+// shows changes: drawn once over black and once over white, which gives every pixel's colour and how much it covers;
+// kept (PSRAM) as runs of covered pixels, line by line. A picture only mixes those runs onto the water. What changes
+// all the time (the coins, the bars' fill, the badges) is drawn on top as before. The fish card is one too.
+struct LRun {
+  uint16_t at, n;  // from the layer's left, pixels; n | 0x8000: one colour and cover for all n (one entry)
+  uint32_t off;    // into c / a
+};
+struct Layer {
+  uint32_t key = 0;
+  int x0 = 0, y0 = 0, h = 0;  // frame pixels
+  uint8_t* mem = nullptr;     // one block (PSRAM): line, runs, c, a
+  uint32_t* line = nullptr;   // h + 1: each line's first run
+  LRun* runs = nullptr;
+  uint16_t* c = nullptr;  // the layer over black
+  uint8_t* a = nullptr;   // cover 0..32
+};
+Layer barL, numL, dockL[5], cardL, needL[3];
+#if TANK_QA
+int layerMade = 0, layerNoRoom = 0;
+#endif
+void layerFree(Layer& m) {
+  heap_caps_free(m.mem);
+  m = Layer();
 }
+void hudFree() {
+  layerFree(barL), layerFree(numL), layerFree(cardL);
+  for (Layer& m : needL) layerFree(m);
+  for (Layer& m : dockL) layerFree(m);
+}
+
+// Drawn over black (k) and over white (w): k stays as it is (the layer over black: its colour, already weighted by its
+// cover), w becomes the cover 0..32 (how much less of white shows through than black's 0).
+void unmix(const uint16_t* k, uint16_t* w, int n) {
+  for (int i = 0; i < n; i++) {
+    const uint16_t b = k[i], v = w[i];
+    if (b == v) {  // the same over both: nothing shows through
+      w[i] = 32;
+      continue;
+    }
+    if (!b && v == 0xFFFF) {  // untouched
+      w[i] = 0;
+      continue;
+    }
+    const int dr = (int)(v >> 11) - (b >> 11), dg = (int)(v >> 5 & 63) - (b >> 5 & 63), db = (int)(v & 31) - (b & 31);
+    const float see = (dr / 31.0f + 2 * dg / 63.0f + db / 31.0f) / 4;  // green has the finer steps
+    w[i] = (uint16_t)std::max(0, std::min(32, (int)lroundf((1 - see) * 32)));
+  }
+}
+using LayerDraw = void (*)(const Tgt& t, int a, void* ctx);
+// Made 16 rows at a time (small buffers: the board's PSRAM is mostly taken by then), counted once, then kept in one
+// block. Six or more pixels alike (the glass's inside) are one entry: putting them reads nothing.
+bool layerMake(Layer& m, float x, float y, float w, float h, LayerDraw draw, void* ctx) {
+  layerFree(m);
+  const float S = sc->SC;
+  const int X0 = std::max(0, (int)floorf(x * S)), Y0 = std::max(0, (int)floorf(y * S));
+  const int X1 = std::min(sc->FW, (int)ceilf((x + w) * S)), Y1 = std::min(sc->FH, (int)ceilf((y + h) * S));
+  const int W = X1 - X0, H = Y1 - Y0;
+  constexpr int SH = 16;
+  if (W <= 0 || H <= 0) return false;
+  uint16_t* k = (uint16_t*)heap_caps_malloc(W * SH * 4, MALLOC_CAP_SPIRAM);
+  if (!k) return false;
+  uint16_t* wt = k + W * SH;
+  uint32_t nr = 0, np = 0;
+  for (int pass = 0; pass < 2; pass++) {
+    uint32_t r = 0, o = 0;
+    for (int s0 = 0; s0 < H; s0 += SH) {
+      const int sh = std::min(SH, H - s0);
+      memset(k, 0, W * sh * 2), memset(wt, 0xFF, W * sh * 2);
+      Tgt c = {k, 1, W, X0, Y0 + s0, X1, Y0 + s0 + sh};
+      draw(c, 256, ctx);
+      c.p = wt;
+      draw(c, 256, ctx);
+      unmix(k, wt, W * sh);
+      for (int y = 0; y < sh; y++) {
+        if (pass) m.line[s0 + y] = r;
+        const uint16_t *K = k + y * W, *V = wt + y * W;
+        for (int X = 0; X < W;) {
+          if (!V[X]) {
+            X++;
+            continue;
+          }
+          int e = X + 1;
+          while (e < W && V[e] == V[X] && K[e] == K[X]) e++;
+          if (e - X >= 6) {  // alike: one entry
+            if (pass) m.runs[r] = {(uint16_t)X, (uint16_t)(0x8000 | (e - X)), o}, m.c[o] = K[X], m.a[o] = (uint8_t)V[X];
+            r++, o++, X = e;
+            continue;
+          }
+          int b = e;  // pixel by pixel, up to a gap or the next six alike
+          while (b < W && V[b]) {
+            int q = b + 1;
+            while (q < W && V[q] == V[b] && K[q] == K[b]) q++;
+            if (q - b >= 6) break;
+            b = q;
+          }
+          if (pass) {
+            m.runs[r] = {(uint16_t)X, (uint16_t)(b - X), o};
+            for (int i = X; i < b; i++) m.c[o + i - X] = K[i], m.a[o + i - X] = (uint8_t)V[i];
+          }
+          r++, o += b - X, X = b;
+        }
+      }
+    }
+    if (!pass) {
+      nr = r, np = o;
+      const size_t lb = (H + 1) * 4, rb = nr * sizeof(LRun), cb = (np * 2 + 3) & ~3u;
+      m.mem = (uint8_t*)heap_caps_malloc(lb + rb + cb + np + 4, MALLOC_CAP_SPIRAM);
+      if (!m.mem) {
+        heap_caps_free(k);
+#if TANK_QA
+        layerNoRoom++;
+#endif
+        return false;
+      }
+      m.line = (uint32_t*)m.mem, m.runs = (LRun*)(m.mem + lb), m.c = (uint16_t*)(m.mem + lb + rb), m.a = m.mem + lb + rb + cb;
+    }
+  }
+  m.line[H] = nr;
+  m.x0 = X0, m.y0 = Y0, m.h = H;
+  heap_caps_free(k);
+#if TANK_QA
+  layerMade++;
+#endif
+  return true;
+}
+// what is behind at 32 - w parts in 32, plus the layer's own (weighted) colour; a part pushed one step over its top
+// (the cover is rounded) is held at the top
+__attribute__((always_inline)) inline uint16_t over(uint32_t own, uint16_t d, int w) {
+  uint32_t s = own + ((ex(d) * (uint32_t)(32 - w)) >> 5 & 0x07E0F81Fu);
+  if (const uint32_t o = s & 0x08010020u) s |= (o & 0x20 ? 0x1Fu : 0) | (o & 0x10000 ? 0xF800u : 0) | (o & 0x08000000 ? 0x07E00000u : 0);
+  return pk(s & 0x07E0F81Fu);
+}
+#if TANK_QA
+uint32_t putUs = 0, putPx = 0;  // what layerPut costs a pixel on the board (the stats line)
+#endif
+HOT void layerPut(const Tgt& t, const Layer& m, int ga) {
+  const int Y0 = std::max(t.y0, m.y0), Y1 = std::min(t.y1, m.y0 + m.h), g = (ga + 4) >> 3;
+  if (g <= 0) return;
+#if TANK_QA
+  const uint32_t u0 = us();
+  struct Done {
+    uint32_t u0;
+    ~Done() { putUs += us() - u0; }
+  } done{u0};
+#endif
+  for (int Y = Y0; Y < Y1; Y++)
+    for (uint32_t r = m.line[Y - m.y0], e = m.line[Y - m.y0 + 1]; r < e; r++) {
+      const LRun& R = m.runs[r];
+      const int a0 = m.x0 + R.at, X0 = std::max(t.x0, a0), X1 = std::min(t.x1, a0 + (R.n & 0x7FFF));
+      if (X0 >= X1) continue;
+#if TANK_QA
+      putPx += X1 - X0;
+#endif
+      uint16_t* d = t.at(X0, Y);
+      if (R.n & 0x8000) {  // one colour and cover: nothing to read
+        const uint16_t c = m.c[R.off];
+        int w = m.a[R.off];
+        uint32_t own = ex(c);
+        if (g < 32) own = (own * (uint32_t)g) >> 5 & 0x07E0F81Fu, w = (w * g + 16) >> 5;
+        if (g >= 32 && w >= 32)
+          for (int X = X0; X < X1; X++, d += t.dx) *d = c;
+        else
+          for (int X = X0; X < X1; X++, d += t.dx) *d = over(own, *d, w);
+        continue;
+      }
+      const uint16_t* C = m.c + R.off + (X0 - a0);
+      const uint8_t* A = m.a + R.off + (X0 - a0);
+      if (g >= 32)
+        for (int X = X0; X < X1; X++, d += t.dx, C++, A++) *d = *A >= 32 ? *C : over(ex(*C), *d, *A);
+      else  // the needs pulsing: the layer's colour and cover both at g / 32
+        for (int X = X0; X < X1; X++, d += t.dx, C++, A++) *d = over((ex(*C) * (uint32_t)g) >> 5 & 0x07E0F81Fu, *d, (*A * g + 16) >> 5);
+    }
+}
+// The layer for key (made when the key changes), put at cover a; drawn straight when there is no room for it.
+// A layer at part cover is the whole group seen through (its icon solid on its glass), where the page fades each
+// piece by itself (the glass shows through the icon): while a < 250 the pieces are drawn straight, unless the layer
+// holds one kind of piece only (one: the needs' glasses, icons, dots), which fades the same either way.
+void layerAt(const Tgt& t, Layer& m, uint32_t key, float x, float y, float w, float h, int a, LayerDraw draw, void* ctx, bool one) {
+#if TANK_QA
+  if (layersOff) return draw(t, a, ctx);
+#endif
+  if (a < 250 && !one) return draw(t, a, ctx);
+  if (m.key != key) layerMake(m, x, y, w, h, draw, ctx), m.key = key;  // (no room: tried once per key)
+  if (m.line) layerPut(t, m, a);
+  else draw(t, a, ctx);
+}
+template <class F>
+inline void layer(const Tgt& t, Layer& m, uint32_t key, float x, float y, float w, float h, int a, const F& draw, bool one = false) {
+  layerAt(t, m, key, x, y, w, h, a, [](const Tgt& c, int ca, void* p) { (*(const F*)p)(c, ca); }, (void*)&draw, one);
+}
+
+// ---------------------------------------------------------------- what the bars show, once a picture
+// The board on its side asks for a picture in six pieces and draw() runs for each: the game's numbers are read once a
+// picture, and the ones that cost (the comfort looks at every fish, the jobs and the lamp at the clock) twice a second.
+struct HudNow {
+  uint32_t at = 0xFFFFFFFF, slowAt = 0;
+  int coins = -1, level = -1, comfort = 0, tasks = 0;
+  float span = 0, water = 0;
+  bool lamp = true;
+  String coinsS, levelS;
+} hn;
+const HudNow& hud() {
+  if (hn.at == gfx::frameNo()) return hn;
+  hn.at = gfx::frameNo();
+  const TankRec& T = game::T();
+  if (hn.coins != game::coins()) hn.coins = game::coins(), hn.coinsS = String(hn.coins);
+  if (hn.level != game::level()) hn.level = game::level(), hn.levelS = "Cấp " + String(hn.level);
+  hn.span = game::levelSpan();
+  if (millis() - hn.slowAt > 500 || !hn.slowAt)
+    hn.slowAt = millis() | 1, hn.comfort = game::comfort(T), hn.tasks = game::tasksReady(), hn.water = game::waterWait(), hn.lamp = game::lampOn(T);
+  return hn;
+}
+void hudSoon() { hn.slowAt = 0; }  // after a tap that changes them (feeding, the lamp, a job paid)
+
+// ---------------------------------------------------------------- drawing pieces
+void barTrack(const Tgt& t, float x, float y, float w, int a) { rrect(t, x, y, w, 7, 3.5f, H(0x142840), a * 41 / 256); }  // rgba(20,40,60,.16)
+void barFill(const Tgt& t, float x, float y, float w, float v, uint32_t col, int a) {
+  const float k = std::max(0.08f, std::min(1.0f, v / 100));
+  rrect(t, x, y, w * k, 7, 3.5f, v < 30 ? (fsin(pulse * 6) > 0 ? H(0xe5484d) : H(0xf08a8d)) : H(col), a);
+}
+void bar(const Tgt& t, float x, float y, float w, float v, uint32_t col, int a) { barTrack(t, x, y, w, a), barFill(t, x, y, w, v, col, a); }
 void drawDock(const Tgt& t, const Lay& L, int a) {
   static const char* const ICON[5] = {"i_food", "i_sponge", "i_bucket", "i_lamp", "i_shop"};
   const TankRec& T = game::T();
   for (int i = 0; i < 5; i++) {
     const float x = L.dx[i], y = L.dy, k = pressed == i ? 0.9f : 1, r = L.dr * k;
-    dockButton(t, x, y, r, a);
     bool dim = false, badge = false, good = false;
-    if (i == 4) good = game::tasksReady() > 0;
+    if (i == 4) good = hud().tasks > 0;
     if (i == 0) badge = T.food < 35;
     else if (i == 1) badge = T.algae > 45;
-    else if (i == 2) badge = T.clean < 45, dim = game::waterWait() > 0 && !badge;
-    else if (i == 3) dim = !game::lampOn(T);
-    fit(t, thing(ICON[i]), x - 18 * k, y - 18 * k, 36 * k, 36 * k, dim ? a * 115 / 256 : a);
+    else if (i == 2) badge = T.clean < 45, dim = hud().water > 0 && !badge;
+    else if (i == 3) dim = !hud().lamp;
+    const int v[] = {i, pressed == i, dim, (int)L.W, (int)L.H, (int)lroundf(sc->SC * 100)};
+    layer(t, dockL[i], fnv(2166136261u, v, sizeof v) | 1, x - r - 12, y - r - 12, 2 * r + 24, 2 * r + 26, a,
+          [&](const Tgt& c, int ca) {
+            dockButton(c, x, y, r, ca);
+            fit(c, thing(ICON[i]), x - 18 * k, y - 18 * k, 36 * k, 36 * k, dim ? ca * 115 / 256 : ca);
+          });
     if (badge || good) {
-      const float rr = 5.5f + sinf(pulse * 5);
+      const float rr = 5.5f + fsin(pulse * 5);
       circle(t, x + 17, y - 17, rr + 0.6f, 0xFFFF, a);
       circle(t, x + 17, y - 17, rr - 0.6f, badge ? H(0xe5484d) : H(0x2fae5b), a);
     }
@@ -171,11 +444,14 @@ void drawDock(const Tgt& t, const Lay& L, int a) {
 }
 void drawToasts(const Tgt& t, const Lay& L) {
   float y = 44;
-  for (const Toast& q : toasts) {
+  for (Toast& q : toasts) {
     const float a = std::min(1.0f, std::min(q.t * 6, (2.8f - q.t) * 3));
-    String l0, l1;
-    wrap2(q.s.c_str(), 12, true, L.W - 44, l0, l1);
-    const float w = std::min(L.W - 16, std::max(textW(l0.c_str(), 12, true), textW(l1.c_str(), 12, true)) + 26), h = l1.length() ? 40 : 26;
+    if (!q.w) {
+      wrap2(q.s.c_str(), 12, true, L.W - 44, q.l0, q.l1);
+      q.w = std::min(L.W - 16, std::max(textW(q.l0.c_str(), 12, true), textW(q.l1.c_str(), 12, true)) + 26), q.h = q.l1.length() ? 40 : 26;
+    }
+    const String &l0 = q.l0, &l1 = q.l1;
+    const float w = q.w, h = q.h;
     rrect(t, L.W / 2 - w / 2, y, w, h, 13, H(0x081420), A(a * 0.8f));
     text(t, l0.c_str(), L.W / 2, y + 13.5f, 12, true, 0xFFFF, 1, A(a));
     if (l1.length()) text(t, l1.c_str(), L.W / 2, y + 28.5f, 12, true, 0xFFFF, 1, A(a));
@@ -213,9 +489,19 @@ void btn(const Tgt& t, float bx, float y, float w, const String& label, uint32_t
   rrect(t, bx, y + 82, w, 30, 15, H(col), 256);
   text(t, label.c_str(), bx + w / 2, y + 97.5f, 13, true, H(ink), 1);
 }
+void cardBody(const Tgt& t, const Lay& L, const FishRec* d);
 void drawCard(const Tgt& t, const Lay& L) {
   const FishRec* d = cardFish();
   if (!d) return;
+  const bool adult = game::isAdult(*d);
+  const std::vector<String>& why = game::reasons(d->uid);
+  const int v[] = {(int)d->uid, d->sp, adult, adult ? 0 : (int)lroundf(d->age / D.R.adultH * 100), d->sick, game::sellPrice(*d), D.R.cureCost,
+                   (int)L.W, (int)L.H, (int)lroundf(sc->SC * 100)};
+  uint32_t key = fnv(2166136261u, v, sizeof v);
+  for (const String& w : why) key = fnv(key, w.c_str(), w.length() + 1);
+  layer(t, cardL, key | 1, L.cardX - 12, L.cardY - 12, L.cardW + 24, L.cardH + 26, 256, [&](const Tgt& c, int) { cardBody(c, L, d); });
+}
+void cardBody(const Tgt& t, const Lay& L, const FishRec* d) {
   const Species& s = D.sp[d->sp];
   const bool adult = game::isAdult(*d);
   const std::vector<String>& why = game::reasons(d->uid);
@@ -268,7 +554,7 @@ void corners(const Tgt& t, float x, float y, float w, float h, float r, uint16_t
       }
   }
 }
-void drawSheet(const Tgt& t, const Lay& L) {
+void drawSheetHead(const Tgt& t, const Lay& L) {
   const float sx = L.shX, sy = L.shY, sw = L.shW;
   const TankRec& T = game::T();
   if (L.land) rrect(t, sx, sy, sw, L.shH, 0, H(0xf6f8fb), 256);
@@ -293,17 +579,14 @@ void drawSheet(const Tgt& t, const Lay& L) {
     const bool on = i == tab;
     rrect(t, tr[i].x, tr[i].y, tr[i].w, tr[i].h, 13, on ? H(0x2f6fb5) : H(0xe3e9f0), 256);
     text(t, tr[i].name.c_str(), tr[i].x + tr[i].w / 2, tr[i].y + 13.5f, 12, true, on ? 0xFFFF : H(0x3c4a5a), 1);
-    if (i == 6 && !on && game::tasksReady()) circle(t, tr[i].x + tr[i].w - 3, tr[i].y + 3, 4, H(0x2fae5b), 256);
+    if (i == 6 && !on && hud().tasks) circle(t, tr[i].x + tr[i].w - 3, tr[i].y + 3, 4, H(0x2fae5b), 256);
   }
-  // the list, clipped to its window
-  Tgt c = t;
-  const int S0 = (int)lroundf((L.listY - 2) * sc->SC), S1 = (int)lroundf((sy + L.shH) * sc->SC);
-  c.y0 = std::max(t.y0, S0), c.y1 = std::min(t.y1, S1);
-  if (c.y0 >= c.y1) return;
-  c.p = t.at(t.x0, c.y0);
-  for (size_t i = 0; i < rows.size() && i < fitted.size(); i++) {
-    const float y = L.listY + i * ROW_H - scroll;
-    if (y > L.H || y < L.listY - ROW_H) continue;
+}
+
+// One row of the list, its top at y (logical).
+void drawRow(const Tgt& c, const Lay& L, size_t i, float y) {
+  const float sx = L.shX, sw = L.shW;
+  {
     const game::Row& r = rows[i];
     const Fit3& f = fitted[i];
     const float tx = sx + 74;
@@ -329,7 +612,13 @@ void drawSheet(const Tgt& t, const Lay& L) {
     text(c, f.sub.c_str(), tx, y + 33, 12, false, H(0x667585));
     if (f.note.length()) text(c, f.note.c_str(), tx, y + 50, 12, false, r.bad ? H(0xd6453d) : r.warn ? H(0xc77700) : H(0x8a96a3));
     const float bx = sx + sw - 90;
-    if (r.price >= 0 && !r.tag.length()) {
+    if (r.paid) {  // locked after the trial (lock.h): a dark pill with a padlock, pressing shows the way to unlock
+      rrect(c, bx, y + 9, 78, 28, 14, H(0x1d1f24), 256);
+      const float cx = bx + 39, cy = y + 23;
+      ring(c, cx, cy - 3, 4.2f, 1.7f, 0xFFFF, 256);
+      rrect(c, cx - 6, cy - 2, 12, 9, 2, 0xFFFF, 256);
+      circle(c, cx, cy + 2, 1.3f, H(0x1d1f24), 256);
+    } else if (r.price >= 0 && !r.tag.length()) {
       rrect(c, bx, y + 9, 78, 28, 14, r.can ? H(0xf2b824) : H(0xe6dcc0), 256);
       fit(c, thing("s_coin"), bx + 6, y + 14, 18, 18);
       text(c, String(r.price).c_str(), bx + 28, y + 23.5f, 13, true, r.can ? H(0x3a2c06) : H(0x9a8c66));
@@ -337,6 +626,20 @@ void drawSheet(const Tgt& t, const Lay& L) {
       if (r.can) rrect(c, bx, y + 9, 78, 28, 14, r.tag == "Nhận" ? H(0x2fae5b) : H(0x2f6fb5), 256);
       text(c, r.tag.c_str(), bx + 39, y + 23.5f, 12, true, r.can ? 0xFFFF : H(0x8a96a3), 1);
     }
+  }
+}
+
+// The whole sheet drawn straight (when no PSRAM for its pictures): the head, then the list clipped to its window.
+void drawSheet(const Tgt& t, const Lay& L) {
+  drawSheetHead(t, L);
+  Tgt c = t;
+  const int S0 = (int)lroundf((L.listY - 2) * sc->SC), S1 = (int)lroundf((L.shY + L.shH) * sc->SC);
+  c.y0 = std::max(t.y0, S0), c.y1 = std::min(t.y1, S1);
+  if (c.y0 >= c.y1) return;
+  c.p = t.at(t.x0, c.y0);
+  for (size_t i = 0; i < rows.size() && i < fitted.size(); i++) {
+    const float y = L.listY + i * ROW_H - scroll;
+    if (y <= L.H && y >= L.listY - ROW_H) drawRow(c, L, i, y);
   }
 }
 
@@ -388,7 +691,9 @@ void devOpen(const char* what, int arg) {  // the dev console: a screen straight
 }
 #endif
 bool busy() { return sheet || card || sponge || foodPick; }
-void reset() { sheet = card = sponge = foodPick = false, P.on = false, pressed = -1; }
+void sheetFree();
+void fzFree();
+void reset() { sheet = card = sponge = foodPick = false, P.on = false, pressed = -1, chipFree(), chipT = 99, sheetFree(), fzFree(), hudFree(); }
 
 void cover(float& x0, float& y0, float& x1, float& y1) {  // the sheet hides the water under it
   x0 = y0 = x1 = y1 = 0;
@@ -421,6 +726,7 @@ void move(float x, float y) {
   else if (P.k == H_WATER && sc && sc->fingerOn) sc->fingerX = x, sc->fingerY = y;
 }
 void up(float x, float y) {
+  hudSoon();  // a tap may feed, light, pay a job: the bars read the game again
   if (!P.on) return;
   P.on = false, pressed = -1;
   if (sc && sc->fingerOn) {
@@ -488,6 +794,7 @@ void up(float x, float y) {
 // ---------------------------------------------------------------- time
 void tick(float dt) {
   pulse += dt;
+  if ((chipT += dt) > 2 && !saver) chipT = 0, chipMake();
   if (P.on) {
     P.t += dt;
     if (P.k == H_WATER && !P.moved && P.t > 0.4f && sc && !sc->fingerOn && !saver) sc->fingerOn = true, sc->fingerX = P.x, sc->fingerY = P.y;
@@ -517,8 +824,149 @@ void tick(float dt) {
   if (sheet && (int)(pulse * 2) != (int)((pulse - dt) * 2)) refreshRows(), scroll = clampScroll(scroll);
 }
 
+// ---------------------------------------------------------------- the shop sheet, cached
+// Drawn every picture, band by band, the sheet took 30-160 ms on the board (2026-11-19), and scrolling drew it all
+// again. Now its head (title, coins, tabs) and each row are pictures in PSRAM, made when what they show changes; a
+// picture of the sheet is copies of them at the scroll's place (whole runs). Rows: the few last used are kept.
+constexpr int NROWPIC = 8;
+struct RowPic {
+  uint32_t key = 0, used = 0;
+  uint16_t* p = nullptr;
+};
+RowPic rowPics[NROWPIC];
+uint16_t* hdBuf = nullptr;
+uint32_t hdKey = 0, picClock = 0;
+int shX0 = 0, shY0 = 0, shW = 0, hdH = 0, rowH = 0;  // frame pixels
+constexpr uint32_t SHEET_BG = 0xf6f8fb;
+void sheetFree() {
+  heap_caps_free(hdBuf), hdBuf = nullptr, hdKey = 0;
+  for (RowPic& r : rowPics) heap_caps_free(r.p), r = RowPic();
+}
+
+// The picture of row i (made when missing), nullptr when there is no room for it.
+const uint16_t* rowPic(const Lay& L, size_t i) {
+  const uint32_t key = rowKeys[i];
+  RowPic* slot = &rowPics[0];
+  for (RowPic& r : rowPics) {
+    if (r.p && r.key == key) return r.used = ++picClock, r.p;
+    if (!r.p || r.used < slot->used) slot = &r;
+  }
+  if (!slot->p && !(slot->p = (uint16_t*)heap_caps_malloc(shW * rowH * 2, MALLOC_CAP_SPIRAM))) return nullptr;
+  const uint16_t bg = H(SHEET_BG);
+  for (int k = 0; k < shW * rowH; k++) slot->p[k] = bg;
+  const float S = sc->SC;
+  Tgt c;  // the row drawn with its top at the list's top
+  c.p = slot->p, c.dx = 1, c.dy = shW, c.x0 = shX0, c.x1 = shX0 + shW;
+  c.y0 = (int)lroundf(L.listY * S), c.y1 = c.y0 + rowH;
+  drawRow(c, L, i, L.listY);
+  slot->key = key, slot->used = ++picClock;
+  return slot->p;
+}
+
+void drawSheetCached(const Tgt& t, const Lay& L) {
+  const float S = sc->SC;
+  const int x0 = (int)lroundf(L.shX * S), y0 = (int)lroundf(L.shY * S), w = sc->FW - x0;
+  const int lt = (int)lroundf((L.listY - 2) * S), rh = (int)lroundf(ROW_H * S);
+  if (w <= 0 || lt <= y0) return;
+  if (hdBuf && (shX0 != x0 || shY0 != y0 || shW != w || hdH != lt - y0 || rowH != rh)) sheetFree();
+  shX0 = x0, shY0 = y0, shW = w, hdH = lt - y0, rowH = rh;
+  if (!hdBuf && !(hdBuf = (uint16_t*)heap_caps_malloc(w * hdH * 2, MALLOC_CAP_SPIRAM))) return drawSheet(t, L);
+  const TankRec& T = game::T();
+  int have, all;
+  game::albumCount(have, all);
+  const int v[] = {tab, hud().coins, (int)(game::used(T) * 10), game::capacity(T), have, all, hud().tasks, T.marine, w};
+  const uint32_t key = fnv(2166136261u, v, sizeof v) | 1;
+  if (key != hdKey) {
+    const uint16_t behind = H(0x0f2b33);  // the dimmed water, under the rounded corners' edge
+    for (int i = 0; i < w * hdH; i++) hdBuf[i] = behind;
+    Tgt c;
+    c.p = hdBuf, c.dx = 1, c.dy = w, c.x0 = x0, c.y0 = y0, c.x1 = x0 + w, c.y1 = lt;
+    drawSheetHead(c, L);
+    hdKey = key;
+  }
+  const uint16_t bg = H(SHEET_BG);
+  const int r = L.land ? 0 : (int)lroundf(16 * S);  // upright, the top corners keep the water drawn behind them
+  const int Y0 = std::max(t.y0, y0), Y1 = std::min(t.y1, sc->FH), X0 = std::max(t.x0, x0), X1 = std::min(t.x1, x0 + w);
+  if (X0 >= X1) return;
+  const int scr = (int)lroundf(scroll * S), top = (int)lroundf(L.listY * S);
+  size_t ri = (size_t)-1;
+  const uint16_t* rp = nullptr;
+  for (int Y = Y0; Y < Y1; Y++) {
+    int a = X0, b = X1;
+    const uint16_t* src = nullptr;
+    if (Y < lt) {
+      const int dy = Y - y0;
+      if (dy < r) {
+        const float q = r - dy - 0.5f;
+        const int in = r - (int)sqrtf(std::max(0.0f, (float)r * r - q * q));
+        a = std::max(a, x0 + in), b = std::min(b, x0 + w - in);
+      }
+      src = hdBuf + dy * w;
+    } else {  // the list: the row under this line, at the scroll's place
+      const int ly = Y - top + scr;
+      const size_t i = ly >= 0 ? (size_t)(ly / rh) : (size_t)-1;
+      if (i < rows.size() && i < fitted.size() && i < rowKeys.size()) {
+        if (i != ri) ri = i, rp = rowPic(L, i);
+        if (rp) src = rp + (ly - (int)i * rh) * w;
+      }
+    }
+    if (a >= b) continue;
+    uint16_t* d = t.at(a, Y);
+    if (src) {
+      src += a - x0;
+      if (t.dx == 1) memcpy(d, src, (b - a) * 2);
+      else
+        for (int X = a; X < b; X++, d += t.dx) *d = *src++;
+    } else {
+      for (int X = a; X < b; X++, d += t.dx) *d = bg;
+    }
+  }
+}
+
+// ---------------------------------------------------------------- the water standing still under the sheet
+// While the shop sheet is open, what shows beside it (the dimmed water, the top bar) is drawn once and kept (PSRAM):
+// a picture is then that copy and the sheet, the water is neither worked out nor drawn (the board: smooth scrolling).
+// Drawn again when the bar's numbers change; toasts and coin numbers go on top.
+uint16_t* fzBuf = nullptr;
+int fzState = 0, fzW = 0, fzH = 0;  // 0 off, 1 being captured this picture, 2 kept
+uint32_t fzKey = 0;
+void fzFree() { heap_caps_free(fzBuf), fzBuf = nullptr, fzState = 0; }
+void fzRect(const Lay& L, int& w, int& h) {
+  const float S = sc->SC;
+  if (L.land) w = (int)lroundf(L.shX * S), h = sc->FH;
+  else w = sc->FW, h = std::min(sc->FH, (int)lroundf((L.shY + 16) * S));
+}
+void fzCopy(const Tgt& t, bool in) {  // in: t -> the copy (capture), else the copy -> t
+  const int X1 = std::min(t.x1, fzW), Y1 = std::min(t.y1, fzH);
+  for (int Y = t.y0; Y < Y1; Y++) {
+    if (t.x0 >= X1) break;
+    uint16_t* d = t.at(t.x0, Y);
+    uint16_t* m = fzBuf + Y * fzW + t.x0;
+    if (t.dx == 1) in ? memcpy(m, d, (X1 - t.x0) * 2) : memcpy(d, m, (X1 - t.x0) * 2);
+    else
+      for (int X = t.x0; X < X1; X++, d += t.dx, m++) in ? (void)(*m = *d) : (void)(*d = *m);
+  }
+}
+
 // ---------------------------------------------------------------- the drawing
+#if TANK_QA
+uint32_t prof[6];
+#ifdef SIM
+uint32_t us() { return (uint32_t)std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now().time_since_epoch()).count(); }
+#else
+uint32_t us() { return (uint32_t)esp_timer_get_time(); }
+#endif
+#endif
 void draw(const Tgt& t) {
+#if TANK_QA  // the screens' parts for the stats line
+  uint32_t pt = us();
+  auto mark = [&](int k) {
+    const uint32_t n = us();
+    prof[k] += n - pt, pt = n;
+  };
+#else
+  auto mark = [](int) {};
+#endif
   const Lay L = lay();
   const float W = L.W, Hh = L.H;
   if (fxNow.k == 1) {
@@ -532,7 +980,7 @@ void draw(const Tgt& t) {
     for (int y = 0; y < 190; y += 2) dim(t, 0, y, W, 2, H(0x000a18), A(0.5f * (1 - y / 190.0f)));
     needs(n, nn);
     for (int i = 0; i < nn; i++) {
-      const int a = A(0.7f + 0.3f * sinf(pulse * 3));
+      const int a = A(0.7f + 0.3f * fsin(pulse * 3));
       glass(t, 10 + i * 40, Hh - 42, 34, 34, 17, 204, a);
       fit(t, thing(n[i]), 14 + i * 40, Hh - 38, 26, 26, a);
     }
@@ -540,34 +988,61 @@ void draw(const Tgt& t) {
   }
   const TankRec& T = game::T();
   const int a = A(show);
+  mark(5);
   if (show > 0.02f) {
-    glass(t, L.barX, L.barY, L.barW, L.barH, 15, 219, a);
     const float bx = L.barX, by = L.barY;
-    fit(t, thing("s_coin"), bx + 5, by + 5, 20, 20, a);
-    text(t, String(game::coins()).c_str(), bx + 28, by + 15.5f, 14, true, H(0x3a2c06), 0, a);
-    const float lx = bx + 74;
-    rrect(t, lx, by + 5, 46, 20, 10, H(0x2f6fb5), a);
-    Tgt part = t;  // the experience as the pill's fill
-    part.x1 = std::min(t.x1, (int)lroundf((lx + 46 * game::levelSpan()) * sc->SC));
-    if (part.x1 > part.x0) rrect(part, lx, by + 5, 46, 20, 10, H(0x4f9ae8), a);
-    text(t, ("Cấp " + String(game::level())).c_str(), lx + 23, by + 15.5f, 12, true, 0xFFFF, 1, a);
-    fit(t, thing("s_food"), bx + 126, by + 6, 17, 18, a);
-    bar(t, bx + 146, by + 12, 32, T.food, 0x4fb84a, a);
-    fit(t, thing("s_drop"), bx + 184, by + 6, 16, 18, a);
-    bar(t, bx + 203, by + 12, 32, T.clean, 0x2f9be8, a);
-    fit(t, thing("s_heart"), bx + 241, by + 7, 17, 16, a);
-    bar(t, bx + 261, by + 12, 32, game::comfort(T), 0xe5484d, a);
+    const int v[] = {(int)L.W, (int)L.H, (int)lroundf(sc->SC * 100)};
+    layer(t, barL, fnv(2166136261u, v, sizeof v) | 1, bx - 12, by - 12, L.barW + 24, L.barH + 26, a, [&](const Tgt& c, int ca) {
+      glass(c, bx, by, L.barW, L.barH, 15, 219, ca);
+      fit(c, thing("s_coin"), bx + 5, by + 5, 20, 20, ca);
+      fit(c, thing("s_food"), bx + 126, by + 6, 17, 18, ca);
+      barTrack(c, bx + 146, by + 12, 32, ca);
+      fit(c, thing("s_drop"), bx + 184, by + 6, 16, 18, ca);
+      barTrack(c, bx + 203, by + 12, 32, ca);
+      fit(c, thing("s_heart"), bx + 241, by + 7, 17, 16, ca);
+      barTrack(c, bx + 261, by + 12, 32, ca);
+    });
+    mark(0);
+    // the numbers: a layer of their own, made again when one of them shows differently (a gauge under 30 blinks, so
+    // it is drawn each picture instead)
+    const HudNow& h = hud();
+    const float lx = bx + 74, S = sc->SC, gv[3] = {T.food, T.clean, (float)h.comfort};
+    static const float GX[3] = {146, 203, 261};
+    static const uint32_t GC[3] = {0x4fb84a, 0x2f9be8, 0xe5484d};
+    int nv[] = {h.coins, h.level, (int)lroundf((lx + 46 * h.span) * S), 0, 0, 0, (int)L.W, (int)lroundf(S * 100)};
+    for (int g = 0; g < 3; g++) nv[3 + g] = gv[g] < 30 ? -1 : (int)lroundf(32 * std::min(1.0f, gv[g] / 100) * S * 4);
+    layer(t, numL, fnv(2166136261u, nv, sizeof nv) | 1, bx + 20, by, 280, L.barH, a, [&](const Tgt& c, int ca) {
+      text(c, h.coinsS.c_str(), bx + 28, by + 15.5f, 14, true, H(0x3a2c06), 0, ca);
+      rrect(c, lx, by + 5, 46, 20, 10, H(0x2f6fb5), ca);
+      Tgt part = c;  // the experience as the pill's fill
+      part.x1 = std::min(c.x1, (int)lroundf((lx + 46 * h.span) * S));
+      if (part.x1 > part.x0) rrect(part, lx, by + 5, 46, 20, 10, H(0x4f9ae8), ca);
+      text(c, h.levelS.c_str(), lx + 23, by + 15.5f, 12, true, 0xFFFF, 1, ca);
+      for (int g = 0; g < 3; g++)
+        if (gv[g] >= 30) barFill(c, bx + GX[g], by + 12, 32, gv[g], GC[g], ca);
+    });
+    for (int g = 0; g < 3; g++)
+      if (gv[g] < 30) barFill(t, bx + GX[g], by + 12, 32, gv[g], GC[g], a);
+    if (chip.c && !sheet) blitScaled(t, &chip, bx + L.barW - chip.w, by + L.barH + 6, chip.w, chip.h, a);
+    mark(1);
     if (!sponge) drawDock(t, L, a);
+    mark(2);
   }
-  if (show < 0.6f && !sheet && !card) {
+  if (show < 0.6f && !sheet && !card) {  // what the tank needs, when the bars are away: one layer, pulsing
     needs(n, nn);
-    const int b = A((1 - show) * (0.75f + 0.25f * sinf(pulse * 4)));
-    for (int i = 0; i < nn; i++) {
-      glass(t, 10 + i * 40, Hh - 42, 34, 34, 17, 204, b);
-      fit(t, thing(n[i]), 14 + i * 40, Hh - 38, 26, 26, b);
-      circle(t, 40 + i * 40, Hh - 38, 4.5f, H(0xe5484d), b);
-    }
-  }
+    const int b = A((1 - show) * (0.75f + 0.25f * fsin(pulse * 4)));
+    int v[] = {nn, 0, 0, 0, (int)L.W, (int)L.H, (int)lroundf(sc->SC * 100)};
+    for (int i = 0; i < nn; i++) v[1 + i] = (int)(intptr_t)n[i][2];  // n_food, n_bucket, n_sponge: f, b, s
+    const uint32_t key = fnv(2166136261u, v, sizeof v) | 1;
+    for (int k = 0; k < 3 && nn; k++)  // the glasses, the icons, the dots: each kind its own layer (the page fades each)
+      layer(t, needL[k], key, 0, Hh - 52, 40 * nn + 24, 52, b, [&](const Tgt& c, int ca) {
+        for (int i = 0; i < nn; i++)
+          if (k == 0) glass(c, 10 + i * 40, Hh - 42, 34, 34, 17, 204, ca);
+          else if (k == 1) fit(c, thing(n[i]), 14 + i * 40, Hh - 38, 26, 26, ca);
+          else circle(c, 40 + i * 40, Hh - 38, 4.5f, H(0xe5484d), ca);
+      }, true);
+  } else if (needL[0].key)
+    for (Layer& m : needL) layerFree(m);
   if (sponge) {
     glass(t, W / 2 - 100, 46, 200, 26, 13, 224);
     text(t, "Kéo miếng bọt để lau kính", W / 2, 59.5f, 12, true, H(0x243140), 1);
@@ -585,13 +1060,58 @@ void draw(const Tgt& t) {
     ring(t, W / 2, Hh / 2 - 10, 30 + 150 * k, 5 * (1 - k) + 1, H(0xffd84a), A(1 - k));
   }
   if (foodPick) drawFoodPick(t, L);
+  mark(5);
   if (card) drawCard(t, L);
-  if (sheet) {
-    dim(t, 0, 0, W, Hh, H(0x040e18), A(0.45f));
-    drawSheet(t, L);
+  else if (cardL.key) layerFree(cardL);
+  mark(3);
+  if (sheet) {  // the water beside it dimmed, the sheet copied from its picture
+    if (L.land) dim(t, 0, 0, L.shX, Hh, H(0x040e18), A(0.45f));
+    else dim(t, 0, 0, W, L.shY + 16, H(0x040e18), A(0.45f));
+    drawSheetCached(t, L);
+  } else if (hdBuf) {
+    sheetFree();  // (its pictures' PSRAM back)
   }
+  mark(4);
+  if (fzState == 1 && fzBuf) fzCopy(t, true);  // (no toast, no number flying: checked by frameBegin())
   drawToasts(t, L);
   if (homeLine) rrect(t, (W - 110) / 2, Hh - 9, 110, 4, 2, 0xFFFF, 128);  // as os.cpp's, white at half
+  mark(5);
+}
+
+void frameBegin() {
+  if (!sheet || saver) return fzFree();
+  const Lay L = lay();
+  const TankRec& T = game::T();
+  const int v[] = {hud().coins, hud().level, (int)T.food, (int)T.clean, hud().comfort, (int)L.W, (int)(sc->SC * 100)};
+  const uint32_t key = fnv(2166136261u, v, sizeof v);
+  if (fzState && key != fzKey) fzState = 0;
+  if (fzState || !toasts.empty() || !floats.empty() || fxNow.k || fabsf(show - 1) > 0.01f) return;
+  int w, h;
+  fzRect(L, w, h);
+  if (fzBuf && (w != fzW || h != fzH)) heap_caps_free(fzBuf), fzBuf = nullptr;
+  if (!fzBuf) fzBuf = (uint16_t*)heap_caps_malloc(w * h * 2, MALLOC_CAP_SPIRAM);
+  if (fzBuf) fzW = w, fzH = h, fzKey = key, fzState = 1;
+}
+void frameEnd() {
+  if (fzState == 1) fzState = 2;
+}
+bool frozen() { return fzState == 2 && sheet && !saver; }
+#if TANK_QA
+void layerStats(int& made, int& noRoom, uint32_t& us_, uint32_t& px) {
+  made = layerMade, noRoom = layerNoRoom, us_ = putUs, px = putPx, putUs = putPx = 0;
+}
+#endif
+void drawFrozen(const Tgt& t) {
+  const Lay L = lay();
+  fzCopy(t, false);
+  drawSheetCached(t, L);
+  for (const Float& f : floats) {
+    const int fa = A(1 - f.t);
+    text(t, f.s.c_str(), f.x + 1, f.y - 14 - f.t * 26 + 1, 16, true, H(0x3c1e00), 1, fa * 7 / 10);
+    text(t, f.s.c_str(), f.x, f.y - 14 - f.t * 26, 16, true, H(0xffd84a), 1, fa);
+  }
+  drawToasts(t, L);
+  if (homeLine) rrect(t, (L.W - 110) / 2, L.H - 9, 110, 4, 2, 0xFFFF, 128);
 }
 
 }  // namespace ui

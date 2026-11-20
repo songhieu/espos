@@ -85,6 +85,10 @@ temporary bbk_ key that is revoked right after.
   order), moves a package whose `vol` changed, removes entries with `"rm": true` and then drops those entries from
   the list. A package that is installed but not listed is left alone and added to the list by the device.
   Installing or removing on the device updates `s3.pkgs` the same way.
+  An install cancelled on the device (0.5.7) does the same: its entry goes, or, for an update, it names the version
+  that stayed and loses `code`. It is not tried again until the web asks again: lists it (or, for an update, sends
+  its `code`), which is what "Install" and "Update" on the web do. Installs the web asked for that fail are tried at
+  most 3 times a boot.
 - **What the device has** — the sync body gets `"pkgs"`:
   `{"vols": {"flash": {"total": KB, "free": KB}, "sd": {"present": true, "total": KB, "free": KB}},
     "installed": [{"id", "version", "code", "vol", "parts": [...], "kb", "ok": true}],

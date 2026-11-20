@@ -47,6 +47,39 @@ When the wake-word detector ("gâu gâu") fires, the device starts a turn by its
   heard, and when nothing else was said answers `{"silent": true, "reply": ""}`: say nothing, keep nothing (a
   false wake: a dog on the TV).
 - While recording: the `alert` clip (ears up), as for push to talk; the same thinking/answering states after.
+- As built (firmware 0.5.7, src/pet/talk.cpp): a pause after the call brings the dog's ack (setting `s3.assist`
+  `"ack"`: 0 nothing, 1 a beep, 2 a word in its own voice, default 2). The question must begin within **6 s of the
+  ack's end** (floor + 7 dB for 0.24 s, the ack itself not counted), or the dog says it is here and the turn ends
+  with nothing sent. End of speech (owner, 2026-11-19): speech = within 10 dB of the question's own peak; it goes
+  2 s after the last speech, 1.2 s when the room sits at its floor + 3 dB, 8 s after the question began at most.
+  The "no question" log line gives the window's loudest level, the floor, how long it was loud and how much was
+  the dog's own sound.
+- The device's own sound is never a question: the mic task ignores the ack's mute (on the mic clock) and anything
+  the speaker played in the last 400 ms but a game's tune (sound::outputSince; the dog's voice comes back at
+  -30..-35 dBFS, peaks -12, plus the room's echo). The live sim reproduces the board's path with SIM_ECHO=dB
+  (sim/live.cpp simEcho): without the gate, 3 of 5 dry calls took the ack's tail for a question at +6 dB.
+- Speech is counted in the mic task, every 10 ms (wake::vadTake / vadSpeechMs / vadMute), not by the UI loop: a
+  game drawing 6 pictures a second or a 2 s TLS handshake used to hide the question from a UI loop that sampled the
+  level only when it ran (build 4 on the board: three calls in the aquarium, "no question" each time). The dog's
+  ack is muted on the mic's own clock.
+- The dog's pop-up pauses what is under it: the pet game, Coin Run (onScreen() is false while pet::summoned()),
+  J2ME games (pause/resume posts 7/8, as for their menu); the aquarium the same way (tank-game). Closing the pop-up
+  resumes them where they were.
+- Game music (PawBoop's tunes, pawboop-all's src/pet/sfx): the wake word keeps listening through a tune or an
+  ambience alone (pet::sfx::bedOnly), with both bars 0.05 higher; the dog's lines, effects and the AI's voice still
+  stop it. Measured with wake/host/wakecli on the 9 tunes under a -62 dBFS floor: 1-2 false calls per 10 min at
+  the normal bar, 0-1 at +0.05; a tune within ~20 dB of the call at the mic masks most calls, so tunes stay quiet.
+  Once a minute the trace logs the mic level while the speaker played ("wake: mic while the speaker played").
+- The warm-up at the call keeps the connection desk hands over (warm from its 45 s ping) and connects only when
+  there is none; no second handshake. While it runs the dog moves at 5 pictures a second (each picture is ~50-60 ms
+  of TJpgDec on core 0; on the board the pictures now use Espressif's decoder, TJpgDec as the fallback; DOGBENCH
+  compares the two).
+- The dog's pictures never hold up the UI loop: a picture the background decoder has not finished is replaced by
+  the one already shown (dog.cpp; a TLS handshake on core 0 used to freeze the UI ~2 s with the dog on screen). After a spoken answer the dog listens on
+  (**follow-up**, setting `s3.assist` `"follow"`, default 1): the next question must start within 2.5 s and be close
+  to the device (15 dB over the room's floor and above -42 dBFS), or the dog goes back to waiting for "gâu gâu".
+- The wake word turned on (web or device) while `dev.espos.wake.gau` is not installed: the device fetches it from the
+  store by itself and posts "Getting the "Gâu" listener" (0.5.7; 0.5.6 waited for "Download" in the dog's book).
 
 ## 2. The question: `POST /v1/device/assist`
 
@@ -59,8 +92,10 @@ Content-Length: <bytes>
 <the WAV>
 ```
 
+- `intent` (optional, JSON text turns only): `"news"` asks for the news summary whatever the words (the pop-up's
+  "Today's news" chip, talk.cpp askNews): `topic` is `news` and the reply may run to about 130 words.
 - `cid` (optional): the conversation to continue: the `cid` of the last answer. Without it the server continues
-  this device's conversation of the last 30 minutes, if any. `cid=new` starts a new conversation (a "new topic"
+  this device's conversation of the last 45 minutes, if any. `cid=new` starts a new conversation (a "new topic"
   button, or after the dog was changed if you want it to start fresh).
 - `dog` (optional): the chosen dog's key (`bao momo boop leaf volt byte shiba corgi husky golden`). Without it the
   server uses the device's `s3.pet_dog` (synced both ways since 2026-11-18, checked like the web's save), then
@@ -93,13 +128,15 @@ Answer `200`, JSON (about 0.5-1 KB):
 | Field | Use |
 |---|---|
 | `heard` | what the dog understood (show it small above the reply). `""` = it heard nothing clear; `reply` then asks to say it again |
-| `reply` | the bubble text: 1-3 short sentences, Vietnamese unless the person spoke another language. Numbers are written Vietnamese style (137,5; 64.652) |
+| `reply` | the bubble text: 1-3 short sentences, Vietnamese unless the person spoke another language. Numbers are written Vietnamese style (137,5; 64.652). A news summary (`topic` `news`) is the one long reply: up to about 130 words, 3-5 stories, plain sentences (no list marks); scroll it |
 | `mood` | the pet clip to play while it talks: one of `happy giggle high_five levelup plead sulk yuck alert look_up stand no_tired sleep` (all are moments of every dog's pet pack) |
 | `topic` | `gold crypto stock fx news weather time calendar alarm todo note reading memory chat refuse`: a card to show beside the bubble if you want one (`refuse` = the question was out of scope) |
 | `cid`, `n` | keep `cid` for the next question; `cid` + `n` fetch this reply's voice |
 | `remembered`, `forgot` | facts saved / removed in this turn ("Bao đã nhớ: …" toast, optional) |
 | `done` | what the dog did for the person, e.g. `["đặt báo thức 06:30 một lần"]` (empty: nothing). The change is already saved for this device as a web save is: the device gets it with its next ping/sync (within about a minute); a device that wants it at once runs a sync now |
 | `saved` | present when the dog tried to do something: `true` done, `false` refused by the settings check (`error` says why, `reply` is the dog owning up) |
+| `asks` | the reply ends with a question to the person ("Mệt vì việc hả?", a riddle, the guessing game): a good moment to listen a little longer for the answer. In the JSON reply and (from device_assist v-next, 2026-11-20) in the streamed `X-Assist` meta |
+| `unheard` | nothing was heard (silence, noise, "...", a hum; push to talk, a follow-up or typed): `reply` is the dog's own "say that again" line and nothing of the model's answer is used: no action, no memory, a held delete keeps waiting (2026-11-20). Typed noise makes no model call. A wake turn with nothing after "gâu gâu" stays `silent`. "ừ", "ờ", "ừm" are a yes, not noise |
 | `asks_confirm` | the dog asked "xóa hết luôn hả?": nothing was deleted yet; the next question ("ừ", "xóa đi") does it |
 | `name_saved` | the person's name went to the account (Tài khoản › Tên của bạn) |
 | `silent` | a wake-word turn with nothing after the wake word: show and say nothing |
@@ -177,6 +214,33 @@ body is the end of the speech. A 3-sentence reply is 6-10 s of sound, 200-320 KB
 | 500 | server error | as 502 without the body: the dog's `no_tired` clip |
 | `say`: 404 `not_found` | the conversation was deleted (1 day old, or the person cleared it) | keep the bubble, no sound |
 | `say`: 502 | the TTS refused or was busy | retry once after 1 s; then keep the bubble, no sound |
+| 402 `{"locked": "trial_ended" \| "no_ai", "buy_url"}` | the AI is not allowed (the trial is over, or the account has none) | §4b |
+| 403 `{"error": "account_disabled", "state": "blocked" \| "deleting" \| "deleted"}` | the account is blocked (every device route says so) | keep the token; a calm "Tài khoản đang bị khoá" / "Xem chi tiết tại espos.dev" in the pop-up, no retry, no error look (the OS's screen for it: tank-game's lock) |
+
+### 4b. Talking is locked (the trial, 2026-11-19)
+
+The account's licence comes with every sync: `"lic": {"ai": "on" | "trial" | "off" | "byok", "ai_left": n,
+"buy_url": "…", …}` (src/lic.h keeps it in NVS; tank-game's src/lock.h reads its other fields for the store and the
+pickers). **No `lic` = no licensing** (self-hosted or older server): nothing locks, the device behaves as before.
+
+- 402 from `POST /assist`: `lic::locked(why, buy_url)`; the dog says, in its own voice, that the free trial of talking
+  is over (`ai_trial_end`) or that talking is not on (`ai_locked`), its own words in the bubble (talk.cpp
+  `lockLineOf`, in every language), and the pop-up shows a QR code of `buy_url` (the web when none was sent) with
+  "Scan to keep talking" in place of the mic button and the chips; it stays a minute. Never silent.
+- `"ai": "off"`: the wake word still works and brings the dog, which says the same; the mic button does the same;
+  nothing is recorded or sent. Each time, the device asks for a sync (at most every 30 s), so an unlock on the phone
+  reaches it. Without that too: every licence change (a grant, an extension, a revoke, the trial's end, each AI turn)
+  raises the server's `lic_ms`, and with it `settings_rev` and the ping's `rev`, so the 60 s ping brings the new
+  `lic` within about a minute (admin-users, 2026-11-19). `buy_url` is used exactly as sent (a full URL such as
+  `https://espos.dev/app#buy=<device id>`; the admin may change its base), never built on the device.
+- `"ai": "trial"` with `ai_left` 10 or fewer: a small "Còn N lượt" chip on the pop-up (one less after each answer,
+  until the next sync tells the real count).
+- `"byok"`, `"on"`, no `lic`: as before.
+- The voiced lines are in each dog's `assist.pba` from `vn.pawboop.dog.<dog>` 1.0.1 (the same ElevenLabs voice and
+  settings as its other lines, -16 LUFS; wake/tools/lock_lines.py makes them, tools/pawboop/dog_lines.py appends
+  them to the 1.0.0 file, every old clip unchanged). With an older dog package the dog shows the words only.
+- Tests: `LOCK lic {"ai":"off"}` / `LOCK lic none` on the console (tank-game's lock::dev); the simulator's
+  `SIM_FAKE_ASSIST=trial_ended` or `no_ai` answers 402.
 
 ## 5. What the dog shows
 
@@ -191,6 +255,16 @@ body is the end of the speech. A 3-sentence reply is 6-10 s of sound, 200-320 KB
 Never speak a recorded pet line over the AI voice (`pet::voice::hush()` first). Keep the thinking clip moving: the
 wait is the part the person feels.
 
+A long `reply` is never cut (firmware 0.5.7, summon.cpp `fitBubble`): the bubble grows to the room the card has
+(portrait: the card up to 8 px under the screen's top; landscape: its column), then its words scroll in a window of
+whole lines with a thin bar on the right; a finger drags them, and reading keeps the pop-up open.
+
+**Chips** (2 x 2 under the dog): "What time is it?" and "Weather?" (the dog's own voice pack, no AI), "Today's
+news" (AI, shown when linked), "Play with {dog}". "Today's news" is a typed turn (`talk::askNews`): the same
+`POST /v1/device/assist?stream=1` with a JSON body `{"text": "<the question in the device's language>",
+"intent": "news", "dog": "<key>"}` (vi "Hôm nay có tin gì mới?"); the server sums up today's news (ai-assist). The
+lock (402), a blocked account (403) and AI off are handled before sending, as for voice; a turn in progress stops.
+
 ## 6. What the dog knows and refuses
 
 The server puts the person's own data into the model's prompt every turn (one database round trip): gold (PNJ
@@ -198,9 +272,35 @@ board), crypto (BTC, ETH, BNB, SOL, XRP, DOGE, TON), VN indexes and the cached s
 sections they follow (titles), the weather of the device's city (`dash.city`, the dashboards' cache; refreshed when
 over 3 hours old), the device's calendar cache (7 days), `s3.alarms` (and the next ring), `s3.todo`, `s3.notes`
 (titles), reading on their EspOS readers, today's date and lunar date, the time in `sys.tz_min`. It must say when the
-numbers were updated and never use a number that is not there. General knowledge, homework, translation, code,
+numbers were updated and never use a number that is not there. A figure older than its limit (weather forecast
+24 h, current conditions 2 h, gold 24 h, coins 3 h, FX 36 h, stocks 4 days, news 24 h) is not given to the model
+at all: the dog says it has no new figure. Weather answers name the city (the device's `dash.city`: a device paired
+again takes the person's other device's city since 2026-11-19, not Hà Nội). A garbled or half sentence gets "say
+that again" in the dog's voice, never a guess. News: "tóm tắt báo" gets a spoken summary of the most important
+stories of the sections the person follows (fresh ones only, up to 15 titles and 8 leads in the prompt).
+
+Where it is (2026-11-20): every turn carries the device's name as the owner set it, its kind (S3 3.5"/2.8" colour
+touch screen on the owner's desk, or the X4 reader), the city and the time zone. "Mày đang ở đâu?" gets "in the
+device on your desk, in <city>"; "ở đó trời sao?" gets that city's weather. It never makes up an address and never
+claims to see outside. With no city set it says it does not know yet and that the city is set on the web (Thời tiết)
+or in Settings; no weather is fetched then.
+
+Chat (2026-11-20): it answers what the person says, not only questions: sympathy for "mệt quá"/"buồn quá" (sometimes
+a question back), teasing back, taking compliments, made-up stories of its own day in the yard, riddles and a
+guess-the-number game (the answer is kept in the turn, unseen by the person; the server corrects a hint that points
+the wrong way). Opinions are its taste, never facts. Chat replies stay 1-3 sentences. General knowledge, homework, translation, code,
 politics, religion, medical/legal/financial advice, price predictions: a short refusal in the dog's voice plus what
 it can do. Someone in danger: it stops joking and tells them to call family, 115 or 113.
+
+Itself (2026-11-20): each dog knows its own profile (breed, coat, age, favourite food, games, dislikes, place in the
+yard, habit) from web/scripts/assist-dog-profiles.json, written into talk.go by gen-assist-dogs.py.
+Asked about itself, it answers from that only; anything not there ("nặng mấy ký", "ba mẹ là ai") gets a playful,
+vague answer in its voice, never a new fact and never the refusal line.
+
+What it says it did (2026-11-20): a reply that says the dog changed something ("Đã đặt báo thức 7 giờ rưỡi", "Chú
+đặt báo thức rồi nghen") when the turn made no change is replaced by the dog's own "nothing done yet, say it again"
+line, so `reply` always matches `done`. When something was done, the device syncs at once (talk.cpp) and the alarm
+rings from alarms::tick.
 
 ## 6b. What the dog does
 
@@ -223,13 +323,25 @@ rows, `source: web`, `updated_ms` now: the ping rev rises and the device syncs).
 
 ## 7. Memory and privacy
 
-- **Memories** (`assist_memories`, per account, all dogs share them, at most 40): the model proposes them when the
-  person tells something lasting (name, what to be called, birthdays, likes, family and pets, work, goals) and the
+- **Memories** (`assist_memories`, per account, all dogs share them, at most 60, kept until deleted): the model
+  proposes them when the person tells something lasting (birthdays, likes, family and pets, work, goals) and the
   server filters out anything that looks secret (6+ digit runs, passwords, OTP, PIN, card or account numbers, ID
-  numbers, home address). "Quên chuyện đó đi" removes one. The web lists and deletes them (device page, tab Trò
-  chuyện; `GET /v1/assist/memories`, `POST /v1/assist/memories/delete`).
-- **Conversations** (`assist_convos`): the last 12 turns, text only (no audio is kept anywhere), deleted after one
-  day; 30 minutes of silence starts a new one. The web can delete them all.
+  numbers, home address). Since 2026-11-20 a fact said again is not stored twice, and a changed one replaces the old
+  ("đổi giờ dậy thành 6 giờ": the model names it by id, or the server sees the same words with other numbers, a
+  fuller version, or the opposite). Each turn shows the model at most 15: those sharing words with what is being
+  talked about, then the most recent. "Quên chuyện X đi" removes it, shown or not. The web lists and deletes them
+  (device page, tab Trò chuyện; `GET /v1/assist/memories`, `POST /v1/assist/memories/delete`).
+- **Conversations** (`assist_convos`, one row per session; 2026-11-20, "like ChatGPT"): 45 minutes of silence starts
+  a new session. A session keeps its last 6 to 9 turns word for word (text only: no audio is kept anywhere); when it
+  holds 9, the same model call also writes a one or two sentence summary of the oldest 4, added to the session's
+  summary (past about 90 words the summary is rewritten shorter), and those 4 go. No extra call, no extra wait.
+  The first turn of a new session also summarizes the previous one's unsummarized turns. Every turn sees this
+  session's summary and up to 3 earlier sessions' summaries (7 days), so "lúc nãy mình nói gì?" works. The words go
+  after 24 hours (a session never summarized keeps only what it was about), the summaries after 7 days (assist_reply
+  for the device it talks to, assist_sweep every hour for the rest). The web shows the recent sessions with their
+  summaries and deletes one or all.
+- **Prompt budget**: the system prompt stays under 24,000 characters (about 11,000 prompt tokens with the router's
+  own); over it, fewer memories and earlier sessions are shown. Measured on a 30-turn chat: 9,000 to 9,900 tokens.
 - **The name** (`user_profiles.call_name`): the web's Tài khoản › "Tên của bạn (chó sẽ gọi bạn như vậy)", or told
   to a dog ("Tên mình là Lan"); every dog uses it with its own way of addressing (Bao: "bây Lan", Boop: "sếp
   Lan").

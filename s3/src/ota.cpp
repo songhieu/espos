@@ -1,3 +1,4 @@
+#pragma GCC optimize("Os")  // cold code: built small (0.5.7 flash diet; the app slot is full)
 #include "ota.h"
 
 #include <HTTPClient.h>

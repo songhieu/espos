@@ -1,3 +1,4 @@
+#pragma GCC optimize("Os")  // not per frame: built small (0.5.7 flash diet)
 #include "os.h"
 
 #include <Preferences.h>
@@ -20,9 +21,11 @@
 #include "i18n.h"
 #include "keyboard.h"
 #include "lcd.h"
+#include "lock.h"
 #include "net.h"
 #include "notif.h"
 #include "photo.h"
+#include "pkg/pkg.h"
 #include "js/jsapp.h"
 #ifndef NO_PET
 #include "pet/pet.h"
@@ -31,6 +34,7 @@
 #include "wake/wake.h"
 #include "power.h"
 #include "sound.h"
+#include "splash.h"
 #include "src/display/lv_display_private.h"
 #include "theme.h"
 #include "touch.h"
@@ -49,6 +53,12 @@ std::map<lv_obj_t*, bool> barDarkOf;  // status bar text colour per screen
 std::set<lv_obj_t*> fullScreens;       // screens shown without the status bar (immersive: games)
 int rot = 0, bright = 70, vol = 45, saverSec = 120;
 Preferences prefs;
+
+// The way up and the brightness, also in NVS for the boot screen (splash.cpp: shown before the settings are read).
+void keepBootLook() {
+  if (prefs.getInt("rot", -1) != rot) prefs.putInt("rot", rot);
+  if (prefs.getInt("bl", -1) != bright) prefs.putInt("bl", bright);
+}
 
 // ------------------------------------------------------------------ time
 tm nowTm() {
@@ -749,6 +759,7 @@ void applyDeskSettings() {
   if (b != bright) {
     bright = b;
     if (!saverShown) lcd::setBacklight(b);
+    keepBootLook();
   }
   vol = constrain(desk::settingInt("s3.volume", vol), 0, 100);
   sound::setVolume(vol);
@@ -803,6 +814,9 @@ void build() {
 }
 
 uint32_t seenSettings = 0, seenDash = 0, seenLink = 0, seenPhoto = 0;
+// Seeded at begin(): Home was just built from what they say (0 made every boot build Home a second time, 0.5.7).
+uint32_t seenApps = 0, seenNotif = 0, seenLock = 0;
+
 
 }  // namespace
 
@@ -810,6 +824,12 @@ uint32_t seenSettings = 0, seenDash = 0, seenLink = 0, seenPhoto = 0;
 int W() { return lv_display_get_horizontal_resolution(disp); }
 int H() { return lv_display_get_vertical_resolution(disp); }
 bool landscape() { return W() > H(); }
+int colX() { return (W() - (landscape() ? 480 : 320)) / 2; }
+int colY() { return (H() - (landscape() ? 320 : 480)) / 2; }
+void column(lv_obj_t* b) {  // a BARE body: from SB_H down, the whole width
+  lv_obj_set_pos(b, colX(), SB_H + colY());
+  lv_obj_set_size(b, W() - 2 * colX(), H() - SB_H - 2 * colY());
+}
 
 lv_obj_t* screen(const char* title, lv_obj_t** body, int flags) {
   const Pal& p = pal();
@@ -1041,6 +1061,7 @@ void applyRotation(int r) {
   rot = r & 3;
   desk::setSetting("s3.rot", String(rot));
   prefs.putInt(rot & 1 ? "rotL" : "rotP", rot);  // the user's own landscape and portrait ways (Control Center)
+  keepBootLook();
   static const lv_display_rotation_t map[] = {LV_DISPLAY_ROTATION_0, LV_DISPLAY_ROTATION_90, LV_DISPLAY_ROTATION_180,
                                               LV_DISPLAY_ROTATION_270};
   // The app in front opens again, laid out for the new shape (every screen is built again).
@@ -1061,7 +1082,7 @@ int brightness() { return bright; }
 void setBrightness(int pct, bool save) {
   bright = constrain(pct, 5, 100);
   lcd::setBacklight(bright);
-  if (save) desk::setSetting("s3.bright", String(bright));
+  if (save) desk::setSetting("s3.bright", String(bright)), keepBootLook();
 }
 int volume() { return vol; }
 void setVolume(int pct, bool save) {
@@ -1080,12 +1101,20 @@ void begin(lv_display_t* d) {
   bright = constrain(desk::settingInt("s3.bright", prefs.getInt("bl", 70)), 5, 100);
   vol = constrain(desk::settingInt("s3.volume", prefs.getInt("vol", 45)), 0, 100);
   saverSec = desk::settingInt("s3.saver", prefs.getInt("saver", 120));
+  pkg::awaitCard(500);  // the card's apps and language font in before Home is built (0.5.7: built twice)
+  splash::step(40);
   i18n::begin();  // the language (sys.lang) before anything is built
+  splash::step(45);
   seedClock();
   theme::begin();
   alarms::begin();
+  splash::step(60);
   applyRotation(rot);
   lcd::setBacklight(bright);
+  keepBootLook();
+  seenApps = apps::version();
+  seenNotif = notif::version();
+  seenLock = lock::version();
   seenSettings = desk::settingsVersion();
   seenDash = desk::dashVersion();
   seenLink = (uint32_t)desk::link();
@@ -1101,9 +1130,13 @@ void tick() {
     if (theme::refresh()) lookPending = true;
     if (home::settingsChanged()) pending = true;
   }
-  static uint32_t seenApps = 0;
-  if (seenApps != jsapp::version()) {  // an app was installed or removed: new icons
-    seenApps = jsapp::version();
+  if (seenApps != apps::version()) {  // an app was installed or removed: new icons
+    seenApps = apps::version();
+    pending = true;
+  }
+  lock::tick();  // the trial's notices and end card (lock.h)
+  if (seenLock != lock::version()) {  // a paid app locked or opened again: its icon's lock
+    seenLock = lock::version();
     pending = true;
   }
   if (seenDash != desk::dashVersion() || seenLink != (uint32_t)desk::link() || seenPhoto != photo::version()) {
@@ -1112,10 +1145,15 @@ void tick() {
     seenPhoto = photo::version();
     pending = true;
   }
+  // The widgets' skeletons (wid::empty) last until the first data, or 2 minutes: then their words.
+  static bool firstWait = true;
+  if (firstWait && millis() > 121000) {
+    firstWait = false;
+    if (desk::dash().isNull()) pending = true;
+  }
   i18n::tick();
   if (i18n::switchReady()) lookPending = true;  // sys.lang from the web, its pack just loaded
   notif::tick();
-  static uint32_t seenNotif = 0;
   if (seenNotif != notif::version()) {  // a badge or the Center's list changed
     seenNotif = notif::version();
     pending = true;

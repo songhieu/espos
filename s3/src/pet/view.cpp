@@ -5,6 +5,7 @@
 #include "dog.h"
 #include "os.h"
 #include "packs.h"
+#include "talk.h"
 
 namespace pet {
 
@@ -87,9 +88,12 @@ void View::onTimer(lv_timer_t* t) {
   v->last_ = now;
   lv_obj_t* s = lv_obj_get_screen(v->img_);
   if (os::saverOn() || (s != lv_screen_active() && s != lv_layer_top())) return;  // not seen: no work
+  // 10 pictures a second; 5 while the assistant's TLS connection is being made: each picture is ~55 ms of decoding
+  // on core 0, the handshake's core (the board, 2026-11-20: 4.8 s for the handshake beside the dog at 10, 2.4 s alone).
+  const float every = talk::warming() ? 0.2f : 0.1f;
   v->acc_ += dt;
-  if (v->acc_ < 0.1f) return;
-  v->acc_ = v->acc_ > 0.3f ? 0 : v->acc_ - 0.1f;
+  if (v->acc_ < every) return;
+  v->acc_ = v->acc_ > 3 * every ? 0 : v->acc_ - every;
   v->step();
 }
 

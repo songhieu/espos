@@ -1,0 +1,16 @@
+# A new bot: the setup WiFi screen (no network saved), then a network added over USB (CMD:WIFIADD), then its own
+# pairing code (it pairs by itself over WiFi), then ESPOS:PROVISION (the USB installer, way 2) -> linked, synced,
+# standby.
+wait 1500
+expect ui setup_ap
+shot setup_ap
+serial CMD:WIFIADD Home WiFi	secret
+wait 3000
+expect ui claim
+shot pair_code
+serial ESPOS:PROVISION {"token":"SIMTOKENSIMTOKENSIMTOKENSIMTOKENSIMTOKENSIMTOKENSIMTOKENSIMTOKEN","api":"http://127.0.0.1:8098","wifi":[]}
+wait 3000
+expect ui standby
+serial STATE
+gif standby 6000
+wait 6500

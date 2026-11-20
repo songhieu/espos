@@ -1,3 +1,4 @@
+#pragma GCC optimize("Os")  // cold code: built small (0.5.7 flash diet; the app slot is full)
 // Remote control: remote.h, docs/remote.md. Two ways in, both while Settings › Điều khiển từ xa is on:
 // - Over the internet, through the EspOS server (the web EspOS's device page): the device calls
 //   POST /v1/device/remote (desk::remoteSend, the one kept TLS connection) every few seconds; while the owner's

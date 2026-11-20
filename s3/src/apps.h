@@ -28,6 +28,9 @@ struct App {
 };
 
 const std::vector<App>& all();
+// Changes when what Home shows of the apps changes (an install, a removal, a name, a picture, greyed or not); not
+// when only a package's place or a card scan that found the same apps changed (0.5.7: no second Home build at boot).
+uint32_t version();
 const App* find(const char* id);
 void open(const char* id, const char* arg = nullptr);
 // The app in front and how it was opened (open() keeps it; os.cpp clears it at Home), so a turn of the screen can

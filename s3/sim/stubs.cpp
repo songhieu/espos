@@ -14,6 +14,7 @@
 #include <vector>
 
 #include "desk.h"
+#include "hal/board.h"
 #include "jpeg.h"
 #include "lcd.h"
 #include "net.h"
@@ -248,7 +249,7 @@ const char* pairStatus() { return "Chờ xác nhận trên web"; }
 void unlink() {}
 void syncNow() {}
 bool syncing() { return false; }
-int64_t lastSyncMs() { return nowMs() - 6 * 60000; }
+int64_t lastSyncMs() { return getenv("SIM_NO_SYNC") ? 0 : nowMs() - 6 * 60000; }  // SIM_NO_SYNC: none yet since power-on
 const char* lastError() { return ""; }
 uint32_t changes() { return changeCount; }
 JsonObjectConst dash() { return dashDoc.as<JsonObjectConst>(); }
@@ -271,6 +272,11 @@ void setSetting(const char* key, const String& value) {
 }
 uint32_t settingsVersion() { return settingsVer; }
 bool provision(const char*, String& err) { return err = "sim", false; }
+String hwid(String* mac4) {  // a fixed board in the simulator: "espos-hw:7cdfa1b2c3d4"
+  if (mac4) *mac4 = "c3d4";
+  return "5a8e0c3b1f2d4e6a7b9c0d1e2f3a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c";
+}
+String tokenSha8() { return "1a2b3c4d"; }
 static FwOffer offer;
 const FwOffer& fwOffer() { return offer; }
 void reportOta(const String&, bool, const String&) {}
@@ -300,8 +306,9 @@ void scan() {}
 bool scanning() { return false; }
 const std::vector<Ap>& results() { return aps; }
 uint32_t resultsAt() { return 1; }
-void connect(const String&, const String&) {}
-void connectSaved(const String&) {}
+bool simWifi = !getenv("SIM_WIFI_OFF");  // SIM_WIFI_OFF=1: no WiFi until the WiFi page connects (claim.h's first boot)
+void connect(const String&, const String&) { simWifi = true; }
+void connectSaved(const String&) { simWifi = true; }
 void disconnect() {}
 void resumeAuto() {}
 void forget(const String&) {}
@@ -309,7 +316,7 @@ bool isSaved(const String& s) { return s == "Home"; }
 std::vector<String> savedNames() { return {"Home"}; }
 void addSaved(const String&, const String&) {}
 int savedCount() { return 1; }
-State state() { return State::Connected; }
+State state() { return simWifi ? State::Connected : State::Idle; }
 String ssid() { return "Home"; }
 String ip() { return "192.168.1.23"; }
 int rssi() { return -48; }
@@ -334,6 +341,7 @@ __attribute__((weak)) void setVolume(int) {}
 __attribute__((weak)) void click() {}
 __attribute__((weak)) void chime() {}
 __attribute__((weak)) void blip() {}
+__attribute__((weak)) void blipEnd() {}
 __attribute__((weak)) void test() {}
 __attribute__((weak)) void alarmBeep() { trace::add("sim: beep"); }
 // Streams are drained at once; with SIM_WAV=path every streamed sample is appended to that raw file
@@ -357,6 +365,12 @@ __attribute__((weak)) void simLed(uint8_t, uint8_t, uint8_t) {}
 
 // SIM_MIC=live: the computer's microphone (sim/live.cpp, the live build only).
 __attribute__((weak)) bool simLiveMic(mic::Sink, bool) { return false; }
+// SIM_ECHO=dB (the live build): what the speaker played comes back into the mic file's blocks, as on the board where
+// the speaker sits next to the mic (sim/live.cpp simEcho); the script build has no sound.
+__attribute__((weak)) void simEcho(int16_t*, int) {}
+// The live simulator plays sound in real time (PawBoop's loops and music only there: sfx.cpp).
+__attribute__((weak)) bool simLiveSound() { return false; }
+__attribute__((weak)) void simWakeEvent(const char*, float) {}
 
 namespace mic {
 namespace {
@@ -395,6 +409,7 @@ bool open(Sink s) {
         }
         const int n = f && simOn ? (int)fread(b, 2, 160, f) : 0;
         for (int i = n; i < 160; i++) b[i] = 0;
+        simEcho(b, 160);
         const Sink k = simSink;
         if (simOn && k) k(b, 160);
         t += std::chrono::milliseconds(10);
@@ -500,7 +515,7 @@ int simBacklight = 70;
 lv_display_t* begin() { return simDisp; }
 void setRotation(lv_display_rotation_t r) {
   const bool land = r == LV_DISPLAY_ROTATION_90 || r == LV_DISPLAY_ROTATION_270;
-  lv_display_set_resolution(simDisp, land ? 480 : 320, land ? 320 : 480);
+  lv_display_set_resolution(simDisp, land ? hal::uiH() : hal::uiW(), land ? hal::uiW() : hal::uiH());
 }
 void setBacklight(int p) { simBacklight = p; }
 void stats(uint32_t& f, uint32_t& u) { f = u = 0; }

@@ -63,7 +63,7 @@ __attribute__((always_inline)) inline float sdRR(float px, float py, float hw, f
   const float qx = fabsf(px) - hw + r, qy = fabsf(py) - hh + r;
   if (qx <= 0 && qy <= 0) return (qx > qy ? qx : qy) - r;
   const float ox = qx > 0 ? qx : 0, oy = qy > 0 ? qy : 0;
-  return sqrtf(ox * ox + oy * oy) + fminf(fmaxf(qx, qy), 0) - r;
+  return fsqrt(ox * ox + oy * oy) + fminf(fmaxf(qx, qy), 0) - r;
 }
 
 // ---------------------------------------------------------------- glass (made once per size)
@@ -269,6 +269,7 @@ void end() {
   runs.clear();
 }
 void frameStart() { clock_++; }
+uint32_t frameNo() { return clock_; }
 
 HOT void rrect(const Tgt& t, float x, float y, float w, float h, float r, uint16_t c, int a) {
   if (w <= 0 || h <= 0 || a <= 0) return;
@@ -296,7 +297,7 @@ HOT void ring(const Tgt& t, float cx, float cy, float r, float lw, uint16_t c, i
   for (int py = Y0; py < Y1; py++) {
     uint16_t* d = t.at(X0, py);
     for (int px = X0; px < X1; px++, d += t.dx) {
-      const float dx = px + 0.5f - X, dy = py + 0.5f - Y, cov = clampf(L / 2 + 0.5f - fabsf(sqrtf(dx * dx + dy * dy) - R), 0, 1);
+      const float dx = px + 0.5f - X, dy = py + 0.5f - Y, cov = clampf(L / 2 + 0.5f - fabsf(fsqrt(dx * dx + dy * dy) - R), 0, 1);
       const int w = (int)(cov * a / 8 + 0.5f);
       if (w > 0) *d = pk(mix(ex(*d), e, w > 32 ? 32 : w));
     }
@@ -312,7 +313,7 @@ HOT void line(const Tgt& t, float x0, float y0, float x1, float y1, float lw, ui
     uint16_t* d = t.at(X0, py);
     for (int px = X0; px < X1; px++, d += t.dx) {
       const float qx = px + 0.5f - ax, qy = py + 0.5f - ay, k = clampf((qx * vx + qy * vy) / vv, 0, 1), dx = qx - vx * k,
-                  dy = qy - vy * k, cov = clampf(L + 0.5f - sqrtf(dx * dx + dy * dy), 0, 1);  // round caps
+                  dy = qy - vy * k, cov = clampf(L + 0.5f - fsqrt(dx * dx + dy * dy), 0, 1);  // round caps
       const int w = (int)(cov * a / 8 + 0.5f);
       if (w > 0) *d = pk(mix(ex(*d), e, w > 32 ? 32 : w));
     }

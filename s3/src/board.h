@@ -5,14 +5,13 @@
 // driver starts (src/boards/boards.cpp).
 //   ES3C35P (LCDWIKI 3.5"): ST77922 320x480 over QSPI, its touch at I2C 0x55 (src/boards/es3c35p).
 //   ES3C28P (LCDWIKI 2.8"): ILI9341V 240x320 over SPI, FT6336G touch at I2C 0x38 (src/boards/es3c28p).
-// The UI is 320x480 portrait on both (LCD_W x LCD_H): the 2.8" board shows every picture at 2/3 (213x320, centred:
-// 13 px of black each side), shapes kept (scale.h).
+// The UI is the board's own (hal::uiW() x uiH(), portrait): 320x480 on the 3.5" board, 360x480 on the 2.8" one, which
+// shows every picture at 2/3 on its whole 240x320 panel, shapes kept (scale.h).
 #include <cstring>
 
 #include "hal/board.h"
 
-constexpr int LCD_W = hal::UI_W, LCD_H = hal::UI_H;  // the UI, portrait, on every board
-constexpr const char* FW_VERSION = "espos-s3-0.5.6";  // 0.5.6: the Hồ cá cảnh aquarium, the RGB LED, swipe to close the dog, fonts deflated; 0.5.5 (never released): the dog assistant talks (mic, push to talk, "Gâu" wake word, streamed voice); 0.5.4: PawBoop froze on a letter its font lacked (LVGL assert); dog records read lazily (2026-11-18)
+constexpr const char* FW_VERSION = "espos-s3-0.5.7";  // 0.5.7: boot splash + loading screens, faster boot, store progress/cancel, the 2.8" fills its screen (360x480) with its IPS colours, trial/claim, wake ack/follow-up, PawBoop sounds, aquarium speed (2026-11-20); 0.5.6: the Hồ cá cảnh aquarium, the RGB LED, swipe to close the dog, fonts deflated; 0.5.5 (never released): the dog assistant talks (mic, push to talk, "Gâu" wake word, streamed voice); 0.5.4: PawBoop froze on a letter its font lacked (LVGL assert); dog records read lazily (2026-11-18)
 
 namespace board {
 inline const char* name() { return hal::board().name; }    // "es3c35p", "es3c28p"

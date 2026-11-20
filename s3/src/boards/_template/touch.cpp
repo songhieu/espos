@@ -41,8 +41,8 @@ void task(void*) {
     const bool d = readPoint(px, py);
     const uint32_t now = millis();
     if (d) {  // the panel's point back to the UI's
-      x = constrain((px - UI.x) * UI.den / UI.num, 0, hal::UI_W - 1);
-      y = constrain((py - UI.y) * UI.den / UI.num, 0, hal::UI_H - 1);
+      x = constrain((px - UI.x) * UI.den / UI.num, 0, UI.w - 1);
+      y = constrain((py - UI.y) * UI.den / UI.num, 0, UI.h - 1);
       touch::report(x, y, true, now);
     } else if (down) {
       touch::report(x, y, false, now);  // lifted: where it was last

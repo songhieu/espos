@@ -1,0 +1,24 @@
+# A turn by the BOOT button with the stand-in server: listening, the question (a synthetic voice), thinking, the
+# reply's words with its voice (the Mac's own TTS through the stand-in), the follow-up listening, back to standby.
+serial ESPOS:PROVISION {"token":"SIMTOKENSIMTOKENSIMTOKENSIMTOKENSIMTOKENSIMTOKENSIMTOKENSIMTOKEN","api":"http://127.0.0.1:8098","wifi":[{"ssid":"Home WiFi","pass":"x"}]}
+wait 4000
+expect ui standby
+press
+wait 400
+expect ui listen
+shot listen
+say sim/bot/audio/question.wav
+# the question is ~2 s; it goes 2 s after the voice stops
+wait 4600
+expect ui think
+shot think
+gif reply 10000
+wait 3600
+expect ui talk
+wait 5000
+shot reply_end
+# the reply asked something: it listens again without the wake word; nothing said: back to standby
+wait 4000
+expect ui listen
+wait 7000
+expect ui standby

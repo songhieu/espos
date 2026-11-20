@@ -15,6 +15,12 @@ void tick();  // from loop()
 int W();
 int H();
 bool landscape();
+// Content laid out for the 3.5" board's screen, 320 x 480 (480 x 320 turned: the games, the saver's pages), keeps that
+// size in the middle of a bigger screen (the 2.8" board's 360 x 480): colX() / colY() is where its (0, 0) is (0 on the
+// 3.5" board); column(body) moves a BARE screen's body there (the screen's background shows around it).
+int colX();
+int colY();
+void column(lv_obj_t* body);
 
 // ------------------------------------------------------------------ app screens
 enum Flags {

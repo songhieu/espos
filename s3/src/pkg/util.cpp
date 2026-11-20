@@ -112,6 +112,55 @@ String readText(const String& path, size_t max) {
   return s;
 }
 
+#ifndef SIM
+// LittleFS.usedBytes() walks the whole file system: 0.4-0.9 s at the board's speed (QEMU -icount), and it ran on the UI
+// loop in every sync body (store::report) and store page: a "slow loop" of up to 2 s on the board (0.5.6). Now the
+// numbers are kept and measured again by a small task of its own (internal stack: flash reads turn the cache off)
+// 15 s after boot and after the packages changed, not on a timer (fewer walks of LittleFS); only the very first call
+// measures on the caller's loop (0.5.7).
+namespace {
+volatile uint32_t lfsTotal = 0, lfsUsed = 0, lfsAt = 0, lfsVer = 0;
+volatile bool lfsBusy = false;
+void lfsMeasure() {
+  lfsTotal = LittleFS.totalBytes();
+  lfsUsed = LittleFS.usedBytes();
+  lfsAt = millis() | 1;
+}
+void lfsTask(void*) {
+  const uint32_t t0 = millis();
+  lfsMeasure();
+  trace::add("lfs: %u of %u KB used, measured in %lu ms (stack %u B never used)", (unsigned)(lfsUsed / 1024),
+             (unsigned)(lfsTotal / 1024), millis() - t0, (unsigned)uxTaskGetStackHighWaterMark(nullptr));
+  lfsBusy = false;
+  vTaskDelete(nullptr);
+}
+}  // namespace
+
+void lfsRefresh() {
+  if (lfsBusy) return;
+  lfsBusy = true;
+  lfsVer = pkg::version();
+  if (xTaskCreatePinnedToCore(lfsTask, "lfsdu", 4096, nullptr, 1, nullptr, 0) != pdPASS) lfsBusy = false;
+}
+#else
+void lfsRefresh() {}
+#endif
+
+#ifdef ESPOS_QA
+// QA (dev console LFSSTRESS n): the background measure n times back to back, the UI running meanwhile.
+volatile int lfsStressLeft = 0;
+void lfsStress(int n) { lfsStressLeft = n; }
+void lfsStressTick() {
+#ifndef SIM
+  if (lfsStressLeft > 0 && !lfsBusy) {
+    lfsStressLeft = lfsStressLeft - 1;
+    lfsRefresh();
+    if (!lfsStressLeft) trace::add("lfs: stress done");
+  }
+#endif
+}
+#endif
+
 bool lfsInfo(uint64_t& total, uint64_t& freeB) {
 #ifdef SIM
   total = 0x132000;
@@ -119,8 +168,10 @@ bool lfsInfo(uint64_t& total, uint64_t& freeB) {
   freeB = used < total ? total - used : 0;
   return true;
 #else
-  total = LittleFS.totalBytes();
-  const uint64_t used = LittleFS.usedBytes();
+  if (!lfsAt && !lfsBusy) lfsMeasure();  // nothing known yet
+  else if (lfsVer != pkg::version()) lfsRefresh();  // after an install or a removal; the last numbers meanwhile
+  total = lfsTotal;
+  const uint64_t used = lfsUsed;
   freeB = used < total ? total - used : 0;
   return total > 0;
 #endif

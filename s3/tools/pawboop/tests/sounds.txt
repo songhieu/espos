@@ -1,0 +1,21 @@
+# PawBoop's game sounds (sfx.h): SIM_DATA=sim/data-snd (the sound packages), SIM_WAV=out.raw to hear them.
+# The script simulator drains the speaker at once: one-shots only (loops and music play in the live simulator).
+wait 2500
+set s3.pet_dog corgi
+pet
+wait 4500
+shot home
+# FEED: the sheet (tap + menu_open), a tier (the bowl, the pour, then the eat clip's crunches)
+tap 36 412
+wait 600
+shot sheet
+tap 60 360
+wait 6500
+# PET (tap + the clip's sounds), WASH, NAP
+tap 160 412
+wait 4000
+tap 222 412
+wait 5000
+tap 284 412
+wait 9000
+shot after

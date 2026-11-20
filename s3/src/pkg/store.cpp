@@ -13,6 +13,7 @@
 #include "espk.h"
 #include "i18n.h"
 #include "internal.h"
+#include "../lock.h"
 #include "os.h"
 #include "sound.h"
 #include "trace.h"
@@ -104,7 +105,8 @@ Entry parseEntry(JsonObjectConst a) {
       pt.req = p["req"] | !pt.group.length();  // no group: required (publish_pkg.py)
       pt.def = p["default"] | false;
       pt.board = p["board"] | "";
-      if (pt.id.length() && pt.url.length()) e.parts.push_back(pt);
+      // A paid part may have no public link: the server signs one just before the download (pkg-link below).
+      if (pt.id.length() && (pt.url.length() || (a["paid"] | false))) e.parts.push_back(pt);
     }
     return e;
 }
@@ -124,6 +126,7 @@ void catalogCb(void*, int status, JsonDocument* doc, const uint8_t*, size_t) {
     Entry e = parseEntry(a);
     if (e.id.length() && e.parts.size()) cat.push_back(e);
   }
+  lock::catalog((*doc)["packages"].as<JsonArrayConst>());  // its "paid" marks (lock.h)
   trace::add("store: catalog has %u packages", (unsigned)cat.size());
 }
 
@@ -140,6 +143,7 @@ struct Finished {
   Job job;
   bool ok;
   String err;
+  bool cancelled;
 };
 
 std::mutex qmu;  // queue, cur, st, finished
@@ -150,6 +154,9 @@ Status st;
 std::vector<Finished> finished;
 uint32_t jobVer = 1;
 std::map<String, uint8_t> syncFails;  // installs asked by the web that failed this boot
+// syncFails value of an install the person cancelled: held (as 3 failures) until the web asks for it again (tick),
+// or an install of it works.
+constexpr uint8_t CANCELLED = 4;
 
 void setState(State s, uint64_t done = 0, uint64_t total = 0) {
   std::lock_guard<std::mutex> l(qmu);
@@ -382,6 +389,11 @@ bool doInstall(const Job& j, String& err) {
     uint64_t got = 0;
     uint32_t waitMs = 0, feedMs = 0, partT0 = millis();
     while (ok) {
+      if (abortJob) {  // store::cancel: stopped by the user (before anything is committed)
+        err = T_("stopped");
+        ok = false;
+        break;
+      }
       uint32_t t = millis();
       const bool more = src->next(p, n);
       waitMs += millis() - t;
@@ -400,6 +412,7 @@ bool doInstall(const Job& j, String& err) {
       progress(base + max<uint64_t>(got, src->got()), need);
     }
     delete src;
+    if (ok) setState(CHECK, base + got, need);  // the part's SHA-256 and the last file's read-back
     trace::add("store: part %s %u KB in %lu ms (waiting for the network %u ms, writing %u ms: erase %u ms, %u KB "
                "already blank, program %u ms, read-back %u ms)",
                part.id.c_str(), (unsigned)(got / 1024), (unsigned long)(millis() - partT0), (unsigned)waitMs,
@@ -686,11 +699,14 @@ void runner(void*) {
     const bool ok = execute(j, err);
     {
       std::lock_guard<std::mutex> l(qmu);
+      const bool stopped = !ok && abortJob;
+      abortJob = false;
       st.state = ok ? DONE : ERROR;
       st.err = err;
+      st.cancelled = stopped;
       if (ok) st.pct = 100;
       st.seq++;
-      finished.push_back({j, ok, err});
+      finished.push_back({j, ok, err, stopped});
       cur = Job();
     }
     if (!ok) trace::add("store: %s failed: %s", j.id.c_str(), err.c_str());
@@ -720,6 +736,58 @@ void startRunner() {
     running = false;
   }
 #endif
+}
+
+// Paid parts carry no public link in the catalog: just before the download the server signs one for this device,
+// GET /v1/device/pkg-link?id=&part= -> {"url": "https://..."}, or 403 {"locked": ...}: then the lock sheet (lock.h).
+// The job waits here (shown as Waiting) until each such part has its link, then joins the queue.
+struct Linking {
+  Job j;
+  size_t next = 0;
+};
+std::vector<Linking*> linking;  // qmu
+
+bool enqueue(const Job& j, String& why);
+void linkDone(Linking* L) {
+  std::lock_guard<std::mutex> l(qmu);
+  linking.erase(std::remove(linking.begin(), linking.end(), L), linking.end());
+  jobVer++;
+}
+void linkNext(Linking* L);
+void linkCb(void* ctx, int status, JsonDocument* doc, const uint8_t*, size_t) {
+  Linking* L = (Linking*)ctx;
+  const char* url = doc ? ((*doc)["url"] | "") : "";
+  const bool locked = status == 403 || (doc && !(*doc)["locked"].isNull());
+  if (!locked && status == 200 && !strncmp(url, "https://", 8)) {
+    L->j.parts[L->next++].url = url;
+    return linkNext(L);
+  }
+  trace::add("store: no link for %s part %s (%d%s)", L->j.id.c_str(), L->j.parts[L->next].id.c_str(), status,
+             locked ? ", locked" : "");
+  linkDone(L);
+  if (!L->j.user) syncFails[L->j.id]++;  // the web asked for it: tried again at most 3 times this boot
+  if (L->j.user) {
+    if (locked) lock::sheet(L->j.name.c_str(), lock::Look::Os);
+    else os::toast(T_("cannot download"));
+  }
+  delete L;
+}
+void linkNext(Linking* L) {
+  while (L->next < L->j.parts.size() && L->j.parts[L->next].url.length()) L->next++;
+  if (L->next < L->j.parts.size()) {
+    desk::fetch("/v1/device/pkg-link?id=" + L->j.id + "&part=" + L->j.parts[L->next].id, false, linkCb, L, true);
+    return;
+  }
+  linkDone(L);
+  String why;
+  if (enqueue(L->j, why)) startRunner();
+  else if (L->j.user) os::toast(why.c_str());
+  delete L;
+}
+bool linkingOf(const String& id) {  // qmu held
+  for (const Linking* L : linking)
+    if (L->j.id == id) return true;
+  return false;
 }
 
 bool enqueue(const Job& j, String& why) {
@@ -780,6 +848,7 @@ bool lookup(const String& id, Package& out) {
 bool isQueued(const String& id) {
   std::lock_guard<std::mutex> l(qmu);
   if (running && cur.id == id) return true;
+  if (linkingOf(id)) return true;
   for (const Job& q : queue)
     if (q.id == id) return true;
   return false;
@@ -895,6 +964,29 @@ void afterJob(const Finished& f) {
   JsonArray a = d.as<JsonArray>();
   bool dirtyList = false;
   const int k = f.job.kind == Job::REMOVE ? 0 : f.job.kind == Job::MOVE ? 1 : 2;
+  if (!f.ok && f.cancelled) {
+    // The person's own stop. s3.pkgs follows what the device has, as after any job: the entry goes, or (an update
+    // stopped) says the version that stayed, without the web's "code". So the web shows it as not installed, and
+    // its next "Install" is a change the tick sees: the hold ends then (it was: no retry until a restart).
+    Package live;
+    bool have = lookup(f.job.id, live);
+    for (size_t i = 0; i < a.size(); i++) {
+      if (f.job.id != (a[i]["id"] | "")) continue;
+      if (have) {
+        JsonObject e = a[i].as<JsonObject>();
+        fillEntry(e, live);
+        e.remove("code");
+        have = false;
+      } else {
+        a.remove(i--);
+      }
+      dirtyList = true;
+    }
+    if (dirtyList) savePkgs(d);
+    syncFails[f.job.id] = CANCELLED;  // also when the list could not be saved (too long): not tried from the old entry
+    os::toast(i18n::fmt(N_("Install of {0} cancelled"), f.job.name).c_str());
+    return;
+  }
   if (!f.ok) {
     if (!f.job.user) syncFails[f.job.id]++;
     static const char* const FAIL[] = {N_("Could not remove {0}: {1}"), N_("Could not move {0}: {1}"),
@@ -904,6 +996,7 @@ void afterJob(const Finished& f) {
   }
   static const char* const OK[] = {N_("Removed {0}"), N_("Moved {0}"), N_("Installed {0}")};
   os::toast(i18n::fmt(OK[k], f.job.name).c_str());
+  syncFails.erase(f.job.id);  // it worked (from the device's Store too): the web's later asks count afresh
   if (f.job.kind == Job::INSTALL) reconcileAt = millis() + 300;  // an add-on may have waited for this app
   Package live;
   const Package* p = f.job.kind != Job::REMOVE && lookup(f.job.id, live) ? &live : nullptr;
@@ -1075,8 +1168,20 @@ bool install(const Entry& e, const std::vector<String>& parts, Vol v, String& wh
 
 bool installAs(const Entry& e, const std::vector<String>& asked, Vol v, String& why, bool user) {
   if (!e.supported()) return why = T_("Needs a software update"), false;
+  if (lock::locked(e.id.c_str())) return why = T_("Locked: buy it to download it"), false;  // the screens show the sheet
   std::vector<String> parts = asked;
   fitBoard(e, parts);
+  // One job a package. A repeat install (the console twice, a double tap in the Store, the web's push again) while
+  // one for it is waiting for its link, queued or running is dropped, not queued once more: on the board (2026-11-20)
+  // the second job came after the first, reinstalled the same version, and held the package so its remove was
+  // refused ("Something else is being done with this app"). And the same version, already there with every part asked
+  // for, on the same volume: nothing to do. Both answer true: what the caller wanted is under way or done.
+  if (isQueued(e.id)) return why = T_("Already in the queue"), true;
+  if (const Package* have = find(e.id.c_str())) {
+    bool all = have->available && have->code >= e.code && have->vol == v;
+    for (const String& s : parts) all = all && std::find(have->parts.begin(), have->parts.end(), s) != have->parts.end();
+    if (all) return why = T_("It is already there"), true;
+  }
   if (v == SD && !card::present()) return why = T_("Needs the memory card"), false;
   // A Java game needs the Java runtime package (its class library): installed first, on the same volume.
   // The runtime's own entry also says engine "j2me": never for itself (that recursed until the loop task's
@@ -1116,6 +1221,24 @@ bool installAs(const Entry& e, const std::vector<String>& asked, Vol v, String& 
   const Room r = room(partsBytes(e, parts), v, j.js);
   if (user && !r.ok)
     return why = i18n::fmt(N_("{0} is {1} short"), v == SD ? T_("Memory card") : T_("Device"), sizeText(r.missing)), false;
+  // A paid package (the catalog's "paid"): every part through a link signed for this device (the public "url" some
+  // still carry is for firmware 0.5.6 only, until those copies are retired).
+  const bool signedOnly = lock::paid(e.id.c_str());
+  for (Part& p : j.parts)
+    if (signedOnly) p.url = "";
+  for (const Part& p : j.parts)
+    if (!p.url.length()) {  // a paid part: its signed link first (linkNext queues the job)
+      Linking* L = new Linking();
+      L->j = j;
+      {
+        std::lock_guard<std::mutex> l(qmu);
+        if (linkingOf(j.id)) return delete L, why = T_("Already in the queue"), false;
+        linking.push_back(L);
+        jobVer++;
+      }
+      linkNext(L);
+      return true;
+    }
   if (!enqueue(j, why)) return false;
   startRunner();
   return true;
@@ -1168,17 +1291,44 @@ Status status() {
   return st;
 }
 
+bool cancellable(const char* id) {
+  std::lock_guard<std::mutex> l(qmu);
+  for (const Job& q : queue)
+    if (q.id == id) return true;
+  return running && cur.id == id && cur.kind == Job::INSTALL && !abortJob &&
+         (st.state == DOWNLOAD || st.state == COMPACT || st.state == QUEUED);
+}
+
+bool cancel(const char* id) {
+  std::lock_guard<std::mutex> l(qmu);
+  for (auto it = queue.begin(); it != queue.end(); ++it)
+    if (it->id == id) {
+      if (it->kind != Job::INSTALL) return false;
+      finished.push_back({*it, false, String(), true});  // ended as a stopped job (afterJob: s3.pkgs, the hold, toast)
+      queue.erase(it);
+      jobVer++;
+      trace::add("store: %s taken out of the queue", id);
+      return true;
+    }
+  if (!(running && cur.id == id && cur.kind == Job::INSTALL && (st.state == DOWNLOAD || st.state == COMPACT)))
+    return false;
+  abortJob = true;  // doInstall and the download stop at their next step; the job cleans up as after a failure
+  st.seq++;
+  trace::add("store: stopping %s", id);
+  return true;
+}
+
 State stateOf(const char* id) {
   std::lock_guard<std::mutex> l(qmu);
   if (running && cur.id == id) return st.state == DONE || st.state == ERROR ? IDLE : st.state;
   for (const Job& q : queue)
     if (q.id == id) return QUEUED;
-  return IDLE;
+  return linkingOf(id) ? QUEUED : IDLE;
 }
 
 bool busy() {
   std::lock_guard<std::mutex> l(qmu);
-  return running || queue.size();
+  return running || queue.size() || linking.size();
 }
 
 uint32_t version() {
@@ -1194,6 +1344,7 @@ const char* stateText(State s) {
     case MOVE: return T_("Moving");
     case REMOVE: return T_("Removing");
     case COMPACT: return T_("Tidying the storage");
+    case CHECK: return T_("Checking");
     case DONE: return T_("Done");
     case ERROR: return T_("Error");
     default: return "";
@@ -1207,6 +1358,11 @@ void begin() {
 
 void tick() {
   if (busy()) paceWait();
+  static bool lfsKnown = false;  // LittleFS's use measured in the background once the boot is over (util.cpp)
+  if (!lfsKnown && millis() > 15000) lfsKnown = true, lfsRefresh();
+#ifdef ESPOS_QA
+  lfsStressTick();
+#endif
   // Freed flash erased while nobody uses the device: one 64 KB block a second (each stops the screen ~0.2 s).
   static uint32_t eraseAt = 0;
   if (!busy() && os::idleMs() > 20000 && !sound::streaming() && millis() - eraseAt > 1000) {
@@ -1226,6 +1382,21 @@ void tick() {
     if (now != seenPkgs) {
       seenPkgs = now;
       reconcileAt = millis();
+      // The web asks again for an install the person cancelled (afterJob took its entry out, or its "code"): it is
+      // tried as any other.
+      bool held = false;
+      for (const auto& kv : syncFails) held |= kv.second == CANCELLED;
+      if (held) {
+        JsonDocument d;
+        loadPkgs(d);
+        for (JsonObjectConst o : d.as<JsonArrayConst>()) {
+          auto it = syncFails.find(o["id"] | "");
+          if (it == syncFails.end() || it->second != CANCELLED) continue;
+          if (find(it->first.c_str()) && o["code"].isNull()) continue;  // an update stopped: until the web asks one
+          trace::add("store: %s asked again after its cancel", it->first.c_str());
+          syncFails.erase(it);
+        }
+      }
     }
   }
   static uint32_t seenCat = 0;
@@ -1280,7 +1451,7 @@ void report(JsonObject o) {
   if (j.state != IDLE) {
     JsonObject jo = o["job"].to<JsonObject>();
     jo["id"] = j.id;
-    static const char* S[] = {"", "download", "download", "write", "move", "remove", "move", "done", "error"};
+    static const char* S[] = {"", "download", "download", "write", "move", "remove", "move", "done", "error", "write"};
     jo["state"] = S[j.state];
     jo["pct"] = j.pct;
     if (j.err.length()) jo["err"] = clip(j.err, 80);
@@ -1291,6 +1462,7 @@ void report(JsonObject o) {
 
 namespace in {
 volatile bool abortAll = false;
+volatile bool abortJob = false;
 }
 
 }  // namespace pkg

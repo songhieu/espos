@@ -1,3 +1,4 @@
+#pragma GCC optimize("Os")  // not per frame: built small (0.5.7 flash diet)
 // The built-in art (src/art.c, tools/art/make_art.py) is kept deflated in flash (~95 KB instead of ~667 KB) and
 // inflated once into PSRAM, together with its descriptors (so no internal RAM: art.h names each image as
 // (*art_dsc(i))). The first call does the work; a C++ constructor makes that happen before setup() (PSRAM is in the

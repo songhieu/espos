@@ -1,0 +1,7 @@
+# Boot with a saved network that is not there (BOOT_SIM_ROUTER=down, set by the line below's runner): two failed
+# rounds, then the setup WiFi opens by itself. Run: BOT_SIM_ROUTER=down tools/bot/sim.sh --headless ...
+serial ESPOS:PROVISION {"token":"SIMTOKENSIMTOKENSIMTOKENSIMTOKENSIMTOKENSIMTOKENSIMTOKENSIMTOKEN","api":"http://127.0.0.1:8098","wifi":[{"ssid":"Home WiFi","pass":"x"}]}
+wait 18000
+expect online no
+expect portal on
+shot 1_setup_on_boot

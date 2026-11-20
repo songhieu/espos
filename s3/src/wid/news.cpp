@@ -1,3 +1,4 @@
+#pragma GCC optimize("Os")  // widgets/JS glue built once per change: size over speed (0.5.7 flash diet)
 // The news family (docs/widgets.md §3): the first stories (list), stories with their pictures (photo), one story
 // big with its lead (one); the option picks a section (its slug; "" = every followed one). Titles are never cut.
 // web/app/src/os/wid/news.ts draws the same.

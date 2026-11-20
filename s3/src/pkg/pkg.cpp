@@ -15,6 +15,7 @@
 #include "js/jsapp.h"
 #include "os.h"
 #include "store.h"
+#include "splash.h"
 #include "trace.h"
 
 #ifndef NO_PET
@@ -478,6 +479,17 @@ const Package* find(const char* id) {
 }
 
 uint32_t version() { return ver; }
+bool cardChecked() { return in::card::probed(); }
+
+void awaitCard(uint32_t ms) {
+  begin();
+  const uint32_t t0 = millis();
+  while (!in::card::probed() && millis() - t0 < ms) delay(5);
+  in::card::poll();  // what the probe found, taken in now (setup: no LVGL timers yet)
+  refresh();
+  trace::add("pkg: card %s after %lu ms", in::card::present() ? "read" : in::card::probed() ? "not in" : "still looking",
+             (unsigned long)(millis() - t0));
+}
 
 void relabel() {
   rebuild();
@@ -591,6 +603,12 @@ void run(const char* id, const char* arg) {
     return;
   }
   trace::add("pkg: run %s (%s) %s", id, p->engine.c_str(), arg ? arg : "");
+  // Engines that read their data before their first picture (the aquarium's water, a Java game's classes, a
+  // JavaScript app's code) open under a cover drawn at once: its icon, its name, a bar; Home no longer stands still
+  // under the finger meanwhile (0.5.7). PawBoop and the run game show their own splash and spinner.
+  const bool covered = p->engine == "js" || p->engine == "j2me" || p->engine == "tank";
+  const uint32_t t0 = millis();
+  if (covered) splash::cover(id, p->name.c_str());
   if (p->engine == "js") jsapp::open(id, arg);
 #ifndef NO_PET
   else if (p->engine == "pet" && p->vol == SD && !pet::ready()) {
@@ -609,6 +627,10 @@ void run(const char* id, const char* arg) {
   else if (p->engine == "tank") tank::open(id, arg);
 #endif
   else os::toast(N_("Needs a software update"));
+  if (covered) {
+    splash::coverDone();
+    trace::add("pkg: %s opened in %lu ms", id, (unsigned long)(millis() - t0));
+  }
 }
 
 }  // namespace pkg

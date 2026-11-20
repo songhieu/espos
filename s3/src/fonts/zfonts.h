@@ -7,11 +7,12 @@
 #else
 #define UB_ZFONTS 1
 #endif
-#define ZFONTS_N 21
+#define ZFONTS_N 26
 #ifdef __cplusplus
 extern "C" {
 #endif
-typedef struct { const lv_font_t* font; uint32_t off, len; } zfont_t;
+/* inplace: the font's own descriptions are in RAM (reached by name); fonts.cpp sets their glyph_bitmap */
+typedef struct { const lv_font_t* font; uint32_t off, len; uint8_t inplace; } zfont_t;
 extern const zfont_t zfonts[ZFONTS_N];
 extern const uint32_t zfonts_raw, zfonts_size;
 extern const uint8_t zfonts_z[];

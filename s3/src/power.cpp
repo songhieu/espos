@@ -1,3 +1,4 @@
+#pragma GCC optimize("Os")  // not per frame: built small (0.5.7 flash diet)
 #include "power.h"
 
 #include <Arduino.h>

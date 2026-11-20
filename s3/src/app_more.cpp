@@ -1,3 +1,4 @@
+#pragma GCC optimize("Os")  // Photos, Lunar, Calculator, Store: screens built once per change (0.5.7 flash diet)
 // Small built-in apps: Photos, Lunar (the lunar calendar), Calculator and Store (the app store: packages from the
 // catalog, mockups/s3-store.html).
 #include <Arduino.h>
@@ -12,6 +13,7 @@
 #include "data.h"
 #include "desk.h"
 #include "fonts.h"
+#include "lock.h"
 #include "os.h"
 #include "photo.h"
 #include "pkg/pkg.h"
@@ -506,6 +508,7 @@ lv_obj_t* entryIcon(lv_obj_t* parent, const String& id, const Entry* e, int size
 void quickInstall(const String& id) {
   const Entry* e = st::entry(id.c_str());
   if (!e) return;
+  if (lock::locked(id.c_str())) return lock::sheet(e->name.c_str(), lock::Look::Os);  // "Buy": the way to unlock it
   if (e->addonOf.length()) return openDetails(id);
   bool choice = false;
   for (const st::Part& p : e->parts) choice |= p.group.length() > 0;
@@ -524,6 +527,7 @@ void onAction(lv_event_t* ev) {
   const String i = *id;
   const pkg::Package* p = pkg::find(i.c_str());
   String why;
+  if (p && lock::locked(i.c_str())) return lock::sheet(p->name.c_str(), lock::Look::Os);
   if (p && st::hasUpdate(i.c_str())) {
     if (!st::update(i.c_str(), why)) os::toast(why.c_str());
     refillSoon();
@@ -572,6 +576,9 @@ void appRow(lv_obj_t* parent, const String& id, const Entry* e) {
   lv_obj_t* ic = entryIcon(c, id, e, 44);
   lv_obj_align(ic, LV_ALIGN_LEFT_MID, 0, 0);
   if (inst && !inst->available) lv_obj_set_style_opa(ic, LV_OPA_40, 0);
+  // Paid (lock.h): locked now ("Buy", a lock on an installed one), the trial's "Try", or "Owned".
+  const bool locked = lock::locked(id.c_str()), extra = !lock::freeAnyway(id.c_str());
+  if (locked && inst) lv_obj_align_to(lock::badge(c, 18), ic, LV_ALIGN_BOTTOM_RIGHT, 5, 5);
   // Name and a line or two under it, shown in full (the row grows).
   const int textW = os::W() - 24 - 20 - 54 - 84;
   lv_obj_t* tx = clear(c);
@@ -602,6 +609,8 @@ void appRow(lv_obj_t* parent, const String& id, const Entry* e) {
     const st::Status ss = st::status();
     arc = progressArc(right, ss.id == id ? ss.pct : 0);
     lv_obj_set_style_margin_right(arc, 10, 0);
+  } else if (locked) {
+    pkg::ui::pill(right, NC_("store", "Buy"), BLUE, 0xffffff, onAction, (void*)(intptr_t)idx);
   } else if (inst && st::hasUpdate(id.c_str())) {
     pkg::ui::pill(right, N_("Update"), BLUE, 0xffffff, onAction, (void*)(intptr_t)idx);
   } else if (inst) {
@@ -610,11 +619,17 @@ void appRow(lv_obj_t* parent, const String& id, const Entry* e) {
     lv_obj_t* l = label(right, "", 11, true, p.faint);
     wrapText(l, N_("Needs a software update"), 80, 11, true, 1);
     lv_obj_set_style_text_align(l, LV_TEXT_ALIGN_RIGHT, 0);
+  } else if (extra && lock::trial()) {
+    pkg::ui::pill(right, N_("Try"), p.dark ? 0x3b2f66 : 0xefe9ff, p.dark ? 0xc9b8ff : 0x6a3df0, onAction, (void*)(intptr_t)idx);
   } else {
     pkg::ui::pill(right, N_("Install"), p.chip, p.link, onAction, (void*)(intptr_t)idx);
   }
   const uint64_t bytes = inst ? inst->bytes : e ? st::partsBytes(*e, st::defaultParts(*e)) : 0;
-  if (bytes && s == st::IDLE) label(right, pkg::sizeText(bytes).c_str(), 11, false, p.faint);
+  const bool own = extra && lock::bought(id.c_str());
+  if (bytes && s == st::IDLE) {
+    lv_obj_t* z = label(right, "", 11, own, own ? (p.dark ? 0x4cd28a : 0x1f9d4c) : p.faint);
+    fitText(z, own ? i18n::fmt(N_("Owned · {0}"), pkg::sizeText(bytes)).c_str() : pkg::sizeText(bytes).c_str(), 80, 16, 11, 11, own, 0);
+  }
   lv_obj_update_layout(c);
   lv_obj_align(right, LV_ALIGN_RIGHT_MID, 0, 0);
   rows.push_back({id, arc, s});
@@ -738,7 +753,9 @@ void watch(lv_timer_t*) {
     pendingDetail = "";
     if (st::entry(id.c_str())) openDetails(id);
   }
-  if (seenPkg != pkg::version() || seenCat != st::catalogVersion()) return fill();
+  static uint32_t seenLock = 0;
+  if (seenPkg != pkg::version() || seenCat != st::catalogVersion() || seenLock != lock::version())
+    return seenLock = lock::version(), fill();
   const st::Status ss = st::status();
   for (RowRef& r : rows) {
     const State s = st::stateOf(r.id.c_str());
@@ -772,6 +789,7 @@ struct Sel {
   bool confirmRm = false;
   State shown = st::IDLE;
   lv_obj_t *progTitle = nullptr, *progNum = nullptr, *progFill = nullptr;
+  lv_obj_t *progMeta = nullptr, *progStop = nullptr;  // speed and time left; Stop (0.5.7)
 };
 
 struct Det {
@@ -780,6 +798,11 @@ struct Det {
   String scrollTo;      // an add-on to show (opened for it)
   lv_obj_t *scr = nullptr, *body = nullptr;
   uint32_t seenPkg = 0, seenCat = 0;
+  // The download's speed: bytes and time at the last sample, the speed smoothed (bytes a second; 0 = not known yet).
+  uint32_t rateAt = 0;
+  uint64_t rateDone = 0;
+  float rate = 0;
+  String rateId;
 } det;
 
 void buildDetails();
@@ -846,8 +869,10 @@ void onPrimary(lv_event_t* ev) {
   if (!s) return;
   String why;
   const pkg::Package* p = pkg::find(s->id.c_str());
-  if (p && st::hasUpdate(s->id.c_str())) {
+  if (p && st::hasUpdate(s->id.c_str()) && !lock::locked(s->id.c_str())) {
     if (!st::update(s->id.c_str(), why)) os::toast(why.c_str());
+  } else if (lock::locked(s->id.c_str())) {
+    return lock::sheet((s->hasEntry ? s->e.name : p ? p->name : s->id).c_str(), lock::Look::Os);
   } else if (p) {
     if (const char* a = pkg::ui::appOf(s->id)) apps::open(a);
     return;
@@ -886,6 +911,12 @@ String setOf(const Sel& s) {
   return p ? p->set : String();
 }
 
+void onStop(lv_event_t* ev) {
+  int v;
+  Sel* s = selOf(ev, v);
+  if (s && !st::cancel(s->id.c_str())) os::toast(N_("It can't be cancelled now"));
+}
+
 void progressCell(const Sel& sc, Sel& s, State state, const pkg::Package* inst) {
   const Pal& p = pal();
   const st::Status ss = st::status();
@@ -893,14 +924,44 @@ void progressCell(const Sel& sc, Sel& s, State state, const pkg::Package* inst) 
   lv_obj_set_flex_flow(c, LV_FLEX_FLOW_COLUMN);
   lv_obj_set_style_pad_gap(c, 8, 0);
   lv_obj_t* top = clear(c);
-  lv_obj_set_size(top, lv_pct(100), 18);
+  lv_obj_set_size(top, lv_pct(100), max(lineH(14, true), lineH(13, false)));  // the title's whole line (was 18 px)
   s.progTitle = label(top, "", 14, true, p.fg);
+  lv_obj_align(s.progTitle, LV_ALIGN_LEFT_MID, 0, 0);
   s.progNum = label(top, "", 13, false, p.faint);
   lv_obj_align(s.progNum, LV_ALIGN_RIGHT_MID, 0, 0);
   lv_obj_t* track = box(c, p.line, 4);
   lv_obj_set_size(track, lv_pct(100), 8);
   s.progFill = box(track, BLUE, 4);
   lv_obj_set_size(s.progFill, 0, 8);
+  const bool install = ss.kind == 0 && (ss.id == s.id || state == st::QUEUED);
+  // An install: its speed and time left, and Cancel while it can still be stopped safely (0.5.7).
+  if (install) {
+    lv_obj_t* meta = clear(c);
+    lv_obj_set_size(meta, lv_pct(100), 30);
+    s.progMeta = label(meta, "", 12, false, p.faint);
+    lv_obj_align(s.progMeta, LV_ALIGN_LEFT_MID, 0, 0);
+    if (state == st::QUEUED || state == st::DOWNLOAD || state == st::COMPACT) {
+      s.progStop = pkg::ui::pill(meta, N_("Cancel"), p.dark ? 0x3a1d1d : 0xffe5e3, col::RED, onStop, ud(int(&s - det.sels.data())), 28);
+      lv_obj_align(s.progStop, LV_ALIGN_RIGHT_MID, 0, 0);
+    }
+    // The steps: downloading (the files go to their place as they come), checking, installing.
+    static const char* const STEPS[] = {N_("Downloading"), N_("Checking"), N_("Installing")};
+    const int now = state == st::CHECK ? 1 : state == st::WRITE ? 2 : state == st::QUEUED ? -1 : 0;
+    lv_obj_t* row = clear(c);
+    lv_obj_set_size(row, lv_pct(100), 22);
+    lv_obj_set_flex_flow(row, LV_FLEX_FLOW_ROW);
+    lv_obj_set_style_pad_column(row, 6, 0);
+    const int cw = (os::W() - 24 - 24 - 12) / 3;
+    for (int i = 0; i < 3; i++) {
+      const bool on = i == now, done = i < now;
+      lv_obj_t* chip = box(row, on ? (p.dark ? 0x1d3557 : 0xe3efff) : p.cell2, 8);
+      lv_obj_set_size(chip, cw, 22);
+      lv_obj_t* l = label(chip, "", 12, on, on ? (p.dark ? 0x9cc8ff : 0x1360d6) : done ? 0x1f9d55 : p.faint);
+      fitText(l, STEPS[i], cw - 6, lineH(12, on), 12, 8, on);  // one line: smaller rather than wrapped
+      lv_obj_set_style_text_align(l, LV_TEXT_ALIGN_CENTER, 0);
+      lv_obj_center(l);
+    }
+  }
   String where = state == st::QUEUED ? T_("Waiting for the job before it") : ss.kind == 1 ? T_("Removing from the device") : "";
   if (ss.kind == 2 && inst) where = inst->vol == pkg::SD ? T_("Move to device") : T_("Move to memory card");
   if (ss.kind == 0 && state != st::QUEUED) {
@@ -1139,7 +1200,7 @@ void buildDetails() {
   lv_obj_t* scrollTo = nullptr;
   for (size_t si = 0; si < det.sels.size(); si++) {
     Sel& s = det.sels[si];
-    s.progTitle = s.progNum = s.progFill = nullptr;
+    s.progTitle = s.progNum = s.progFill = s.progMeta = s.progStop = nullptr;
     if (const Entry* e = st::entry(s.id.c_str())) s.e = *e, s.hasEntry = true;
     const pkg::Package* inst = pkg::find(s.id.c_str());
     const State state = st::stateOf(s.id.c_str());
@@ -1170,6 +1231,8 @@ void buildDetails() {
     lv_obj_set_size(hdr, lv_pct(100), addon ? 72 : icon + 4);
     lv_obj_t* ic = entryIcon(hdr, s.id, s.hasEntry ? &s.e : nullptr, icon);
     lv_obj_align(ic, LV_ALIGN_LEFT_MID, 0, 0);
+    const bool locked = lock::locked(s.id.c_str()), extra = !lock::freeAnyway(s.id.c_str());
+    if (locked && inst) lv_obj_align_to(lock::badge(hdr, addon ? 20 : 22), ic, LV_ALIGN_BOTTOM_RIGHT, 5, 5);
     lv_obj_t* n = label(hdr, "", addon ? 16 : 20, true, p.fg);
     fitText(n, name.c_str(), os::W() - 24 - icon - 12, 22, addon ? 16 : 20, 13, true);
     lv_obj_set_pos(n, icon + 12, addon ? 0 : 2);
@@ -1178,15 +1241,20 @@ void buildDetails() {
     if (inst)
       who += String(who.length() ? " · " : "") + i18n::fmt(N_("on {0}"), pkg::ui::volName(inst->vol)) +
              (inst->available ? "" : T_(" (not inserted)"));
+    if (extra && lock::bought(s.id.c_str())) who += String(who.length() ? " · " : "") + T_("Owned");
+    else if (locked) who = String(T_("Locked now")) + (who.length() ? " · " : "") + who;
     lv_obj_t* a = label(hdr, "", 13, false, p.faint);
     fitText(a, who.c_str(), os::W() - 24 - icon - 12, 18, 13, 11);
     lv_obj_set_pos(a, icon + 12, addon ? 21 : 28);
     const bool needMain = (addon && !main) || needOther;
-    if (state == st::IDLE && !(addon && inst && !st::hasUpdate(s.id.c_str()))) {
-      const char* t = inst ? (st::hasUpdate(s.id.c_str()) ? N_("Update") : N_("Open"))
-                           : !s.hasEntry || s.e.supported() ? N_("Install") : N_("Needs a software update");
-      const bool dim = (!inst && s.hasEntry && (!s.e.supported() || !room.ok || needMain)) || (inst && !inst->available);
-      lv_obj_t* b = pkg::ui::pill(hdr, t, dim ? p.cell2 : BLUE, dim ? p.faint : 0xffffff, onPrimary, ud(si), addon ? 28 : 30);
+    if (state == st::IDLE && (locked || !(addon && inst && !st::hasUpdate(s.id.c_str())))) {
+      const bool tryIt = !inst && extra && lock::trial();
+      const char* t = locked ? NC_("store", "Buy")
+                      : inst ? (st::hasUpdate(s.id.c_str()) ? N_("Update") : N_("Open"))
+                             : !s.hasEntry || s.e.supported() ? (tryIt ? N_("Try") : N_("Install")) : N_("Needs a software update");
+      const bool dim = !locked && ((!inst && s.hasEntry && (!s.e.supported() || !room.ok || needMain)) || (inst && !inst->available));
+      const uint32_t bg = dim ? p.cell2 : tryIt ? 0x7c4dff : BLUE;
+      lv_obj_t* b = pkg::ui::pill(hdr, t, bg, dim ? p.faint : 0xffffff, onPrimary, ud(si), addon ? 28 : 30);
       lv_obj_set_style_pad_hor(b, 22, 0);
       lv_obj_set_pos(b, icon + 12, addon ? 42 : 46);
     }
@@ -1210,7 +1278,7 @@ void buildDetails() {
       const st::Entry* ne = needOther && main ? st::entry(needs.c_str()) : nullptr;
       hint(det.body, i18n::fmt(N_("Install {0} first."), ne ? ne->name : nameOf(det.sels[0], nullptr)).c_str());
     }
-    else if (!inst && s.hasEntry && s.e.supported() && !room.ok && state == st::IDLE)
+    else if (!inst && s.hasEntry && s.e.supported() && !room.ok && state == st::IDLE && !locked)
       roomPanel(s, room, js, sdv.present);
 
     // What it is.
@@ -1220,8 +1288,8 @@ void buildDetails() {
       wrapText(d, desc.c_str(), os::W() - 32, 14);
       lv_obj_set_style_pad_hor(d, 4, 0);
     }
-    if (!inst && s.hasEntry && state == st::IDLE) partsChoice(s, si);
-    if (!inst && s.hasEntry && sdv.present && state == st::IDLE) volChoice(s, si, js);
+    if (!inst && s.hasEntry && state == st::IDLE && !locked) partsChoice(s, si);
+    if (!inst && s.hasEntry && sdv.present && state == st::IDLE && !locked) volChoice(s, si, js);
     if (inst && state == st::IDLE) actionsRow(s, si, inst, sdv.present);
 
     // Permissions in plain words (the app's; an add-on's own when it asks for more).
@@ -1244,19 +1312,42 @@ void buildDetails() {
 
 void detWatch(lv_timer_t*) {
   if (!det.body) return;
-  bool changed = det.seenPkg != pkg::version() || det.seenCat != st::catalogVersion();
+  static uint32_t seenLock = 0;
+  bool changed = det.seenPkg != pkg::version() || det.seenCat != st::catalogVersion() || seenLock != lock::version();
+  seenLock = lock::version();
   for (const Sel& s : det.sels) changed |= st::stateOf(s.id.c_str()) != s.shown;
   if (changed) return buildDetails();
   const st::Status ss = st::status();
+  // The speed over the last seconds (a sample a second, smoothed), for "86 KB/s · 32 s left".
+  const uint32_t now = millis();
+  if (ss.id != det.rateId || ss.state != st::DOWNLOAD) {
+    det.rateId = ss.state == st::DOWNLOAD ? ss.id : String();
+    det.rateAt = now, det.rateDone = ss.done, det.rate = 0;
+  } else if (now - det.rateAt >= 1000) {
+    const float r = (ss.done - det.rateDone) * 1000.0f / (now - det.rateAt);
+    det.rate = det.rate > 0 ? det.rate * 0.6f + r * 0.4f : r;
+    det.rateAt = now, det.rateDone = ss.done;
+  }
   for (Sel& s : det.sels) {
     if (!s.progTitle) continue;
     const bool mine = ss.id == s.id;
     const State showS = mine && ss.state != st::DONE && ss.state != st::ERROR ? ss.state : s.shown;
-    String t = st::stateText(showS);
+    // An install's last step is "Installing" (its list written), the same word as its step below.
+    String t = showS == st::WRITE && ss.kind == 0 ? String(T_("Installing")) : String(st::stateText(showS));
     if (mine && showS != st::QUEUED && showS != st::REMOVE) t += " " + String(ss.pct) + "%";
     setText(s.progTitle, t.c_str());
     setText(s.progNum, mine && ss.total ? (pkg::sizeText(ss.done) + " / " + pkg::sizeText(ss.total)).c_str() : "");
     lv_obj_set_width(s.progFill, lv_pct(mine ? max(2, ss.pct) : 0));
+    if (s.progMeta) {
+      char m[64] = "";
+      if (mine && showS == st::DOWNLOAD && det.rate >= 512 && ss.total > ss.done) {
+        const uint32_t left = (uint32_t)((ss.total - ss.done) / det.rate) + 1;
+        if (left >= 120) snprintf(m, sizeof m, T_("%u KB/s · %u min left"), (unsigned)(det.rate / 1024), (unsigned)((left + 30) / 60));
+        else snprintf(m, sizeof m, T_("%u KB/s · %u s left"), (unsigned)(det.rate / 1024), (unsigned)left);
+      }
+      setText(s.progMeta, m);
+    }
+    if (s.progStop && !st::cancellable(s.id.c_str())) lv_obj_add_flag(s.progStop, LV_OBJ_FLAG_HIDDEN);
   }
 }
 
@@ -1282,7 +1373,7 @@ void openDetails(const String& asked) {
   lv_obj_add_event_cb(det.scr, [](lv_event_t* ev) {
     if (lv_event_get_current_target(ev) != det.scr) return;
     det.scr = det.body = nullptr;
-    for (Sel& s : det.sels) s.progTitle = s.progNum = s.progFill = nullptr;
+    for (Sel& s : det.sels) s.progTitle = s.progNum = s.progFill = s.progMeta = s.progStop = nullptr;
   }, LV_EVENT_DELETE, nullptr);
   every(det.scr, 250, detWatch);
   buildDetails();
@@ -1306,6 +1397,8 @@ void open(const char* arg) {
     rows.clear();
   }, LV_EVENT_DELETE, nullptr);
   st::refresh(true);
+  if (lv_obj_t* ch = lock::chip((lv_obj_t*)lv_obj_get_user_data(scr_), false))  // the trial's days (lock.h)
+    lv_obj_align(ch, LV_ALIGN_RIGHT_MID, -12, 0);
   fill();
   every(scr_, 300, watch);
   os::open(scr_);

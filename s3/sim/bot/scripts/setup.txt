@@ -1,0 +1,33 @@
+# A new bot set up from a phone (way 1, no claim code). The setup WiFi screen; the page's "Kết nối" with a wrong
+# password (the page and the OLED say so), then the right one (connected); then it pairs by itself: a code and its
+# QR on the OLED, the code entered on the web (the stand-in's /_fixture/pair), "Xong! Chào bạn", synced, standby.
+# "curl" lines are the phone and the web; "page" prints what the phone's page says.
+wait 1500
+expect ui setup_ap
+shot 1_setup_ap
+curl -d 's=Home+WiFi&t=&p=wrong&l=vi' http://localhost:${BOT_SIM_PORTAL_PORT}/save
+wait 700
+expect ui note
+shot 2_connecting
+page
+wait 1700
+expect ui note
+shot 3_wrong_password
+page
+wait 1000
+curl -d 's=Home+WiFi&t=&p=secret&l=vi' http://localhost:${BOT_SIM_PORTAL_PORT}/save
+wait 2300
+shot 4_wifi_ok
+page
+wait 3800
+expect ui claim
+shot 5_pair_code
+curl -X POST -d '{}' http://127.0.0.1:8098/_fixture/pair
+wait 6000
+expect ui talk
+shot 6_hello
+wait 7000
+expect ui standby
+shot 7_standby
+serial STATE
+wait 300

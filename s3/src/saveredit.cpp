@@ -123,6 +123,9 @@ lv_obj_t* pill(lv_obj_t* parent, const char* text, bool on, lv_event_cb_t cb, in
 }
 
 int innerW() { return (land ? 248 : os::W()) - 24; }
+// The page's own screen (desksaver::canvas): elements, the handle and the guides live in it, in its coordinates.
+int PW() { return land ? desksaver::PAGE_H : desksaver::PAGE_W; }
+int PH() { return land ? desksaver::PAGE_W : desksaver::PAGE_H; }
 
 // A caption and a wrapping row of pills under it.
 lv_obj_t* row(lv_obj_t* parent, const char* caption) {
@@ -250,7 +253,7 @@ void placeHandle() {
   El* e = selEl();
   if (!handle) return;
   if (!e) return (void)lv_obj_add_flag(handle, LV_OBJ_FLAG_HIDDEN);
-  lv_obj_set_pos(handle, min(e->x + e->w - 9, os::W() - 18), min(e->y + e->h - 9, os::H() - 18));
+  lv_obj_set_pos(handle, min(e->x + e->w - 9, PW() - 18), min(e->y + e->h - 9, PH() - 18));
   lv_obj_remove_flag(handle, LV_OBJ_FLAG_HIDDEN);
   lv_obj_move_foreground(handle);
 }
@@ -294,8 +297,8 @@ void showGuides(int gx, int gy) {
   if (!guideV || !guideH) return;
   gx >= 0 ? lv_obj_remove_flag(guideV, LV_OBJ_FLAG_HIDDEN) : lv_obj_add_flag(guideV, LV_OBJ_FLAG_HIDDEN);
   gy >= 0 ? lv_obj_remove_flag(guideH, LV_OBJ_FLAG_HIDDEN) : lv_obj_add_flag(guideH, LV_OBJ_FLAG_HIDDEN);
-  if (gx >= 0) lv_obj_set_x(guideV, min(gx, os::W() - 1));
-  if (gy >= 0) lv_obj_set_y(guideH, min(gy, os::H() - 1));
+  if (gx >= 0) lv_obj_set_x(guideV, min(gx, PW() - 1));
+  if (gy >= 0) lv_obj_set_y(guideH, min(gy, PH() - 1));
 }
 
 // While a finger moves something the page is seen whole: the bars and the sheet hide (the bottom bar comes back
@@ -329,8 +332,8 @@ void onEl(lv_event_t* ev) {
     }
     if (!drag.moved) return;
     int gx, gy;
-    e.x = snapAxis(drag.x + dx, e.w, os::W(), false, gx);
-    e.y = snapAxis(drag.y + dy, e.h, os::H(), true, gy);
+    e.x = snapAxis(drag.x + dx, e.w, PW(), false, gx);
+    e.y = snapAxis(drag.y + dy, e.h, PH(), true, gy);
     lv_obj_set_pos(boxes[i], e.x, e.y);
     showGuides(gx, gy);
     if (i == sel) placeHandle();
@@ -389,8 +392,8 @@ void onHandle(lv_event_t* ev) {
   }
   const int w = drag.w + p.x - drag.start.x, h = drag.h + p.y - drag.start.y;
   if (code == LV_EVENT_PRESSING && e->free()) {
-    e->w = constrain((w + 2) / 4 * 4, 16, os::W() - e->x);
-    e->h = constrain((h + 2) / 4 * 4, 12, os::H() - e->y);
+    e->w = constrain((w + 2) / 4 * 4, 16, PW() - e->x);
+    e->h = constrain((h + 2) / 4 * 4, 12, PH() - e->y);
     lv_obj_set_size(boxes[sel], e->w, e->h);
     placeHandle();
   } else if (code == LV_EVENT_PRESSING) {
@@ -405,8 +408,8 @@ void onHandle(lv_event_t* ev) {
     }
     if (best == e->sz) return;
     desksaver::setWidgetSize(*e, best);
-    e->x = constrain(e->x, 0, max(0, os::W() - e->w));
-    e->y = constrain(e->y, 0, max(0, os::H() - e->h));
+    e->x = constrain(e->x, 0, max(0, PW() - e->w));
+    e->y = constrain(e->y, 0, max(0, PH() - e->h));
     refreshEl(sel);
     edited = true;
   } else if (code == LV_EVENT_RELEASED || code == LV_EVENT_PRESS_LOST) {
@@ -594,7 +597,7 @@ void elementSheet(El& e) {
       // A bigger font needs a taller box (one line of it), still inside the screen.
       const bool digits = el->t == "time" || (el->t == "date" && el->f == "day");
       const int need = (digits ? fonts::get(el->px, el->b) : fonts::text(el->px, el->b))->line_height;
-      if (el->h < need) el->h = need, el->y = max(0, min<int>(el->y, os::H() - el->h));
+      if (el->h < need) el->h = need, el->y = max(0, min<int>(el->y, PH() - el->h));
       changed(DO_EL | DO_SHEET);
     });
     pill(r, N_("Fit the box"), !e.px, [](lv_event_t*) {
@@ -675,8 +678,8 @@ void elementSheet(El& e) {
       el->sk = it.skin;
       if (sizeChanged) {
         desksaver::setWidgetSize(*el, "SML"[it.size]);
-        el->x = constrain(el->x, 0, max(0, os::W() - el->w));
-        el->y = constrain(el->y, 0, max(0, os::H() - el->h));
+        el->x = constrain(el->x, 0, max(0, PW() - el->w));
+        el->y = constrain(el->y, 0, max(0, PH() - el->h));
       }
       changed(DO_EL | DO_SHEET);
     });
@@ -739,8 +742,8 @@ void buildSheet() {
 // New things land high, seen above the sheet that opens for them (in landscape, the middle), on the first free
 // place going down (else there anyway).
 int newY(int x, int w, int h) {
-  const int y0 = max(land ? 0 : BAR_H, (land ? os::H() / 2 : os::H() * 3 / 10) - h / 2);
-  for (int y = y0; y + h <= os::H(); y += 8) {
+  const int y0 = max(land ? 0 : BAR_H, (land ? PH() / 2 : PH() * 3 / 10) - h / 2);
+  for (int y = y0; y + h <= PH(); y += 8) {
     bool free = true;
     for (const El& o : pg().e) free &= x >= o.x + o.w || o.x >= x + w || y >= o.y + o.h || o.y >= y + h;
     if (free) return y;
@@ -759,9 +762,9 @@ El make(const String& t) {
   else if (t == "temp") w = 160, h = 40, e.f = "td";
   else if (t == "box") w = 120, h = 60, e.o = 40, e.r = 12;
   else if (t == "photo") w = h = 144, e.r = 12, e.id = photoIds().empty() ? 0 : photoIds()[0];
-  e.w = min(w, os::W() - 16);
+  e.w = min(w, PW() - 16);
   e.h = h;
-  e.x = (os::W() - e.w) / 2;
+  e.x = (PW() - e.w) / 2;
   e.y = newY(e.x, e.w, e.h);
   return e;
 }
@@ -782,7 +785,7 @@ void onAdd(const char* kind, int size, const char* opt) {
       const El* ph = nullptr;
       for (const El& x : pg().e) if (x.t == "photo") ph = &x;
       El at = make("photo");
-      if (!ph) at.x = 16, at.w = os::W() - 32, at.y = os::H() - 140, at.h = 132, at.r = 12;
+      if (!ph) at.x = 16, at.w = PW() - 32, at.y = PH() - 140, at.h = 132, at.r = 12;
       capOver(ph ? *ph : at);
       return editText(-2);
     }
@@ -794,7 +797,7 @@ void onAdd(const char* kind, int size, const char* opt) {
   e.op = opt;
   if (e.k == "my" && !e.op.length() && !wid::mine().empty()) e.op = wid::mine()[0].id;
   desksaver::setWidgetSize(e, "SML"[constrain(size, 0, 2)]);
-  e.x = max(0, (os::W() - e.w) / 2);
+  e.x = max(0, (PW() - e.w) / 2);
   e.y = newY(e.x, e.w, e.h);
   add(e);
 }
@@ -1248,19 +1251,18 @@ void buildAll() {
   }
   sheet = tool = hint_ = handle = guideV = guideH = field = nullptr;
   boxes.clear();
-  const int w = os::W(), h = os::H();
-  desksaver::drawBg(root, pg().bg, w, h);
-  keep(&layer, kit::clear(root));
-  lv_obj_set_size(layer, w, h);
+  const int w = os::W();
+  desksaver::drawBg(root, pg().bg, w, os::H());
+  keep(&layer, desksaver::canvas(root, land));  // the page's own screen, in the middle of a bigger one
   for (const El& e : pg().e) boxes.push_back(addBox(e));
   if (sel >= (int)boxes.size()) sel = -1;
   for (size_t i = 0; i < boxes.size(); i++) outline(i);
-  keep(&guideV, box(root, GUIDE, 0));
-  lv_obj_set_size(guideV, 1, h);
-  keep(&guideH, box(root, GUIDE, 0));
-  lv_obj_set_size(guideH, w, 1);
+  keep(&guideV, box(layer, GUIDE, 0));
+  lv_obj_set_size(guideV, 1, PH());
+  keep(&guideH, box(layer, GUIDE, 0));
+  lv_obj_set_size(guideH, PW(), 1);
   showGuides(-1, -1);
-  keep(&handle, box(root, 0xffffff, 5));
+  keep(&handle, box(layer, 0xffffff, 5));
   lv_obj_set_size(handle, 18, 18);
   lv_obj_set_style_border_width(handle, 2, 0);
   lv_obj_set_style_border_color(handle, C(SEL), 0);

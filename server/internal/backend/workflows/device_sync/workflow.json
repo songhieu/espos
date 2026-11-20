@@ -3,49 +3,319 @@
   "name": "Device: two-way sync",
   "draft": {
     "nodes": [
-      {"id": "in", "type": "http_in"},
-      {"id": "work", "type": "code", "config": {"source": {"$file": "nodes/work.go"}, "timeout_ms": 15000, "input": {"body": "{{ input.body }}", "device": "{{ input.guard.require_device }}", "host": "{{ input.headers.host }}"}}},
-      {"id": "dash", "type": "call_workflow", "config": {"workflow": "build_dashboard", "input": {"device_id": "{{ input.guard.require_device.device_id }}", "user_id": "{{ input.guard.require_device.user_id }}"}}},
-      {"id": "upk", "type": "code", "config": {"source": {"$file": "nodes/upk.go"}, "input": {"device_id": "{{ input.guard.require_device.device_id }}", "user_id": "{{ input.guard.require_device.user_id }}", "fw": "{{ input.body.fw }}"}}},
-      {"id": "each", "type": "for_each", "config": {"items": "{{ upk.todo }}"}},
-      {"id": "sgp", "type": "storage_sign", "config": {"key": "{{ each.item.key }}", "ttl_seconds": 604800}},
-      {"id": "sgi", "type": "storage_sign", "config": {"key": "{{ each.item.icon_key }}", "ttl_seconds": 604800}},
-      {"id": "keep", "type": "code", "config": {"source": {"$file": "nodes/keep.go"}, "input": {"item": "{{ each.item }}", "url": "{{ sgp.url }}", "icon": "{{ sgi.url }}"}}},
-      {"id": "skip", "type": "code", "config": {"source": {"$file": "nodes/skip.go"}, "input": {"item": "{{ each.item }}"}}},
-      {"id": "pk", "type": "code", "config": {"source": {"$file": "nodes/pk.go"}, "input": {"s3": "{{ upk.s3 }}", "rows": "{{ upk.rows }}", "fresh": "{{ each.results }}"}}},
-      {"id": "fail3", "type": "respond", "config": {"status": 500, "body": {"error": "{{ upk.error }}"}}},
-      {"id": "fail4", "type": "respond", "config": {"status": 500, "body": {"error": "{{ pk.error }}"}}},
-      {"id": "x4p", "type": "code", "config": {"source": {"$file": "nodes/x4p.go"}, "timeout_ms": 8000, "input": {"device_id": "{{ input.guard.require_device.device_id }}", "fw": "{{ input.body.fw }}", "caps": "{{ input.body.caps }}", "rt": "{{ input.body.rt }}", "settings": "{{ work.body.settings }}"}}},
-      {"id": "merge", "type": "code", "config": {"source": {"$file": "nodes/merge.go"}, "input": {"sync": "{{ work.body }}", "dashboard": "{{ dash.dashboard }}", "user_pkgs": "{{ pk.list }}", "s3": "{{ pk.s3 }}", "x4": "{{ x4p.x4 }}", "x4_ok": "{{ x4p.ok }}", "x4_pkgs": "{{ x4p.pkgs }}"}}},
-      {"id": "out", "type": "respond", "config": {"status": 200, "body": "{{ merge.body }}"}},
-      {"id": "bad", "type": "respond", "config": {"status": "{{ work.status }}", "body": "{{ work.body }}"}},
-      {"id": "isok", "type": "branch", "config": {"rules": [{"left": "{{ work.status }}", "op": "eq", "right": 200}]}},
-      {"id": "fail", "type": "respond", "config": {"status": 500, "body": {"error": "{{ work.error }}"}}},
-      {"id": "fail2", "type": "respond", "config": {"status": 500, "body": {"error": "dashboard failed"}}}
+      {
+        "id": "in",
+        "type": "http_in"
+      },
+      {
+        "id": "work",
+        "type": "code",
+        "config": {
+          "source": {
+            "$file": "nodes/work.go"
+          },
+          "timeout_ms": 15000,
+          "input": {
+            "body": "{{ input.body }}",
+            "device": "{{ input.guard.require_device }}",
+            "host": "{{ input.headers.host }}"
+          }
+        }
+      },
+      {
+        "id": "dash",
+        "type": "call_workflow",
+        "config": {
+          "workflow": "build_dashboard",
+          "input": {
+            "device_id": "{{ input.guard.require_device.device_id }}",
+            "user_id": "{{ input.guard.require_device.user_id }}"
+          }
+        }
+      },
+      {
+        "id": "upk",
+        "type": "code",
+        "config": {
+          "source": {
+            "$file": "nodes/upk.go"
+          },
+          "input": {
+            "device_id": "{{ input.guard.require_device.device_id }}",
+            "user_id": "{{ input.guard.require_device.user_id }}",
+            "fw": "{{ input.body.fw }}"
+          }
+        }
+      },
+      {
+        "id": "each",
+        "type": "for_each",
+        "config": {
+          "items": "{{ upk.todo }}"
+        }
+      },
+      {
+        "id": "sgp",
+        "type": "storage_sign",
+        "config": {
+          "key": "{{ each.item.key }}",
+          "ttl_seconds": 604800
+        }
+      },
+      {
+        "id": "sgi",
+        "type": "storage_sign",
+        "config": {
+          "key": "{{ each.item.icon_key }}",
+          "ttl_seconds": 604800
+        }
+      },
+      {
+        "id": "keep",
+        "type": "code",
+        "config": {
+          "source": {
+            "$file": "nodes/keep.go"
+          },
+          "input": {
+            "item": "{{ each.item }}",
+            "url": "{{ sgp.url }}",
+            "icon": "{{ sgi.url }}"
+          }
+        }
+      },
+      {
+        "id": "skip",
+        "type": "code",
+        "config": {
+          "source": {
+            "$file": "nodes/skip.go"
+          },
+          "input": {
+            "item": "{{ each.item }}"
+          }
+        }
+      },
+      {
+        "id": "pk",
+        "type": "code",
+        "config": {
+          "source": {
+            "$file": "nodes/pk.go"
+          },
+          "input": {
+            "s3": "{{ upk.s3 }}",
+            "rows": "{{ upk.rows }}",
+            "fresh": "{{ each.results }}"
+          }
+        }
+      },
+      {
+        "id": "fail3",
+        "type": "respond",
+        "config": {
+          "status": 500,
+          "body": {
+            "error": "{{ upk.error }}"
+          }
+        }
+      },
+      {
+        "id": "fail4",
+        "type": "respond",
+        "config": {
+          "status": 500,
+          "body": {
+            "error": "{{ pk.error }}"
+          }
+        }
+      },
+      {
+        "id": "x4p",
+        "type": "code",
+        "config": {
+          "source": {
+            "$file": "nodes/x4p.go"
+          },
+          "timeout_ms": 8000,
+          "input": {
+            "device_id": "{{ input.guard.require_device.device_id }}",
+            "fw": "{{ input.body.fw }}",
+            "caps": "{{ input.body.caps }}",
+            "rt": "{{ input.body.rt }}",
+            "settings": "{{ work.body.settings }}"
+          }
+        }
+      },
+      {
+        "id": "merge",
+        "type": "code",
+        "config": {
+          "source": {
+            "$file": "nodes/merge.go"
+          },
+          "input": {
+            "sync": "{{ work.body }}",
+            "dashboard": "{{ dash.dashboard }}",
+            "user_pkgs": "{{ pk.list }}",
+            "s3": "{{ pk.s3 }}",
+            "x4": "{{ x4p.x4 }}",
+            "x4_ok": "{{ x4p.ok }}",
+            "x4_pkgs": "{{ x4p.pkgs }}",
+            "guards": "{{ input.guard }}"
+          }
+        }
+      },
+      {
+        "id": "out",
+        "type": "respond",
+        "config": {
+          "status": 200,
+          "body": "{{ merge.body }}"
+        }
+      },
+      {
+        "id": "bad",
+        "type": "respond",
+        "config": {
+          "status": "{{ work.status }}",
+          "body": "{{ work.body }}"
+        }
+      },
+      {
+        "id": "isok",
+        "type": "branch",
+        "config": {
+          "rules": [
+            {
+              "left": "{{ work.status }}",
+              "op": "eq",
+              "right": 200
+            }
+          ]
+        }
+      },
+      {
+        "id": "fail",
+        "type": "respond",
+        "config": {
+          "status": 500,
+          "body": {
+            "error": "{{ work.error }}"
+          }
+        }
+      },
+      {
+        "id": "fail2",
+        "type": "respond",
+        "config": {
+          "status": 500,
+          "body": {
+            "error": "dashboard failed"
+          }
+        }
+      }
     ],
     "edges": [
-      {"from": "in", "to": "work"},
-      {"from": "work", "to": "isok"},
-      {"from": "work", "to": "fail", "port": "error"},
-      {"from": "isok", "to": "dash", "port": "true"},
-      {"from": "isok", "to": "bad", "port": "false"},
-      {"from": "dash", "to": "fail2", "port": "error"},
-      {"from": "dash", "to": "upk"},
-      {"from": "upk", "to": "each"},
-      {"from": "upk", "to": "fail3", "port": "error"},
-      {"from": "each", "to": "sgp", "port": "item"},
-      {"from": "sgp", "to": "sgi"},
-      {"from": "sgp", "to": "skip", "port": "error"},
-      {"from": "sgi", "to": "keep"},
-      {"from": "sgi", "to": "skip", "port": "error"},
-      {"from": "keep", "to": "each"},
-      {"from": "skip", "to": "each"},
-      {"from": "each", "to": "pk", "port": "done"},
-      {"from": "pk", "to": "fail4", "port": "error"},
-      {"from": "pk", "to": "x4p"},
-      {"from": "x4p", "to": "merge"},
-      {"from": "x4p", "to": "merge", "port": "error"},
-      {"from": "merge", "to": "out"}
+      {
+        "from": "in",
+        "to": "work"
+      },
+      {
+        "from": "work",
+        "to": "isok"
+      },
+      {
+        "from": "work",
+        "to": "fail",
+        "port": "error"
+      },
+      {
+        "from": "isok",
+        "to": "dash",
+        "port": "true"
+      },
+      {
+        "from": "isok",
+        "to": "bad",
+        "port": "false"
+      },
+      {
+        "from": "dash",
+        "to": "fail2",
+        "port": "error"
+      },
+      {
+        "from": "dash",
+        "to": "upk"
+      },
+      {
+        "from": "upk",
+        "to": "each"
+      },
+      {
+        "from": "upk",
+        "to": "fail3",
+        "port": "error"
+      },
+      {
+        "from": "each",
+        "to": "sgp",
+        "port": "item"
+      },
+      {
+        "from": "sgp",
+        "to": "sgi"
+      },
+      {
+        "from": "sgp",
+        "to": "skip",
+        "port": "error"
+      },
+      {
+        "from": "sgi",
+        "to": "keep"
+      },
+      {
+        "from": "sgi",
+        "to": "skip",
+        "port": "error"
+      },
+      {
+        "from": "keep",
+        "to": "each"
+      },
+      {
+        "from": "skip",
+        "to": "each"
+      },
+      {
+        "from": "each",
+        "to": "pk",
+        "port": "done"
+      },
+      {
+        "from": "pk",
+        "to": "fail4",
+        "port": "error"
+      },
+      {
+        "from": "pk",
+        "to": "x4p"
+      },
+      {
+        "from": "x4p",
+        "to": "merge"
+      },
+      {
+        "from": "x4p",
+        "to": "merge",
+        "port": "error"
+      },
+      {
+        "from": "merge",
+        "to": "out"
+      }
     ]
   }
 }

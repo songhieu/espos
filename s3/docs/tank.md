@@ -52,13 +52,96 @@ Not published.
 page's clock and widgets on top, a soft dark fade at the top and the need chips at the bottom left (the standby face).
 No aquarium installed: a deep-water gradient. The device's background sheet offers it on saver pages when installed.
 
+## Speed on the board (2026-11-19)
+
+The owner's 3.5" board on its side (0.5.6, 6 fish) ran at 4–12 pictures a second:
+- per picture: bg 8.4 ms, plants 7.4, fish 6.7, specks 2.3, beams 4.4, algae 34, screens 2;
+- with the shop open, the sheet alone took 30–160 ms;
+- QEMU had said algae 5 ms: QEMU does not model the board's PSRAM or its CPU speed.
+
+Changes:
+- **The algae film is baked.**
+  - Its weight per pixel (`Scene::filmW`, PSRAM) is made from the grid only when the grid changes. The sponge
+    marks just the part it wiped (`filmDirty`).
+  - The background carries the film (`bake()`), and the things drawn over the background take it as they are drawn
+    (`put()`): film(thing over bg) = film(thing) over film(bg).
+  - The per-picture film pass is gone. Beams, specks and bubbles go over the film (light on the glass).
+- **The background by columns.** When pictures go out a column at a time (the 3.5" on its side: `dx != 1`,
+  `dy == 1`), `bgc` is kept by columns (`bgCols`), so the background goes out as whole runs (memcpy) read straight
+  from PSRAM. Test it in the simulator with `tank shot cols:FILE`, which draws as the board does on its side.
+- **The shop sheet as pictures.**
+  - The head (title, coins, tabs) and each row are pictures in PSRAM: `drawSheetHead`, `drawRow`, and the last 8
+    rows in `rowPics`.
+  - They are made again only when what they show changes (`rowKeys`, the head's numbers).
+  - A picture of the sheet is copies of them at the scroll's place, so scrolling draws nothing.
+- **The water stands still under the sheet.** The part beside it (dimmed water, the top bar) is captured once
+  (`frameBegin`/`frameEnd`); the scene is then neither prepared nor drawn. Toasts and flying numbers go on top. It is
+  captured again when the bar's numbers change.
+- **Under the dog's pop-up** the tank pauses like the other games (`onScreen()` has `!pet::summoned()`, as
+  pet/app.cpp and run.cpp): game time and water stop, the last picture stays in LVGL's buffer, and the next picture
+  after it closes goes on from there. The saver's tank background holds the same way.
+- **Under other OS overlays** (a lock sheet, a notification), LVGL draws the whole screen, so the water goes on at
+  4 pictures a second there.
+- **The top bar, the dock and the fish card** (2026-11-20). They took 15–32 ms a picture on the board (0.5.6).
+  - The main cost was not drawing. On its side the board asks for a picture in six pieces, and `ui::draw()` runs for
+    each. Every piece read the game again: the comfort checks every fish, the jobs and the lamp read the clock
+    (`localtime`), and the number strings were rebuilt. Now `hud()` reads them once a picture. The slow ones are read
+    twice a second, or right after a tap (`hudSoon()`).
+  - The bar's glass and icons, the bar's numbers, each dock button and the fish card are prepared layers
+    (`Layer`). Each is drawn once over black and once over white, which gives every pixel's colour and how much it
+    covers (`unmix`). It is kept as runs of covered pixels in PSRAM and remade only when its key changes. A picture
+    only mixes the runs onto the water (`layerPut`, O2).
+  - What changes all the time stays live: a gauge under 30 blinks, so it is drawn each picture, and so are the
+    badges.
+  - Result: pictures match straight drawing at 45–48 dB (at most 2 steps of 31 on a pixel). In QEMU on its side
+    (12 fish, bar shown), screens went from 13.9 to 2.2 ms.
+  - A layer is made 16 rows at a time (small buffers) and kept in one PSRAM block. Six or more pixels alike (the
+    glass's inside) are one entry, so putting them reads nothing.
+  - A layer seen at part cover would fade as one group (its icon solid on its glass); the page fades each piece by
+    itself. So while the bar fades, its pieces are drawn straight. The needs icons pulse all the time, so they are
+    three layers, one for each kind of piece (the glasses, the icons, the dots), and fade the same either way.
+- **The board's slow maths and memory** (build 6 lines from the board, 2026-11-20).
+  - `sinf`, `cosf` and `powf` of the C library work in double precision, which the S3 does in software: about 7 µs
+    a call. The swim curve (20 segments a fish) took 6.6 ms of prepare with 6 fish. Now `fsin`, `fcos` and `fpow`
+    are float-only (within 2e-4 and 1e-4).
+  - The fish are drawn down columns, but their pictures were kept by rows, so each pixel read new PSRAM cache lines.
+    `spr()` now also keeps each fish picture by columns (`Spr::t`, colour | alpha << 16) and `blitFish` reads that;
+    the pictures are the same as before (`tank plaincmp`).
+  - The plants' sway (powf and sinf a row) was worked out by `blitRows` for every piece of a picture (six on its
+    side). `prepare()` now works it out once (`Frame::sway`).
+  - The background re-bake wrote one pixel per cache line on its side; it now goes in blocks of 16 rows. `makeBg`
+    skips a re-bake when the haze or light moved without changing its tables. A drift re-bakes 48 rows a picture
+    (`filmSoft`), and `setAlgae` marks only the cells that grew. The game asks for algae every tick, and the bench
+    had been re-baking the whole film each picture, 28–48 ms.
+  - The fish read the film down columns too: `filmT` is the film weights by columns, made with the algae.
+  - QEMU, on its side, 12 fish: draw 12–14 → 6–8 ms, prepare 2–4 → 1 ms. On the board, PSRAM makes the gains
+    larger.
+  - The items are put far to near by an insertion sort. `std::stable_sort` took 1.9 KB of flash and a buffer
+    every picture.
+- **Board build 7** (2026-11-20, HUD layers in): with the bar up, 13.8–15.8 pictures a second. Bar and dock cost
+  ~5 + ~9 ms whether the layers were on or off. The QA stats line now says how many layers were made or found no
+  room, what `layerPut` cost (ms and pixels a picture), and how much PSRAM is free and in one piece.
+
 ## Dev
 
-Board: `TANK bench` (5, 12, 20 fish, 6 s each: pictures a second, move/prepare/draw/push ms; `TANK bench 20`),
-`TANK fps 20`, `TANK tear 1`, `TANK free planted neon*7,guppy*2`, `TANK game`, `TANK time 8`, `TANK coins 500`,
-`TANK xp 150`, `TANK look reef`, `TANK night 1|0|-`, `TANK speed 4`, `TANK reset`. Simulator: `tank <same>` plus the
-QA knobs (`add ID N`, `sick`, `algae N`, `clean N`, `fed N`, `card [sick]`, `tab N`, `food`, `sponge`, `scroll PX`,
+Board: `TANK fps 20`, `TANK tear 1`, `TANK game`, `TANK save`, `TANK stats` (and the "tank: N fish ..." line every
+10 s with the draw parts). Simulator (or a board built with `-DTANK_QA=1`; left out of the release image since
+2026-11-19, the app slot is full): `tank <same>` plus `bench` (5, 12, 20 fish, 6 s each: pictures a second,
+move/prepare/draw/push ms; `bench 20`), `free planted neon*7,guppy*2`, `time 8`, `coins 500`, `xp 150`, `look reef`, `night 1|0|-`, `speed 4`, `reset` and the QA knobs
+(`add ID N`, `sick`, `algae N`, `clean N`, `fed N`, `card [sick]`, `tab N`, `food`, `sponge`, `scroll PX`,
 `say TEXT`, `shot FILE.ppm` = the panel's picture with its black bars).
+
+More QA commands (2026-11-20):
+- `keep` / `restore`: saves now and copies the save to `tank.qa`, then later puts it back and loads it, with the
+  time in between counted as time away. Use them around tests on someone's own aquarium.
+- `layers 0|1`: the bar, the dock and the card drawn straight or from their layers, for timing.
+- `hudcmp PATH`: the same picture with layers (PATH.ppm) and straight (PATH-direct.ppm). A `cols:` prefix works as
+  with `shot`.
+- `plaincmp PATH` and `plain 0|1`: the fish by columns and the sway table, or the old paths by rows.
+- `layoutcmp PATH`: the same picture drawn by rows (PATH-r.ppm) and as the board on its side (PATH-c.ppm); they
+  should match exactly.
+- The stats line gets a fourth line, `screens parts ms: bar, bar live, dock, card, sheet, rest`.
+- The simulator has `summon [REASON]`, Biscuit's pop-up over the current screen.
 
 ## Flash
 

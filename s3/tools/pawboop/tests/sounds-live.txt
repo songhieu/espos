@@ -1,0 +1,31 @@
+# PawBoop's sounds in the live simulator (real time: loops, the home tune, the run's tunes and ambience).
+#   SIM_CLOCK="2026-11-20 15:00:00" SIM_DATA=sim/data-snd SIM_WAV=out.raw sim/build-dogs-live/espos-live --out DIR this
+wait 2500
+set s3.pet_dog corgi
+pet
+wait 6000
+tap 36 412
+wait 700
+tap 60 360
+wait 9000
+tap 98 412
+wait 7000
+tap 98 412
+wait 7000
+tap 160 412
+wait 5000
+tap 222 412
+wait 9000
+tap 284 412
+wait 10000
+run pet
+wait 6000
+tap 160 300
+wait 1500
+dev auto
+wait 40000
+dev end
+wait 6000
+back
+wait 6000
+quit

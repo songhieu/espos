@@ -43,6 +43,21 @@ void show(lv_obj_t* boxObj, Entry* e) {
   }, LV_EVENT_DELETE, e);
 }
 
+// A box waiting for its picture is deleted (its screen closed): it stops waiting; nobody waits: not downloaded.
+void waitDeleted(lv_event_t* ev) {
+  Entry* e = (Entry*)lv_event_get_user_data(ev);
+  lv_obj_t* o = (lv_obj_t*)lv_event_get_current_target(ev);
+  for (auto it = e->waiting.begin(); it != e->waiting.end(); ++it)
+    if (*it == o) {
+      e->waiting.erase(it);
+      break;
+    }
+  if (e->waiting.empty() && e->st == St::Wait) {
+    desk::cancelFetches(e);
+    e->st = St::Fail;
+  }
+}
+
 void arrived(void* ctx, int status, JsonDocument*, const uint8_t* data, size_t len) {
   Entry* e = (Entry*)ctx;
   if (status == 200 && data && len) {
@@ -65,8 +80,13 @@ void arrived(void* ctx, int status, JsonDocument*, const uint8_t* data, size_t l
   } else {
     e->st = St::Fail;
   }
-  if (e->st == St::Ok)
-    for (lv_obj_t* b : e->waiting) show(b, e);
+  // The boxes stop waiting: their delete callback goes, so a failed entry that trim() deletes is never reached from a
+  // box deleted later (a board crashed there, 0.5.7: "Cache error" in this callback during a Home rebuild after failed
+  // downloads).
+  for (lv_obj_t* b : e->waiting) {
+    lv_obj_remove_event_cb_with_user_data(b, waitDeleted, e);
+    if (e->st == St::Ok) show(b, e);
+  }
   e->waiting.clear();
   trim();
 }
@@ -90,20 +110,7 @@ lv_obj_t* image(lv_obj_t* parent, const String& url, int w, int h, int radius, u
     show(b, e);
   } else if (e->st == St::Wait) {
     e->waiting.push_back(b);
-    lv_obj_add_event_cb(b, [](lv_event_t* ev) {
-      Entry* e = (Entry*)lv_event_get_user_data(ev);
-      lv_obj_t* o = (lv_obj_t*)lv_event_get_current_target(ev);
-      for (auto it = e->waiting.begin(); it != e->waiting.end(); ++it)
-        if (*it == o) {
-          e->waiting.erase(it);
-          break;
-        }
-      // Nobody waits for it any more (the screen closed): do not download it.
-      if (e->waiting.empty() && e->st == St::Wait) {
-        desk::cancelFetches(e);
-        e->st = St::Fail;
-      }
-    }, LV_EVENT_DELETE, e);
+    lv_obj_add_event_cb(b, waitDeleted, LV_EVENT_DELETE, e);
   }
   return b;
 }

@@ -1,3 +1,4 @@
+#pragma GCC optimize("Os")  // cold code (ticks of 0.5 s, dog switches, notifications): size first (s3-perf, 2026-11-20)
 // PawBoop's entry points and its background work (pet.h).
 #include "pet.h"
 

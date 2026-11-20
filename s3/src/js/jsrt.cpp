@@ -1,3 +1,4 @@
+#pragma GCC optimize("Os")  // widgets/JS glue built once per change: size over speed (0.5.7 flash diet)
 #include "jsrt.h"
 
 extern "C" {

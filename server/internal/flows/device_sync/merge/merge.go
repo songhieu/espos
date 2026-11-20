@@ -30,6 +30,27 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 		}
 		body["pkgs"] = list
 	}
+	// The EspOS Bot: a small weather object for its standby screen, from the dashboard built above.
+	if wm.Str(body["kind"]) == "bot" {
+		if d, ok := in["dashboard"].(map[string]any); ok {
+			if w, isMap := d["weather"].(map[string]any); isMap {
+				body["weather"] = map[string]any{"city": w["city"], "t": w["temp"], "icon": w["icon"], "desc": w["desc"],
+					"hi": w["max"], "lo": w["min"], "rain": w["rain"], "hum": w["hum"], "at": d["now_ms"]}
+			}
+		}
+	}
+	// The licence (hosted espos.dev only: the route's guard admin_lic, which the self-hosted server does not have).
+	// No "lic" key = no licensing: the device unlocks everything. Its changes raise settings_rev, as device_ping's rev.
+	if g, ok := in["guards"].(map[string]any); ok {
+		if l, isMap := g["admin_lic"].(map[string]any); isMap {
+			if lic, has := l["lic"].(map[string]any); has && lic != nil {
+				body["lic"] = lic
+				if ms := int64(wm.Num(l["lic_ms"])); ms > int64(wm.Num(body["settings_rev"])) {
+					body["settings_rev"] = ms
+				}
+			}
+		}
+	}
 	// Stamped last, after the dashboard was built: the device sets its clock from it.
 	body["now_ms"] = time.Now().UnixMilli()
 	return map[string]any{"body": body}

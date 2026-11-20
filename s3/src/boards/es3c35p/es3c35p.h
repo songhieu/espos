@@ -14,7 +14,7 @@ inline constexpr hal::Board BOARD = {
     .caps = hal::PROFILE_FULL,  // all of it; the mic passed the self-test
     .display = {.panel = {.w = 320, .h = 480, .type = hal::PanelType::TFT, .format = hal::ColorFormat::RGB565,
                           .bits = 16, .refresh = hal::Refresh::INSTANT, .rotations = 0b1111},
-                .ui = {.num = 1, .den = 1, .x = 0, .y = 0},
+                .ui = {.w = 320, .h = 480, .num = 1, .den = 1, .x = 0, .y = 0},
                 .pins = {.cs = 10, .sclk = 12, .d0 = 11, .d1 = 13, .d2 = 14, .d3 = 9, .dc = -1, .rst = -1, .bl = 41,
                          .te = 42}},
     .i2c = {.sda = 38, .scl = 39},

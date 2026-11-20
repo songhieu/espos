@@ -1,11 +1,30 @@
 {
   "code": "admin_me",
-  "name": "Admin: am I one (the web shows its admin page)",
+  "name": "Admin: am I one, and with which role (the web shows its admin page)",
   "draft": {
     "nodes": [
-      { "id": "in", "type": "http_in" },
-      { "id": "out", "type": "respond", "config": { "status": 200, "body": { "admin": true, "user_id": "{{ input.guard.require_admin.user_id }}" } } }
+      {
+        "id": "in",
+        "type": "http_in"
+      },
+      {
+        "id": "out",
+        "type": "respond",
+        "config": {
+          "status": 200,
+          "body": {
+            "admin": true,
+            "user_id": "{{ input.guard.require_admin.user_id }}",
+            "role": "{{ input.guard.require_admin.role }}"
+          }
+        }
+      }
     ],
-    "edges": [ { "from": "in", "to": "out" } ]
+    "edges": [
+      {
+        "from": "in",
+        "to": "out"
+      }
+    ]
   }
 }

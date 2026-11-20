@@ -17,6 +17,8 @@
 
 #include "tank_int.h"
 #include "trace.h"
+#include "../lock.h"
+#include "i18n.h"
 
 #ifdef SIM
 #include <string>
@@ -163,7 +165,39 @@ void newGame() {
   }
 }
 
-TankRec& cur() { return st.cur && st.hasMarine ? st.marine : st.fresh; }
+// ---------------------------------------------------------------- the free part (lock.h, 2026-11-19)
+// After the trial, without "vn.pawboop.tank+full": the catalog's free_ids say what stays (the planted look and six
+// starter fish). Nothing in the save changes: fish of a locked kind live on (only buying more is closed), and a
+// locked look or the sea tank is shown as the free look / the fresh tank until it opens again, exactly as it was.
+struct Gate {
+  uint32_t ver = 0;
+  bool full = true, marine = true;
+  uint64_t sp = ~0ull;
+  uint32_t looks = ~0u;
+} gate_;
+const Gate& gate() {
+  if (gate_.ver == lock::version()) return gate_;
+  gate_.ver = lock::version();
+  gate_.full = lock::may("vn.pawboop.tank+full");
+  auto ok = [](const char* id) { return gate_.full || lock::may((String("vn.pawboop.tank+") + id).c_str()); };
+  gate_.marine = ok("marine");
+  gate_.sp = 0, gate_.looks = 0;
+  for (int i = 0; i < D.nsp && i < 64; i++) gate_.sp |= (uint64_t)ok(SP(i).id) << i;
+  for (int i = 0; i < D.nlook && i < 32; i++) gate_.looks |= (uint32_t)ok(D.look[i].id) << i;
+  return gate_;
+}
+bool spFree(int sp) { return gate().sp >> sp & 1; }
+bool lookFree(int k) { return gate().looks >> k & 1; }
+int lookShown(const TankRec& t) {
+  if (lookFree(t.look)) return t.look;
+  for (int i = 0; i < D.nlook; i++)
+    if (D.look[i].marine == t.marine && D.look[i].price == 0) return i;
+  return t.look;
+}
+void lockSheet(const char* what) { lock::sheet(T_(what), lock::Look::Tank); }
+
+TankRec& cur() { return st.cur && st.hasMarine && gate().marine ? st.marine : st.fresh; }
+bool curMarine() { return &cur() == &st.marine; }
 
 // ---------------------------------------------------------------- what a tank holds, counted once
 void census(const TankRec& t, Census& c) {
@@ -324,7 +358,7 @@ void sync(bool all) {
   if (!sc) return;
   TankRec& t = cur();
   if (all) sc->clearFish(), sc->nfood = 0, sc->ncoins = 0, sc->clearAlgae();
-  if (sc->look != t.look || all || !sc->geo) sc->setLook(t.look);
+  if (sc->look != lookShown(t) || all || !sc->geo) sc->setLook(lookShown(t));
   std::vector<int> ids(t.plants.begin(), t.plants.end()), sl(t.plantSlot.begin(), t.plantSlot.end());
   sc->setPlants(ids.data(), sl.data(), ids.size());
   std::vector<int> dd(t.decor.begin(), t.decor.end()), ds(t.decorSlot.begin(), t.decorSlot.end());
@@ -653,6 +687,7 @@ const char* warns(const TankRec& t, const Species& s, String& why) {
 }
 
 void buyFish(int sp) {
+  if (!spFree(sp)) return lockSheet(N_("This fish"));
   TankRec& t = cur();
   const Species& s = SP(sp);
   String why;
@@ -682,7 +717,7 @@ void buyPlant(int k) {
   TankRec& t = cur();
   const PlantK& p = D.plant[k];
   if (p.lv > levelNow()) return say(fmt("Cần cấp %d", p.lv));
-  if ((int)t.plants.size() >= D.look[t.look].nslots) return say("Hết chỗ trồng. Nhổ bớt một cây trước");
+  if ((int)t.plants.size() >= D.look[lookShown(t)].nslots) return say("Hết chỗ trồng. Nhổ bớt một cây trước");
   if (!pay(p.price)) return;
   t.plantSlot.push_back(firstFree(t.plantSlot)), t.plants.push_back(k);
   sync(false);
@@ -708,7 +743,7 @@ void buyDecor(int k) {
   const DecorK& d = D.decor[k];
   if (d.lv > levelNow()) return say(fmt("Cần cấp %d", d.lv));
   if (std::find(t.decor.begin(), t.decor.end(), k) != t.decor.end()) return say(fmt("Bể đã có %s", d.vi));
-  if ((int)t.decor.size() >= D.look[t.look].ndecor) return say("Hết chỗ đặt. Cất bớt một món trước");
+  if ((int)t.decor.size() >= D.look[lookShown(t)].ndecor) return say("Hết chỗ đặt. Cất bớt một món trước");
   if (!pay(d.price)) return;
   t.decorSlot.push_back(firstFree(t.decorSlot)), t.decor.push_back(k);
   sync(false);
@@ -751,6 +786,7 @@ void buyUp(int u) {
   save();
 }
 void buyLook(int k) {
+  if (!lookFree(k)) return lockSheet(N_("This tank look"));
   TankRec& t = cur();
   const Look& L = D.look[k];
   if (t.looks >> k & 1) {
@@ -772,6 +808,7 @@ void buyLook(int k) {
 }
 void switchTank() {
   if (!st.hasMarine) return;
+  if (!gate().marine) return lockSheet(N_("The sea tank"));
   TankRec& t = cur();
   t.pile.clear();
   if (sc)
@@ -783,6 +820,7 @@ void switchTank() {
 }
 void buyMarine() {
   if (st.hasMarine) return;
+  if (!gate().marine) return lockSheet(N_("The sea tank"));
   if (R.marineLv > levelNow()) return say(fmt("Cần cấp %d", R.marineLv));
   if (!pay(R.marinePrice)) return;
   newTank(st.marine, true);
@@ -952,6 +990,20 @@ void save() {
 
 void tick(float dt) {
   if (!sc || !Dp || !D.nsp) return;
+  // The trial ended (or a purchase came) while the tank is open: the tank and look shown follow (lock.h).
+  static uint32_t seenGate = 0;
+  static TankRec* shown = nullptr;
+  if (seenGate != gate().ver) {
+    TankRec* now = &cur();
+    if (seenGate && (now != shown || sc->look != lookShown(*now))) {
+      if (shown && now != shown) {  // the coins lying in the water stay that tank's
+        shown->pile.clear();
+        for (int i = 0; i < sc->ncoins; i++) shown->pile.push_back(sc->coins[i].val);
+      }
+      sync(true);
+    }
+    seenGate = gate().ver, shown = now;
+  }
   stepAcc += dt;
   if (stepAcc < 0.1f) return;
   dt = stepAcc, stepAcc = 0;
@@ -959,7 +1011,7 @@ void tick(float dt) {
   const float h = dt / 3600 * timeK;
   st.clock += h;
   advance(t, h, true);
-  if (st.hasMarine) advance(st.cur ? st.fresh : st.marine, h, false);
+  if (st.hasMarine) advance(curMarine() ? st.fresh : st.marine, h, false);
   if ((cenT += dt) > 1) cenT = 0, sceneCensus();
   const int m = moodOf(t, C);
   const bool happy = m >= R.moodHappy;
@@ -1129,7 +1181,12 @@ std::vector<Row> shop(int tab) {
     std::vector<int> ids;
     for (int i = 0; i < D.nsp; i++)
       if (SP(i).marine == t.marine) ids.push_back(i);
-    std::stable_sort(ids.begin(), ids.end(), [](int a, int b) { return SP(a).lv != SP(b).lv ? SP(a).lv < SP(b).lv : SP(a).price < SP(b).price; });
+    for (size_t a = 1; a < ids.size(); a++) {  // by level, then price, equals kept in order (insertion: std::stable_sort cost 1.3 KB)
+      const int v = ids[a];
+      size_t b = a;
+      for (; b > 0 && (SP(ids[b - 1]).lv != SP(v).lv ? SP(ids[b - 1]).lv > SP(v).lv : SP(ids[b - 1]).price > SP(v).price); b--) ids[b] = ids[b - 1];
+      ids[b] = v;
+    }
     for (int i : ids) {
       const Species& s = SP(i);
       r = Row();
@@ -1142,6 +1199,7 @@ std::vector<Row> shop(int tab) {
       r.art = s.thumb, r.name = s.vi, r.sub = fmt("%s \xC2\xB7 chỗ %s", roleVi(s.role), num(s.space).c_str()), r.count = have;
       r.note = stop ? sw : warn ? ww : traits(s), r.bad = stop, r.warn = warn, r.price = s.price;
       r.tag = lock ? fmt("Cấp %d", s.lv) : String(), r.can = !lock && !stop && coins >= s.price, r.dim = lock, r.act = 1, r.arg = i;
+      if (!spFree(i)) r.paid = true, r.can = true, r.tag = "", r.bad = r.warn = false, r.note = traits(s);
       rows.push_back(r);
     }
   } else if (tab == 1) {
@@ -1201,11 +1259,12 @@ std::vector<Row> shop(int tab) {
       const Look& k = D.look[i];
       if (k.marine != t.marine) continue;
       r = Row();
-      const bool own = t.looks >> i & 1, on = t.look == i, lock = !own && k.lv > lv;
+      const bool own = t.looks >> i & 1, on = lookShown(t) == i, lock = !own && k.lv > lv;
       r.look = true, r.art = thumbOf(k.id), r.name = k.vi;
       r.sub = on ? "Đang dùng" : own ? "Đã có" : "Kiểu hồ mới", r.note = !t.marine ? "Bể nước ngọt" : "Bể nước mặn";
       r.price = own ? -1 : k.price, r.tag = on ? String("Đang dùng") : own ? String("Dùng") : lock ? fmt("Cấp %d", k.lv) : String();
       r.can = !on && (own || (!lock && coins >= k.price)), r.dim = lock, r.act = 7, r.arg = i;
+      if (!lookFree(i)) r.paid = true, r.can = true, r.tag = "", r.price = -1, r.sub = own ? "Đã có" : "Kiểu hồ mới";
       rows.push_back(r);
     }
     r = Row();
@@ -1215,10 +1274,12 @@ std::vector<Row> shop(int tab) {
       r.art = packs[P_THUMBS].find("t_reef"), r.name = "Bể nước mặn", r.sub = "Bể thứ hai: cá biển, san hô";
       r.note = "Cá biển chỉ sống ở nước mặn", r.price = R.marinePrice, r.tag = lock ? fmt("Cấp %d", R.marineLv) : String();
       r.can = !lock && coins >= R.marinePrice, r.dim = lock, r.act = 8;
+      if (!gate().marine) r.paid = true, r.can = true, r.tag = "", r.price = -1;
     } else {
-      const TankRec& o = st.cur ? st.fresh : st.marine;
+      const TankRec& o = curMarine() ? st.fresh : st.marine;
       r.art = thumbOf(D.look[o.look].id);
       r.name = !t.marine ? "Sang bể nước mặn" : "Sang bể nước ngọt", r.sub = "Bạn có hai bể", r.tag = "Sang", r.can = true, r.act = 9;
+      if (!gate().marine) r.paid = true, r.tag = "";
     }
     rows.push_back(r);
   } else if (tab == 5) {
@@ -1268,6 +1329,7 @@ void press(const Row& r) {
 }
 
 // ---------------------------------------------------------------- the test panel's tools (dev console)
+#if TANK_QA  // not in the release image (the app slot is full): the simulator, or a board built with TANK_QA=1
 void debugTime(float h) {
   TankRec& t = cur();
   t.pile.clear();
@@ -1289,7 +1351,6 @@ void debugTime(float h) {
   say(fmt("Đã qua %s giờ", num(h).c_str()));
 }
 void debugCoins(int n) { st.coins += n; }
-#if TANK_QA
 void debugSet(const char* k, const char* v) {  // the test panel's state knobs: add ID [N], sick, algae N, clean N, fed N, young
   TankRec& t = cur();
   if (!strcmp(k, "add")) {
@@ -1318,7 +1379,6 @@ void debugSet(const char* k, const char* v) {  // the test panel's state knobs: 
   }
   sceneCensus();
 }
-#endif
 void debugXp(int n) { addXp(n); }
 void debugLook(const char* id) {
   const int k = lookOf(id);
@@ -1337,6 +1397,29 @@ void reset() {
   newGame();
   sync(true);
   say("Bể mới tinh");
+}
+#endif
+#if TANK_QA  // the bench and the shots only (not in the release image since 2026-11-19)
+bool debugKeep(bool restore) {  // keep: saved now, then copied to tank.qa; restore: copied back and loaded
+  if (!restore) save();
+  const String p = path(), q = p.substring(0, p.length() - 3) + "qa";
+  FILE* in = fopen((restore ? q : p).c_str(), "rb");
+  if (!in) return false;
+  const String tmp = p + ".tmp";
+  FILE* out = fopen((restore ? tmp : q).c_str(), "wb");
+  bool ok = out != nullptr;
+  char b[512];
+  for (size_t n; ok && (n = fread(b, 1, sizeof b, in)) > 0;) ok = fwrite(b, 1, n, out) == n;
+  fclose(in);
+  if (out) ok = fclose(out) == 0 && ok;
+  if (!ok) return false;
+  if (restore) {
+    if (rename(tmp.c_str(), p.c_str())) return false;
+    saveT = 0;
+    start();  // the kept game, with the time since as time away
+  }
+  trace::add("tank: save %s", restore ? "put back" : "kept");
+  return true;
 }
 void fillFree(const char* look, const char* list) {  // the page's showcase: a look and its fish, no rules
   if (!sc) return;
@@ -1364,6 +1447,7 @@ void fillFree(const char* look, const char* list) {  // the page's showcase: a l
   for (int i = 0; i < 3; i++) sc->tint[i] = sc->tintNow[i] = 1;
   sc->lamp = true, sc->rays = 1, sc->sleeping = false, sc->haze = sc->hazeNow = 0, sc->air = 1;
 }
+#endif
 
 }  // namespace game
 }  // namespace tank

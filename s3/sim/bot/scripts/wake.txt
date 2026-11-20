@@ -1,0 +1,14 @@
+# "Gâu gâu" wakes it: listening; nothing said: the sad face, then standby. The call is BOT_SIM_CALL, a 16 kHz WAV
+# whose "gâu gâu" starts at once (your own: the bot's console WAKEREC, or any recorder); the Mac's synthetic voice
+# (sim/bot/audio/call_say.wav) is not one the model takes for a call.
+serial ESPOS:PROVISION {"token":"SIMTOKENSIMTOKENSIMTOKENSIMTOKENSIMTOKENSIMTOKENSIMTOKENSIMTOKEN","api":"http://127.0.0.1:8098","wifi":[{"ssid":"Home WiFi","pass":"x"}]}
+wait 4000
+expect ui standby
+say ${BOT_SIM_CALL}
+wait 1500
+expect ui listen
+shot listen
+wait 7000
+expect ui sad
+serial MIC
+wait 300

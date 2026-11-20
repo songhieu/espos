@@ -70,6 +70,11 @@ struct FwOffer {
 const FwOffer& fwOffer();
 void reportOta(const String& version, bool ok, const String& why);
 
+// The board for the trial and Kho máy (admin-users' contract): SHA-256 of "espos-hw:" + the base MAC as 12 lowercase
+// hex, and the MAC's last 4 hex digits in mac4. The MAC itself never leaves the device.
+String hwid(String* mac4 = nullptr);
+String tokenSha8();  // the first 8 hex digits of SHA-256 of the device token ("" when none): Kho máy compares it
+
 // Wall clock now (ms since epoch), 0 when not set yet.
 int64_t nowMs();
 

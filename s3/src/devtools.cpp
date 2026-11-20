@@ -1,6 +1,8 @@
 #pragma GCC optimize("Os")  // a cold screen: built small (the firmware must fit 3.75 MB)
 #include "devtools.h"
 #include "tank/tank.h"
+#include "lock.h"
+#include "claim.h"
 
 #include <Arduino.h>
 #include "esp_memory_utils.h"
@@ -37,6 +39,14 @@ extern const uint8_t x509_bundle_end[] asm("_binary_x509_crt_bundle_end");
 #include "wake/wake.h"
 #ifndef NO_PET
 #include "pet/talk.h"
+#endif
+
+#ifdef ESPOS_QA
+namespace pkg {
+namespace in {
+void lfsStress(int n);  // src/pkg/util.cpp
+}
+}  // namespace pkg
 #endif
 
 namespace devtools {
@@ -101,16 +111,7 @@ void sendBuf(const char* tag, lv_draw_buf_t* b) {
   lv_draw_buf_destroy(b);
 }
 
-// Screen coordinates of the current orientation -> native panel coordinates (inverse of LVGL's
-// pointer rotation).
-void toNative(int x, int y, int& nx, int& ny) {
-  switch (lv_display_get_rotation(nullptr)) {
-    case LV_DISPLAY_ROTATION_90: nx = y, ny = LCD_H - 1 - x; break;
-    case LV_DISPLAY_ROTATION_180: nx = LCD_W - 1 - x, ny = LCD_H - 1 - y; break;
-    case LV_DISPLAY_ROTATION_270: nx = LCD_W - 1 - y, ny = x; break;
-    default: nx = x, ny = y;
-  }
-}
+using touch::toNative;  // screen coordinates of the current orientation -> the panel's
 
 void run(char* cmd) {
   static constexpr char kHello[] = "ESPOS:HELLO ";          // + the host's epoch ms
@@ -121,7 +122,7 @@ void run(char* cmd) {
       timeval tv = {(time_t)(ms / 1000), (suseconds_t)((ms % 1000) * 1000)};
       settimeofday(&tv, nullptr);
     }
-    Serial.printf("ESPOS:READY {\"fw\":\"%s\",\"kind\":\"s3\",\"board\":\"%s\",\"linked\":%s}\n", FW_VERSION, board::name(),
+    Serial.printf("ESPOS:READY {\"fw\":\"%s\",\"kind\":\"s3\",\"board\":\"%s\",\"caps\":[\"claim\"],\"linked\":%s}\n", FW_VERSION, board::name(),
                   desk::link() == desk::Link::Linked ? "true" : "false");
   } else if (!strncmp(cmd, "SOUND ", 6)) {
     if (!strcmp(cmd + 6, "test")) sound::test();
@@ -148,6 +149,7 @@ void run(char* cmd) {
     } else {
       Serial.println("WIFIADD_ERR");
     }
+  } else if (claim::usb(cmd)) {  // ESPOS:INFO / CLAIM / FACTORY_RESET / ATTEST for Kho máy (claim.h)
   } else if (!strncmp(cmd, kProvision, sizeof(kProvision) - 1)) {
     String err;
     if (desk::provision(cmd + sizeof(kProvision) - 1, err)) Serial.println("ESPOS:OK");
@@ -173,6 +175,7 @@ void run(char* cmd) {
       toNative(x1, y1, c, d);
       touch::inject(a, b, c, d, ms);
     }
+#ifdef ESPOS_QA  // benchmarks: the qa build only (env s3desk-qa, QEMU), out of the release image since 0.5.7 (flash)
   } else if (!strncmp(cmd, "BENCH ", 6)) {
     // Render the whole screen 10 times with a variant applied: 0 as is, 1 no gradients,
     // 2 square corners, 3 labels hidden, 4 all of them.
@@ -303,6 +306,7 @@ void run(char* cmd) {
     Serial.printf("RAW memset 300KB psram %lu us, 300KB internal %lu us, 1M loop %lu us\n", tp, ti, tc);
     free(ps);
     free(in);
+#endif
   } else if (!strcmp(cmd, "PANEL")) {
     os::openControl();
   } else if (!strncmp(cmd, "INVLOG ", 7)) {
@@ -323,16 +327,23 @@ void run(char* cmd) {
     os::showSaver();
   } else if (!strcmp(cmd, "RUNBENCH")) {  // the run game's speed test (docs/run.md): ~35 s of "RUNBENCH ..." lines
     run::bench();
+  } else if (!strncmp(cmd, "LOCK ", 5)) {  // LOCK lic {json} | lic none | marks {json} | card | sheet NAME | state
+    Serial.println(lock::dev(cmd + 5) ? "LOCK ok" : "LOCK ?");
   } else if (!strncmp(cmd, "TANK ", 5)) {  // TANK bench | bench 20 | free planted neon*7 | time 8 | fps 20 | stats (src/tank)
     Serial.println(tank::dev(cmd + 5) ? "TANK ok" : "TANK ?");
   } else if (!strncmp(cmd, "RUN ", 4)) {  // RUN auto | manual | god | warp 180 | end | smooth 0 | helper 0 | stats
     Serial.println(run::dev(cmd + 4) ? "RUN ok" : "RUN ?");
-  } else if (!strcmp(cmd, "HOMEBENCH")) {
+#ifdef ESPOS_QA
+  } else if (!strcmp(cmd, "HOMEBENCH")) {  // the QA image only (flash)
     home::bench();
+#endif
   } else if (!strcmp(cmd, "REBUILD")) {
     os::rebuild();
   } else if (!strcmp(cmd, "HOME")) {
     os::goHome();
+#ifdef ESPOS_QA
+  } else if (!strncmp(cmd, "LFSSTRESS ", 10)) {  // QA: LittleFS's background measure N times back to back (util.cpp)
+    pkg::in::lfsStress(atoi(cmd + 10));
   } else if (!strncmp(cmd, "NETBENCH ", 9)) {  // QA: download speed, "NETBENCH <https url> [max KB]" (data dropped)
 #ifndef SIM
     String arg = cmd + 9, url = arg;
@@ -414,6 +425,7 @@ void run(char* cmd) {
                     mx / 1000.0f);
     }
     heap_caps_free(ps), heap_caps_free(in), heap_caps_free(vb), heap_caps_free(pb);
+#endif
   } else if (!strcmp(cmd, "MEM")) {
     lv_mem_monitor_t m;
     lv_mem_monitor(&m);

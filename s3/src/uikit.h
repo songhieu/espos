@@ -78,6 +78,10 @@ void own(lv_obj_t* obj, T* data) {
   lv_obj_add_event_cb(obj, [](lv_event_t* e) { delete (T*)lv_event_get_user_data(e); }, LV_EVENT_DELETE, data);
 }
 
+// A QR code of `text` on a white rounded square of `size` px (the code inside with a quiet zone; dark on white,
+// as phones read best). The pairing screen's look, for the lock sheets (lock.h) and the dog's pop-up.
+lv_obj_t* qr(lv_obj_t* parent, const char* text, int size);
+
 // Date bits in the current language (i18n.h): WEEKDAY[0] "Sunday", WD_SHORT[1] "Mon".
 using i18n::WEEKDAY;
 using i18n::WD_SHORT;

@@ -1,3 +1,4 @@
+#pragma GCC optimize("Os")  // widgets/JS glue built once per change: size over speed (0.5.7 flash diet)
 // The small families (docs/widgets.md §3): reminders (open / all), notes, photo (cover / fit / frame), my widgets,
 // notifications (notif::latest) and the device's status. web/app/src/os/wid/misc.ts draws the same (its
 // notifications are the dashboard's notes, which the device shows as EspOS's).

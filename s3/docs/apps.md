@@ -61,7 +61,7 @@ Limits: QuickJS-ng (ES2023), 1.5 MB heap in PSRAM, 1.5 s per call (3 s to start)
 on its own 16 KB stack in internal RAM while an app is open: the UI thread's 8 KB overflowed and the board restarted
 when Xúc xắc opened; a deeper script throws "Maximum call stack size exceeded"; when internal RAM is short, e.g. a
 sync's TLS handshake right after boot, the app does not open and says "Máy đang bận"; `JSSTACK bytes [under]` on the
-dev console). A throw or a timeout
+dev console of a qa build, env s3desk-qa). A throw or a timeout
 shows "Ứng dụng lỗi: …" and the OS keeps running. Apps run only while open (no background yet).
 
 Try one on a computer first: `make -C sim -j10`, then either `python3 tools/espk.py --install-sim

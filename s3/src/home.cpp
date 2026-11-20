@@ -12,6 +12,7 @@
 #include "desk.h"
 #include "desksaver.h"
 #include "fonts.h"
+#include "lock.h"
 #include "mywid.h"
 #include "os.h"
 #include "pkg/pkg.h"
@@ -36,7 +37,10 @@ using namespace kit;
 // The grid of the orientation shown (setGeo): portrait 4 x 5 cells of 78 x 74 under the status bar, the dock under
 // them; landscape 5 x 4 cells of 78 x 72, the dock standing on the right (x 404), the dots under the grid. The same
 // 20 cells and the same widget boxes (wid::boxSize) either way. Landscape pages are their own (s3.home_l, SEED).
+// A screen wider (portrait) or taller (landscape) than the 3.5" board's (the 2.8" board: 360 x 480) has the same grid,
+// dock and dots in its middle (GX; LY).
 int COLS = 4, ROWS = 5, CW = 78, CH = 74, GX = 4, GY = 28, WY = 4;  // WY: a widget's box below its cell's top
+int LY = 0;  // landscape: how far the grid, the dock and the dots are moved down
 int PAGER_H = 400;
 bool land = false;
 constexpr int DOCK_H = 62;                    // portrait: across the bottom
@@ -45,7 +49,8 @@ constexpr int LDOCK_X = 404, LDOCK_Y = 27, LDOCK_W = 68, LDOCK_H = 284, LDOTS_Y 
 
 void setGeo(bool l) {
   land = l;
-  COLS = l ? LCOLS : 4, ROWS = l ? LROWS : 5, CH = l ? 72 : 74, GY = l ? 24 : 28, WY = l ? 3 : 4;
+  COLS = l ? LCOLS : 4, ROWS = l ? LROWS : 5, CH = l ? 72 : 74, WY = l ? 3 : 4;
+  GX = 4 + (l ? 0 : (os::W() - 320) / 2), LY = l ? (os::H() - 320) / 2 : 0, GY = (l ? 24 : 28) + LY;
   PAGER_H = l ? os::H() : GY + ROWS * CH + 2;  // portrait 400
 }
 
@@ -471,6 +476,8 @@ lv_obj_t* appCell(lv_obj_t* parent, const char* id, bool withLabel) {
     lv_obj_t* b = badge(c, n);
     lv_obj_set_pos(b, 9 + 4 + 52 - 14, -4);
   }
+  const apps::App* la = apps::find(id);
+  if (la && la->pkg && lock::locked(la->pkg)) lv_obj_set_pos(lock::badge(c, 20), 9 + 52 - 12, 52 - 16);  // paid, locked now
   lv_obj_add_flag(c, LV_OBJ_FLAG_CLICKABLE);
   lv_obj_set_user_data(ic, (void*)id);
   return c;
@@ -999,6 +1006,8 @@ void fillDock() {
       lv_obj_t* bd = badge(dockBox, b);
       lv_obj_set_pos(bd, x + 46, y - 5);
     }
+    const apps::App* la = apps::find(model.dock[i].c_str());
+    if (la && la->pkg && lock::locked(la->pkg)) lv_obj_set_pos(lock::badge(dockBox, 20), x + 52 - 12, y + 52 - 16);
   }
 }
 
@@ -1180,7 +1189,7 @@ void buildAll(int index) {
   buildPager();
   keep(&dots, clear(root));
   lv_obj_set_size(dots, land ? GX + COLS * CW + 4 : os::W(), 6);  // landscape: under the grid
-  lv_obj_set_pos(dots, 0, land ? LDOTS_Y : PAGER_H + 2);
+  lv_obj_set_pos(dots, 0, land ? LDOTS_Y + LY : PAGER_H + 2);
   lv_obj_set_flex_flow(dots, LV_FLEX_FLOW_ROW);
   lv_obj_set_flex_align(dots, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
   lv_obj_set_style_pad_column(dots, 6, 0);
@@ -1202,7 +1211,7 @@ void buildAll(int index) {
   lv_obj_set_style_bg_opa(dockBox, theme::home().dockOpa, 0);
   if (land) {  // standing at the right, as phones do in landscape
     lv_obj_set_size(dockBox, LDOCK_W, LDOCK_H);
-    lv_obj_set_pos(dockBox, LDOCK_X, LDOCK_Y);
+    lv_obj_set_pos(dockBox, LDOCK_X, LDOCK_Y + LY);
   } else {
     lv_obj_set_size(dockBox, os::W() - 16, DOCK_H);
     lv_obj_set_pos(dockBox, 8, os::H() - 6 - DOCK_H);
@@ -2047,6 +2056,7 @@ void toFirstPage() {
   if (tiles) setTile(1, true);
 }
 
+#ifdef ESPOS_QA  // HOMEBENCH: a benchmark, the QA image only (as BENCH since 0.5.7: flash)
 void bench() {
   // Dev console: frame times of Home, live and as pictures, and of each part.
   if (!tiles) return;
@@ -2077,6 +2087,7 @@ void bench() {
   useShots(false);
   run("live again");
 }
+#endif
 
 void releasePictures() {
   if (shotsOn) return;

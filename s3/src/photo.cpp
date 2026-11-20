@@ -9,6 +9,7 @@
 
 #include "desk.h"
 #include "home.h"
+#include "jpeg.h"
 #include "rom/tjpgd.h"
 #include "trace.h"
 
@@ -93,8 +94,12 @@ uint8_t* readFile(const String& path, size_t& len) {
   return jpg;
 }
 
-const lv_image_dsc_t* decode(const String& path, int w, int h) {
-  auto it = cache.find(path);
+// cover: the JPEG is another size (a screen copy for a screen of another size, one size each): scaled to cover w x h,
+// kept as path + "@".
+const lv_image_dsc_t* decode(String key, int w, int h, bool cover = false) {
+  const String path = key;
+  if (cover) key += '@';
+  auto it = cache.find(key);
   if (it != cache.end()) {
     it->second.used = millis();
     return &it->second.dsc;
@@ -102,7 +107,7 @@ const lv_image_dsc_t* decode(const String& path, int w, int h) {
   size_t len;
   uint8_t* jpg = readFile(path, len);
   const uint32_t t0 = millis();
-  uint16_t* px = jpg ? decodeJpg(jpg, len, w, h) : nullptr;
+  uint16_t* px = jpg ? (cover ? jpeg::cover(jpg, len, w, h) : decodeJpg(jpg, len, w, h)) : nullptr;
   heap_caps_free(jpg);
   trace::add("photo %s: %s in %lu ms", path.c_str(), px ? "decoded" : "not decoded", millis() - t0);
   if (!px) return nullptr;
@@ -115,7 +120,7 @@ const lv_image_dsc_t* decode(const String& path, int w, int h) {
     heap_caps_free((void*)oldest->second.dsc.data);
     cache.erase(oldest);
   }
-  Decoded& d = cache[path];
+  Decoded& d = cache[key];
   d.used = millis();
   d.pinned = false;
   d.dsc = {};
@@ -258,8 +263,12 @@ void unpinAll() {
   for (auto& c : cache) c.second.pinned = false;
 }
 
+// The screen copies are 320x480 and 480x320 (the web makes those); a screen of another size (the 2.8" board's 360x480,
+// 480x360 turned) takes the copy of its orientation, scaled to cover it.
+static const char* screenDim(int w, int h) { return w > h ? "480x320" : "320x480"; }
+
 int screenCount(int w, int h) {
-  const String dim = String(w) + "x" + String(h);
+  const char* dim = screenDim(w, h);
   int n = 0;
   for (const File& f : wanted())
     if (f.dim == dim && have(f)) n++;
@@ -267,14 +276,15 @@ int screenCount(int w, int h) {
 }
 
 const lv_image_dsc_t* screen(uint32_t n, int w, int h, bool pin) {
-  const String dim = String(w) + "x" + String(h);
+  const char* dim = screenDim(w, h);
   std::vector<String> here;
   for (const File& f : wanted())
     if (f.dim == dim && have(f)) here.push_back(f.path());
   if (here.empty()) return nullptr;
   const String& p = here[n % here.size()];
-  const lv_image_dsc_t* d = decode(p, w, h);
-  if (d && pin) cache[p].pinned = true;  // a Home photo widget shows it: the saver slideshow must not evict it
+  const bool cover = w * h != 320 * 480 || (w != 320 && w != 480);
+  const lv_image_dsc_t* d = decode(p, w, h, cover);
+  if (d && pin) cache[cover ? p + '@' : p].pinned = true;  // a Home photo widget shows it: the saver slideshow must not evict it
   return d;
 }
 

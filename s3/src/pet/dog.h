@@ -2,6 +2,7 @@
 // Biscuit's pictures (biscuit_M.pbs): JPEG + 1-bit mask -> colours + soft-edge alpha, drawn with the blob
 // shadow on any RGB565 buffer, at full size or half size. Carried over from the game designer's fw/pb_ref.c
 // (decode, unmask, draw_dog, span); the JPEG decoder is TJpgDec with RGB565 output (tjpgd_pb.c).
+#include <Arduino.h>
 #include <stdint.h>
 
 #include "formats.h"
@@ -68,8 +69,10 @@ inline uint16_t rgb565(int r, int g, int b) { return (uint16_t)(((r >> 3) << 11)
 
 struct Stats {
   uint32_t pictures = 0, decUs = 0, decMaxUs = 0, ahead = 0, late = 0, failed = 0;
+  uint32_t held = 0;  // the background decoder was late: the picture before was shown again (the UI never waits)
 };
 Stats& stats();  // since the last reset (the game logs it every 10 s)
+String bench(const char* clip, int n);  // DOGBENCH: Espressif's decoder against TJpgDec on a clip's pictures
 
 }  // namespace dog
 }  // namespace pet

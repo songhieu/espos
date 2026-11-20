@@ -44,7 +44,7 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 		}
 	}
 	if len(picked) == 0 {
-		return map[string]any{"status": 422, "body": map[string]any{"error": "Chọn ít nhất một chuyên mục"}}
+		return map[string]any{"status": 422, "body": map[string]any{"error": "Chọn ít nhất một chuyên mục", "code": "news_no_section"}}
 	}
 	hour := wm.Int(b["hour"])
 	per := wm.Int(b["per_section"])

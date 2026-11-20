@@ -991,6 +991,9 @@ func kindOf(row map[string]any, fw string) string {
 	if strings.HasPrefix(fw, "espos-s3-") {
 		return "s3"
 	}
+	if strings.HasPrefix(fw, "espos-bot-") {
+		return "bot"
+	}
 	return "x4"
 }
 
@@ -1074,7 +1077,7 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 	}
 	// A colour desk sends its city with the coordinates it picked: the three are taken together or not at all.
 	place := map[string]string{}
-	if boardKind == "s3" {
+	if boardKind == "s3" || boardKind == "bot" {
 		for _, it := range list(body["settings"]) {
 			m, _ := it.(map[string]any)
 			if k := wm.Str(m["k"]); k == "dash.city" || k == "dash.lat" || k == "dash.lon" {
@@ -1101,7 +1104,20 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 			continue
 		}
 		_, shared := s3Shared[k]
-		if _, allowed := deviceDefaults[k]; !allowed && !(shared && boardKind == "s3") {
+		botOwn := false
+		if boardKind == "bot" {
+			// The EspOS Bot: its own keys (checked whole: JSON lists are longer than 60) and city / time zone.
+			_, own := botDefaults[k]
+			if !own && !(shared && k != "dash.ics_url") {
+				continue
+			}
+			if own && checkBot(k, wm.Str(m["v"])) != "" {
+				continue
+			}
+			botOwn = own
+		} else if strings.HasPrefix(k, "bot.") {
+			continue
+		} else if _, allowed := deviceDefaults[k]; !allowed && !(shared && boardKind == "s3") {
 			continue
 		}
 		if h, _ := s3OSCheck(k, ""); h && boardKind != "s3" {
@@ -1111,7 +1127,9 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 			continue // the X4's packages list belongs to the X4 only
 		}
 		v := cut(wm.Str(m["v"]), 60)
-		if shared {
+		if botOwn {
+			v = wm.Str(m["v"])
+		} else if shared {
 			// The web's own keys, with the web's checks; a bad value is skipped and the stored one goes back.
 			raw := strings.TrimSpace(wm.Str(m["v"]))
 			switch k {
@@ -1409,12 +1427,27 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 		return wm.Fail(lferr)
 	}
 	latestFw := []map[string]any{}
+	// The EspOS Bot picks its channel (bot.ota): "stable" = releases of kind "bot", "beta" = "bot-beta" or "bot"
+	// (the newer), "off" = no update offered.
+	wantFw := map[string]bool{kind: true}
+	if kind == "bot" {
+		ch := botDefaults["bot.ota"]
+		if c, ok := cur["bot.ota"]; ok && c.v != "" {
+			ch = c.v
+		}
+		switch ch {
+		case "off":
+			wantFw = map[string]bool{}
+		case "beta":
+			wantFw["bot-beta"] = true
+		}
+	}
 	for _, f := range fwRows {
 		fk := wm.Str(f["kind"])
 		if fk == "" {
 			fk = "x4"
 		}
-		if fk == kind {
+		if wantFw[fk] {
 			latestFw = append(latestFw, f)
 			break
 		}
@@ -1436,7 +1469,7 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 		upd["fw"] = fw
 	}
 	// The colour desk's health report (fps, heap, resets…), kept as sent when it is a small object.
-	if diag, ok := body["diag"].(map[string]any); ok && kind == "s3" {
+	if diag, ok := body["diag"].(map[string]any); ok && (kind == "s3" || kind == "bot") {
 		if raw, merr := json.Marshal(diag); merr == nil && len(raw) <= 2048 {
 			upd["diag"] = diag
 			upd["diag_at"] = nowMs
@@ -1522,7 +1555,30 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 	// ---- answer: merged settings ----
 	settings := map[string]any{}
 	var rev int64
+	if kind == "bot" {
+		for k, def := range botDefaults {
+			settings[k] = def
+			if c, ok := cur[k]; ok {
+				settings[k] = c.v
+				if c.ms > rev {
+					rev = c.ms
+				}
+			}
+		}
+		for _, k := range botShared {
+			settings[k] = s3Shared[k]
+			if c, ok := cur[k]; ok {
+				settings[k] = c.v
+				if c.ms > rev {
+					rev = c.ms
+				}
+			}
+		}
+	}
 	for k, def := range deviceDefaults {
+		if kind == "bot" {
+			break // the EspOS Bot has none of these (reading, sleep screens, X4 dashboard keys)
+		}
 		if strings.HasPrefix(k, "s3.") != (kind == "s3") && strings.HasPrefix(k, "s3.") {
 			continue // the colour desk's keys go to the colour desk only
 		}
@@ -1669,8 +1725,15 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 	}
 	webKeys := []any{}
 	for k := range deviceDefaults {
-		if webSet[k] {
+		if webSet[k] && kind != "bot" {
 			webKeys = append(webKeys, k)
+		}
+	}
+	if kind == "bot" {
+		for k := range botDefaults {
+			if webSet[k] {
+				webKeys = append(webKeys, k)
+			}
 		}
 	}
 	out := map[string]any{
@@ -1681,6 +1744,9 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 	}
 	if pkgsErr != "" {
 		out["pkgs_err"] = pkgsErr
+	}
+	if kind == "bot" {
+		out["kind"] = "bot" // merge adds the bot's small weather from the dashboard
 	}
 	return map[string]any{"status": 200, "body": out}
 }
@@ -1693,7 +1759,8 @@ var petDogs = map[string]bool{"": true, "bao": true, "momo": true, "boop": true,
 // checkAssist: s3.assist, the dog assistant's switches (s3desk/src/pet/assist.cpp prefs/setPrefs): "" or a JSON
 // object of at most these keys: on, greet, weather, alarm, meal (0 or 1), water, move, eyes (minutes between
 // habit reminders, 0 to 600; 0 = off), the wake word's wake (0-2), wake_word (0-1), wake_sens (1-3) and the RGB LED's
-// led (0-2), led_bright (1-3). "" when good, else the reason.
+// led (0-2), led_bright (1-3), follow (0-1: the dog listens on after an answer) and ack (0-2: what it does when it
+// hears its name: nothing, a beep, a word in its voice). "" when good, else the reason.
 // The same function is in device_sync and put_device_settings: keep the two copies identical.
 func checkAssist(v string) string {
 	if v == "" {
@@ -1740,9 +1807,168 @@ func checkAssist(v string) string {
 			if n < 1 || n > 3 {
 				return k + ": 1 đến 3"
 			}
+		case "follow": // after a spoken answer the dog listens on for a close question (default 1)
+			if n != 0 && n != 1 {
+				return k + ": 0 hoặc 1"
+			}
+		case "ack": // when "gâu gâu" is heard: 0 nothing, 1 a beep, 2 a word in the dog's voice (default 2)
+			if n < 0 || n > 2 {
+				return k + ": 0, 1 hoặc 2"
+			}
 		default:
 			return k + ": không có công tắc này"
 		}
 	}
 	return ""
 }
+
+// ---- EspOS Bot keys (kind "bot", board "bot128"; contract with wakeword 2026-11-20). The SAME block is in
+// device_sync, put_device_settings and get_device_settings: scripts/bot-keys.py writes it, check-bot-keys.py checks.
+// All values are strings. A bot gets only these, plus botShared (city, time zone) with s3Shared's defaults.
+var botDefaults = map[string]string{
+	"bot.style": "eyes", "bot.screens": `[{"id":"clock_bold","s":20},{"id":"date_page","s":8},{"id":"weather","s":8},{"id":"eyes","s":20},{"id":"aquarium","s":15}]`,
+	"bot.bright": "60", "bot.night": "22:00-07:00", "bot.dog": "", "bot.wake": "2", "bot.follow": "1", "bot.voice": "1", "bot.volume": "60",
+	"bot.alarms": "", "bot.ota": "stable", "sys.lang": "vi",
+}
+var botShared = []string{"dash.city", "dash.lat", "dash.lon", "sys.tz_min"}
+
+// Style and screen ids are open (new looks and standby screens come with new firmware art): a lowercase id; the device
+// shows its default for one it does not know.
+func botID(v string, max int) bool {
+	if v == "" || len(v) > max || v[0] < 'a' || v[0] > 'z' {
+		return false
+	}
+	for _, c := range v {
+		if !((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '_' || c == '-') {
+			return false
+		}
+	}
+	return true
+}
+
+func botHHMM(s string) bool {
+	if len(s) != 5 || s[2] != ':' {
+		return false
+	}
+	h := (int(s[0])-'0')*10 + int(s[1]) - '0'
+	m := (int(s[3])-'0')*10 + int(s[4]) - '0'
+	return s[0] >= '0' && s[0] <= '2' && s[1] >= '0' && s[1] <= '9' && s[3] >= '0' && s[3] <= '5' && s[4] >= '0' && s[4] <= '9' && h < 24 && m < 60
+}
+
+func botInt(v string, lo, hi int) bool {
+	if v == "" || len(v) > 4 {
+		return false
+	}
+	n := 0
+	for _, c := range v {
+		if c < '0' || c > '9' {
+			return false
+		}
+		n = n*10 + int(c-'0')
+	}
+	return n >= lo && n <= hi
+}
+
+// checkBot: "" when v is a good value for the bot key k, else the reason (Vietnamese, for the web).
+func checkBot(k, v string) string {
+	switch k {
+	case "bot.style":
+		if botID(v, 16) {
+			return ""
+		}
+		return "Kiểu màn: mã không hợp lệ"
+	case "bot.bright":
+		if botInt(v, 5, 100) {
+			return ""
+		}
+		return "Độ sáng: 5 đến 100"
+	case "bot.wake":
+		if botInt(v, 0, 3) {
+			return ""
+		}
+		return "Độ nhạy: 0 đến 3"
+	case "bot.volume":
+		if botInt(v, 0, 100) {
+			return ""
+		}
+		return "Âm lượng: 0 đến 100"
+	case "bot.follow":
+		if v == "0" || v == "1" {
+			return ""
+		}
+		return "Nghe tiếp sau khi trả lời: 0 hoặc 1"
+	case "bot.voice":
+		if v == "0" || v == "1" {
+			return ""
+		}
+		return "Giọng nói: 1 bật, 0 chỉ trả lời bằng chữ"
+	case "bot.ota":
+		if v == "stable" || v == "beta" || v == "off" {
+			return ""
+		}
+		return "Cập nhật: stable, beta hoặc off"
+	case "sys.lang":
+		if v == "vi" || v == "en" {
+			return ""
+		}
+		return "Ngôn ngữ: vi hoặc en"
+	case "bot.dog":
+		if v == "" {
+			return ""
+		}
+		if len(v) > 20 || v[0] < 'a' || v[0] > 'z' {
+			return "Chó: mã không hợp lệ"
+		}
+		for _, c := range v {
+			if !((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '_' || c == '-') {
+				return "Chó: mã không hợp lệ"
+			}
+		}
+		return ""
+	case "bot.night":
+		if v == "" || (len(v) == 11 && v[5] == '-' && botHHMM(v[:5]) && botHHMM(v[6:]) && v[:5] != v[6:]) {
+			return ""
+		}
+		return "Giờ đêm: HH:MM-HH:MM hoặc để trống"
+	case "bot.screens":
+		var list []map[string]any
+		if len(v) > 1000 || json.Unmarshal([]byte(v), &list) != nil || len(list) < 1 || len(list) > 16 {
+			return "Màn chờ: từ 1 đến 16 màn"
+		}
+		for _, it := range list {
+			s := wm.Num(it["s"])
+			if !botID(wm.Str(it["id"]), 24) || s < 3 || s > 600 || s != float64(int(s)) {
+				return "Màn chờ: mã màn không hợp lệ, hoặc ngoài 3 đến 600 giây"
+			}
+		}
+		return ""
+	case "bot.alarms":
+		if v == "" {
+			return ""
+		}
+		var list []map[string]any
+		if len(v) > 2000 || json.Unmarshal([]byte(v), &list) != nil || len(list) > 20 {
+			return "Báo thức: tối đa 20"
+		}
+		for _, a := range list {
+			h := wm.Num(a["h"])
+			m := wm.Num(a["m"])
+			if h < 0 || h > 23 || m < 0 || m > 59 || h != float64(int(h)) || m != float64(int(m)) || len([]rune(wm.Str(a["label"]))) > 40 {
+				return "Báo thức: giờ hoặc tên không hợp lệ"
+			}
+			days := wm.Str(a["days"])
+			if len(days) > 7 || strings.Trim(days, "0123456") != "" {
+				return "Báo thức: ngày trong tuần 0 đến 6"
+			}
+			if d := wm.Str(a["date"]); d != "" {
+				if _, err := time.Parse("2006-01-02", d); err != nil {
+					return "Lời nhắc: ngày dạng YYYY-MM-DD"
+				}
+			}
+		}
+		return ""
+	}
+	return "không phải khoá của bot"
+}
+
+// ---- end of the EspOS Bot keys block

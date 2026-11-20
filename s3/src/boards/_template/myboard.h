@@ -29,9 +29,10 @@ inline constexpr hal::Board BOARD = {
         // The panel itself, portrait. rotations: bit n = LV_DISPLAY_ROTATION_<n x 90> your display.cpp can turn to.
         .panel = {.w = 320, .h = 480, .type = hal::PanelType::TFT, .format = hal::ColorFormat::RGB565, .bits = 16,
                   .refresh = hal::Refresh::INSTANT, .rotations = 0b0001},
-        // Where the 320x480 UI lands: 1/1 on a 320x480 panel. A 240x320 panel: {2, 3, 13, 0} (the ES3C28P). Other
-        // ratios need their own scaling in display.cpp and touch.cpp (src/scale.h has 3/4 and 2/3).
-        .ui = {.num = 1, .den = 1, .x = 0, .y = 0},
+        // The UI (the OS's pixels, portrait) and where it lands: 320x480 at 1/1 on a 320x480 panel. A 240x320 panel:
+        // {360, 480, 2, 3, 0, 0} (the ES3C28P: 360x480 at 2/3 fills it). Other ratios need their own scaling in
+        // display.cpp and touch.cpp (src/scale.h has 3/4 and 2/3). The UI is at least 320 wide (packages, games).
+        .ui = {.w = 320, .h = 480, .num = 1, .den = 1, .x = 0, .y = 0},
         // SPI: d0 = MOSI, d1 = MISO (-1 if the panel cannot be read), dc = data/command. QSPI: d0..d3, dc = -1.
         .pins = {.cs = -1, .sclk = -1, .d0 = -1, .d1 = -1, .d2 = -1, .d3 = -1, .dc = -1, .rst = -1, .bl = -1,
                  .te = -1},

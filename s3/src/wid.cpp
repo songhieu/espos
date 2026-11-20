@@ -1,3 +1,4 @@
+#pragma GCC optimize("Os")  // widgets/JS glue built once per change: size over speed (0.5.7 flash diet)
 // The widget core (docs/widgets.md): the registry, create() and the my-widgets store. The kinds are drawn by
 // the family files in src/wid/ with the shared pieces of src/wid/kit.h; web/app/src/os/wid.ts mirrors this file.
 #include "wid.h"

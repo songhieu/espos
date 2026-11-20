@@ -16,7 +16,12 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 FONTS = ROOT / "src/fonts"
-KEEP = {"ub_r12", "ub_r14", "ub_r16", "ub_b12", "ub_b14", "ub_b16"}  # used by name (lv_conf.h, j2me/midp_font.cpp)
+KEEP = {"ub_r14"}  # LVGL's default font (include/lv_conf.h), and the one every font falls back to without PSRAM
+# Reached by name too (src/j2me/midp_font.cpp) but deflated since 0.5.7 (26 KB of the app slot): their descriptions
+# live in RAM (no const) and fonts.cpp points them at the inflated bitmaps in place.
+INPLACE = {"ub_r12", "ub_r16", "ub_b12", "ub_b14", "ub_b16"}
+DSC_CONST = "static const lv_font_fmt_txt_dsc_t font_dsc = {"
+DSC_RAM = "static lv_font_fmt_txt_dsc_t font_dsc = {  /* RAM: fonts.cpp sets glyph_bitmap (zfonts.py INPLACE) */"
 BEGIN = re.compile(r"^static LV_ATTRIBUTE_LARGE_CONST const uint8_t glyph_bitmap\[\] = \{\s*$", re.M)
 WRAP_ON = "#if !UB_ZFONTS  /* the bitmaps are deflated in zfonts.c (tools/fontconv/zfonts.py) */\n"
 
@@ -44,7 +49,9 @@ def convert(name):
         if n != 1:
             sys.exit(f"{p}: {n} glyph_bitmap fields")
         src = src.replace(".glyph_bitmap = glyph_bitmap,", ".glyph_bitmap = UB_BITMAP,")
-        p.write_text(src)
+    if name in INPLACE and DSC_CONST in src:
+        src = src.replace(DSC_CONST, DSC_RAM, 1)
+    p.write_text(src)
     return data
 
 
@@ -53,15 +60,15 @@ def main():
     raw, table = b"", []
     for n in names:
         d = convert(n)
-        table.append((n, len(raw), len(d)))
+        table.append((n, len(raw), len(d), int(n in INPLACE)))
         raw += d
     z = zlib.compress(raw, 9)
     out = ['/* Made by tools/fontconv/zfonts.py: do not edit. The glyph bitmaps of the built-in fonts below, one zlib',
            ' * stream (src/fonts.cpp inflates it into PSRAM at boot). */',
            '#include "lvgl.h"', '#include "zfonts.h"', '']
-    out.append("extern const lv_font_t " + ", ".join(n for n, _, _ in table) + ";")
+    out.append("extern const lv_font_t " + ", ".join(t[0] for t in table) + ";")
     out.append(f"const uint32_t zfonts_raw = {len(raw)}, zfonts_size = {len(z)};")
-    out.append(f"const zfont_t zfonts[ZFONTS_N] = {{" + ", ".join(f"{{&{n}, {o}, {l}}}" for n, o, l in table) + "};")
+    out.append(f"const zfont_t zfonts[ZFONTS_N] = {{" + ", ".join(f"{{&{n}, {o}, {l}, {k}}}" for n, o, l, k in table) + "};")
     out.append("const uint8_t zfonts_z[] = {")
     for i in range(0, len(z), 24):
         out.append("  " + ",".join(f"0x{b:02x}" for b in z[i:i + 24]) + ",")
@@ -73,7 +80,8 @@ def main():
         "#ifdef UB_ZFONTS_RAW  /* -DUB_ZFONTS_RAW: the bitmaps as they were (raw in flash), for before/after checks */\n#define UB_ZFONTS 0\n#else\n#define UB_ZFONTS 1\n#endif\n"
         f"#define ZFONTS_N {len(table)}\n"
         "#ifdef __cplusplus\nextern \"C\" {\n#endif\n"
-        "typedef struct { const lv_font_t* font; uint32_t off, len; } zfont_t;\n"
+        "/* inplace: the font's own descriptions are in RAM (reached by name); fonts.cpp sets their glyph_bitmap */\n"
+        "typedef struct { const lv_font_t* font; uint32_t off, len; uint8_t inplace; } zfont_t;\n"
         "extern const zfont_t zfonts[ZFONTS_N];\nextern const uint32_t zfonts_raw, zfonts_size;\nextern const uint8_t zfonts_z[];\n"
         "#ifdef __cplusplus\n}\n#endif\n")
     print(f"zfonts: {len(table)} fonts, {len(raw)} bytes of bitmaps -> {len(z)} deflated")

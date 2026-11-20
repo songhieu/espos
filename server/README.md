@@ -155,6 +155,9 @@ switched on.
   it needs the hosted service's AI model and speech service (workflows that read a hosted secret,
   the ones that call them, and its own memory workflows). The S3 shows no answer from the dog on a
   self-hosted server.
+  The hosted service's administration (`admin_*`: users, roles, licences, trials, device stock) is
+  left out as well, and its guards are dropped from the routes: here nothing is blocked or
+  licensed, and a device that sees no licence in its sync locks nothing.
 
 ```sh
 make test     # Go tests

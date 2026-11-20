@@ -405,10 +405,8 @@ void render() {
   lv_obj_clean(root);
   boxes.clear();
   const Page& pg = pageOf(pageLand, pageNight, pageIdx);
-  const int w = os::W(), h = os::H();
-  bgBox = drawBg(root, pg.bg, w, h);
-  keep(&layer, kit::clear(root));
-  lv_obj_set_size(layer, w, h);
+  bgBox = drawBg(root, pg.bg, os::W(), os::H());
+  keep(&layer, canvas(root, pageLand));
   for (const El& e : pg.e) boxes.push_back(drawEl(layer, e));
   builtAt = millis();
   dirty = false;
@@ -486,7 +484,7 @@ const lv_image_dsc_t* holdPic(const Bg& bg, int w, int h) {
   const String key = String(bg.id) + "_" + w + "x" + h;
   for (Pic* p : pics)
     if (p->key == key) return p->holds++, &p->dsc;
-  uint16_t* px = decodePhoto(bg.id, w, h, w, h);
+  uint16_t* px = decodePhoto(bg.id, w > h ? 480 : 320, w > h ? 320 : 480, w, h);  // the copy of its orientation, covering
   if (!px) return nullptr;
   Pic* p = new Pic{key, {}, 1};
   p->dsc.header.magic = LV_IMAGE_HEADER_MAGIC;
@@ -558,7 +556,8 @@ lv_obj_t* thumb(lv_obj_t* parent, const Page& pg, int div) {
   lv_obj_t* c = kit::clear(hold);
   lv_obj_set_size(c, w, h);
   drawBg(c, pg.bg, w, h);
-  for (const El& e : pg.e) drawEl(c, e);
+  lv_obj_t* cv = canvas(c, os::landscape());
+  for (const El& e : pg.e) drawEl(cv, e);
   lv_obj_update_layout(c);
   lv_draw_buf_t buf;
   lv_draw_buf_init(&buf, w, h, LV_COLOR_FORMAT_RGB565, w * 2, full, w * h * 2);
@@ -860,7 +859,8 @@ Job* startJob(Show* s, int pick, bool now = false) {
     const int i = (pick + k / 2) % s->n;
     size_t len;
     const bool crop = k & 1;
-    uint8_t* jpg = crop ? photo::readCopy(s->ids[i], os::W(), os::H(), len) : photo::readCopy(s->ids[i], s->w, s->h, len);
+    uint8_t* jpg = crop ? photo::readCopy(s->ids[i], os::landscape() ? 480 : 320, os::landscape() ? 320 : 480, len)
+                        : photo::readCopy(s->ids[i], s->w, s->h, len);
     if (!jpg) continue;
     Job* j = (Job*)heap_caps_calloc(1, sizeof(Job), MALLOC_CAP_SPIRAM);
     if (!j) return heap_caps_free(jpg), nullptr;
@@ -976,6 +976,13 @@ bool slides(lv_obj_t* box, const El& e) {
 }
 
 }  // namespace
+
+lv_obj_t* canvas(lv_obj_t* parent, bool land) {
+  lv_obj_t* c = kit::clear(parent);
+  lv_obj_set_size(c, land ? PAGE_H : PAGE_W, land ? PAGE_W : PAGE_H);
+  lv_obj_set_pos(c, os::colX(), os::colY());  // (the screen is turned as the page)
+  return c;
+}
 
 lv_obj_t* drawEl(lv_obj_t* parent, const El& e) {
   lv_obj_t* c = kit::clear(parent);
@@ -1100,7 +1107,7 @@ void update(const tm& t, bool night) {
   }
   static const int8_t DX[] = {0, 2, 3, 2, 0, -2, -3, -2}, DY[] = {0, -2, 0, 2, 3, 2, 0, -2};
   const int k = ++shift % 8;
-  if (layer) lv_obj_set_pos(layer, DX[k], DY[k]);
+  if (layer) lv_obj_set_pos(layer, os::colX() + DX[k], os::colY() + DY[k]);
 }
 
 int backlight(bool night) {

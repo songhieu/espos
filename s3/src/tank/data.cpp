@@ -369,8 +369,10 @@ const Spr* spr(PackId p, int i) {
   k.info(i, w, h, fmt, off);
   if (w <= 0 || h <= 0 || w > 640 || h > 640) return nullptr;
   const int st = w + 2, n = st * (h + 2);
-  // one block: the Spr, the colours, the alphas
-  uint8_t* m = (uint8_t*)heap_caps_malloc(sizeof(Spr) + n * 3 + 4, MALLOC_CAP_SPIRAM);
+  // one block: the Spr, the colours, the alphas, the spans (and for the fish, the columns)
+  const bool fish = p == P_FRESH || p == P_MARINE;
+  const size_t base = (sizeof(Spr) + n * 3 + 4 + (h + w) * 4 + 4 + 3) & ~(size_t)3;
+  uint8_t* m = (uint8_t*)heap_caps_malloc(base + (fish ? (size_t)n * 4 : 0), MALLOC_CAP_SPIRAM);
   uint8_t* tmp = (uint8_t*)heap_caps_malloc(w * h * (fmt ? 3 : 2), MALLOC_CAP_SPIRAM);
   if (!m || !tmp || !k.f.read(off, tmp, w * h * (fmt ? 3 : 2))) {
     heap_caps_free(m), heap_caps_free(tmp);
@@ -387,7 +389,31 @@ const Spr* spr(PackId p, int i) {
       A[o] = !in ? 0 : fmt ? tmp[2 * w * h + sy * w + sx] : 255;
     }
   heap_caps_free(tmp);
-  s->w = w, s->h = h, s->st = st, s->c = C + st + 1, s->a = A + st + 1;
+  // each row's span of colour (the blits skip the clear sides of a plant's leaves: the board reads PSRAM slowly)
+  uint16_t* RS = (uint16_t*)(((uintptr_t)(A + n) + 3) & ~(uintptr_t)3);
+  for (int y = 0; y < h; y++) {
+    const uint8_t* row = A + (y + 1) * st + 1;
+    int lo = 0, hi = w - 1;
+    while (lo < w && !row[lo]) lo++;
+    while (hi >= lo && !row[hi]) hi--;
+    RS[2 * y] = (uint16_t)lo, RS[2 * y + 1] = (uint16_t)(hi < lo ? 0 : hi);
+    if (hi < lo) RS[2 * y] = (uint16_t)w;
+  }
+  uint16_t* CS = RS + 2 * h;  // and each column's
+  for (int x = 0; x < w; x++) {
+    int lo = 0, hi = h - 1;
+    while (lo < h && !A[(lo + 1) * st + x + 1]) lo++;
+    while (hi >= lo && !A[(hi + 1) * st + x + 1]) hi--;
+    CS[2 * x] = (uint16_t)(hi < lo ? h : lo), CS[2 * x + 1] = (uint16_t)(hi < lo ? 0 : hi);
+  }
+  s->w = w, s->h = h, s->st = st, s->c = C + st + 1, s->a = A + st + 1, s->rs = RS, s->cs = CS, s->t = nullptr, s->th = 0;
+  if (fish) {
+    const int th = h + 2;
+    uint32_t* T = (uint32_t*)(m + base);
+    for (int x = 0; x < st; x++)
+      for (int y = 0; y < th; y++) T[x * th + y] = C[y * st + x] | (uint32_t)A[y * st + x] << 16;
+    s->t = T + th + 1, s->th = (int16_t)th;
+  }
   return c.s[i] = s;
 }
 

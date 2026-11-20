@@ -39,6 +39,20 @@ void captureFree();                                   // stops it and drops it
 // Levels for a meter and the end of speech (dBFS): the last 10 ms (smoothed), and the noise floor (the lowest of 2 s).
 float levelDb();
 float floorDb();
+// Speech activity counted by the mic task in every 10 ms block (talk.cpp's question: a slow or stalled UI loop, a
+// game drawing at 6 pictures a second or a 2 s TLS handshake, loses nothing): since the last take, the ms above the
+// floor + relDb (and above minDb), the ms in all, and the loudest level. vadSet applies from the next block.
+struct Vad {
+  uint32_t loudMs = 0, ms = 0, oursMs = 0;  // oursMs: muted for our own sound (vadMute), not counted
+  float peakDb = -90;
+};
+void vadSet(float relDb, float minDb);
+Vad vadTake();
+// The speech start, counted in the mic task block by block (loud 10 ms +10, quiet -5, never under 0): the highest
+// score since vadRestart (talk.cpp: speech has begun at 240 ms).
+void vadRestart();
+uint32_t vadSpeechMs();
+void vadMute(uint32_t forMs);  // the next forMs of the mic are our own sound (talk.cpp's ack): never speech
 
 // Dev console: WAKE (state and timings), WAKEREC n (n s of the raw mic, sent back as "WAKEREC <bytes>" + PCM).
 bool console(const char* cmd);

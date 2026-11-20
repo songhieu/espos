@@ -10,12 +10,12 @@
 namespace es3c28p {
 namespace {
 
-constexpr int LCD_W = hal::UI_W, LCD_H = hal::UI_H;  // the UI
-constexpr hal::UiMap UI = BOARD.display.ui;           // where it is on the panel (2/3, from x 13)
+constexpr hal::UiMap UI = BOARD.display.ui;  // the UI, 360x480, on the whole panel at 2/3
+constexpr int LCD_W = UI.w, LCD_H = UI.h;
 i2c_master_dev_handle_t ft;
 
 // FT6336G: register 0x02 = how many fingers (low 4 bits), then the first one's XH (the event in bits 6-7, x bits 8-11),
-// XL, YH, YL, in the panel's 240x320. The UI is the panel's 3/2 (213 px of it across, from x 13).
+// XL, YH, YL, in the panel's 240x320. The UI is the panel's 3/2: x = px * 3/2, y = py * 3/2.
 bool readFt(int16_t& x, int16_t& y) {
   uint8_t reg = 0x02, b[5];
   if (i2c_master_transmit_receive(ft, &reg, 1, b, 5, 20) != ESP_OK) return false;

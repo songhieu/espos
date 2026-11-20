@@ -40,6 +40,12 @@ struct Spr {  // a picture: RGB565 + alpha (straight), padded with one clear pix
   int16_t w = 0, h = 0, st = 0;
   const uint16_t* c = nullptr;  // pixel (0, 0); (-1 .. w) x (-1 .. h) may be read
   const uint8_t* a = nullptr;
+  const uint16_t* rs = nullptr;  // per row: its first and last column with any alpha (first > last: clear); or none
+  const uint16_t* cs = nullptr;  // per column: its first and last row with any alpha (the fish, drawn by columns)
+  // The fish's pictures again by columns, colour | alpha << 16 a pixel (stride th = h + 2, padded as c): the fish are
+  // drawn column by column, and read by rows each pixel took its own PSRAM cache lines (the board, 2026-11-20)
+  const uint32_t* t = nullptr;
+  int16_t th = 0;
 };
 
 struct Species {
@@ -180,6 +186,20 @@ struct Tgt {
 __attribute__((always_inline)) inline uint32_t ex(uint16_t c) { return (c | ((uint32_t)c << 16)) & 0x07E0F81Fu; }
 __attribute__((always_inline)) inline uint16_t pk(uint32_t e) { return (uint16_t)(e | (e >> 16)); }
 __attribute__((always_inline)) inline uint32_t mix(uint32_t a, uint32_t b, int w) { return (a + (((b - a) * (uint32_t)w) >> 5)) & 0x07E0F81Fu; }
+// sinf, cosf and powf of the board's C library work in double precision, which the S3 does in software: about 7 µs
+// a call on the board (2026-11-20), and the swim and the plants' sway want thousands a picture. These stay in float:
+// fsin within 2e-4, fpow within 1e-4 on [0, 1].
+#ifndef TANK_OLD_MATH
+float fsin(float x);
+float fcos(float x);
+float fpow(float x, float p);  // x >= 0
+float fsqrt(float x);          // x >= 0 (the library's goes bit by bit)
+#else  // a measuring build only (-DTANK_OLD_MATH): the library's maths again, for a before/after in QEMU
+#define fsin sinf
+#define fcos cosf
+#define fpow powf
+#define fsqrt sqrtf
+#endif
 inline uint16_t rgb565(int r, int g, int b) {
   r = r < 0 ? 0 : r > 255 ? 255 : r, g = g < 0 ? 0 : g > 255 ? 255 : g, b = b < 0 ? 0 : b > 255 ? 255 : b;
   return (uint16_t)(((r >> 3) << 11) | ((g >> 2) << 5) | (b >> 3));
@@ -274,6 +294,18 @@ struct Scene {
   int nrings = 0;
   float algae[30 * 30] = {0};
   bool algaeOn = false;
+  // The algae film, baked (2026-11-19, the board's numbers: a pass over the whole frame took 34 ms): its weight a
+  // pixel (0..32, PSRAM) is made from the grid when the grid changes, the background (bgc) carries it, and the things
+  // drawn over the background take it as they are drawn (put()). filmX0.. = the part to make again (frame pixels).
+  uint8_t* filmW = nullptr;
+  uint8_t* filmT = nullptr;  // the same weights by columns (the fish are drawn down columns); made with the algae
+  // bgc kept by columns (bgc[X * FH + Y]) when the pictures go out a column at a time (the 3.5" on its side: the
+  // panel's rows are the screen's columns), so the background goes out as whole runs (memcpy) read straight.
+  bool bgCols = false, bgColsWant = false;
+  int filmX0 = 0, filmY0 = 0, filmX1 = 0, filmY1 = 0;
+  bool filmSoft = false;  // the part to make again may take a few pictures (makeBg: the haze or the light moved)
+  uint32_t filmG = 0;
+  void filmDirty(int x0, int y0, int x1, int y1);  // frame pixels; the whole frame: filmDirty(0, 0, 1 << 14, 1 << 14)
   // the state shown
   float Tm = 0, tint[3] = {1, 1, 1}, tintNow[3] = {1, 1, 1}, haze = 0, hazeNow = 0, air = 1, rays = 1;
   bool sleeping = false, lamp = true, night = false, wag = true;
@@ -312,7 +344,8 @@ struct Scene {
   void pick(Fish* f);
   void reoffset(Fish* f);
   long touched = 0;  // sprite pixels drawn (the bench)
-  uint32_t prof[8] = {0};  // us: background, plants+ornaments, fish, food+coins, specks+bubbles, beams, rings+algae, screens
+  uint32_t prof[8] = {0};
+  uint32_t prep[3] = {0};  // us inside prepare(): the background made again (tint, haze, film), the fish, the beams  // us: background, plants+ornaments, fish, food+coins, specks+bubbles, beams, rings+algae, screens
 };
 extern Scene* sc;  // the one water (the app and the saver share it)
 void freeScene();
@@ -343,6 +376,7 @@ float textW(const char* s, int px, bool bold);
 String fit1(const char* s, int px, bool bold, float w);              // whole items / words only, never "…"
 void wrap2(const char* s, int px, bool bold, float w, String& a, String& b);
 void frameStart();  // the text cache's clock
+uint32_t frameNo();  // which picture this is (frameStart() counts them)
 }  // namespace gfx
 
 // ---------------------------------------------------------------- the rules (game.cpp)
@@ -373,6 +407,7 @@ struct Row {  // a shop row (ui.js draws it, game.js G.shop() says it)
   int up = -1;   // a machine (its glyph)
   int count = 0, price = -1;
   bool bad = false, warn = false, can = false, dim = false, shade = false, look = false;
+  bool paid = false;     // locked after the trial (lock.h): a padlock instead of the price, pressing shows the way
   int act = 0, arg = 0;  // what pressing does
 };
 extern float timeK;     // the game's clock speed (dev)
@@ -425,9 +460,15 @@ void debugXp(int n);
 void debugLook(const char* id);
 void reset();
 void fillFree(const char* look, const char* list);  // a free tank (no rules): the bench and the shots
+bool debugKeep(bool restore);  // the save copied aside (tank.qa) / put back and loaded: tests on someone's own tank
 }  // namespace game
 
 // ---------------------------------------------------------------- the screens (ui.cpp)
+#if TANK_QA
+extern uint32_t fishQa[4];  // water.cpp: the fish part: µs in shadows, bodies, spots; body pixels
+extern bool qaPlain;  // water.cpp: the fish by rows, the sway per row (the old paths, for shots)
+#endif
+
 namespace ui {
 struct Lay {
   float W, H;
@@ -441,6 +482,11 @@ struct Lay {
 Lay lay();
 extern bool saver;     // the standby face (no bars; the saver page's own clock is the OS's)
 extern bool homeLine;  // draw the OS's home line (the picture goes past LVGL, which would draw it)
+#if TANK_QA
+extern uint32_t prof[6];  // µs in draw(): the bar's layer, the bar's moving parts, the dock, the card, the sheet, the rest
+extern bool layersOff;  // the bar, the dock and the card drawn straight, not from their prepared layers (shots)
+void layerStats(int& made, int& noRoom, uint32_t& putUs, uint32_t& putPx);  // layers made, no room; layerPut's µs and pixels
+#endif
 void say(const String& s);
 void fx(const char* k, int v);
 void wake();
@@ -451,6 +497,12 @@ void up(float x, float y);
 // What covers the water this frame: rows/columns of the screen the water must not be drawn under (opaque sheet).
 void cover(float& x0, float& y0, float& x1, float& y1);
 void draw(const Tgt& t);
+// The water standing still under the shop sheet: frameBegin()/frameEnd() around each picture; while frozen(), a
+// piece is drawFrozen() alone (no water worked out or drawn).
+void frameBegin();
+void frameEnd();
+bool frozen();
+void drawFrozen(const Tgt& t);
 void reset();  // closes the sheet, the card, the chooser
 void devOpen(const char* what, int arg);
 bool busy();   // a sheet, a card, the sponge, the chooser is up

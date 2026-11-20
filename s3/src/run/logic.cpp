@@ -2,6 +2,7 @@
 // Small rather than fast (20 steps a second, nothing heavy): the flash is nearly full.
 #pragma GCC optimize("Os")
 #include "logic.h"
+#include "../lock.h"
 
 #include <ArduinoJson.h>
 
@@ -157,8 +158,16 @@ bool World::openRoads(const char* id, String& err) {
   if (maps_) {
     part = "maps", half = false;
     skip = !media::fast();
-    for (size_t i = 0; i < maps.size(); i++)
-      maps[i].road = openOne("vn.pawboop.map." + maps[i].id, roadFiles[i], maps[i].pictures);
+    for (size_t i = 0; i < maps.size(); i++) {
+      const String pk = "vn.pawboop.map." + maps[i].id;
+      // Paid and locked after the trial (lock.h): kept on the card as it is, shown on the start card with a lock.
+      maps[i].locked = !lock::may(pk.c_str());
+      maps[i].road = maps[i].locked ? -1 : openOne(pk, roadFiles[i], maps[i].pictures);
+      if (maps[i].locked) {
+        pkg::File f;
+        maps[i].locked = roadFiles[i].length() && pkg::open(pk.c_str(), roadFiles[i].c_str(), f);
+      }
+    }
     for (size_t i = 0; i < links.size(); i++) {
       LinkInfo& l = links[i];
       l.road = maps[l.from].road >= 0 && maps[l.to].road >= 0

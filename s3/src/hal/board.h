@@ -67,6 +67,9 @@ constexpr uint32_t NEVER = 0;
 
 const Bsp& bsp();  // the board found at boot (src/boards/boards.cpp)
 inline const Board& board() { return *bsp().board; }
+// The UI's size, portrait (DisplayDesc::ui; display.h): the board found at boot's.
+inline int uiW() { return board().display.ui.w; }
+inline int uiH() { return board().display.ui.h; }
 inline bool has(uint32_t caps) { return !(caps & NEVER) && (board().caps & caps) == caps; }
 void detect();  // first thing at boot, before any driver takes a pin
 

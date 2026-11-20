@@ -86,6 +86,9 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 		kind = wm.Str(devs[0]["kind"])
 	}
 	s3 := kind == "s3"
+	if kind == "bot" {
+		blocks = "weather,lunar" // the EspOS Bot's standby screens: weather and the date (solar and lunar)
+	}
 	if on("lunar") {
 		d["lunar"] = lunar
 		d["lunar_year"] = can[(ly+6)%10] + " " + chi[(ly+8)%12]
@@ -95,6 +98,12 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 		if werr != nil {
 			wm.Log("weather: ", werr.Error())
 		} else {
+			if kind == "bot" {
+				if h, ok := w["_hum"]; ok {
+					w["hum"] = h // the bot's rain screen ("ẩm 90%")
+				}
+			}
+			delete(w, "_hum")
 			d["weather"] = w
 		}
 	}
@@ -142,6 +151,10 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 		if nerr != nil {
 			return wm.Fail(nerr)
 		}
+		if kind == "bot" {
+			n = map[string]any{"top": n["full"]} // whole headlines: the bot scrolls them (never "…")
+		}
+		delete(n, "full")
 		d["news"] = n
 	}
 	if len(mk.coins) > 0 {
@@ -517,6 +530,9 @@ func weather(st map[string]string, now time.Time, local time.Time, s3 bool) (map
 		"desc": desc,
 		"icon": icon,
 	}
+	if v := cur["relative_humidity_2m"]; v != nil {
+		w["_hum"] = roundOf(v) // kept only for the EspOS Bot (build removes it for the others)
+	}
 	if daily != nil {
 		w["max"] = int(math.Round(first(daily["temperature_2m_max"])))
 		w["min"] = int(math.Round(first(daily["temperature_2m_min"])))
@@ -739,6 +755,9 @@ func addList(into *[]string, seen map[string]bool, prefix, opt string, max int) 
 	}
 }
 
+// The bot's default standby rotation: the same as botDefaults["bot.screens"] in device_sync (scripts/bot-keys.go.txt).
+const botScreensDefault = `[{"id":"clock_bold","s":20},{"id":"date_page","s":8},{"id":"weather","s":8},{"id":"eyes","s":20},{"id":"aquarium","s":15}]`
+
 var indexNames = map[string]bool{"VNINDEX": true, "VN30": true, "HNX": true, "UPCOM": true}
 
 // Which market widgets this device's layouts hold, and the stock symbols they ask for.
@@ -760,6 +779,28 @@ func marketNeeds(st map[string]string, kind string) needs {
 	}
 	var n needs
 	seen := map[string]bool{}
+	if kind == "bot" {
+		// The EspOS Bot's standby screens (bot.screens, else its default): "gold" shows SJC and the USD rate,
+		// "newspaper" a headline. Nothing else of the markets.
+		scr := st["bot.screens"]
+		if scr == "" {
+			scr = botScreensDefault
+		}
+		var list []struct {
+			ID string `json:"id"`
+		}
+		_ = json.Unmarshal([]byte(scr), &list)
+		for _, it := range list {
+			switch it.ID {
+			case "gold":
+				addList(&n.gold, seen, "gold:", "SJC", 1)
+				addList(&n.fx, seen, "fx:", "USD", 1)
+			case "newspaper":
+				n.news = true
+			}
+		}
+		return n
+	}
 	for _, key := range []string{"home.w", "sleep.wl", "sleep.wp", "s3.p1", "s3.p2", "s3.l1", "s3.l2"} {
 		if st[key] == "" {
 			continue
@@ -989,6 +1030,7 @@ func newsTop(userID int, s3 bool, picked []string) (map[string]any, error) {
 		bySlug[wm.Str(r["slug"])] = list
 	}
 	top := []any{}
+	full := []any{}  // the same headlines uncut, for the EspOS Bot
 	items := []any{} // with the lead, for the colour desk (tap a headline to read it)
 	// The first story of each section, then the second ones, up to three headlines.
 	for depth := 0; depth < 3 && len(top) < 3; depth++ {
@@ -997,12 +1039,13 @@ func newsTop(userID int, s3 bool, picked []string) (map[string]any, error) {
 			if depth < len(list) && len(top) < 3 {
 				if m, ok := list[depth].(map[string]any); ok && wm.Str(m["title"]) != "" {
 					top = append(top, cut(wm.Str(m["title"]), 120))
+					full = append(full, strings.TrimSpace(wm.Str(m["title"])))
 					items = append(items, map[string]any{"title": cut(wm.Str(m["title"]), 120), "lead": cut(wm.Str(m["lead"]), 400)})
 				}
 			}
 		}
 	}
-	return map[string]any{"top": top, "items": items}, nil
+	return map[string]any{"top": top, "items": items, "full": full}, nil
 }
 
 // newsS3: the first story of each followed section, then the second ones…: 3 titles in `top`,

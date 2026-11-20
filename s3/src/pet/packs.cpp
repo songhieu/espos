@@ -1,3 +1,4 @@
+#pragma GCC optimize("Os")  // lookups and file reads, no per-pixel work: built for size (the app slot is full)
 #include "packs.h"
 
 #include <Arduino.h>

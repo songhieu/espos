@@ -107,6 +107,7 @@ bool bad();          // a card is in but cannot be read (not FAT)
 uint32_t version();  // bumps when it comes or goes
 bool info(uint64_t& total, uint64_t& freeB);
 void setBusy(bool busy);  // a job writes to the card: do not unmount under it
+bool probed();            // the first look for a card is done
 }  // namespace card
 
 // ---------------------------------------------------------------- files (util.cpp)
@@ -120,7 +121,12 @@ bool writeText(const String& path, const String& text);
 String readText(const String& path, size_t max = 65536);
 void closeHandles(const String& prefix);  // the open-file cache of File::read
 bool readAt(const String& path, uint32_t off, void* dst, uint32_t len);  // through that cache, any task
-bool lfsInfo(uint64_t& total, uint64_t& freeB);
+bool lfsInfo(uint64_t& total, uint64_t& freeB);  // kept numbers (util.cpp): measured again in the background
+void lfsRefresh();                                 // measure again now, in the background
+#ifdef ESPOS_QA
+void lfsStress(int n);  // QA: measure n times back to back (store::tick drives it)
+void lfsStressTick();
+#endif
 
 // ---------------------------------------------------------------- hashes (util.cpp)
 uint32_t crc32(uint32_t crc, const void* p, size_t n);  // zlib's: crc32(0, ...) then chained
@@ -157,6 +163,7 @@ class Source {
 };
 Source* openSource(const String& url, uint32_t size);
 extern volatile bool abortAll;  // the simulator is quitting
+extern volatile bool abortJob;  // the user stopped the running install (store::cancel)
 // Simulator: a job's bytes follow simulator time (SIM_PKG_KBPS), and the UI loop waits while the job works, so
 // progress shows the same in every run. No-ops on the board.
 void paceStart();

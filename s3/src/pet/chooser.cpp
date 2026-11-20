@@ -10,6 +10,7 @@
 #include "apps.h"
 #include "dogs.h"
 #include "i18n.h"
+#include "lock.h"
 #include "os.h"
 #include "packs.h"
 #include "pkg/pkg.h"
@@ -63,6 +64,7 @@ void onCard(lv_event_t* e) {
   const dogs::Info& d = dogs::ALL[i];
   const String id = dogs::pkgId(d.key);
   const pkg::Package* p = pkg::find(id.c_str());
+  if (lock::locked(id.c_str())) return lock::sheet(d.name, lock::Look::Pet);  // paid, after the trial (lock.h)
   if (p && !p->available) return os::toast(N_("This dog is on the memory card: put the card back in"));
   if (p) {
     if (dogs::chosen() == &d && !strcmp(pk::dogKey(), d.key)) {  // the dog already: back to the game
@@ -101,6 +103,10 @@ void stateOf(int i, String& what, uint32_t& col, int& pct) {
     what = st::stateText(state);
     if (ss.id == id && (state == st::DOWNLOAD || state == st::WRITE)) what += " " + String(ss.pct) + "%", pct = ss.pct;
     col = ORANGE;
+  } else if (lock::locked(id.c_str())) {  // paid, after the trial: on the device still, or "Buy" with its size
+    const String sz = sizeOf(d.key);
+    what = inst ? String(T_("Locked now")) : sz.length() ? i18n::fmt(N_("Buy · {0}"), sz) : String(TC_("store", "Buy"));
+    col = inst ? 0xc2410c : p.link;
   } else if (dogs::chosen() == &d && inst) {
     what = T_("Your dog"), col = GREEN;
   } else if (inst && !inst->available) {
@@ -109,7 +115,8 @@ void stateOf(int i, String& what, uint32_t& col, int& pct) {
     what = T_("Tap to choose"), col = p.link;
   } else {
     const String sz = sizeOf(d.key);
-    what = sz.length() ? i18n::fmt(N_("Download · {0}"), sz) : String(T_("In the Store"));
+    const bool tryIt = lock::trial() && !lock::freeAnyway(id.c_str());  // the trial gives it: "Try · 6.4 MB"
+    what = sz.length() ? i18n::fmt(tryIt ? N_("Try · {0}") : N_("Download · {0}"), sz) : String(T_("In the Store"));
     col = p.link;
   }
 }
@@ -165,6 +172,10 @@ void card(lv_obj_t* grid, int i, int cw) {
   k.icon = ic;
   lv_obj_align(ic, LV_ALIGN_TOP_MID, 0, 10);
   if (inst && !inst->available) lv_obj_set_style_opa(ic, LV_OPA_40, 0);
+  if (lock::locked(id.c_str())) {  // a lock on the portrait's corner (lock.h)
+    lv_obj_update_layout(c);
+    lv_obj_align_to(lock::badge(c, 22), ic, LV_ALIGN_BOTTOM_RIGHT, 6, 6);
+  }
 
   lv_obj_t* n = label(c, d.name, 17, true, p.fg);  // a name: as it is
   lv_obj_align(n, LV_ALIGN_TOP_MID, 0, ICON + 16);
@@ -215,6 +226,8 @@ void watch(lv_timer_t*) {
     S->pending = "";
     return switchDog(k.c_str(), true);
   }
+  static uint32_t seenLock = 0;
+  if (seenLock != lock::version()) return seenLock = lock::version(), build();
   if (S->seenPkg != pkg::version() || S->seenStore != st::version() || S->seenCat != st::catalogVersion() ||
       S->seenDog != dogs::version())
     return build();  // a dog in or out, a job started or ended, the catalog, the chosen dog

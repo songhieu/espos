@@ -6,6 +6,8 @@
 // or left while running stays where it is until the next restart (labels may still point into it).
 #include "i18n.h"
 
+#include <lvgl.h>
+
 #include <cstring>
 #include <vector>
 
@@ -278,11 +280,43 @@ int progress(const char* tag) {
   return total ? (int)(done * 100 / total) : 0;
 }
 
+namespace {
+// Vietnamese text was drawn without the Vietnamese font package (a dog's line, news, an event, whatever the language):
+// fetch the package once a boot, quietly (170 KB, Máy's LittleFS; a "pack": never listed, removable in Storage), then
+// redraw. Its letters are read size by size when drawn (fonts.cpp).
+void fetchVietnamese() {
+  namespace st = pkg::store;
+  static bool asked = false, wanted = false, fetched = false;
+  static const char* VI_FONT = "dev.espos.font.vi";
+  if (fetched && pkg::find(VI_FONT)) {
+    fetched = false;
+    lv_obj_invalidate(lv_screen_active());  // the letters drawn without marks, again with them
+    lv_obj_invalidate(lv_layer_top());
+  }
+  wanted |= fonts::missedVietnamese();
+  if (asked || !wanted || pkg::find(VI_FONT)) return;
+  if (!st::loaded()) {
+    st::refresh();
+    return;
+  }
+  asked = true;
+  const st::Entry* e = st::entry(VI_FONT);
+  if (!e || st::stateOf(VI_FONT) != st::IDLE) return;
+  const uint64_t bytes = st::partsBytes(*e, st::defaultParts(*e));
+  pkg::Vol v = pkg::FLASH;
+  if (!st::room(bytes, pkg::FLASH, st::onLfs(e->kind, e->engine, bytes)).ok && pkg::volume(pkg::SD).present) v = pkg::SD;
+  String why;
+  fetched = st::install(*e, st::defaultParts(*e), v, why);
+  trace::add("i18n: Vietnamese letters without their font: %s", fetched ? "fetching it" : why.c_str());
+}
+}  // namespace
+
 void tick() {
   namespace st = pkg::store;
   static uint32_t last = 0;
   if (millis() - last < 400) return;
   last = millis();
+  fetchVietnamese();
   // A download asked for: start the jobs once the catalog is in; stop when they are done or one failed.
   if (dlTag.length()) {
     if (!st::loaded()) {

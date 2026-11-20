@@ -353,7 +353,7 @@ def check_catalog(cat, espk_dir=None):
         groups = {}
         for p in parts:
             for k in ("id", "url", "size", "sha256"):
-                if k not in p:
+                if k not in p and not (k == "url" and e.get("paid") and p.get("key")):  # paid: a signed link instead
                     errs.append(f"{pid} part {p.get('id', '?')}: no {k}")
             if not p.get("req") and not p.get("group"):
                 errs.append(f"{pid} part {p.get('id')}: neither required nor in a group (the store would install it always)")

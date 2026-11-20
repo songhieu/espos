@@ -1,3 +1,4 @@
+#pragma GCC optimize("Os")  // cold code (events, saves, ticks): size first (s3-perf, 2026-11-20)
 // The home widget: the chosen dog in its current mood (one still picture, redrawn only when the mood changes)
 // and its four needs as the game's gauges. Small 144x138, medium 300x138, large 300x286.
 #include <Arduino.h>

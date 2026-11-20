@@ -38,8 +38,8 @@ std::mutex sendMtx;
 std::string FB_FILE = "build-qemu/.frame.bin", CONSOLE = "build-qemu/console.sock";  // "-28" added for that board
 int W = 320, H = 480;               // the panel (the window shows it)
 const int MARGIN = 14;
-int showX = 0, showW = 320;         // where the UI is on it (the 2.8" board: 213 px from x 13)
-const int LW = 320, LH = 480;       // the UI (touches go in its coordinates)
+int showX = 0, showW = 320;         // where the UI is on it (the 2.8" board: the whole 240)
+int LW = 320, LH = 480;             // the UI (touches go in its coordinates; the 2.8" board's is 360 x 480)
 float pitch = PANEL_MM_PER_PX;      // the panel's pixel pitch (mm)
 // The firmware's rotation ("lcd: rotation N" on its serial port): the panel stays portrait, as the glass sits in the
 // hand; the window shows it turned the right way up (N x 90 degrees clockwise) and turns the mouse back.
@@ -136,7 +136,7 @@ bool savePng(const char* path, const uint16_t* fb, int w, int h) {
 int main(int argc, char** argv) {
   if (argc < 3) return fprintf(stderr, "usage: %s SERIAL_PORT QMP_SOCKET [--board 28]\n", argv[0]), 2;
   if (argc >= 5 && !strcmp(argv[3], "--board") && !strcmp(argv[4], "28"))
-    W = 240, H = 320, showX = 13, showW = 213, pitch = 2.8f * 25.4f / 400.0f,  // ES3C28P: 2.8" over 400 px
+    W = 240, H = 320, showX = 0, showW = 240, LW = 360, pitch = 2.8f * 25.4f / 400.0f,  // ES3C28P: 2.8" over 400 px
     FB_FILE = "build-qemu/.frame-28.bin", CONSOLE = "build-qemu/console-28.sock";
   serialFd = connectTcp(atoi(argv[1]));
   qmpFd = connectUnix(argv[2]);

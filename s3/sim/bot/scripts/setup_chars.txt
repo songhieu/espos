@@ -1,0 +1,9 @@
+# A network name with spaces and a password with signs, as a phone's form sends them ("+" for a space, %XX for
+# the rest): the bot must save exactly "My Home WiFi 2.4" and "p@ss w+rd&%é" (the trace shows the lengths).
+wait 1500
+expect ui setup_ap
+curl --data-urlencode 's=My Home WiFi 2.4' --data-urlencode 't=' --data-urlencode 'p=p@ss w+rd&%é' --data-urlencode 'l=vi' http://localhost:${BOT_SIM_PORTAL_PORT}/save
+wait 2600
+expect ui note
+serial ESPOS:INFO
+wait 300

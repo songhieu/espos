@@ -1,5 +1,7 @@
 #include "sound.h"
 
+#include "cues.h"
+
 #include <Arduino.h>
 
 #include "desk.h"
@@ -20,7 +22,7 @@ QueueHandle_t q;
 bool ready = false;
 int vol = 45;
 
-enum Sound : uint8_t { CLICK, CHIME, TEST, BEEP, BLIP };
+enum Sound : uint8_t { CLICK, CHIME, TEST, BEEP, BLIP, BLIP_END };
 
 bool wr(uint8_t reg, uint8_t v) {
   const uint8_t b[2] = {reg, v};
@@ -109,20 +111,22 @@ void play(Sound s) {
         write(buf, m);
       }
     }
-  } else if (s == BLIP) {
-    // "I'm here": two soft rising notes, 150 ms in all (the wake word was heard; short, so it barely covers a question
-    // said straight after it).
-    const int n = RATE * 70 / 1000;
-    for (float hz : {988.0f, 1319.0f}) {
-      for (int done = 0; done < n; done += 512) {  // buf holds 512 frames
-        const int m = min(512, n - done);
-        for (int i = 0; i < m; i++) {
-          const int k = done + i;
-          const float env = min(1.0f, k / 40.0f) * min(1.0f, (n - k) / 160.0f);
-          buf[i * 2] = buf[i * 2 + 1] = (int16_t)(sinf(2 * PI * hz * k / RATE) * env * 9000);
-        }
-        write(buf, m);
-      }
+  } else if (s == BLIP || s == BLIP_END) {
+    // The dog assistant's cues (cues.h): BLIP "I'm listening", two warm rising notes; BLIP_END "got it", one soft
+    // note bending up. Rendered once each into PSRAM, then written out like the other sounds.
+    static int16_t* cue[2] = {nullptr, nullptr};
+    static int len[2] = {0, 0};
+    const int c = s == BLIP ? cues::LISTEN : cues::SENT;
+    if (!cue[c]) {
+      len[c] = cues::length((cues::Cue)c, RATE);
+      cue[c] = (int16_t*)heap_caps_malloc(len[c] * 2, MALLOC_CAP_SPIRAM);
+      if (cue[c]) cues::render((cues::Cue)c, RATE, cue[c]);
+    }
+    if (!cue[c]) return;
+    for (int done = 0; done < len[c]; done += 512) {  // buf holds 512 frames
+      const int m = min(512, len[c] - done);
+      for (int i = 0; i < m; i++) buf[i * 2] = buf[i * 2 + 1] = cue[c][done + i];
+      write(buf, m);
     }
   } else if (s == BEEP) {
     // Alarm: four short 2 kHz beeps, never quieter than 70 %.
@@ -319,6 +323,12 @@ void alarmBeep() {
 void blip() {
   if (!ready || vol <= 0) return;
   const uint8_t s = BLIP;
+  xQueueSend(q, &s, 0);
+}
+
+void blipEnd() {
+  if (!ready || vol <= 0) return;
+  const uint8_t s = BLIP_END;
   xQueueSend(q, &s, 0);
 }
 

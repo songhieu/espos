@@ -10,7 +10,7 @@
 //   gaps:        260 ms after the dog's own line, 20 ms between the kit's clips
 // It speaks through the pop-up (summon.cpp) and on the alarm's screen (alarm.cpp's hook).
 // Settings: s3.assist (synced): {"on":1,"greet":1,"weather":1,"alarm":1,"water":120,"move":90,"eyes":60,"meal":1,
-// "wake":0,"wake_word":0,"wake_sens":2,"led":2,"led_bright":2}
+// "wake":0,"wake_word":0,"wake_sens":2,"led":2,"led_bright":2,"follow":1,"ack":2}
 // (minutes between habit reminders; 0 = off). Never in Do Not Disturb or quiet hours, except the alarm and a
 // late-night touch.
 #include <Arduino.h>
@@ -31,6 +31,12 @@ struct Prefs {
   uint8_t wake = 0, wakeWord = 0, wakeSens = 2;
   // The RGB LED (src/led.h): led 0 off, 1 only with the dog, 2 the dog and arrivals; led_bright 1-3.
   uint8_t led = 2, ledBright = 2;
+  // follow 1: after a spoken answer the dog listens on (no call needed) for speech that starts within ~2.5 s and is
+  // close to the device (owner, 2026-11-19: "chặt hơn, vẫn bật"); 0: every question starts with "Gâu gâu" or the button.
+  bool follow = true;
+  // ack: what the dog does when it hears "gâu gâu" and the person pauses: 0 nothing, 1 a short beep, 2 a word in its
+  // own voice ("Dạ?", "Nghe nè!": assist.pba "ack", dog packages 1.0.2; the beep with an older package).
+  uint8_t ack = 2;
 };
 Prefs prefs();
 void setPrefs(const Prefs& p);  // stores s3.assist (goes up with the next sync)

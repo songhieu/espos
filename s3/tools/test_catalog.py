@@ -98,6 +98,22 @@ with tempfile.TemporaryDirectory() as t:
           "4 set, needs, addon_of from the manifest")
     check(bool(e) and e["parts"][1].get("group") == "q", "4 group from the part's manifest")
 
+    # 6. the admin's paid marks (docs/lock.md) survive a rebuild; a part's private key only for the same version
+    src6, out6 = t / "src6", t / "out6"
+    src6.mkdir(), out6.mkdir()
+    files6 = [part(src6, dict(CORE, id="t.dog", set="dog"))]
+    old6 = {"packages": [dict(CORE, id="t.dog", set="dog", paid=True, free_ids=["a", "b"],
+                              parts=[{"id": "core", "req": True, "key": "priv/t.dog-1.0.0-core.espk"}])]}
+    (out6 / "catalog.json").write_text(json.dumps(old6))
+    r, cat = run_pack(out6, files6)
+    e = entry(cat, "t.dog") if cat else {}
+    check(r.returncode == 0 and e.get("paid") is True and e.get("free_ids") == ["a", "b"], "6 paid and free_ids kept")
+    check(bool(e) and e["parts"][0].get("key") == "priv/t.dog-1.0.0-core.espk", "6 the part's private key kept (same version)")
+    files6b = [part(src6, dict(CORE, id="t.dog", set="dog", version="1.0.1", code=10001))]
+    r, cat = run_pack(out6, files6b)
+    e = entry(cat, "t.dog") if cat else {}
+    check(r.returncode == 0 and e.get("paid") is True and "key" not in e["parts"][0], "6 a new version: still paid, no stale key")
+
 # 5. the real catalog
 real = ROOT / "build-pkgs/espos/s3/catalog.json"
 if real.exists():

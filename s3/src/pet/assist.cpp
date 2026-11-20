@@ -250,6 +250,8 @@ Prefs prefs() {
     p.wake = constrain(d["wake"] | 0, 0, 2), p.wakeWord = constrain(d["wake_word"] | 0, 0, 1);
     p.wakeSens = constrain(d["wake_sens"] | 2, 1, 3);
     p.led = constrain(d["led"] | 2, 0, 2), p.ledBright = constrain(d["led_bright"] | 2, 1, 3);
+    p.follow = (d["follow"] | 1) != 0;
+    p.ack = constrain(d["ack"] | 2, 0, 2);
   }
   return cached = p;
 }
@@ -262,6 +264,8 @@ void setPrefs(const Prefs& p) {
     d["wake"] = p.wake, d["wake_word"] = p.wakeWord, d["wake_sens"] = p.wakeSens;
   }
   if (p.led != 2 || p.ledBright != 2) d["led"] = p.led, d["led_bright"] = p.ledBright;
+  if (!p.follow) d["follow"] = 0;  // only when off (the default is on; an older server refuses the key)
+  if (p.ack != 2) d["ack"] = p.ack;
   String s;
   serializeJson(d, s);
   desk::setSetting("s3.assist", s);
@@ -280,6 +284,7 @@ bool line(const char* moment, Speech& s) {
   char on[20];
   snprintf(on, sizeof on, "@%s", moment);
   const pba_clip_t* l = voice::of(ap, on);
+  if (!l) l = ap.find(moment);  // its only line was the one said last (of() skips that): say it again
   if (!l) return false;
   s.items.push_back({&ap, l, 260});
   s.said = ap.text(l);

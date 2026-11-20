@@ -1,5 +1,5 @@
 #pragma once
-// RGB565 pictures made smaller for a panel with fewer pixels than the UI (board.h: the 2.8" board shows the 320x480
+// RGB565 pictures made smaller for a panel with fewer pixels than the UI (board.h: the 2.8" board shows its 360x480
 // UI at 2/3 on its 240x320). Each output pixel is the average of the input pixels it covers, by area:
 //   4 -> 3 (3/4): out0 = (3 a + b) / 4, out1 = (b + c) / 2, out2 = (c + 3 d) / 4
 //   3 -> 2 (2/3): out0 = (2 a + b) / 3, out1 = (b + 2 c) / 3
@@ -43,29 +43,16 @@ inline void down43(const uint16_t* src, int w, int rows4, int sw, uint16_t* dst,
   }
 }
 
-// The same, 3 -> 2: rows3 (a multiple of 3) rows of w pixels -> rows3 * 2 / 3 rows of out(w) pixels (w a multiple of 3,
-// or 2 more: those two make one pixel, their mean; 320 -> 213). tmp: 3 * out(w) C3.
-inline int out32(int w) { return w / 3 * 2 + (w % 3 == 2 ? 1 : 0); }
+// The same, 3 -> 2: rows3 (a multiple of 3) rows of w pixels (a multiple of 3: 360, halves of 240) -> rows3 * 2 / 3
+// rows of out(w) pixels. tmp: 3 * out(w) C3.
+inline int out32(int w) { return w / 3 * 2; }
 // One row, 3 -> 2 across, as channel sums x3 (exact): out(w) of them.
 inline void row32(const uint16_t* s, int w, C3* out) {
-  const int w3 = w / 3 * 3;
-  for (int i = 0; i < w3; i += 3, out += 2) {
+  for (int i = 0; i < w; i += 3, out += 2) {
     const C3 a = unpack(s[i]), b = unpack(s[i + 1]), c = unpack(s[i + 2]);
     out[0] = {2 * a.r + b.r, 2 * a.g + b.g, 2 * a.b + b.b};
     out[1] = {b.r + 2 * c.r, b.g + 2 * c.g, b.b + 2 * c.b};
   }
-  if (w % 3 == 2) {  // x3 like the others
-    const C3 a = unpack(s[w3]), b = unpack(s[w3 + 1]);
-    *out = {3 * (a.r + b.r) / 2, 3 * (a.g + b.g) / 2, 3 * (a.b + b.b) / 2};
-  }
-}
-// The last 2 rows of a picture whose height is a multiple of 3 plus 2 (the landscape UI's 320 -> 213): one row,
-// their mean. tmp: 2 * out(w) C3.
-inline void tail32(const uint16_t* src, int w, int sw, uint16_t* dst, C3* tmp) {
-  const int ow = out32(w);
-  row32(src, w, tmp), row32(src + sw, w, tmp + ow);
-  for (int x = 0; x < ow; x++)  // x3 across, x2 down: /6
-    dst[x] = pack(tmp[x].r + tmp[ow + x].r, tmp[x].g + tmp[ow + x].g, tmp[x].b + tmp[ow + x].b, 6);
 }
 inline void down32(const uint16_t* src, int w, int rows3, int sw, uint16_t* dst, int dw, C3* tmp) {
   const int ow = out32(w);

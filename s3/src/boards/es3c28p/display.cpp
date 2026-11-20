@@ -1,13 +1,12 @@
 // The 2.8" board's display (board.h ES3C28P): ILI9341V, 240x320, 4-wire SPI (+ D/C) at 40 MHz.
-// The UI is the 3.5" board's 320x480: LVGL renders it in bands of 78 rows (areas widened to whole rows, aligned to 3);
-// each band goes out at 2/3 (scale::down32: 213 px across, shapes kept), centred with 13 px of black each side. The
-// panel takes RGB565 high byte first. The band is scaled into one of two small DMA buffers, so LVGL renders the next
-// one while this one is sent (esp_lcd queues it; a command waits for what is queued before it). No tear signal on
-// this board. Landscape (90/270): the panel turns itself (MADCTL row/column exchange) to 320x240 and the UI, 480x320
-// there, goes out at 2/3 = 320x213 from panel row 13 (13 black rows above, 14 below): no shadow frame, no software
-// turning (unlike the 3.5" board). Each landscape band is scaled in two halves of 240, so the 3 x 213 scratch is
-// enough; the UI's last 2 rows (320 = 3 x 106 + 2) make one panel row. Touches need no change: the UI keeps its
-// place on the panel (the FT6336 maps to the portrait UI, LVGL turns that). MADCTL directions not yet seen on a board.
+// The UI is 360x480 (the descriptor's, 2026-11-20; it was the 3.5" board's 320x480 at 213 px with black bars each
+// side): LVGL renders it in bands of 69 rows (areas widened to whole rows, aligned to 3); each band goes out at 2/3
+// (scale::down32: 240 px across, the whole panel, shapes kept). The panel takes RGB565 high byte first. The band is
+// scaled into one of two small DMA buffers, so LVGL renders the next one while this one is sent (esp_lcd queues it; a
+// command waits for what is queued before it). No tear signal on this board. Landscape (90/270): the panel turns
+// itself (MADCTL row/column exchange) to 320x240 and the UI, 480x360 there, fills it at 2/3: no shadow frame, no
+// software turning (unlike the 3.5" board). Each landscape band (51 rows) is scaled in two halves of 240, so the
+// 3 x 240 scratch is enough. Touches need no change (the FT6336 maps to the portrait UI, LVGL turns that).
 // The board's hal::Display (was src/lcd_ili9341.cpp; lcd.h says what each call is for).
 #ifndef ESPOS_QEMU  // QEMU: src/boards/qemu/display.cpp
 #include <Arduino.h>
@@ -23,51 +22,57 @@
 namespace es3c28p {
 namespace {
 
-constexpr int LCD_W = hal::UI_W, LCD_H = hal::UI_H;  // the UI
+constexpr hal::UiMap UI = BOARD.display.ui;
+constexpr int LCD_W = UI.w, LCD_H = UI.h;  // the UI, 360x480
 constexpr hal::DisplayPins P = BOARD.display.pins;
 constexpr int PANEL28_W = BOARD.display.panel.w, PANEL28_H = BOARD.display.panel.h;
-constexpr int SHOW_W = BOARD.display.ui.w(), SHOW_X = BOARD.display.ui.x;  // the UI's 2/3 on it, and where it starts across
-static_assert(BOARD.display.ui.num == 2 && BOARD.display.ui.den == 3, "this driver sends the UI at 2/3");
+static_assert(UI.num == 2 && UI.den == 3 && UI.pw() == PANEL28_W && UI.ph() == PANEL28_H && UI.x == 0 && UI.y == 0,
+              "this driver sends the UI at 2/3 over the whole panel");
 
 esp_lcd_panel_io_handle_t io;
 lv_display_t* disp;
-constexpr int BAND = 78;  // UI rows a band (a multiple of 3): 52 panel rows
+constexpr int BAND = 69;  // UI rows a band (a multiple of 3): 46 panel rows; 360 x 69 x 2 = 49,680 bytes
 constexpr size_t BAND_BYTES = LCD_W * BAND * 2;
 constexpr int OUT_ROWS = BAND * 2 / 3;
 uint8_t *band1, *band2;    // LVGL renders here (internal RAM)
 uint16_t* out[2];          // a scaled band, 240 wide (DMA, internal RAM)
 int outAt = 0;
-scale::C3* tmp;            // 3 rows of 213
+scale::C3* tmp;            // 3 rows of 240
 uint16_t* mirrorBuf = nullptr;
 uint32_t frames = 0, flushUs = 0;
 bool upside = false;       // rotation 180
 bool side = false;         // landscape: 90 or 270
-int sideRow0 = 13;         // landscape: the picture's first panel row (13 at 90, 14 at 270: where the portrait UI is)
 int pw = PANEL28_W, ph = PANEL28_H;  // the panel's address space as MADCTL turns it
 
 void cmd(uint8_t c, const uint8_t* d = nullptr, int n = 0) { esp_lcd_panel_io_tx_param(io, c, d, n); }
 
-// ILI9341: the vendor's ILI9341V settings are close to these (power, VCOM, gamma left at the controller's defaults
-// where the demos do not change them).
+// The vendor's ILI9341V init for this IPS panel (lcdwiki ES3C28P, ILI9341V_Init.txt): its power, VCOM, frame rate,
+// interface and gamma values, and colour inversion on (0x21). An IPS panel needs the inversion: without it black
+// showed as white (the side bars) and the whole picture was pale (seen on a test board, 2026-11-20, when the
+// generic TN ILI9341 values were used). Kept ours: MADCTL 0x48 + B6 08 82 27 (MX with SS=0 is the vendor's MADCTL
+// 0x08 with SS=1: the same mirror), so the touch map and the landscape MADCTLs below stay as they were.
 void init() {
   cmd(0x01);  // software reset
   delay(120);
-  cmd(0x11);  // sleep out
-  delay(120);
-  const uint8_t pwrA[] = {0x39, 0x2C, 0x00, 0x34, 0x02}, pwrB[] = {0x00, 0xC1, 0x30}, timA[] = {0x85, 0x00, 0x78},
-                timB[] = {0x00, 0x00}, seq[] = {0x64, 0x03, 0x12, 0x81}, pump[] = {0x20};
-  cmd(0xCB, pwrA, 5), cmd(0xCF, pwrB, 3), cmd(0xE8, timA, 3), cmd(0xEA, timB, 2), cmd(0xED, seq, 4), cmd(0xF7, pump, 1);
-  const uint8_t p1[] = {0x23}, p2[] = {0x10}, vc1[] = {0x3E, 0x28}, vc2[] = {0x86};
+  const uint8_t pwrB[] = {0x00, 0xC1, 0x30}, seq[] = {0x64, 0x03, 0x12, 0x81}, timA[] = {0x85, 0x00, 0x78},
+                pwrA[] = {0x39, 0x2C, 0x00, 0x34, 0x02}, pump[] = {0x20}, timB[] = {0x00, 0x00};
+  cmd(0xCF, pwrB, 3), cmd(0xED, seq, 4), cmd(0xE8, timA, 3), cmd(0xCB, pwrA, 5), cmd(0xF7, pump, 1), cmd(0xEA, timB, 2);
+  const uint8_t p1[] = {0x13}, p2[] = {0x13}, vc1[] = {0x22, 0x35}, vc2[] = {0xBD};
   cmd(0xC0, p1, 1), cmd(0xC1, p2, 1), cmd(0xC5, vc1, 2), cmd(0xC7, vc2, 1);
+  cmd(0x21);  // display inversion on: this is an IPS panel
   const uint8_t madctl[] = {0x48};  // MX, BGR: portrait, the panel's colour order
   cmd(0x36, madctl, 1);
+  const uint8_t dfc[] = {0x08, 0x82, 0x27};
+  cmd(0xB6, dfc, 3);
   const uint8_t fmt[] = {0x55};     // 16 bits a pixel
   cmd(0x3A, fmt, 1);
-  const uint8_t frm[] = {0x00, 0x18}, dfc[] = {0x08, 0x82, 0x27}, g3[] = {0x00}, gc[] = {0x01};
-  cmd(0xB1, frm, 2), cmd(0xB6, dfc, 3), cmd(0xF2, g3, 1), cmd(0x26, gc, 1);
-  const uint8_t pg[] = {0x0F, 0x31, 0x2B, 0x0C, 0x0E, 0x08, 0x4E, 0xF1, 0x37, 0x07, 0x10, 0x03, 0x0E, 0x09, 0x00},
-                ng[] = {0x00, 0x0E, 0x14, 0x03, 0x11, 0x07, 0x31, 0xC1, 0x48, 0x08, 0x0F, 0x0C, 0x31, 0x36, 0x0F};
+  const uint8_t ifc[] = {0x01, 0x30}, frm[] = {0x00, 0x1B}, g3[] = {0x00}, gc[] = {0x01};
+  cmd(0xF6, ifc, 2), cmd(0xB1, frm, 2), cmd(0xF2, g3, 1), cmd(0x26, gc, 1);
+  const uint8_t pg[] = {0x0F, 0x35, 0x31, 0x0B, 0x0E, 0x06, 0x49, 0xA7, 0x33, 0x07, 0x0F, 0x03, 0x0C, 0x0A, 0x00},
+                ng[] = {0x00, 0x0A, 0x0F, 0x04, 0x11, 0x08, 0x36, 0x58, 0x4D, 0x07, 0x10, 0x0C, 0x32, 0x34, 0x0F};
   cmd(0xE0, pg, 15), cmd(0xE1, ng, 15);
+  cmd(0x11);  // sleep out
+  delay(120);
   cmd(0x29);  // display on
 }
 
@@ -77,7 +82,7 @@ void window(int x0, int y0, int x1, int y1) {
   cmd(0x2A, ca, 4), cmd(0x2B, ra, 4);
 }
 
-// Black over the whole panel (the bars beside the UI are never drawn again).
+// Black over the whole panel (before the first picture).
 void clear() {
   memset(out[0], 0, PANEL28_W * OUT_ROWS * 2);
   const int step = PANEL28_W * OUT_ROWS / pw;  // rows of the buffer at the panel's width as turned
@@ -89,32 +94,26 @@ void clear() {
   window(0, 0, 0, 0);  // waits for the last one
 }
 
-// UI rows [y, y + rows) (native RGB565, the UI's width: 320, or 480 in landscape) to the panel at 2/3. rows is a
-// multiple of 3, but for the landscape UI's last 2 rows (one panel row).
+// UI rows [y, y + rows) (native RGB565, the UI's width: 360, or 480 in landscape; rows a multiple of 3) to the panel
+// at 2/3, the panel's whole width.
 void sendRows(const uint16_t* px, int y, int rows) {
-  const int lw = side ? LCD_H : LCD_W, ow = side ? PANEL28_H : SHOW_W;
-  const int rows3 = rows / 3 * 3, tail = rows - rows3;
-  const int py = y * 2 / 3, n = rows3 * 2 / 3 + (tail ? 1 : 0);
+  const int lw = side ? LCD_H : LCD_W, ow = side ? PANEL28_H : PANEL28_W;
+  const int py = y * 2 / 3, n = rows / 3 * 2;
   uint16_t* o = out[outAt];
   outAt ^= 1;
-  if (side) {
-    for (int h = 0; h < 2; h++) {  // two halves of 240 -> 160
-      if (rows3) scale::down32(px + h * 240, 240, rows3, lw, o + h * 160, ow, tmp);
-      if (tail) scale::tail32(px + rows3 * lw + h * 240, 240, lw, o + (n - 1) * ow + h * 160, tmp);
-    }
-  } else {
-    scale::down32(px, LCD_W, rows3, LCD_W, o, SHOW_W, tmp);
-  }
+  if (side)
+    for (int h = 0; h < 2; h++) scale::down32(px + h * 240, 240, rows, lw, o + h * 160, ow, tmp);  // halves 240 -> 160
+  else scale::down32(px, LCD_W, rows, LCD_W, o, ow, tmp);
   lv_draw_sw_rgb565_swap(o, ow * n);
-  int x0 = side ? 0 : SHOW_X, y0 = side ? sideRow0 + py : py;
+  int y0 = py;
   if (upside) {  // upside down: the band reversed pixel by pixel, at the mirrored place
-    for (uint16_t *a = o, *b = o + SHOW_W * n - 1; a < b; a++, b--) {
+    for (uint16_t *a = o, *b = o + ow * n - 1; a < b; a++, b--) {
       const uint16_t t = *a;
       *a = *b, *b = t;
     }
-    x0 = PANEL28_W - SHOW_X - SHOW_W, y0 = PANEL28_H - py - n;
+    y0 = PANEL28_H - py - n;
   }
-  window(x0, y0, x0 + ow - 1, y0 + n - 1);  // waits for the band before the last (its buffer is ours again)
+  window(0, y0, ow - 1, y0 + n - 1);  // waits for the band before the last (its buffer is ours again)
   esp_lcd_panel_io_tx_color(io, 0x2C, o, ow * n * 2);
 }
 
@@ -165,24 +164,24 @@ bool direct(int y0, int y1, void (*fill)(uint16_t*, int, int, void*), void* ctx,
   return true;
 }
 
-// lcd::native: the screen drawn straight at the panel's size (213x320 upright, 320x213 on its side: the 2/3 is the
+// lcd::native: the screen drawn straight at the panel's size (240x320 upright, 320x240 on its side: the 2/3 is the
 // picture's own, nothing is scaled here), in pieces of the scaled-band buffers, placed as sendRows() places a band.
 bool native(void (*fill)(uint16_t*, int, int, int, int, int, int, void*), void* ctx, bool) {
   if (!disp || disp->rendering_in_progress) return false;
   const uint32_t t0 = micros();
-  const int w = side ? PANEL28_H : SHOW_W, h = side ? SHOW_W : PANEL28_H;  // 320x213 or 213x320
-  const int rowsA = PANEL28_W * OUT_ROWS / w;                              // what one buffer holds
+  const int w = side ? PANEL28_H : PANEL28_W, h = side ? PANEL28_W : PANEL28_H;  // 320x240 or 240x320
+  const int rowsA = PANEL28_W * OUT_ROWS / w;                                     // what one buffer holds
   for (int py = 0; py < h; py += rowsA) {
     const int n = min(rowsA, h - py);
     uint16_t* o = out[outAt];
     outAt ^= 1;
-    int x0 = side ? 0 : SHOW_X, y0 = side ? sideRow0 + py : py;
+    int y0 = py;
     if (upside) {
       fill(o + w * n - 1, -1, -w, 0, py, w, py + n, ctx);
-      x0 = PANEL28_W - SHOW_X - SHOW_W, y0 = PANEL28_H - py - n;
+      y0 = PANEL28_H - py - n;
     } else fill(o, 1, w, 0, py, w, py + n, ctx);
     lv_draw_sw_rgb565_swap(o, w * n);
-    window(x0, y0, x0 + w - 1, y0 + n - 1);  // waits for the piece before the last (its buffer is ours again)
+    window(0, y0, w - 1, y0 + n - 1);  // waits for the piece before the last (its buffer is ours again)
     esp_lcd_panel_io_tx_color(io, 0x2C, o, w * n * 2);
   }
   flushUs += micros() - t0;
@@ -233,7 +232,7 @@ lv_display_t* begin() {
   ESP_ERROR_CHECK(esp_lcd_new_panel_io_spi((esp_lcd_spi_bus_handle_t)SPI2_HOST, &ioc, &io));
   out[0] = (uint16_t*)heap_caps_malloc(PANEL28_W * OUT_ROWS * 2, MALLOC_CAP_DMA | MALLOC_CAP_INTERNAL);
   out[1] = (uint16_t*)heap_caps_malloc(PANEL28_W * OUT_ROWS * 2, MALLOC_CAP_DMA | MALLOC_CAP_INTERNAL);
-  tmp = (scale::C3*)heap_caps_malloc(3 * SHOW_W * sizeof(scale::C3), MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+  tmp = (scale::C3*)heap_caps_malloc(3 * PANEL28_W * sizeof(scale::C3), MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
   init();
   clear();
   band1 = (uint8_t*)heap_caps_malloc(BAND_BYTES, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
@@ -242,7 +241,7 @@ lv_display_t* begin() {
   lv_display_set_buffers(disp, band1, band2, BAND_BYTES, LV_DISPLAY_RENDER_MODE_PARTIAL);
   lv_display_add_event_cb(disp, roundArea, LV_EVENT_INVALIDATE_AREA, nullptr);
   lv_display_set_flush_cb(disp, flush);
-  trace::add("lcd: ILI9341 240x320, the UI at 2/3");
+  trace::add("lcd: ILI9341 240x320, the 360x480 UI at 2/3");
   return disp;
 }
 
@@ -250,19 +249,19 @@ void setRotation(lv_display_rotation_t r) {
   side = r == LV_DISPLAY_ROTATION_90 || r == LV_DISPLAY_ROTATION_270;
   upside = r == LV_DISPLAY_ROTATION_180;
   // Portrait: MX (as the vendor's demos). Landscape: the row/column exchange, the two ways up as LVGL's 90 and 270
-  // turn the UI (90: MY MX MV; 270: MV), each keeping the UI where the portrait one is on the glass.
+  // turn the UI (90: MY MX MV; 270: MV). LVGL redraws the whole panel, nothing to clear.
   const uint8_t m = r == LV_DISPLAY_ROTATION_90 ? 0xE8 : r == LV_DISPLAY_ROTATION_270 ? 0x28 : 0x48;
   cmd(0x36, &m, 1);
-  sideRow0 = r == LV_DISPLAY_ROTATION_270 ? 14 : 13;
   pw = side ? PANEL28_H : PANEL28_W, ph = side ? PANEL28_W : PANEL28_H;
-  clear();
-  trace::add("lcd: rotation %d (%s)", (int)r, side ? "landscape, 320x213 from row 13" : "portrait");
+  trace::add("lcd: rotation %d (%s)", (int)r, side ? "landscape, 480x360 at 2/3" : "portrait");
   lv_display_set_rotation(disp, r);  // LVGL redraws everything (touch turns with it)
 }
 
 void setBacklight(int percent) {
   percent = constrain(percent, 0, 100);
-  const uint32_t duty = (uint32_t)percent * percent * 1023 / 10000;  // perceived brightness ~ quadratic
+  // Linear here, not the 3.5" board's quadratic: this panel's 4 backlight LEDs are dimmer, and at the default 70 %
+  // the quadratic curve (49 % duty) looked dull on a test board (2026-11-20). 70 % is now 70 % duty.
+  const uint32_t duty = (uint32_t)percent * 1023 / 100;
   ledcWrite(P.bl, percent > 0 && duty < 4 ? 4 : duty);
 }
 

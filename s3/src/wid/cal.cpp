@@ -349,7 +349,7 @@ void calToday(Card c, Size size) {
       }
     }
     if (!l1.length()) {
-      fit(p, N_("Nothing today"), 0, 64, c.w, 18, 13, 12, false, GREY);
+      if (!skeleton(p, 0, 64, c.w, 18, GREY)) fit(p, N_("Nothing today"), 0, 64, c.w, 18, 13, 12, false, GREY);
       if (tomorrow.size()) {
         // i18n: tomorrow's first event time (vi "Mai {0}")
         at(p, i18n::fmt(N_("Tomorrow {0}"), tomorrow[0].time), 0, 84, 13, true, INK);
@@ -383,7 +383,8 @@ void calToday(Card c, Size size) {
       y += max(22, h + 5);
       shown++;
     }
-    if (!shown) fit(p, N_("No events in the next 7 days"), x, 2, c.w - x, c.h, 14, 12, false, GREY);
+    if (!shown && !skeleton(p, x, 2, c.w - x, c.h, GREY))
+      fit(p, N_("No events in the next 7 days"), x, 2, c.w - x, c.h, 14, 12, false, GREY);
     return;
   }
   // Large: the month with lunar days, then the next events.
@@ -399,7 +400,7 @@ void calToday(Card c, Size size) {
     if (h < 0) break;
     y += max(20, h + 3);
   }
-  if (evs.empty()) fit(p, N_("No upcoming events"), 0, y, c.w, 18, 13, 12, false, GREY);
+  if (evs.empty() && !skeleton(p, 0, y, c.w, 18, GREY)) fit(p, N_("No upcoming events"), 0, y, c.w, 18, 13, 12, false, GREY);
 }
 
 // ---------------------------------------------------------------- cal: events (the agenda, by day)

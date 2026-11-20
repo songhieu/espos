@@ -1,3 +1,4 @@
+#pragma GCC optimize("Os")  // the pop-up's UI: nothing hot; the firmware must fit (0.5.7 flash diet)
 // The dog's pop-up over any screen (LVGL's top layer): the dog playing a clip, what it says in a bubble (its own
 // words in the page's font, then the number kit's words in orange as sim/assist.html shows them), and three chips:
 // "What time is it?" (the number kit alone), "Weather?" (its weather line and the temperature) and "Play with
@@ -13,6 +14,7 @@
 #include "data.h"
 #include "dogs.h"
 #include "game.h"
+#include "lic.h"
 #include "os.h"
 #include "packs.h"
 #include "text.h"
@@ -30,10 +32,13 @@ namespace {
 
 using namespace kit;
 
-constexpr int CW = 304, VIEW_H = 196;
+constexpr int CW = 304, VIEW_H = 196, CHIP_H = 38;
 constexpr uint32_t INK = 0x2b2f3a, SOFT = 0x8a90a0, PANEL = 0xf3f4f7, WARM = 0xffcf5c, KIT = 0xffb347;
 
-lv_obj_t *layer, *card, *bubble, *said, *answer, *micBtn, *micHint;
+lv_obj_t *layer, *card, *bubble, *words_, *said, *answer, *micBtn, *micHint, *micHalo;  // words_: scrolls in the bubble
+int haloStep = -1;  // the halo's last level (0..4): it is redrawn only when that changes
+lv_obj_t *col_, *chipsRow, *lockRow, *trialChip;  // the column, the four chips, the unlock QR, "{n} left"
+uint32_t holdUntil = 0;                            // the pop-up stays at least until (the unlock QR: a minute)
 int textW_ = CW - 48;
 View* view;
 uint32_t touchedAt = 0;
@@ -45,6 +50,37 @@ int openTodos(int* done = nullptr) {
     for (JsonObjectConst t : doc.as<JsonArrayConst>()) (t["done"] | false) ? d++ : open_++;
   if (done) *done = d;
   return open_;
+}
+
+// A long answer (today's news) never runs off the card and is never cut: the bubble takes the room the card has
+// left (portrait: the card may reach 8 px under the screen's top; landscape: the column, 8 px kept under it) and
+// past that its words scroll, from the first line, in a window of whole lines (no half line at its edge), a thin
+// bar on the right showing there is more. Short words stay centred as before.
+void fitBubble() {
+  if (!bubble || !words_ || !col_ || !card) return;
+  lv_obj_set_style_max_height(words_, LV_COORD_MAX, 0);
+  lv_obj_update_layout(card);
+  int others = lv_obj_get_style_pad_top(col_, 0);
+  for (uint32_t i = 0; i < lv_obj_get_child_count(col_); i++) {
+    lv_obj_t* c = lv_obj_get_child(col_, i);
+    if (c == bubble || lv_obj_has_flag(c, LV_OBJ_FLAG_HIDDEN) || lv_obj_has_flag(c, LV_OBJ_FLAG_IGNORE_LAYOUT)) continue;
+    others += lv_obj_get_height(c) + lv_obj_get_style_margin_top(c, 0) + lv_obj_get_style_margin_bottom(c, 0);
+  }
+  const int room = os::landscape() ? lv_obj_get_height(card) - 8 : os::H() - 16 - lv_obj_get_style_pad_bottom(card, 0);
+  const int pads = lv_obj_get_style_pad_top(bubble, 0) + lv_obj_get_style_pad_bottom(bubble, 0);
+  int maxH = max(40, room - others - pads);
+  const bool over = lv_obj_get_height(words_) > maxH;
+  if (over) {
+    const int lh = lv_font_get_line_height(lv_obj_get_style_text_font(said, 0)) + lv_obj_get_style_text_line_space(said, 0);
+    if (lh > 0) maxH = max(2, maxH / lh) * lh;
+  }
+  lv_obj_set_style_max_height(words_, maxH, 0);
+  lv_obj_set_flex_align(words_, over ? LV_FLEX_ALIGN_START : LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER,
+                        LV_FLEX_ALIGN_CENTER);
+  if (over) lv_obj_add_flag(words_, (lv_obj_flag_t)(LV_OBJ_FLAG_SCROLLABLE | LV_OBJ_FLAG_CLICKABLE));
+  else lv_obj_remove_flag(words_, (lv_obj_flag_t)(LV_OBJ_FLAG_SCROLLABLE | LV_OBJ_FLAG_CLICKABLE));
+  lv_obj_set_scrollbar_mode(words_, over ? LV_SCROLLBAR_MODE_ON : LV_SCROLLBAR_MODE_OFF);
+  lv_obj_scroll_to_y(words_, 0, LV_ANIM_OFF);
 }
 
 // The dog's words in the page's font, broken into lines to the bubble's width (bold 14, bold 12 when longer).
@@ -69,6 +105,7 @@ void showText(const String& words, const String& extra, bool kitWords) {
     lv_obj_remove_flag(answer, LV_OBJ_FLAG_HIDDEN);
     fitText(answer, extra.c_str(), textW_, 40, 14, 12, false, 2);
   }
+  fitBubble();
 }
 
 // One of the dog's game lines (never the one it just said) with a line of the device's own under it.
@@ -160,6 +197,8 @@ void onChip(lv_event_t* e) {
     tellTime();
   } else if (k == 1) {
     tellWeather();
+  } else if (k == 3) {
+    talk::askNews();
   } else {
     dismiss();
     apps::open("pet");
@@ -168,12 +207,12 @@ void onChip(lv_event_t* e) {
 
 lv_obj_t* chip(lv_obj_t* parent, const char* text, int k, int w) {
   lv_obj_t* b = box(parent, k == 2 ? WARM : PANEL, 18);
-  lv_obj_set_size(b, w, 44);
+  lv_obj_set_size(b, w, CHIP_H);
   lv_obj_add_flag(b, LV_OBJ_FLAG_CLICKABLE);
   lv_obj_set_style_bg_opa(b, LV_OPA_70, LV_STATE_PRESSED);
   lv_obj_t* l = label(b, "", 14, true, k == 2 ? 0x5a3a00 : INK);
   lv_obj_set_style_text_align(l, LV_TEXT_ALIGN_CENTER, 0);
-  fitText(l, text, w - 12, 40, 14, 11, true, 0);  // two bold lines fit (19 px each)
+  fitText(l, text, w - 12, CHIP_H - 4, 14, 11, true, 0);  // one bold line, or two smaller ones
   lv_obj_center(l);
   lv_obj_add_event_cb(b, onChip, LV_EVENT_CLICKED, (void*)(intptr_t)k);
   return b;
@@ -256,6 +295,126 @@ void onDrag(lv_event_t* e) {
   }
 }
 
+// ---- the backdrop (board 0.5.6: ~200 ms UI loops while the pop-up was up). The pop-up lives on the top layer, and
+// LVGL draws the active screen under the top layer whatever covers it, so each of the dog's 10 pictures a second
+// also redrew Home's wallpaper and widgets under a 40 % dim. A moment after the pop-up opens, the screen and the top
+// layer below the pop-up are taken once as one picture (PSRAM, the dim baked in), shown as the pop-up's backdrop,
+// and the screen is hidden until the pop-up goes: then a dog picture costs only its own pixels. (s3-perf's way.)
+uint16_t* backPx = nullptr;  // w x h RGB565, PSRAM
+lv_image_dsc_t backDsc;
+lv_obj_t *backImg, *hiddenScr;
+lv_timer_t* backTimer = nullptr;
+
+void unhideScreen() {
+  if (hiddenScr && lv_obj_is_valid(hiddenScr)) lv_obj_remove_flag(hiddenScr, LV_OBJ_FLAG_HIDDEN);
+  hiddenScr = nullptr;
+}
+
+void dropBackdrop() {
+  unhideScreen();
+  if (backTimer) lv_timer_delete(backTimer), backTimer = nullptr;
+  if (backPx) lv_image_cache_drop(&backDsc);
+  heap_caps_free(backPx);
+  backPx = nullptr;
+}
+
+// Back to the plain 40 % dim layer over a visible screen (no backdrop).
+void plainDim() {
+  unhideScreen();
+  if (backImg) lv_obj_add_flag(backImg, LV_OBJ_FLAG_HIDDEN);
+  if (layer) lv_obj_set_style_bg_opa(layer, LV_OPA_40, 0);
+}
+
+void takeBackdrop() {
+  if (!layer) return;
+  lv_obj_t* scr = lv_screen_active();
+  // Only over Home: a game draws past LVGL (the run, the aquarium) and the apps change under it; there the plain dim
+  // stays. Never when PSRAM is short (a game may need it): 512 KB stay free whatever happens.
+  if (scr != os::homeScreen()) return plainDim();
+  const int w = lv_display_get_horizontal_resolution(nullptr), h = lv_display_get_vertical_resolution(nullptr);
+  const size_t pxBytes = (size_t)w * h * 2, topBytes = (size_t)w * h * 4, keepFree = 512 * 1024;
+  uint16_t* px = backPx;
+  if (!px && heap_caps_get_largest_free_block(MALLOC_CAP_SPIRAM) >= pxBytes + keepFree)
+    px = (uint16_t*)heap_caps_malloc(pxBytes, MALLOC_CAP_SPIRAM);
+  if (!px) return plainDim();
+  backPx = px;
+  // The top layer (status bar, home bar) as ARGB for a moment, only when there is room; else the screen alone.
+  uint32_t* top = heap_caps_get_largest_free_block(MALLOC_CAP_SPIRAM) >= topBytes + keepFree
+                      ? (uint32_t*)heap_caps_malloc(topBytes, MALLOC_CAP_SPIRAM)
+                      : nullptr;
+  unhideScreen();
+  const uint32_t t0 = millis();
+  lv_draw_buf_t b, t;
+  lv_draw_buf_init(&b, w, h, LV_COLOR_FORMAT_RGB565, w * 2, px, (uint32_t)pxBytes);
+  const bool okScr = lv_snapshot_take_to_draw_buf(scr, LV_COLOR_FORMAT_RGB565, &b) == LV_RESULT_OK;
+  bool okTop = false;
+  if (top) {
+    lv_draw_buf_init(&t, w, h, LV_COLOR_FORMAT_ARGB8888, w * 4, top, (uint32_t)topBytes);
+    lv_obj_add_flag(layer, LV_OBJ_FLAG_HIDDEN);  // the top layer without the pop-up (the status bar, the home bar)
+    okTop = lv_snapshot_take_to_draw_buf(lv_layer_top(), LV_COLOR_FORMAT_ARGB8888, &t) == LV_RESULT_OK;
+    lv_obj_remove_flag(layer, LV_OBJ_FLAG_HIDDEN);
+  }
+  if (!okScr) {
+    heap_caps_free(top);
+    return plainDim();
+  }
+  for (int i = 0; i < w * h; i++) {  // the top layer over the screen, then 40 % black
+    const uint16_t v = px[i];
+    int r = (v >> 11) << 3, g = ((v >> 5) & 63) << 2, bl = (v & 31) << 3;
+    if (okTop) {
+      const uint32_t c = top[i];
+      const int a = c >> 24;
+      if (a) {
+        r = (((c >> 16) & 255) * a + r * (255 - a)) / 255;
+        g = (((c >> 8) & 255) * a + g * (255 - a)) / 255;
+        bl = ((c & 255) * a + bl * (255 - a)) / 255;
+      }
+    }
+    r = r * 3 / 5, g = g * 3 / 5, bl = bl * 3 / 5;
+    px[i] = (uint16_t)((r >> 3) << 11 | (g >> 2) << 5 | (bl >> 3));
+  }
+  heap_caps_free(top);
+  memset(&backDsc, 0, sizeof backDsc);
+  backDsc.header.magic = LV_IMAGE_HEADER_MAGIC;
+  backDsc.header.cf = LV_COLOR_FORMAT_RGB565;
+  backDsc.header.w = w, backDsc.header.h = h, backDsc.header.stride = w * 2;
+  backDsc.data = (const uint8_t*)px, backDsc.data_size = (uint32_t)w * h * 2;
+  if (!backImg) {
+    keep(&backImg, lv_image_create(layer));
+    lv_obj_add_flag(backImg, LV_OBJ_FLAG_IGNORE_LAYOUT);
+    lv_obj_move_background(backImg);
+    lv_obj_set_pos(backImg, 0, 0);
+  }
+  lv_obj_remove_flag(backImg, LV_OBJ_FLAG_HIDDEN);
+  lv_image_set_src(backImg, &backDsc);
+  lv_image_cache_drop(&backDsc);  // the same address holds a new picture
+  lv_obj_set_style_bg_opa(layer, LV_OPA_TRANSP, 0);
+  lv_obj_add_flag(scr, LV_OBJ_FLAG_HIDDEN);
+  hiddenScr = scr;
+  trace::add("pet: pop-up backdrop %dx%d%s in %lu ms", w, h, okTop ? "" : " (no top layer)", (unsigned long)(millis() - t0));
+}
+
+// The trial's last talks (lic.h: "trial", ai_left 10 or fewer): a small chip at the card's top right.
+void trialShow(int left) {
+  if (!card) return;
+  if (left < 0 || left > 10) {
+    if (trialChip) lv_obj_delete(trialChip);
+    return;
+  }
+  if (!trialChip) {
+    keep(&trialChip, box(card, 0xfff1d6, 11));
+    lv_obj_add_flag(trialChip, LV_OBJ_FLAG_IGNORE_LAYOUT);
+    lv_obj_set_size(trialChip, LV_SIZE_CONTENT, 22);
+    lv_obj_set_style_pad_hor(trialChip, 9, 0);
+    lv_obj_t* l = label(trialChip, "", 12, true, 0x8a5a00);
+    lv_obj_center(l);
+  }
+  // i18n: a small chip on the dog's pop-up near the end of the free trial: the talks left (vi "Còn {n} lượt")
+  lv_label_set_text(lv_obj_get_child(trialChip, 0), i18n::plural(left, NP_("{n} talk left|{n} talks left")).c_str());
+  lv_obj_update_layout(trialChip);
+  lv_obj_set_pos(trialChip, lv_obj_get_width(card) - lv_obj_get_width(trialChip) - 12, 14);
+}
+
 // The words under the mic button: centred under it while they fit, longer ones end 4 px from the card's edge (the
 // button sits 8 px in), never cut. 12 px is the smallest text font.
 void hintText(const char* t) {
@@ -273,7 +432,9 @@ void build() {
   lv_obj_add_flag(layer, LV_OBJ_FLAG_CLICKABLE);
   lv_obj_add_event_cb(layer, [](lv_event_t*) { dismiss(); }, LV_EVENT_CLICKED, nullptr);
   lv_obj_add_event_cb(layer, [](lv_event_t*) {
-    view = nullptr, card = bubble = said = answer = nullptr;
+    view = nullptr, card = bubble = words_ = said = answer = nullptr;
+    holdUntil = 0;
+    dropBackdrop();  // the screen shows again
     voice::hush();
     talk::closed();
   }, LV_EVENT_DELETE, nullptr);
@@ -301,6 +462,7 @@ void build() {
   lv_obj_add_event_cb(card, onDrag, LV_EVENT_RELEASED, nullptr);
   lv_obj_add_event_cb(card, onDrag, LV_EVENT_PRESS_LOST, nullptr);
   lv_obj_t* col = clear(card);  // portrait: the column
+  keep(&col_, col);
   lv_obj_set_size(col, land ? colW : cardW, LV_SIZE_CONTENT);
   lv_obj_set_flex_flow(col, LV_FLEX_FLOW_COLUMN);
   lv_obj_set_flex_align(col, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
@@ -320,14 +482,27 @@ void build() {
   keep(&bubble, box(col, INK, 16));
   lv_obj_set_size(bubble, land ? colW : CW - 24, LV_SIZE_CONTENT);
   lv_obj_set_style_min_height(bubble, land ? 110 : 64, 0);
-  lv_obj_set_style_pad_hor(bubble, 12, 0);
+  lv_obj_set_style_pad_left(bubble, 12, 0);  // the right: the words' own 12 px (their scroll bar lives there)
   lv_obj_set_style_pad_ver(bubble, 10, 0);
   lv_obj_set_flex_flow(bubble, LV_FLEX_FLOW_COLUMN);
   lv_obj_set_flex_align(bubble, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
-  lv_obj_set_style_pad_row(bubble, 4, 0);
-  keep(&said, label(bubble, "", 16, true, 0xffffff));
+  keep(&words_, clear(bubble));
+  lv_obj_set_size(words_, textW_ + 12, LV_SIZE_CONTENT);
+  lv_obj_set_style_pad_right(words_, 12, 0);
+  lv_obj_set_flex_flow(words_, LV_FLEX_FLOW_COLUMN);
+  lv_obj_set_flex_align(words_, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+  lv_obj_set_style_pad_row(words_, 4, 0);
+  // A long answer scrolls (fitBubble): a thin light bar on the right, in the words' right padding.
+  lv_obj_set_style_bg_color(words_, C(0xffffff), LV_PART_SCROLLBAR);
+  lv_obj_set_style_bg_opa(words_, LV_OPA_50, LV_PART_SCROLLBAR);
+  lv_obj_set_style_width(words_, 3, LV_PART_SCROLLBAR);
+  lv_obj_set_style_radius(words_, 2, LV_PART_SCROLLBAR);
+  lv_obj_set_style_pad_right(words_, 2, LV_PART_SCROLLBAR);
+  lv_obj_set_scroll_dir(words_, LV_DIR_VER);  // up and down only (no sideways bar)
+  lv_obj_add_event_cb(words_, [](lv_event_t*) { touchedAt = millis(); }, LV_EVENT_PRESSING, nullptr);  // reading
+  keep(&said, label(words_, "", 16, true, 0xffffff));
   lv_obj_set_style_text_align(said, LV_TEXT_ALIGN_CENTER, 0);
-  keep(&answer, label(bubble, "", 14, false, 0xd6dae3));
+  keep(&answer, label(words_, "", 14, false, 0xd6dae3));
   lv_obj_set_style_text_align(answer, LV_TEXT_ALIGN_CENTER, 0);
 
   // The dog itself: full size, the stage's rows 62..257 (its head to its feet in nearly every clip).
@@ -342,13 +517,19 @@ void build() {
   }
   // Talk to the dog (the AI assistant, talk.cpp): hold the round button, speak, let go.
   if (talk::canTalk()) {
+    // The voice's level: a fixed 84 px halo behind the button whose opacity follows it in 5 steps. (It was the
+    // button's outline width, changed every 40 ms: each change re-measured and redrew the card under the 40 % dim
+    // layer, ~200 ms UI loops on the board while listening, 0.5.6.)
+    keep(&micHalo, box(stage, 0xff7a45, 42));
+    lv_obj_set_size(micHalo, 84, 84);
+    lv_obj_align(micHalo, LV_ALIGN_BOTTOM_RIGHT, -8 + 14, -22 + 14);
+    lv_obj_set_style_bg_opa(micHalo, LV_OPA_TRANSP, 0);
+    lv_obj_remove_flag(micHalo, LV_OBJ_FLAG_CLICKABLE);
+    haloStep = -1;
     keep(&micBtn, box(stage, 0xff7a45, 28));
     lv_obj_set_size(micBtn, 56, 56);
     lv_obj_align(micBtn, LV_ALIGN_BOTTOM_RIGHT, -8, -22);
     lv_obj_add_flag(micBtn, LV_OBJ_FLAG_CLICKABLE);
-    lv_obj_set_style_outline_color(micBtn, C(0xff7a45), 0);
-    lv_obj_set_style_outline_opa(micBtn, LV_OPA_40, 0);
-    lv_obj_set_style_outline_width(micBtn, 0, 0);
     lv_obj_center(talk::micIcon(micBtn, 0xffffff));
     lv_obj_add_event_cb(micBtn, [](lv_event_t*) {
       touchedAt = millis();
@@ -366,18 +547,32 @@ void build() {
     hintText(N_("Hold to talk"));  // i18n: under the round mic button, very short
   }
 
-  // Three chips: the time, the weather, the game.
+  // Four chips, two by two: the time, the weather / today's news (AI), the game.
   // i18n: short buttons asking the dog (the dog answers in its own voice)
   const String play = i18n::fmt(N_("Play with {0}"), dogs::name());
-  const char* chips[3] = {N_("What time is it?"), N_("Weather?"), play.c_str()};
+  // i18n: a short button on the dog's pop-up: the dog sums up today's news (vi "Tin hôm nay")
+  const char* chips[4] = {N_("What time is it?"), N_("Weather?"), play.c_str(), N_("Today's news")};
+  const int at[4] = {0, 1, 3, 2};  // the grid's places: news under the time, the game under the weather
   lv_obj_t* row = clear(col);
+  keep(&chipsRow, row);
   lv_obj_set_style_margin_top(row, 8, 0);
-  const int cw = ((land ? colW : CW - 24) - 16) / 3;  // a row of three, both ways (two lines each when long)
-  lv_obj_set_size(row, land ? colW : CW - 24, 44);
-  for (int k = 0; k < 3; k++) {
+  const int rw = land ? colW : CW - 24, cw = (rw - 8) / 2;
+  lv_obj_set_size(row, rw, CHIP_H * 2 + 6);
+  for (int k = 0; k < 4; k++) {
+    if (k == 3 && !talk::canChat()) continue;  // no AI here (not linked): no news chip
     lv_obj_t* c = chip(row, chips[k], k, cw);
-    lv_obj_set_pos(c, k * (cw + 8), 0);
+    lv_obj_set_pos(c, (at[k] % 2) * (cw + 8), (at[k] / 2) * (CHIP_H + 6));
   }
+
+  trialShow(lic::ai() == lic::Ai::Trial ? lic::aiLeft() : -1);
+
+  // The backdrop a moment later (after the slide and the dog's first sound: the picture takes the UI loop a while).
+  if (backTimer) lv_timer_delete(backTimer);
+  backTimer = lv_timer_create([](lv_timer_t*) {
+    lv_timer_delete(backTimer);
+    backTimer = nullptr;
+    takeBackdrop();
+  }, 900, nullptr);
 
   // Slide up.
   lv_obj_set_style_translate_y(card, 60, 0);
@@ -427,8 +622,11 @@ void dismiss() {
 
 bool summoned() { return layer != nullptr; }
 
-void summonTick() {  // from tick(): close after 20 s without a touch
-  if (layer && millis() - touchedAt > 20000 && !voice::busy() && !talk::busy()) dismiss();
+void summonTick() {  // from tick(): close after 20 s without a touch (the unlock QR: a minute)
+  // Another screen came up under the pop-up (an app opened from a chip, Home after an app): a new backdrop.
+  if (layer && hiddenScr && lv_screen_active() != hiddenScr && !backTimer) takeBackdrop();  // (not Home: the dim)
+  if (layer && millis() - touchedAt > 20000 && (int32_t)(millis() - holdUntil) > 0 && !voice::busy() && !talk::busy())
+    dismiss();
 }
 
 // ---------------------------------------------------------------- the AI turn (talk.cpp)
@@ -457,10 +655,54 @@ void talkShow(const char* clip, const String& big, const String& small) {
     lv_obj_remove_flag(answer, LV_OBJ_FLAG_HIDDEN);
     fitText(answer, small.c_str(), textW_, 40, 13, 11, false, 2);
   }
+  fitBubble();
+}
+
+void talkTrial(int left) { trialShow(left); }
+
+// Talking is locked (talk.cpp showLock): the QR that unlocks it takes the place of the mic button and the chips; the
+// dog's bubble says it in its own words. The pop-up stays a minute (time to take a phone out).
+void talkLock(const char* url) {
+  if (!card || !col_) return;
+  holdUntil = millis() + 60000;
+  touchedAt = millis();
+  trialShow(-1);
+  if (chipsRow) lv_obj_add_flag(chipsRow, LV_OBJ_FLAG_HIDDEN);
+  if (micBtn) lv_obj_add_flag(micBtn, LV_OBJ_FLAG_HIDDEN);
+  if (micHalo) lv_obj_add_flag(micHalo, LV_OBJ_FLAG_HIDDEN);
+  if (micHint) lv_obj_add_flag(micHint, LV_OBJ_FLAG_HIDDEN);
+  if (lockRow) lv_obj_delete(lockRow);
+  const bool land = os::landscape();
+  const int w = lv_obj_get_width(col_) - (land ? 0 : 24), q = 112;  // lock::sheet's code size (tank-game)
+  keep(&lockRow, clear(col_));
+  lv_obj_set_size(lockRow, w, LV_SIZE_CONTENT);
+  lv_obj_set_style_margin_top(lockRow, land ? 10 : 6, 0);
+  lv_obj_set_flex_flow(lockRow, LV_FLEX_FLOW_ROW);
+  lv_obj_set_flex_align(lockRow, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+  lv_obj_set_style_pad_column(lockRow, 12, 0);
+  lv_obj_t* code = kit::qr(lockRow, url, q);
+  lv_obj_set_style_border_color(code, C(0xe4e6ec), 0);  // white on white: a hairline shows the square
+  lv_obj_set_style_border_width(code, 1, 0);
+  lv_obj_t* txt = clear(lockRow);
+  lv_obj_set_size(txt, w - q - 12, LV_SIZE_CONTENT);
+  lv_obj_set_flex_flow(txt, LV_FLEX_FLOW_COLUMN);
+  lv_obj_set_style_pad_row(txt, 4, 0);
+  lv_obj_t* t = label(txt, "", 15, true, INK);
+  // i18n: beside the QR code on the dog's pop-up when talking is locked (the trial is over): a short title
+  wrapText(t, T_("Scan to keep talking"), w - q - 12, 15, true);
+  lv_obj_t* b = label(txt, "", 13, false, SOFT);
+  // i18n: under that title: point the phone's camera at the code; the page opens there
+  wrapText(b, T_("Point your phone's camera at the code to open the page."), w - q - 12, 13);
+  fitBubble();  // the QR row is taller than the chips: less room for the words
 }
 
 void talkLevel(int pct) {
-  if (micBtn) lv_obj_set_style_outline_width(micBtn, pct < 0 ? 0 : 2 + pct / 8, 0);
+  if (!micHalo) return;
+  const int step = pct < 0 ? 0 : 1 + min(3, pct / 25);  // none, then 4 steps of loudness
+  if (step == haloStep) return;
+  haloStep = step;
+  static const lv_opa_t OPA[5] = {LV_OPA_TRANSP, LV_OPA_20, LV_OPA_30, LV_OPA_40, LV_OPA_50};
+  lv_obj_set_style_bg_opa(micHalo, OPA[step], 0);
 }
 
 void talkButton(int state) {

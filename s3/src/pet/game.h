@@ -48,6 +48,8 @@ struct State {
   uint32_t careDay = 0;        // yyyymmdd of the last care
   bool muted = false;          // her voice off (bubbles stay)
   bool notify = true;          // tell the user when she needs something (respects Do Not Disturb)
+  bool sfx = true;             // the game's sounds (sfx.h), the book's "Game sounds"
+  bool music = true;           // its music, the book's "Background music"
   // to the screen
   bool levelUp = false;        // a level was reached: the screen floats +50 and she says @levelup when quiet
   bool gift = false;           // the day's gift was paid: +50 and @gift

@@ -106,6 +106,44 @@ from the chooser, a map's page). `make_all.py --sim DIR` installs everything on 
   ~39 ms, tap to picture 150-220 ms (taps that start a line; 50-100 ms otherwise), voice underruns 0, internal RAM 59 KB
   minimum, PSRAM 3.5 MB free in the game; no assert over a 2-minute tap soak.
 
+## Sounds: the phone game's sound kit (2026-11-20)
+
+Owner: "game chó ko có tiếng ... bên game gốc có tiếng đó". The ESP32 hand-off had the voice only; the Godot game
+(`the game's hand-off folder`, read only) plays a sound kit through `AudioManager.gd`. Its sounds are now in
+the packages (`tools/pawboop/sounds.py`), played by `src/pet/sfx.cpp`:
+
+- `sfx.pba` (PBA1, Opus 16 kHz mono, a clip's `on` = the sound, variants = clips of the same `on`): the dog's own home
+  sounds in `vn.pawboop.dog.<dog>` 1.0.3 (barks, groans, crunches, snore and pant loops: 42 clips, ~150 KB), the
+  shared ones and `music_menu` in `vn.pawboop.pet` 2.0.3, the runner's in `vn.pawboop.run` 2.0.1. A map's tune and
+  ambience: `music.pba` in `vn.pawboop.map.<map>` 1.0.1 (`music` + `music_l`, the part the tune loops from its
+  loop_offset; `amb`). City has no music_city: music_run, as the game.
+- `sfx.cue` (pet, run): which sound when, from the game's own calls (the tables in `sounds.py` cite file:line): a
+  picture clip's sounds at their times, the screen's and the run's moments, the places' tunes. The call's dB and pitch;
+  the kit's volume_db is applied to the sound itself (as AudioManager plays it), its pitch_variation widens the pitch
+  range. A random variant, never the same twice in a row; dog_sfx's cooldowns, and the game's quirk kept: a crunch that
+  is cooling down plays the list's next name ("bone") instead.
+- Mixing: one stream (`sound::stream`) carries the dog's voice, up to 10 effects (decoded whole into a PSRAM cache, 512
+  KB at most), the tune and the ambience (streamed by task `petfx`, core 0, PSRAM stack); the tune ducks 7.5 dB under
+  the voice (the game's compressor). lib/opus has one global scratch: every opus call holds `voice::opusLock()`.
+- Silent (not softer: the assistant hears the room): the dog's pop-up up or a turn on, Do Not Disturb, quiet hours,
+  volume 0, the game not on screen (the book, the saver), and the book's two switches "Game sounds" (effects +
+  ambience, the game's SOUND) and "Background music" (MUSIC). The dog's voice keeps its own switch. A peak limiter at
+  full scale keeps the sum from clipping (the game's Master has hard limiters); a voice alone is never touched.
+  `sfx::bedOnly(ms)`: this mix is what the speaker plays and it carried no voice and no effect for ms (only a tune /
+  ambience): the wake word listens through a tune at a higher bar (agreed with wakeword, 2026-11-20). No touch for
+  30 s: the tune and the ambience stop until the next touch (a tune masks a call from across the room). The owner
+  (2026-11-20): tunes and ambience 18 dB quieter than the phone game's (`BED_DB`, a mixer gain; the files keep their
+  level; effects and the dog's lines unchanged), on by default.
+- Not ported (no such moment on the device): the announcer `vo_*` (the dog's Vietnamese lines take their place),
+  Granny, the intro and countdown, puppies, power-ups, chaos, traffic.
+- The game's quirks, kept (for the owner to decide): a dog sound on cooldown plays its call list's next name, so most
+  eating crunches are the "bone" pickup sound; HOME plays music_menu and the ambience of the last world a run was in
+  (the game never stops it; before any run, the run's start map); a light bump plays stumble_trip + whine_hurt +
+  stumble_oops together; the eat clip's bowl and pour come before the device's eating picture starts.
+- Tests: `tools/pawboop/tests/sounds.txt` (script simulator: one-shots, SIM_WAV) and `sounds-live.txt` (live
+  simulator: loops, tunes, the run; SIM_WAV records the speaker in real time). Use a daytime `SIM_CLOCK` (quiet hours
+  silence everything).
+
 ## What is where
 
 | Path | What |
@@ -114,7 +152,8 @@ from the chooser, a map's page). `make_all.py --sim DIR` installs everything on 
 | `src/pet/app.cpp` | the game screen: composes the designer's 320x480 screen into one RGB565 buffer in PSRAM shown by an `lv_image`, redraws only changed rows; behaviour ported from `sim/pet.html` |
 | `src/pet/game.cpp`, `brain.cpp` | rules, state, saving (NVS namespace `pet`); clip roles and chains |
 | `src/pet/dog.cpp`, `tjpgd_pb.c` | the dog's pictures: JPEG (a private TJpgDec copy, RGB565 out, fast Huffman) + mask -> soft-edge alpha, blob shadow, full or half size, 3-slot cache, background decoder task (core 0, stack in PSRAM) |
-| `src/pet/voice.cpp` | Opus lines decoded by a task (core 0, stack in PSRAM) into rings, played through `sound::stream` |
+| `src/pet/voice.cpp` | Opus lines decoded by a task (core 0, stack in PSRAM) into rings, played through the sound mix (`sfx.cpp`) |
+| `src/pet/sfx.cpp` | the game's sounds: the mix (voice + effects + tune + ambience), cue table, decoding task `petfx` |
 | `src/pet/view.cpp` | `pet::View`: Biscuit playing clips inside any LVGL object (overlay, widget, book; the future assistant) |
 | `src/pet/summon.cpp` | the assistant mockup overlay (no AI) |
 | `src/pet/widget.cpp`, `book.cpp` | home widget; her book (needs, streak, moments album, switches) |

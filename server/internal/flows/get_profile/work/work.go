@@ -3,7 +3,8 @@ package work
 
 import "espos/internal/wm"
 
-// GET /v1/profile: {call_name}: how the dogs (the AI assistant, assist_reply) call the person; "" = not set.
+// GET /v1/profile: {call_name, web_lang}: how the dogs (the AI assistant, assist_reply) call the person, and the web
+// app's language ("vi" | "en"; the account emails use it too); "" = not set.
 
 func Run(wmIn, wmCtx map[string]any) map[string]any {
 	uid := wm.Int(wmIn["uid"])
@@ -15,9 +16,13 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 		wm.Log("read: ", err.Error())
 		return map[string]any{"status": 500, "body": map[string]any{"error": "server_error"}}
 	}
-	name := ""
+	name, lang := "", ""
 	if len(rows) == 1 {
 		name = wm.Str(rows[0]["call_name"])
+		lang = wm.Str(rows[0]["web_lang"])
 	}
-	return map[string]any{"status": 200, "body": map[string]any{"call_name": name}}
+	if lang != "vi" && lang != "en" {
+		lang = ""
+	}
+	return map[string]any{"status": 200, "body": map[string]any{"call_name": name, "web_lang": lang}}
 }

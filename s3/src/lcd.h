@@ -2,8 +2,8 @@
 #include <lvgl.h>
 
 // The display, driven as an LVGL display: the board's panel driver (hal::Display, src/hal/display.h; one per board in
-// src/boards/<name>/display.cpp). The UI is 320x480 portrait on every board; a smaller panel shows it scaled
-// (the board's UiMap). ES3C35P: pixels go out by DMA while LVGL renders the next band; 180 deg uses the panel's own
+// src/boards/<name>/display.cpp). The UI is the board's own size (hal::uiW() x uiH(): 320x480 on the 3.5" board,
+// 360x480 on the 2.8" one); a smaller panel shows it scaled (the board's UiMap). ES3C35P: pixels go out by DMA while LVGL renders the next band; 180 deg uses the panel's own
 // scan flip; 90/270 rotate each band in software.
 namespace lcd {
 lv_display_t* begin();                    // bus + panel init, LVGL display with two band buffers
@@ -12,7 +12,7 @@ void setBacklight(int percent);           // 0..100 (0 = off)
 void stats(uint32_t& frames, uint32_t& avgFlushUs);  // since the last call
 void logInvalid(bool on);  // print what each frame redraws
 // Rows [y0, y1) straight to the panel, past LVGL (a game redrawing the whole screen 20 times a second): fill()
-// draws `rows` rows from row y into dst (RGB565 native order, LCD_W px a row) in LVGL's band buffers, one while
+// draws `rows` rows from row y into dst (RGB565 native order, hal::uiW() px a row) in LVGL's band buffers, one while
 // DMA sends the other. From the LVGL thread only, between refreshes; portrait, either way up (false: use LVGL).
 // tear: wait for the panel's tear signal first (false right after an LVGL flush of the same picture).
 bool direct(int y0, int y1, void (*fill)(uint16_t* dst, int y, int rows, void* ctx), void* ctx, bool tear);
@@ -21,8 +21,8 @@ bool direct(int y0, int y1, void (*fill)(uint16_t* dst, int y, int rows, void* c
 // screen is turned; nullptr while off.
 void mirror(bool on);
 const uint16_t* frame(int& w, int& h);
-// The whole screen drawn at the panel's own size of the UI (hal::UiMap: 320x480 on the 3.5" board, 213x320 on the 2.8"
-// one; 480x320 / 320x213 turned), straight to the panel, past LVGL and past the 2.8" board's 2/3 scale (the aquarium
+// The whole screen drawn at the panel's own size of the UI (hal::UiMap: 320x480 on the 3.5" board, 240x320 on the 2.8"
+// one; 480x320 / 320x240 turned), straight to the panel, past LVGL and past the 2.8" board's 2/3 scale (the aquarium
 // draws its water at that size: src/tank). The driver asks fill() for pieces: the rectangle [x0, x1) x [y0, y1) of the
 // picture, pixel (x, y) at dst + (x - x0) * dx + (y - y0) * dy (RGB565 native order; the strides let the 3.5" board
 // held on its side take columns straight into its rows). From the LVGL thread, between refreshes. false: use LVGL.

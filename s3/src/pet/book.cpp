@@ -1,3 +1,4 @@
+#pragma GCC optimize("Os")  // built once per open: size over speed (s3-perf, the .bin budget)
 // The dog's book: who it is now (level, XP, mood, needs), the days in a row it was cared for, the album of
 // moments (its firsts, each shown with the picture of the clip it was playing), the game's switches, the dog
 // assistant's settings (s3.assist) and the way to another dog.
@@ -26,6 +27,7 @@
 #include <Preferences.h>
 #include "uikit.h"
 #include "view.h"
+#include "sfx.h"
 #include "voice.h"
 
 namespace pet {
@@ -111,7 +113,33 @@ void wakeRows(lv_obj_t* body) {
     q.wakeSens = i + 1;
     assist::setPrefs(q);
   });
+  title(N_("When it hears you"));  // i18n: what the dog does at once when it hears "gâu gâu" (so you know from afar)
+  // i18n: chips: nothing, a short beep, a word in the dog's own voice ("Dạ?")
+  static const char* const ACK[] = {NC_("ack", "Nothing"), NC_("ack", "A beep"), NC_("ack", "Its voice")};
+  chips(c, ACK, 3, p.ack, [](int i) {
+    assist::Prefs q = assist::prefs();
+    q.ack = i;
+    assist::setPrefs(q);
+  });
   hint(body, N_("\"Gâu gâu\" alone is the safest. \"Gâu\" too wakes it more easily, also by mistake."));
+  // After an answer: listen on for a close question, no call needed (s3.assist "follow", default on).
+  lv_obj_t* fc = cell(body, 0);
+  lv_obj_t* fr = clear(fc);
+  lv_obj_set_size(fr, lv_pct(100), LV_SIZE_CONTENT);
+  lv_obj_set_style_pad_hor(fr, 12, 0);
+  lv_obj_set_style_pad_ver(fr, 10, 0);
+  lv_obj_t* tg = toggle(fr, p.follow, [](lv_event_t* e) {
+    assist::Prefs q = assist::prefs();
+    q.follow = lv_obj_has_state((lv_obj_t*)lv_event_get_target(e), LV_STATE_CHECKED);
+    assist::setPrefs(q);
+  });
+  lv_obj_align(tg, LV_ALIGN_RIGHT_MID, 0, 0);
+  lv_obj_t* fl = label(fr, "", 15, false, pal().fg);
+  // i18n: a switch in the dog's book: after the dog answers, it listens on for the next question
+  wrapText(fl, T_("Keep listening after it answers"), os::W() - 48 - 12 - 60, 15);
+  lv_obj_align(fl, LV_ALIGN_LEFT_MID, 0, 0);
+  // i18n: under that switch: what "listening on" means
+  hint(body, N_("Ask the next question within 2 seconds, close to the device, without calling it again."));
   if (hal::has(hal::CAP_RGB_LED)) {  // the board's small RGB LED (src/led.h)
     caption(body, N_("LIGHT"));  // i18n: a heading in upper case: the board's small coloured light
     lv_obj_t* lc = cell(body);
@@ -364,6 +392,13 @@ void open() {
     game::s().muted = !lv_obj_has_state((lv_obj_t*)lv_event_get_target(e), LV_STATE_CHECKED);
     voice::setMuted(game::s().muted);
     game::save();
+  });
+  // The phone game's two switches: its sounds (taps, barks, coins, the world's ambience) and its music.
+  sw(N_("Game sounds"), sfx::effectsOn(), [](lv_event_t* e) {
+    sfx::setEffects(lv_obj_has_state((lv_obj_t*)lv_event_get_target(e), LV_STATE_CHECKED));
+  });
+  sw(N_("Background music"), sfx::musicOn(), [](lv_event_t* e) {
+    sfx::setMusic(lv_obj_has_state((lv_obj_t*)lv_event_get_target(e), LV_STATE_CHECKED));
   });
   sw(careName.c_str(), s.notify, [](lv_event_t* e) {
     game::s().notify = lv_obj_has_state((lv_obj_t*)lv_event_get_target(e), LV_STATE_CHECKED);

@@ -3,9 +3,10 @@
 //
 // A frame: the water moves (step, real time), the rules tick, then prepare() works out every thing's drawing once
 // and the picture goes to the panel in pieces (lcd::native: the 80-row bands of the 3.5" board, or its columns when
-// held on its side; the 2.8" board's own 213 x 320). The water is never drawn under the shop sheet. When something
-// of the OS lies over the game (a notification, the Control Center) or a panel has no native path (the simulator),
-// the same picture is drawn into a buffer that LVGL shows (on the 2.8" board grown to 320 x 480 for LVGL's 2/3).
+// held on its side; the 2.8" board's own 213 x 320, in the middle of its 240 x 320 with black sides). The water is
+// never drawn under the shop sheet. When something of the OS lies over the game (a notification, the Control Center)
+// or a panel has no native path (the simulator), the same picture is drawn into a buffer that LVGL shows (on the 2.8"
+// board grown to 320 x 480 for LVGL's 2/3, in the middle of its 360 x 480 screen).
 #pragma GCC optimize("Os")
 #include "tank.h"
 
@@ -23,6 +24,7 @@
 #include "lcd.h"
 #include "os.h"
 #include "pkg/pkg.h"
+#include "pet/pet.h"
 #include "tank_int.h"
 #include "trace.h"
 
@@ -146,6 +148,12 @@ void stepAll(float dt) {
 void piece(uint16_t* dst, int dx, int dy, int x0, int y0, int x1, int y1, void*) {
   const uint32_t t0 = nowUs();
   const Tgt t = {dst, dx, dy, x0, y0, x1, y1};
+  if (ui::frozen()) {  // the shop sheet over still water: copies only
+    ui::drawFrozen(t);
+    sc->prof[7] += nowUs() - t0;
+    compUs += nowUs() - t0;
+    return;
+  }
   float cx0, cy0, cx1, cy1;
   ui::cover(cx0, cy0, cx1, cy1);
   if (cx1 > cx0) {  // the sheet covers the rest: the water only where it shows
@@ -161,16 +169,16 @@ void piece(uint16_t* dst, int dx, int dy, int x0, int y0, int x1, int y1, void*)
 }
 
 // The panel's picture grown to the UI's size for LVGL (2.8": 213 x 320 -> 320 x 480), nearest pixel: the driver's
-// 2/3 area shrink (scale::down32) gives the picture back nearly as drawn. Rows that repeat are copied.
-void grow(const uint16_t* s, int sw, int sh, uint16_t* d, int dw, int dh) {
+// 2/3 area shrink (scale::down32) gives the picture back nearly as drawn. Rows that repeat are copied. ds: d's stride.
+void grow(const uint16_t* s, int sw, int sh, uint16_t* d, int dw, int dh, int ds) {
   static int16_t* xs = (int16_t*)heap_caps_malloc(480 * 2, MALLOC_CAP_SPIRAM);  // (not internal RAM)
   if (!xs) return;
   for (int x = 0; x < dw && x < 480; x++) xs[x] = (int16_t)std::min(sw - 1, x * sw / dw);
   int last = -1;
   for (int y = 0; y < dh; y++) {
     const int sy = std::min(sh - 1, y * sh / dh);
-    uint16_t* o = d + y * dw;
-    if (sy == last) memcpy(o, o - dw, dw * 2);
+    uint16_t* o = d + y * ds;
+    if (sy == last) memcpy(o, o - ds, dw * 2);
     else {
       const uint16_t* r = s + sy * sw;
       for (int x = 0; x < dw; x++) o[x] = r[xs[x]];
@@ -179,13 +187,42 @@ void grow(const uint16_t* s, int sw, int sh, uint16_t* d, int dw, int dh) {
   }
 }
 
-// the whole picture into a buffer LVGL shows (UI size)
+// Black over what of a w x h picture lies outside its [ox, ox + cw) x [oy, oy + ch) part (a bigger screen's sides).
+void sides(uint16_t* d, int dx, int dy, int x0, int y0, int x1, int y1, int ox, int oy, int cw, int ch) {
+  for (int y = y0; y < y1; y++) {
+    uint16_t* r = d + (y - y0) * dy;
+    if (y < oy || y >= oy + ch) {
+      for (int x = x0; x < x1; x++) r[(x - x0) * dx] = 0;
+      continue;
+    }
+    for (int x = x0; x < std::min(x1, ox); x++) r[(x - x0) * dx] = 0;
+    for (int x = std::max(x0, ox + cw); x < x1; x++) r[(x - x0) * dx] = 0;
+  }
+}
+
+// lcd::native's pieces: the panel's whole picture, the water's own (FW x FH) in its middle (the 2.8" board's 360 x 480
+// screen: 213 x 320 of its 240 x 320), black around it.
+void panelPiece(uint16_t* dst, int dx, int dy, int x0, int y0, int x1, int y1, void*) {
+  const hal::PanelDesc& pd = hal::board().display.panel;
+  const int ox = ((sc->land ? pd.h : pd.w) - sc->FW) / 2, oy = ((sc->land ? pd.w : pd.h) - sc->FH) / 2;
+  if (!ox && !oy) return piece(dst, dx, dy, x0, y0, x1, y1, nullptr);
+  sides(dst, dx, dy, x0, y0, x1, y1, ox, oy, sc->FW, sc->FH);
+  const int ix0 = std::max(x0, ox), iy0 = std::max(y0, oy), ix1 = std::min(x1, ox + sc->FW), iy1 = std::min(y1, oy + sc->FH);
+  if (ix0 < ix1 && iy0 < iy1)
+    piece(dst + (ix0 - x0) * dx + (iy0 - y0) * dy, dx, dy, ix0 - ox, iy0 - oy, ix1 - ox, iy1 - oy, nullptr);
+}
+
+// the whole picture into a buffer LVGL shows (the screen's size, w x h): the water's view (VW x VH, 320 x 480 or
+// 480 x 320) in its middle, black around it on a bigger screen (the 2.8" board's 360 x 480)
 void intoBuffer(uint16_t* buf, int w, int h) {
-  if (sc->FW == w && sc->FH == h) return piece(buf, 1, w, 0, 0, w, h, nullptr);
+  const int cw = sc->VW, ch = sc->VH, ox = (w - cw) / 2, oy = (h - ch) / 2;
+  if (ox || oy) sides(buf, 1, w, 0, 0, w, h, ox, oy, cw, ch);
+  uint16_t* at = buf + oy * w + ox;
+  if (sc->FW == cw && sc->FH == ch) return piece(at, 1, w, 0, 0, cw, ch, nullptr);
   if (!nat) nat = (uint16_t*)heap_caps_malloc(320 * 480 * 2, MALLOC_CAP_SPIRAM);
   if (!nat) return;
   piece(nat, 1, sc->FW, 0, 0, sc->FW, sc->FH, nullptr);
-  grow(nat, sc->FW, sc->FH, buf, w, h);
+  grow(nat, sc->FW, sc->FH, at, cw, ch, w);
 }
 
 bool overlays() {  // anything of the OS over the game: then LVGL draws the picture (src/run/run.cpp's rule)
@@ -204,7 +241,11 @@ bool overlays() {  // anything of the OS over the game: then LVGL draws the pict
   return false;
 }
 
-bool onScreen() { return app && app->scr && lv_screen_active() == app->scr && !os::saverOn(); }
+// The dog's pop-up pauses the tank as it does the other games (pet/app.cpp, run.cpp): game time and water stop, the
+// last picture stays in LVGL's buffer under the pop-up, and the next picture after it closes goes on from there.
+bool onScreen() {
+  return app && app->scr && lv_screen_active() == app->scr && !os::saverOn() && !pet::summoned();
+}
 
 void addStats(Stats& s, uint32_t move, uint32_t prep, uint32_t total, bool lvgl) {
   s.pics++, s.move += move, s.prep += prep, s.comp += compUs, s.push += total - move - prep - compUs;
@@ -224,10 +265,38 @@ void report(const char* tag, Stats& s, int nfish) {
   snprintf(q, sizeof q, "  draw parts ms: bg %.2f, plants %.2f, fish %.2f, food %.2f, specks %.2f, beams %.2f, algae %.2f, screens %.2f",
            P[0] / n / 1000, P[1] / n / 1000, P[2] / n / 1000, P[3] / n / 1000, P[4] / n / 1000, P[5] / n / 1000, P[6] / n / 1000, P[7] / n / 1000);
   memset(sc->prof, 0, sizeof sc->prof);
+  char r[96];
+  snprintf(r, sizeof r, "  prepare parts ms: background %.2f, fish %.2f, beams %.2f", sc->prep[0] / n / 1000, sc->prep[1] / n / 1000,
+           sc->prep[2] / n / 1000);
+  memset(sc->prep, 0, sizeof sc->prep);
+#if TANK_QA
+  char u[260];
+  const uint32_t* U = ui::prof;
+  int made, noRoom;
+  uint32_t putUs, putPx;
+  ui::layerStats(made, noRoom, putUs, putPx);
+  snprintf(u, sizeof u,
+           "  screens parts ms: bar %.2f, bar live %.2f, dock %.2f, card %.2f, sheet %.2f, rest %.2f; layers %d made, %d no room, "
+           "put %.2f ms %ld px; PSRAM %u KB free, %u KB largest",
+           U[0] / n / 1000, U[1] / n / 1000, U[2] / n / 1000, U[3] / n / 1000, U[4] / n / 1000, U[5] / n / 1000, made, noRoom,
+           putUs / n / 1000, (long)(putPx / n),
+           (unsigned)(heap_caps_get_free_size(MALLOC_CAP_SPIRAM) / 1024), (unsigned)(heap_caps_get_largest_free_block(MALLOC_CAP_SPIRAM) / 1024));
+  memset(ui::prof, 0, sizeof ui::prof);
+  char f[120];
+  snprintf(f, sizeof f, "  fish parts ms: shadows %.2f, bodies %.2f (%ld px), spots %.2f", fishQa[0] / n / 1000, fishQa[1] / n / 1000,
+           (long)(fishQa[3] / n), fishQa[2] / n / 1000);
+  memset(fishQa, 0, sizeof fishQa);
 #ifdef SIM
-  fprintf(stderr, "%s\n%s\n", b, q);
+  fprintf(stderr, "%s\n%s\n%s\n%s\n%s\n", b, q, r, u, f);
 #else
-  Serial.println(b), Serial.println(q);
+  Serial.println(b), Serial.println(q), Serial.println(r), Serial.println(u), Serial.println(f);
+#endif
+#else
+#ifdef SIM
+  fprintf(stderr, "%s\n%s\n%s\n", b, q, r);
+#else
+  Serial.println(b), Serial.println(q), Serial.println(r);
+#endif
 #endif
 }
 
@@ -237,22 +306,31 @@ void appFrame(float dt, bool viaLvgl) {
   ui::saver = false;
   stepAll(dt);
   const uint32_t t1 = nowUs();
+  const bool over = overlays();
+  // Something of the OS over the water (a lock sheet, a notification; the dog's pop-up pauses the tank, onScreen):
+  // LVGL draws the whole screen each picture, so the water goes on at 4 pictures a second under it.
+  static uint32_t overAt = 0;
+  if (over && !viaLvgl && millis() - overAt < 250) return;
+  if (over) overAt = millis();
   gfx::frameStart();
   sc->touched = 0;
-  sc->prepare();
+  ui::frameBegin();
+  if (!ui::frozen()) sc->prepare();
   const uint32_t t2 = nowUs();
   compUs = 0;
   bool sent = false;
-  if (!viaLvgl && !overlays()) ui::homeLine = true, sent = lcd::native(piece, nullptr, tear);
+  if (!viaLvgl && !over) ui::homeLine = true, sent = lcd::native(panelPiece, nullptr, tear);
   ui::homeLine = false;
   if (!sent) {
     intoBuffer(app->buf, os::W(), os::H());
     lv_obj_invalidate(app->img);
   }
+  ui::frameEnd();
   const uint32_t t3 = nowUs();
   for (Stats* s : {&app->win, &app->bw}) addStats(*s, t1 - t0, t2 - t1, t3 - t0, !sent), s->px += sc->touched;
 }
 
+#if TANK_QA  // the bench (TANKBENCH lines): the simulator, or a board built with -DTANK_QA=1
 void benchPhase(int k) {
   static const char* const LIST = "angelfish*2,discus*2,goldfish*2,betta,gourami*2,rainbow*3,molly*3,swordtail*3,cory*2";
   // the first N of the list: big fish, as the hand-off's bench ("20 large fish")
@@ -274,7 +352,7 @@ void benchPhase(int k) {
 void benchStep() {
   if (!app->bench) return;
   const uint32_t t = millis() - app->benchAt;
-  if (t < 1000) app->bw = Stats(), app->bw.at = millis(), memset(sc->prof, 0, sizeof sc->prof);  // settling
+  if (t < 1000) app->bw = Stats(), app->bw.at = millis(), memset(sc->prof, 0, sizeof sc->prof), memset(ui::prof, 0, sizeof ui::prof), memset(fishQa, 0, sizeof fishQa);  // settling
   else if (t > 6000) {
     report("TANKBENCH", app->bw, sc->nfish);
     if (app->bench < app->benchCount) benchPhase(app->bench++);
@@ -287,9 +365,15 @@ void benchStep() {
       Serial.println("TANKBENCH done");
 #endif
       game::start();  // back to the game (its save)
+      // the next "tank:" window starts clean (it had been counting the bench's pictures while their parts were reset)
+      app->win = Stats(), app->win.at = millis(), memset(sc->prof, 0, sizeof sc->prof), memset(ui::prof, 0, sizeof ui::prof),
+      memset(fishQa, 0, sizeof fishQa), memset(sc->prep, 0, sizeof sc->prep);
     }
   }
 }
+#else
+void benchStep() {}
+#endif
 
 void onTimer(lv_timer_t*) {
   if (!app || !sc) return;
@@ -318,6 +402,7 @@ void onTouch(lv_event_t* e) {
   const lv_event_code_t code = lv_event_get_code(e);
   lv_point_t p;
   lv_indev_get_point(lv_indev_active(), &p);
+  p.x -= os::colX(), p.y -= os::colY();  // the water's view sits in the middle of a bigger screen
   if (code == LV_EVENT_PRESSED) ui::down(p.x, p.y);
   else if (code == LV_EVENT_PRESSING) ui::move(p.x, p.y);
   else if (code == LV_EVENT_RELEASED || code == LV_EVENT_PRESS_LOST) ui::up(p.x, p.y);
@@ -344,6 +429,10 @@ void onDelete(lv_event_t* e) {
 void onSaver(lv_timer_t*) {
   if (!sv || !sc) return;
   const uint32_t now = millis();
+  if (pet::summoned()) {  // paused under the dog's pop-up, its clock held
+    sv->last = now;
+    return;
+  }
   if (now - sv->lastPic + 1 < 1000u / saverFps) return;
   if (onScreen()) return;  // the app draws
   const float dt = std::min(0.25f, (now - sv->last) / 1000.0f);
@@ -378,19 +467,36 @@ void savePpm(const char* path) {  // the panel's picture: the water and the scre
   const int fw = sc->FW, fh = sc->FH;
   uint16_t* b = (uint16_t*)heap_caps_malloc(fw * fh * 2, MALLOC_CAP_SPIRAM);
   if (!b) return;
-  gfx::frameStart();
-  sc->prepare();
-  piece(b, 1, fw, 0, 0, fw, fh, nullptr);
+  // "cols:PATH": drawn as the 3.5" board sends a picture on its side, column by column in 80-column pieces (dx =
+  // the column's length, dy = 1), then turned back for the file: the column paths (bgCols) checked here.
+  const bool cols = !strncmp(path, "cols:", 5);
+  if (cols) path += 5;
+  for (int pass = 0; pass < (cols ? 2 : 1); pass++) {  // (the first pass asks for bgc by columns, the second uses it)
+    gfx::frameStart();
+    sc->prepare();
+    if (!cols) piece(b, 1, fw, 0, 0, fw, fh, nullptr);
+    else
+      for (int x = 0; x < fw; x += 80) piece(b + x * fh, fh, 1, x, 0, std::min(fw, x + 80), fh, nullptr);
+  }
+  if (cols) {  // b[X * fh + Y] -> row by row
+    uint16_t* r = (uint16_t*)heap_caps_malloc(fw * fh * 2, MALLOC_CAP_SPIRAM);
+    if (r) {
+      for (int y = 0; y < fh; y++)
+        for (int x = 0; x < fw; x++) r[y * fw + x] = b[x * fh + y];
+      memcpy(b, r, fw * fh * 2);
+      heap_caps_free(r);
+    }
+  }
   const hal::PanelDesc& pd = hal::board().display.panel;
   const bool scaled = fw != 320 && fw != 480;
   const int pw = scaled ? (sc->land ? pd.h : pd.w) : fw, ph = scaled ? (sc->land ? pd.w : pd.h) : fh;
-  const int ox = (pw - fw) / 2, oy = sc->land ? hal::board().display.ui.x : 0;
+  const int ox = (pw - fw) / 2, oy = (ph - fh) / 2;
   FILE* f = fopen(path, "wb");
   if (f) {
     fprintf(f, "P6\n%d %d\n255\n", pw, ph);
     for (int y = 0; y < ph; y++)
       for (int x = 0; x < pw; x++) {
-        const int sx = x - (sc->land ? 0 : ox), sy = y - (sc->land ? oy : 0);
+        const int sx = x - ox, sy = y - oy;
         const uint16_t c = sx >= 0 && sy >= 0 && sx < fw && sy < fh ? b[sy * fw + sx] : 0;
         const uint8_t p[3] = {(uint8_t)(((c >> 11) * 255 + 15) / 31), (uint8_t)((((c >> 5) & 63) * 255 + 31) / 63), (uint8_t)(((c & 31) * 255 + 15) / 31)};
         fwrite(p, 1, 3, f);
@@ -500,6 +606,7 @@ bool dev(const char* cmd) {
   if (k == "saverfps") return saverFps = std::max(2, std::min(30, (int)v.toInt())), true;
   if (k == "tear") return tear = v.toInt() != 0, true;
   if (!sc) return false;
+#if TANK_QA
   if (k == "bench" && app) {
     if (v.length()) app->benchN[0] = v.toInt(), app->benchCount = 1;
     else app->benchN[0] = 5, app->benchN[1] = 12, app->benchN[2] = 20, app->benchCount = 3;
@@ -508,7 +615,14 @@ bool dev(const char* cmd) {
   } else if (k == "free") {
     const int s2 = v.indexOf(' ');
     game::fillFree(s2 < 0 ? v.c_str() : v.substring(0, s2).c_str(), s2 < 0 ? "" : v.substring(s2 + 1).c_str());
-  } else if (k == "game") game::start();
+  } else
+#endif
+  if (k == "game") game::start();
+  else if (k == "save") game::save();
+  else if (k == "stats" && app) report("tank:", app->win, sc->nfish);
+  else if (k == "wake") ui::wake();
+  else if (k == "close") ui::reset();
+#if TANK_QA
   else if (k == "time") game::debugTime(v.toFloat());
   else if (k == "coins") game::debugCoins(v.toInt());
   else if (k == "xp") game::debugXp(v.toInt());
@@ -516,12 +630,24 @@ bool dev(const char* cmd) {
   else if (k == "night") game::nightForce = v == "-" ? -1 : v.toInt();
   else if (k == "speed") game::timeK = v.toFloat();
   else if (k == "reset") game::reset();
-  else if (k == "save") game::save();
-  else if (k == "stats" && app) report("tank:", app->win, sc->nfish);
-  else if (k == "wake") ui::wake();
-  else if (k == "close") ui::reset();
-#if TANK_QA
   else if (k == "shot") savePpm(v.c_str());
+  else if (k == "hudcmp") {  // the same picture with the prepared layers (PATH.ppm) and drawn straight (PATH-direct.ppm)
+    savePpm((v + ".ppm").c_str());
+    ui::layersOff = true;
+    savePpm((v + "-direct.ppm").c_str());
+    ui::layersOff = false;
+  } else if (k == "keep" || k == "restore") return game::debugKeep(k == "restore");
+  else if (k == "layers") ui::layersOff = v.toInt() == 0;  // layers 0: the bar, dock and card drawn straight (timing)
+  else if (k == "plaincmp") {  // the same picture with the fish by columns and the sway table (PATH.ppm) and without
+    savePpm((v + ".ppm").c_str());
+    qaPlain = true;
+    savePpm((v + "-plain.ppm").c_str());
+    qaPlain = false;
+  } else if (k == "plain") qaPlain = v.toInt() != 0;  // plain 1: the old paths (timing)
+  else if (k == "layoutcmp") {  // the same picture drawn by rows (PATH-r.ppm) and as the board on its side does (PATH-c.ppm)
+    savePpm((v + "-r.ppm").c_str());
+    savePpm(("cols:" + v + "-c.ppm").c_str());
+  }
   else if (k == "card") ui::devOpen("card", v == "sick" ? 1 : -1);
   else if (k == "tab" || k == "food" || k == "sponge" || k == "scroll") ui::devOpen(k.c_str(), v.toInt());
   else if (k == "say") ui::say(v);

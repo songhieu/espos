@@ -1,0 +1,67 @@
+{
+  "code": "admin_roles",
+  "label": "Admin: roles",
+  "singular": "Admin role",
+  "unique_together": [],
+  "columns": [
+    {
+      "code": "user_id",
+      "default": null,
+      "help": null,
+      "indexed": false,
+      "label": "User id",
+      "options": [],
+      "position": 1,
+      "read_only": false,
+      "ref_table": null,
+      "required": true,
+      "type": "integer",
+      "unique": true
+    },
+    {
+      "code": "role",
+      "default": "readonly",
+      "help": null,
+      "indexed": false,
+      "label": "Role",
+      "options": [
+        "full",
+        "readonly"
+      ],
+      "position": 2,
+      "read_only": false,
+      "ref_table": null,
+      "required": true,
+      "type": "enum",
+      "unique": false
+    },
+    {
+      "code": "added_by",
+      "default": null,
+      "help": null,
+      "indexed": false,
+      "label": "Added by",
+      "options": [],
+      "position": 3,
+      "read_only": false,
+      "ref_table": null,
+      "required": false,
+      "type": "integer",
+      "unique": false
+    },
+    {
+      "code": "note",
+      "default": null,
+      "help": null,
+      "indexed": false,
+      "label": "Note",
+      "options": [],
+      "position": 4,
+      "read_only": false,
+      "ref_table": null,
+      "required": false,
+      "type": "text",
+      "unique": false
+    }
+  ]
+}
