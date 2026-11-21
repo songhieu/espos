@@ -2,14 +2,10 @@ EspOS
 Copyright 2026 EspOS contributors
 
 Licences by folder:
-- server/    GNU Affero General Public License v3.0 (server/LICENSE).
 - s3/        Apache License 2.0 (s3/LICENSE, s3/NOTICE; vendored code and fonts in
              s3/THIRD_PARTY.md).
-- firmware/  A fork of CrossPoint Reader (https://github.com/crosspoint-reader/crosspoint-reader),
-             MIT licensed by its contributors (firmware/LICENSE; the libraries and fonts it
-             bundles in firmware/licenses). EspOS's changes and additions in it are under the
-             Apache License 2.0 (LICENSE).
-- Everything else (docs/, the files at the top, CI): Apache License 2.0 (LICENSE).
+- server/    GNU Affero General Public License v3.0 (server/LICENSE).
+- Everything else (docs/, assets/, the files at the top, CI): Apache License 2.0 (LICENSE).
 
 Bundled fonts keep their own licences:
 - Noto Sans, Noto Serif (server/internal/jobs/newsjob/news/fonts): SIL Open Font License 1.1,
@@ -17,5 +13,10 @@ Bundled fonts keep their own licences:
 - Ubuntu Vietnamese supplement (server/web/src/fonts): Ubuntu Font Licence 1.0, see UFL.txt there.
 - s3/data/fonts: see s3/THIRD_PARTY.md.
 
-Earlier versions: everything up to commit fac0c54 (2026-11-18) was published under the MIT
-License, and those copies stay under it.
+Earlier versions:
+- Everything up to commit fac0c54 (2026-11-18) was published under the MIT License, and those
+  copies stay under it.
+- Up to commit 9059678 the repository also held firmware/, the Xteink X4 firmware: a fork of
+  CrossPoint Reader (https://github.com/crosspoint-reader/crosspoint-reader), MIT licensed by its
+  contributors (its LICENSE and licenses/ folder), with EspOS's changes under the Apache License
+  2.0. Those copies keep those licences.
