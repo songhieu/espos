@@ -36,6 +36,9 @@ var reasons = map[string]string{
 	"not_allowed":        "lệnh này đang tắt trên máy tính",
 	"busy":               "máy tính đang bận",
 	"timeout":            "máy tính làm không kịp",
+	"opened_not_playing": "mở trên Chrome rồi mà nhạc chưa chạy, bấm phát giúp nha",
+	"chrome_hidden_only": "Chrome của bạn chưa mở được, chỉ có Chrome chạy ẩn",
+	"no_browser":         "không thấy trình duyệt trên máy tính",
 }
 
 // why: a refusal code or the Mac's error, as words. The Mac's own sentence is used when it reads like one.
@@ -105,7 +108,7 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 	lines, _ := in["lines"].(map[string]any)
 	items, _ := in["items"].([]any)
 	outcome := []any{}
-	failWhy, confirmWhat, where := "", []string{}, ""
+	failWhy, confirmWhat, where, playText := "", []string{}, "", ""
 	sent := false
 	for i, x := range results {
 		r, _ := x.(map[string]any)
@@ -139,6 +142,9 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 			}
 		case state == "done":
 			o["text"] = wm.Str(r["text"])
+			if cmd == "yt.play" && wm.Str(r["text"]) != "" && playText == "" {
+				playText = wm.Str(r["text"]) // "Đang phát “…” trên Chrome": the dog says what plays
+			}
 		default: // queued or sent: not run within 2 s
 			sent = true
 		}
@@ -168,6 +174,10 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 		body["done"] = done
 	case sent:
 		reply = wm.Str(lines["sent"])
+	}
+	if reply == "" && playText != "" {
+		// all done, music among it: the model's line, then what really plays and where
+		reply = strings.TrimRight(strings.TrimSpace(wm.Str(body["reply"])), " .!") + ". " + playText + "."
 	}
 	if reply == "" {
 		return map[string]any{"body": body} // all done: the model's line stands

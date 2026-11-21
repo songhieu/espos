@@ -8,16 +8,14 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"os"
 	"strings"
-	"time"
 
 	"espos/internal/wm"
 )
 
 // Outbound requests from a flow: the http_request node (the hosted platform's, used by the dog assistant), and the
-// tts node, which the importer puts in place of the hosted speech service so a self-hosted server can use its own
-// (README: "The dog assistant"). A streamed answer is passed through to a respond node with stream: true.
+// tts node (tts.go), which the importer puts in place of the hosted speech service so a self-hosted server can use
+// its own (README: "The dog assistant"). A streamed answer is passed through to a respond node with stream: true.
 
 var streamClient = &http.Client{Timeout: 0} // a streamed body may take a while; the caller's context ends it
 
@@ -71,95 +69,6 @@ func httpRequest(cfg map[string]any, vars map[string]any) (map[string]any, io.Re
 		return out, nil, fmt.Errorf("%s answered %d: %s", url, res.StatusCode, strings.TrimSpace(string(msg)))
 	}
 	return out, res.Body, nil
-}
-
-// ---- the tts node: the dog's voice from the speech service set in the environment ----
-//
-//	ESPOS_TTS_URL    the service: an OpenAI-style base (https://api.openai.com/v1, or any server with
-//	                 POST /audio/speech), or, with ESPOS_TTS_API=espos, the full URL of a hosted-style /v1/tts
-//	ESPOS_TTS_API    openai (default) or espos
-//	ESPOS_TTS_KEY    its key (sent as "Authorization: Bearer"), if it needs one
-//	ESPOS_TTS_MODEL  openai: gpt-4o-mini-tts (default); espos: vieneu-turbo
-//	ESPOS_TTS_VOICE  openai: alloy (default); espos: the dog's own voice unless this is set
-//	ESPOS_TTS_FORMAT openai only: pcm (default, 16-bit mono at ESPOS_TTS_RATE) or wav
-//	ESPOS_TTS_RATE   openai pcm only: its sample rate, 24000 (OpenAI's)
-//
-// The device asks for 16-bit mono PCM at its own rate (16000 on the S3); an OpenAI-style answer is resampled to it as
-// it streams. Without ESPOS_TTS_URL the node fails, and the flows answer with text only.
-
-// TTSConfigured says whether a speech service is set.
-func TTSConfigured() bool { return wm.Env("ESPOS_TTS_URL", "") != "" }
-
-func ttsStream(text, voice string, rate int) (io.ReadCloser, error) {
-	base := wm.Env("ESPOS_TTS_URL", "")
-	if base == "" {
-		return nil, errors.New("no speech service set (ESPOS_TTS_URL)")
-	}
-	if rate <= 0 {
-		rate = 16000
-	}
-	key := os.Getenv("ESPOS_TTS_KEY")
-	api := strings.ToLower(wm.Env("ESPOS_TTS_API", "openai"))
-	var url string
-	var body map[string]any
-	inRate, wav := rate, false
-	switch api {
-	case "espos":
-		url = base
-		if v := wm.Env("ESPOS_TTS_VOICE", ""); v != "" {
-			voice = v
-		}
-		body = map[string]any{"model": wm.Env("ESPOS_TTS_MODEL", "vieneu-turbo"), "voice": voice, "text": text,
-			"format": "pcm", "sample_rate": rate, "stream": true}
-	case "openai":
-		url = strings.TrimRight(base, "/")
-		if !strings.HasSuffix(url, "/audio/speech") {
-			url += "/audio/speech"
-		}
-		format := strings.ToLower(wm.Env("ESPOS_TTS_FORMAT", "pcm"))
-		wav = format == "wav"
-		inRate = int(wm.Num(wm.Env("ESPOS_TTS_RATE", "24000")))
-		body = map[string]any{"model": wm.Env("ESPOS_TTS_MODEL", "gpt-4o-mini-tts"), "voice": wm.Env("ESPOS_TTS_VOICE", "alloy"),
-			"input": text, "response_format": format}
-	default:
-		return nil, fmt.Errorf("ESPOS_TTS_API %q: use openai or espos", api)
-	}
-	b, _ := json.Marshal(body)
-	req, err := http.NewRequest("POST", url, bytes.NewReader(b))
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Set("User-Agent", wm.UserAgent)
-	req.Header.Set("Content-Type", "application/json")
-	if key != "" {
-		req.Header.Set("Authorization", "Bearer "+key)
-	}
-	client := &http.Client{Timeout: 60 * time.Second}
-	res, err := client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	if res.StatusCode >= 300 {
-		msg, _ := io.ReadAll(io.LimitReader(res.Body, 2048))
-		res.Body.Close()
-		return nil, fmt.Errorf("speech service answered %d: %s", res.StatusCode, strings.TrimSpace(string(msg)))
-	}
-	if api == "espos" {
-		return res.Body, nil
-	}
-	src := io.ReadCloser(res.Body)
-	if wav {
-		r, err := skipWav(res.Body)
-		if err != nil {
-			res.Body.Close()
-			return nil, err
-		}
-		src, inRate = r, r.rate
-	}
-	if inRate == rate {
-		return src, nil
-	}
-	return &resampler{src: src, in: inRate, out: rate}, nil
 }
 
 // wavBody is a WAV file's PCM after its header (16-bit mono expected).

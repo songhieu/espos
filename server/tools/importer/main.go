@@ -65,6 +65,13 @@ func main() {
 			skipped++
 			continue
 		}
+		if stand, ok := standIns[code]; ok {
+			dst := filepath.Join(backend, "workflows", code, "workflow.json")
+			must(os.MkdirAll(filepath.Dir(dst), 0o755))
+			must(os.WriteFile(dst, []byte(stand), 0o644))
+			log.Printf("workflow %s: this server's own stand-in, not the hosted one", code)
+			continue
+		}
 		raw, err := os.ReadFile(wf)
 		must(err)
 		dst := filepath.Join(backend, "workflows", code, "workflow.json")
@@ -161,7 +168,7 @@ func skipReason(wf, code string, routed map[string]bool) string {
 		} `json:"draft"`
 	}
 	must(json.Unmarshal(raw, &doc))
-	if strings.HasPrefix(code, "admin_") && !keptAdmin[code] {
+	if strings.HasPrefix(code, "admin_") && !keptAdmin[code] && standIns[code] == "" {
 		return "the hosted service's administration (users, roles, licences, stock); this server has one account"
 	}
 	for _, n := range doc.Draft.Nodes {
@@ -191,6 +198,17 @@ func skipReason(wf, code string, routed map[string]bool) string {
 // service's administration: its guards (admin_require_active, admin_device_active, admin_lic) are dropped from the
 // routes, so here nothing is blocked or licensed (the device then locks nothing, docs: s3/docs/lock.md).
 var keptAdmin = map[string]bool{"admin_me": true, "admin_sign": true}
+
+// Stand-ins for hosted functions other workflows call, in this server's terms. admin_lic_core is the hosted licence
+// (trials, paid content, AI turns): here every device is unlicensed and may use the AI it is configured with, as
+// s3/docs/lock.md says a device without a licence does (the sessions app calls it before an AI turn).
+var standIns = map[string]string{
+	"admin_lic_core": `{"code":"admin_lic_core","draft":{"nodes":[
+  {"id":"in","type":"function_in","config":{"inputs":["device_id","user_id"],"optional":["hwid","mac4","start","use_ai"]}},
+  {"id":"out","type":"return","config":{"data":{"lic":null,"lic_ms":0,"ai_ok":true,"locked":"","buy_url":"","trial":false}}}],
+ "edges":[{"from":"in","to":"out"}]}}
+`,
+}
 
 // nodesNeedSecret: the first hosted secret a code node of the workflow reads that this server cannot fill, or "".
 func nodesNeedSecret(dir string) string {
@@ -385,12 +403,21 @@ func importRoutes(src, dst string, skip map[string]string) {
 			continue
 		}
 		var guards []string
+		open := ""
 		for _, g := range r.Guards {
 			if skip[g] != "" {
+				if !strings.HasPrefix(g, "admin_") {
+					open = g // a check this route relies on: without it the route would be open, so it goes
+					break
+				}
 				dropped[g] = true
 				continue
 			}
 			guards = append(guards, g)
+		}
+		if open != "" {
+			log.Printf("skipped %s %s (its guard %s is left out)", r.Method, r.Path, open)
+			continue
 		}
 		rt := Route{Method: r.Method, Path: r.Path, Auth: r.AuthMode, Guards: guards, Workflow: wf}
 		if r.PerMin != nil {
@@ -436,6 +463,12 @@ func portNode(code, stem, src string) string {
 	// The hosted package store's catalog: here it is whatever ESPOS_PKG_CATALOG names (none: no packages offered).
 	s = regexp.MustCompile(`const catalogURL = "https?://[^"]+/apps/catalog\.json"`).
 		ReplaceAllString(s, `var catalogURL = wm.PkgCatalogURL()`)
+	// The store's catalogs that app_manifests_tick reads: here the ones ESPOS_PKG_CATALOG names.
+	s = regexp.MustCompile(`var catalogs = \[\]string\{(\s*"https?://[^"]+/catalog\.json",)+\s*\}`).
+		ReplaceAllString(s, `var catalogs = wm.PkgCatalogURLs()`)
+	// The API address handed to a client (desktop_token): this server's own.
+	s = regexp.MustCompile(`api := "https://api[.-][a-z0-9.-]+"\n\t+if h := strings\.TrimSpace\(wm\.Str\(in\["host"\]\)\); hostRe\.MatchString\(h\) \{\n\t+api = "https://" \+ h[^\n]*\n\t+\}`).
+		ReplaceAllString(s, `api := wm.PublicBase(strings.TrimSpace(wm.Str(in["host"]))) // this server's own address`)
 	if !strings.Contains(s, "wm.") {
 		s = regexp.MustCompile(`(?m)^\s*"espos/internal/wm"\n`).ReplaceAllString(s, "")
 		s = strings.Replace(s, `import "espos/internal/wm"`, "", 1)

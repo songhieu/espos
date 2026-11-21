@@ -1,0 +1,157 @@
+{
+  "code": "app_manifests",
+  "label": "Package manifests (settings)",
+  "singular": "Package manifest",
+  "unique_together": [
+    [
+      "pkg_id",
+      "user_id"
+    ]
+  ],
+  "columns": [
+    {
+      "code": "pkg_id",
+      "default": null,
+      "help": "The package id (store packages, u.* private uploads, dev uploads); with user_id, one row per owner",
+      "indexed": true,
+      "label": "Package",
+      "options": [],
+      "position": 1,
+      "read_only": false,
+      "ref_table": null,
+      "required": true,
+      "type": "text",
+      "unique": false
+    },
+    {
+      "code": "code",
+      "default": null,
+      "help": "The manifest's code; a newer upload replaces the row",
+      "indexed": false,
+      "label": "Version code",
+      "options": [],
+      "position": 2,
+      "read_only": false,
+      "ref_table": null,
+      "required": false,
+      "type": "integer",
+      "unique": false
+    },
+    {
+      "code": "version",
+      "default": null,
+      "help": null,
+      "indexed": false,
+      "label": "Version",
+      "options": [],
+      "position": 3,
+      "read_only": false,
+      "ref_table": null,
+      "required": false,
+      "type": "text",
+      "unique": false
+    },
+    {
+      "code": "settings",
+      "default": null,
+      "help": "The manifest's \"settings\" list (s3desk docs/manifest-driven.md §1): what app.<pkg_id>.<key> values may be",
+      "indexed": false,
+      "label": "Settings schema",
+      "options": [],
+      "position": 4,
+      "read_only": false,
+      "ref_table": null,
+      "required": false,
+      "type": "json",
+      "unique": false
+    },
+    {
+      "code": "provides",
+      "default": null,
+      "help": "The manifest's \"provides\" (saver, assistant): docs/app-slots.md",
+      "indexed": false,
+      "label": "Slots",
+      "options": [],
+      "position": 5,
+      "read_only": false,
+      "ref_table": null,
+      "required": false,
+      "type": "json",
+      "unique": false
+    },
+    {
+      "code": "server",
+      "default": null,
+      "help": "The manifest's \"server\" (feeds, fetch rules, hooks): docs/manifest-driven.md §2",
+      "indexed": false,
+      "label": "Server part",
+      "options": [],
+      "position": 6,
+      "read_only": false,
+      "ref_table": null,
+      "required": false,
+      "type": "json",
+      "unique": false
+    },
+    {
+      "code": "source",
+      "default": "store",
+      "help": null,
+      "indexed": false,
+      "label": "Source",
+      "options": [
+        "store",
+        "user",
+        "dev"
+      ],
+      "position": 7,
+      "read_only": false,
+      "ref_table": null,
+      "required": false,
+      "type": "enum",
+      "unique": false
+    },
+    {
+      "code": "updated_ms",
+      "default": 0,
+      "help": null,
+      "indexed": false,
+      "label": "Updated",
+      "options": [],
+      "position": 8,
+      "read_only": false,
+      "ref_table": null,
+      "required": false,
+      "type": "integer",
+      "unique": false
+    },
+    {
+      "code": "auth",
+      "default": null,
+      "help": "The manifest's \"auth\" bindings (s3desk docs/app-slots.md §15.1): which secrets go to which addresses",
+      "indexed": false,
+      "label": "Auth bindings",
+      "options": [],
+      "position": 9,
+      "read_only": false,
+      "ref_table": null,
+      "required": false,
+      "type": "json",
+      "unique": false
+    },
+    {
+      "code": "user_id",
+      "default": 0,
+      "help": "0 for a store package; the uploader for a private (u.*) package, so two people's u.game never mix",
+      "indexed": true,
+      "label": "Owner",
+      "options": [],
+      "position": 10,
+      "read_only": false,
+      "ref_table": null,
+      "required": false,
+      "type": "integer",
+      "unique": false
+    }
+  ]
+}

@@ -1,0 +1,247 @@
+[
+ {
+  "say": "Chào mày, hôm nay khỏe không?",
+  "topic": [
+   "chat"
+  ],
+  "check": [
+   "any"
+  ]
+ },
+ {
+  "say": "Mấy giờ rồi?",
+  "topic": [
+   "time"
+  ],
+  "check": [
+   "hour_in_reply"
+  ]
+ },
+ {
+  "say": "Hôm nay thứ mấy, âm lịch ngày bao nhiêu?",
+  "topic": [
+   "time",
+   "calendar"
+  ],
+  "check": [
+   "any"
+  ]
+ },
+ {
+  "say": "Thời tiết hôm nay thế nào?",
+  "topic": [
+   "weather"
+  ],
+  "check": [
+   "city_in_reply"
+  ]
+ },
+ {
+  "say": "Ngày mai có mưa không?",
+  "topic": [
+   "weather"
+  ],
+  "check": [
+   "any"
+  ]
+ },
+ {
+  "say": "Đọc báo sáng nay đi.",
+  "topic": [
+   "news"
+  ],
+  "check": [
+   "news_long"
+  ]
+ },
+ {
+  "say": "Tin đầu tiên nói gì vậy?",
+  "topic": [
+   "news"
+  ],
+  "check": [
+   "any"
+  ]
+ },
+ {
+  "say": "Còn tin thể thao thì sao?",
+  "topic": [
+   "news"
+  ],
+  "check": [
+   "says_no"
+  ]
+ },
+ {
+  "say": "Giá vàng hôm nay bao nhiêu?",
+  "topic": [
+   "gold"
+  ],
+  "check": [
+   "any"
+  ]
+ },
+ {
+  "say": "Đặt báo thức 6 giờ 30 sáng mai.",
+  "topic": [
+   "alarm"
+  ],
+  "check": [
+   "alarm_630_once"
+  ]
+ },
+ {
+  "say": "Đặt thêm báo thức 7 giờ tối từ thứ Hai đến thứ Sáu.",
+  "topic": [
+   "alarm"
+  ],
+  "check": [
+   "alarm_1900_weekdays"
+  ]
+ },
+ {
+  "say": "Tao có những báo thức nào?",
+  "topic": [
+   "alarm"
+  ],
+  "check": [
+   "alarm_lists"
+  ]
+ },
+ {
+  "say": "Đổi báo thức 6 giờ 30 thành 6 giờ 45.",
+  "topic": [
+   "alarm"
+  ],
+  "check": [
+   "alarm_645_not_630"
+  ]
+ },
+ {
+  "say": "Tắt báo thức 7 giờ tối đi.",
+  "topic": [
+   "alarm"
+  ],
+  "check": [
+   "alarm_1900_off"
+  ]
+ },
+ {
+  "say": "Xóa báo thức 6 giờ 45.",
+  "topic": [
+   "alarm"
+  ],
+  "check": [
+   "alarm_645_gone"
+  ]
+ },
+ {
+  "say": "Ghi chú giúp tao: đồ cần mua là sữa, trứng và bánh mì.",
+  "topic": [
+   "note"
+  ],
+  "check": [
+   "note_added"
+  ]
+ },
+ {
+  "say": "Thêm cà phê vào ghi chú đồ cần mua.",
+  "topic": [
+   "note"
+  ],
+  "check": [
+   "note_appended"
+  ]
+ },
+ {
+  "say": "Nhắc tao gọi điện cho mẹ.",
+  "topic": [
+   "todo"
+  ],
+  "check": [
+   "todo_added"
+  ]
+ },
+ {
+  "say": "Tao gọi cho mẹ xong rồi, đánh dấu xong đi.",
+  "topic": [
+   "todo"
+  ],
+  "check": [
+   "todo_done"
+  ]
+ },
+ {
+  "say": "Tăng âm lượng lên 70.",
+  "check": [
+   "volume_70"
+  ]
+ },
+ {
+  "say": "Tao tên là Nam.",
+  "check": [
+   "name_nam"
+  ]
+ },
+ {
+  "say": "Tao thích ăn phở bò lắm.",
+  "check": [
+   "remember_pho"
+  ]
+ },
+ {
+  "say": "Mày nhớ gì về tao?",
+  "topic": [
+   "memory",
+   "chat"
+  ],
+  "check": [
+   "recall"
+  ]
+ },
+ {
+  "say": "Hôm nay tao mệt quá.",
+  "topic": [
+   "chat"
+  ],
+  "check": [
+   "any"
+  ]
+ },
+ {
+  "say": "Mày đang làm gì đó?",
+  "topic": [
+   "chat"
+  ],
+  "check": [
+   "any"
+  ]
+ },
+ {
+  "say": "Giải giúp tao phương trình 2x cộng 3 bằng 7.",
+  "topic": [
+   "refuse"
+  ],
+  "check": [
+   "no_math"
+  ]
+ },
+ {
+  "say": "Chơi đoán số đi.",
+  "topic": [
+   "chat"
+  ],
+  "check": [
+   "guess_game"
+  ]
+ },
+ {
+  "say": "Số 5.",
+  "topic": [
+   "chat"
+  ],
+  "check": [
+   "any"
+  ]
+ }
+]

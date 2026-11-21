@@ -1,0 +1,65 @@
+{
+  "code": "put_app_secret",
+  "name": "Web: set or remove a package's server-kept secret (POST, DELETE /v1/devices/:id/secrets)",
+  "draft": {
+    "nodes": [
+      {
+        "id": "in",
+        "type": "http_in"
+      },
+      {
+        "id": "work",
+        "type": "code",
+        "config": {
+          "source": {
+            "$file": "nodes/work.go"
+          },
+          "timeout_ms": 15000,
+          "input": {
+            "uid": "{{ input.user.id }}",
+            "params": "{{ input.params }}",
+            "body": "{{ input.body }}",
+            "query": "{{ input.query }}",
+            "method": "{{ input.method }}"
+          }
+        }
+      },
+      {
+        "id": "out",
+        "type": "respond",
+        "config": {
+          "status": "{{ work.status }}",
+          "body": "{{ work.body }}",
+          "headers": {
+            "Cache-Control": "no-store"
+          }
+        }
+      },
+      {
+        "id": "fail",
+        "type": "respond",
+        "config": {
+          "status": 500,
+          "body": {
+            "error": "{{ work.error }}"
+          }
+        }
+      }
+    ],
+    "edges": [
+      {
+        "from": "in",
+        "to": "work"
+      },
+      {
+        "from": "work",
+        "to": "out"
+      },
+      {
+        "from": "work",
+        "to": "fail",
+        "port": "error"
+      }
+    ]
+  }
+}

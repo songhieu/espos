@@ -1,0 +1,19 @@
+{
+  "code": "list_device_apps",
+  "name": "Web: the settings schemas of a device's apps (GET /v1/devices/:id/apps)",
+  "draft": {
+    "nodes": [
+      {"id": "in", "type": "http_in"},
+      {"id": "work", "type": "code", "config": {"source": {"$file": "nodes/work.go"}, "timeout_ms": 15000,
+        "input": {"uid": "{{ input.user.id }}", "params": "{{ input.params }}", "query": "{{ input.query }}"}}},
+      {"id": "out", "type": "respond", "config": {"status": "{{ work.status }}", "body": "{{ work.body }}",
+        "headers": {"Cache-Control": "no-store"}}},
+      {"id": "fail", "type": "respond", "config": {"status": 500, "body": {"error": "{{ work.error }}"}}}
+    ],
+    "edges": [
+      {"from": "in", "to": "work"},
+      {"from": "work", "to": "out"},
+      {"from": "work", "to": "fail", "port": "error"}
+    ]
+  }
+}

@@ -1,0 +1,45 @@
+{
+ "_note": "Made-up sample news for the benchmark (not real articles). make_news_fixture.py replaces it with today's VnExpress feeds on your own machine.",
+ "tin-moi-nhat": [
+  {"id": "1001", "title": "Thành phố mở thêm 12 tuyến xe buýt điện từ đầu tháng tới", "lead": "Các tuyến mới nối khu dân cư phía đông với trung tâm, giá vé không đổi, xe chạy từ 5 giờ sáng đến 22 giờ."},
+  {"id": "1002", "title": "Giá xăng giảm nhẹ trong kỳ điều chỉnh chiều nay", "lead": "Mỗi lít xăng giảm khoảng 300 đồng, dầu diesel giữ nguyên so với kỳ trước."},
+  {"id": "1003", "title": "Mưa lớn kéo dài ở các tỉnh miền Trung đến cuối tuần", "lead": "Cơ quan khí tượng khuyên người dân theo dõi bản tin và hạn chế đi qua vùng trũng."},
+  {"id": "1004", "title": "Sân bay lớn thử nghiệm làm thủ tục bằng khuôn mặt", "lead": "Hành khách đã đăng ký có thể qua cửa an ninh mà không cần đưa giấy tờ, thời gian chờ giảm một nửa."},
+  {"id": "1005", "title": "Trường học được khuyến khích giảm bài tập về nhà", "lead": "Hướng dẫn mới gợi ý học sinh tiểu học có nhiều thời gian vận động và đọc sách hơn."}
+ ],
+ "thoi-su": [
+  {"id": "2001", "title": "Khánh thành cây cầu mới bắc qua sông lớn ở đồng bằng", "lead": "Cầu dài 1,2 km rút ngắn đường đi giữa hai huyện từ một giờ xuống còn mười phút."},
+  {"id": "2002", "title": "Hơn 3.000 tình nguyện viên dọn rác bờ biển cuối tuần qua", "lead": "Chiến dịch thu gom gần 20 tấn rác nhựa, phần lớn là chai và túi ni lông."},
+  {"id": "2003", "title": "Bệnh viện tuyến tỉnh có thêm trung tâm cấp cứu đột quỵ", "lead": "Trung tâm hoạt động suốt ngày đêm, giúp người bệnh không phải chuyển lên tuyến trên."},
+  {"id": "2004", "title": "Thủ tục đổi giấy phép lái xe được làm hoàn toàn trực tuyến", "lead": "Người dân nộp hồ sơ trên cổng dịch vụ công và nhận giấy phép mới qua bưu điện."},
+  {"id": "2005", "title": "Công viên ven sông mở cửa miễn phí buổi tối", "lead": "Khu vui chơi có đèn chiếu sáng, đường chạy bộ và chỗ gửi xe đạp."}
+ ],
+ "the-gioi": [
+  {"id": "3001", "title": "Hội nghị khí hậu thống nhất quỹ hỗ trợ các nước ven biển", "lead": "Các nước cam kết đóng góp để xây đê và trồng rừng ngập mặn trong mười năm tới."},
+  {"id": "3002", "title": "Tàu thăm dò gửi về những bức ảnh mới của sao Mộc", "lead": "Ảnh cho thấy các cơn bão lớn trên bầu khí quyển của hành tinh này rõ hơn bao giờ hết."},
+  {"id": "3003", "title": "Nhiều nước châu Âu thử nghiệm tuần làm việc bốn ngày", "lead": "Các công ty tham gia cho biết năng suất giữ nguyên và nhân viên nghỉ ốm ít hơn."},
+  {"id": "3004", "title": "Động đất nhẹ ở vùng ven biển, không có thiệt hại", "lead": "Trận động đất mạnh 4,1 độ, người dân cảm nhận rung lắc trong vài giây."},
+  {"id": "3005", "title": "Lễ hội đèn lồng thu hút hàng trăm nghìn du khách", "lead": "Ban tổ chức thả hơn 10.000 chiếc đèn trên sông trong đêm khai mạc."}
+ ],
+ "kinh-doanh": [
+  {"id": "4001", "title": "Xuất khẩu nông sản tăng 15% trong mười tháng", "lead": "Trái cây và cà phê đóng góp nhiều nhất, thị trường chính là châu Á và châu Âu."},
+  {"id": "4002", "title": "Ngân hàng giảm lãi suất cho vay mua nhà lần đầu", "lead": "Mức giảm khoảng 0,5 điểm phần trăm cho các khoản vay đến 20 năm."},
+  {"id": "4003", "title": "Giá vàng trong nước đi ngang sau nhiều phiên tăng", "lead": "Vàng miếng giữ quanh mức cũ, vàng nhẫn giảm nhẹ vào buổi chiều."},
+  {"id": "4004", "title": "Doanh nghiệp nhỏ được hỗ trợ chuyển sang hóa đơn điện tử", "lead": "Chương trình miễn phí phần mềm trong năm đầu cho hộ kinh doanh."},
+  {"id": "4005", "title": "Sàn thương mại điện tử báo doanh số kỷ lục ngày hội mua sắm", "lead": "Đồ gia dụng và thiết bị điện tử bán chạy nhất, nhiều đơn được giao trong ngày."}
+ ],
+ "khoa-hoc-cong-nghe": [
+  {"id": "5001", "title": "Nhóm sinh viên chế tạo robot nhặt rác trên kênh", "lead": "Robot chạy bằng pin mặt trời, mỗi ngày gom được khoảng 50 kg rác nổi."},
+  {"id": "5002", "title": "Điện thoại mới có thể sạc đầy trong 10 phút", "lead": "Nhà sản xuất cho biết pin vẫn giữ 80% dung lượng sau 1.600 lần sạc."},
+  {"id": "5003", "title": "Ứng dụng dự báo ngập theo từng con phố ra mắt", "lead": "Ứng dụng dùng dữ liệu mưa và cảm biến mực nước để báo trước 30 phút."},
+  {"id": "5004", "title": "Kính thiên văn phát hiện hành tinh có thể có nước", "lead": "Hành tinh nằm cách Trái Đất khoảng 100 năm ánh sáng, quay quanh một ngôi sao lùn."},
+  {"id": "5005", "title": "Thư viện số cho mượn sách nói miễn phí", "lead": "Người dùng nghe được hơn 2.000 đầu sách tiếng Việt trên điện thoại."}
+ ],
+ "suc-khoe": [
+  {"id": "6001", "title": "Đi bộ 30 phút mỗi ngày giúp ngủ ngon hơn", "lead": "Nghiên cứu theo dõi người trưởng thành trong một năm cho thấy giấc ngủ sâu tăng rõ."},
+  {"id": "6002", "title": "Mùa lạnh, bác sĩ nhắc giữ ấm cho trẻ nhỏ và người già", "lead": "Nên mặc đủ ấm, uống nước ấm và tiêm phòng cúm đúng lịch."},
+  {"id": "6003", "title": "Ăn nhiều rau xanh có thể giảm nguy cơ bệnh tim", "lead": "Các chuyên gia khuyên mỗi bữa ăn nên có ít nhất một phần rau."},
+  {"id": "6004", "title": "Bệnh viện mở phòng khám tư vấn giấc ngủ", "lead": "Người bị mất ngủ kéo dài được khám và hướng dẫn thay đổi thói quen."},
+  {"id": "6005", "title": "Uống đủ nước giúp làm việc tập trung hơn", "lead": "Người trưởng thành nên uống khoảng 1,5 đến 2 lít nước mỗi ngày tùy thời tiết."}
+ ]
+}

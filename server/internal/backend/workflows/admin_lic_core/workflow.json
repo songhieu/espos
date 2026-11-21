@@ -1,0 +1,4 @@
+{"code":"admin_lic_core","draft":{"nodes":[
+  {"id":"in","type":"function_in","config":{"inputs":["device_id","user_id"],"optional":["hwid","mac4","start","use_ai"]}},
+  {"id":"out","type":"return","config":{"data":{"lic":null,"lic_ms":0,"ai_ok":true,"locked":"","buy_url":"","trial":false}}}],
+ "edges":[{"from":"in","to":"out"}]}}

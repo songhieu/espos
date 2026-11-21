@@ -37,14 +37,20 @@ var deskCmds = map[string]string{
 	"sys.lock": "safe", "sys.display_off": "safe", "sys.bright": "safe", "sys.sleep": "confirm",
 	"shortcut.run": "safe",
 	"claude.deny":  "safe", "claude.approve": "confirm", "claude.reply": "confirm", "claude.new": "confirm",
-	"claude.stop": "confirm", "claude.focus": "safe",
+	"claude.stop": "confirm", "claude.focus": "safe", "claude.key": "confirm",
 }
+
+// claude.key's keys (§9.3); esc and ctrl_c interrupt Claude: risky (the app asks once, ack_risky).
+var claudeKeys = map[string]bool{"esc": true, "enter": true, "up": true, "down": true, "left": true, "right": true,
+	"tab": true, "shift_tab": true, "ctrl_c": true, "backspace": true, "1": true, "2": true, "3": true, "4": true,
+	"5": true, "6": true, "7": true, "8": true, "9": true, "y": true, "n": true}
 
 const onlineMs = 180000  // a desktop that synced in the last 3 minutes is online (heartbeat every 60 s)
 const safeTTL = 30000    // a safe command not delivered in 30 s expires (no late music at 3 a.m.)
 const confirmTTL = 60000 // a risky command waits 60 s for a yes (then 30 s more once confirmed)
 const perMin = 30        // commands a minute per desktop
 const confirmsPerMin = 5 // risky ones a minute per desktop
+const appPerMin = 90     // claude.reply / claude.key from the Sessions app a minute per desktop (§9.3)
 
 var idRe = regexp.MustCompile(`^[A-Za-z0-9_.:\-]{1,100}$`)
 var folderRe = regexp.MustCompile(`^[A-Za-z0-9_.\-]{1,64}$`)
@@ -97,7 +103,8 @@ func whole(v any, lo, hi int) (int, bool) {
 
 // checkArgs: the arguments of cmd, cleaned (only the keys the command takes), or "" and false when their shape is
 // wrong (§2.3). Existence (app installed, folder allowed, session waiting, req id) is the Mac's to check.
-func checkArgs(cmd string, raw any) (map[string]any, bool) {
+// long: the Sessions app's claude.reply (§9.3).
+func checkArgs(cmd string, raw any, long bool) (map[string]any, bool) {
 	a, _ := raw.(map[string]any)
 	if raw != nil && a == nil {
 		if s, isText := raw.(string); !isText || strings.TrimSpace(s) != "" {
@@ -159,7 +166,25 @@ func checkArgs(cmd string, raw any) (map[string]any, bool) {
 		out["s"] = s
 		return out, true
 	case "yt.play":
-		return out, str("q", 100, false) // no q: YouTube's home in Chrome (owner, 2026-11-21: a bare "mở nhạc")
+		// the music intent the dog's model writes (owner 2026-11-21: "Bật nhạc Sơn Tùng" played an English collab):
+		// artist / song / kind, or q for a genre or mood; next = the following candidate ("đổi bài khác"); nothing =
+		// the Mac's default music (never YouTube's home)
+		if k := wm.Str(a["kind"]); k != "" {
+			if k != "artist" && k != "song" && k != "genre" && k != "mood" && k != "playlist" {
+				return nil, false
+			}
+			out["kind"] = k
+		}
+		if n, has := a["next"]; has && n != nil {
+			b, isBool := n.(bool)
+			if !isBool {
+				return nil, false
+			}
+			if b {
+				out["next"] = true
+			}
+		}
+		return out, str("q", 100, false) && str("artist", 60, false) && str("song", 80, false)
 	case "vol.up", "vol.down":
 		by := 10
 		if a["by"] != nil {
@@ -207,7 +232,29 @@ func checkArgs(cmd string, raw any) (map[string]any, bool) {
 	case "claude.stop", "claude.focus":
 		return out, ids("session", idRe)
 	case "claude.reply":
+		if long {
+			// the Sessions app (§9.3): up to 2000 characters, new lines allowed (a bracketed paste on the Mac)
+			t, isText := a["text"].(string)
+			t = strings.TrimRight(strings.ReplaceAll(t, "\r\n", "\n"), " \n")
+			if !isText || strings.TrimSpace(t) == "" || len([]rune(t)) > 2000 {
+				return nil, false
+			}
+			for _, r := range t {
+				if (r < 0x20 && r != '\n' && r != '\t') || r == 0x7f {
+					return nil, false
+				}
+			}
+			out["text"] = t
+			return out, ids("session", idRe)
+		}
 		return out, ids("session", idRe) && str("text", 200, true)
+	case "claude.key":
+		k := strings.ToLower(strings.TrimSpace(wm.Str(a["key"])))
+		if !claudeKeys[k] {
+			return nil, false
+		}
+		out["key"] = k
+		return out, ids("session", idRe)
 	case "claude.new":
 		t := strings.Join(strings.Fields(wm.Str(a["task"])), " ")
 		if t == "" || len([]rune(t)) > 300 {
@@ -290,10 +337,19 @@ func cmdText(cmd string, a map[string]any, st map[string]any) string {
 		}
 		return fmt.Sprintf("tua tới %d giây", wm.Int(a["s"]))
 	case "yt.play":
-		if s("q") != "" {
-			return "mở YouTube: " + s("q")
+		switch {
+		case a["next"] == true:
+			return "đổi bài khác"
+		case s("song") != "" && s("artist") != "":
+			return "mở bài " + s("song") + " của " + s("artist")
+		case s("song") != "":
+			return "mở bài " + s("song")
+		case s("artist") != "":
+			return "mở nhạc " + s("artist")
+		case s("q") != "":
+			return "mở nhạc: " + s("q")
 		}
-		return "mở YouTube"
+		return "mở nhạc quen của bạn"
 	case "music.playlist":
 		return "phát danh sách nhạc " + s("name")
 	case "media.play":
@@ -426,6 +482,27 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 	}
 	fromID := wm.Int(in["from_device_id"])
 	now := time.Now().UnixMilli()
+	// The Sessions app's nonce (§9.3): the same key gives the same command, so a retry never types twice.
+	key := strings.TrimSpace(wm.Str(in["key"]))
+	keyID := ""
+	if key != "" {
+		sum := sha256.Sum256([]byte(fmt.Sprint("desk-key|", uid, "|", fromID, "|", key)))
+		keyID = uuidOf(hex.EncodeToString(sum[:16]))
+		had, herr := wm.QueryOpts("desk_cmds", map[string]any{"filters": []map[string]any{
+			{"column": "cmd_id", "op": "eq", "value": keyID}, {"column": "user_id", "op": "eq", "value": uid}}, "limit": 1})
+		if herr != nil {
+			wm.Log("read: ", herr.Error())
+			return refuse(500, "server_error", "")
+		}
+		if len(had) == 1 {
+			h := had[0]
+			res, _ := h["result"].(map[string]any)
+			return map[string]any{"ok": true, "status": 200, "id": keyID, "state": wm.Str(h["state"]), "risk": wm.Str(h["risk"]),
+				"exp_ms": int64(wm.Num(h["exp_ms"])), "desktop_id": wm.Int(h["desktop_id"]), "again": true,
+				"text": wm.Str(res["text"]), "err": wm.Str(res["err"]), "chan": "",
+				"wait": wm.Str(h["state"]) == "queued" || wm.Str(h["state"]) == "sent"}
+		}
+	}
 
 	res, err := wm.QueryMany([]map[string]any{
 		{"table": "devices", "filters": []map[string]any{{"column": "user_id", "op": "eq", "value": uid},
@@ -487,7 +564,7 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 		return refuse(409, "desktop_offline", "")
 	}
 	st := stateOf(row["state"])
-	args, okArgs := checkArgs(cmd, in["args"])
+	args, okArgs := checkArgs(cmd, in["args"], via == "app")
 	what := ""
 	if okArgs {
 		what = cmdText(cmd, args, st)
@@ -528,18 +605,34 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 	}
 	recent, err := wm.QueryOpts("desk_cmds", map[string]any{"filters": []map[string]any{
 		{"column": "desktop_id", "op": "eq", "value": deskID}, {"column": "created_ms", "op": "gte", "value": now - 60000}},
-		"order_by": "created_ms", "desc": true, "limit": perMin + 1})
+		"order_by": "created_ms", "desc": true, "limit": appPerMin + 1})
 	if err != nil {
 		wm.Log("read: ", err.Error())
 		return refuse(500, "server_error", what)
 	}
-	risky := 0
+	risky, nOther := 0, 0 // the Sessions app's typing has its own budget (below)
 	for _, r := range recent {
+		if wm.Str(r["via"]) == "app" && (wm.Str(r["cmd"]) == "claude.reply" || wm.Str(r["cmd"]) == "claude.key") {
+			continue
+		}
+		nOther++
 		if wm.Str(r["risk"]) == "confirm" {
 			risky++
 		}
 	}
-	if len(recent) >= perMin || (risk == "confirm" && risky >= confirmsPerMin) {
+	appCmd := via == "app" && (cmd == "claude.reply" || cmd == "claude.key")
+	if appCmd {
+		// typing from the Sessions app: its own, larger budget (§9.3); the tap on the device is the yes
+		nApp := 0
+		for _, r := range recent {
+			if wm.Str(r["via"]) == "app" && (wm.Str(r["cmd"]) == "claude.reply" || wm.Str(r["cmd"]) == "claude.key") {
+				nApp++
+			}
+		}
+		if nApp >= appPerMin {
+			return refuse(429, "rate_limited", what)
+		}
+	} else if nOther >= perMin || (risk == "confirm" && risky >= confirmsPerMin) {
 		return refuse(429, "rate_limited", what)
 	}
 
@@ -550,6 +643,8 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 	if risk == "confirm" {
 		if wm.Bool(in["confirm"]) && via == "web" && confirmAt != "mac" {
 			confirmed = map[string]any{"by": "web", "where": "web", "at_ms": now} // the page asked the person first
+		} else if wm.Bool(in["confirm"]) && via == "app" && fromID > 0 && confirmAt != "mac" {
+			confirmed = map[string]any{"by": "s3", "where": "s3", "at_ms": now} // the person's tap on the device (§9.3)
 		} else {
 			state = "confirm"
 			exp = now + confirmTTL
@@ -560,6 +655,9 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 		fromName = "web"
 	}
 	id := uuidOf(newID(deskID, cmd, uid, wm.Str(dev["token_hash"])))
+	if keyID != "" {
+		id = keyID
+	}
 	vals := map[string]any{
 		"cmd_id": id, "user_id": uid, "desktop_id": deskID, "from_device_id": fromID, "from_name": fromName, "via": via,
 		"heard": fit(wm.Str(in["heard"]), 300), "cmd": cmd, "args": args, "risk": risk, "state": state,
@@ -580,7 +678,11 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 	}
 	// The poke channel is rt:desk:<desktop>:<chan_key> (node pub writes the "rt:desk:" part: the platform checks a
 	// channel's kind in the drawing).
+	waitS := 2
+	if cmd == "yt.play" {
+		waitS = 9 // search, open, and the check that it really plays (the Mac's autoplay check)
+	}
 	return map[string]any{"ok": true, "status": 200, "id": id, "state": state, "risk": risk, "what": what,
 		"exp_ms": exp, "desktop_id": deskID, "chan": fmt.Sprintf("%d:%s", deskID, wm.Str(row["chan_key"])), "wait": state == "queued",
-		"where": confirmWhere(confirmAt)}
+		"wait_s": waitS, "where": confirmWhere(confirmAt)}
 }

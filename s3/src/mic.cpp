@@ -28,6 +28,29 @@ bool IRAM_ATTR onOverflow(i2s_chan_handle_t, i2s_event_data_t*, void*) {
 
 float dbOf(double sumSq, int n) { return sumSq <= 0 || n <= 0 ? -96.0f : 10.0f * log10f((float)(sumSq / n) / (32768.0f * 32768.0f)); }
 
+#ifdef ESPOS_QEMU
+// QEMU has no codec: a microphone that hears silence (and a faint hiss) at the codec's pace, so the wake word's
+// listener, a call's recording (WAKEFIRE) and the talk button run there as on the board (memory tests).
+void run(void*) {
+  int16_t mono[N];
+  uint32_t seed = 1;
+  TickType_t t = xTaskGetTickCount();
+  for (;;) {
+    if (!want) {
+      if (isOn) isOn = false, trace::add("mic: off (%u blocks, QEMU)", (unsigned)readBlocks);
+      ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+      t = xTaskGetTickCount();
+      continue;
+    }
+    if (!isOn) isOn = true, trace::add("mic: on (QEMU: silence)");
+    for (int i = 0; i < N; i++) seed = seed * 1103515245u + 12345u, mono[i] = (int16_t)((int)(seed >> 16 & 31) - 16);
+    readBlocks = readBlocks + 1;
+    const Sink s = sink;
+    if (s) s(mono, N);
+    vTaskDelayUntil(&t, pdMS_TO_TICKS(10) ? pdMS_TO_TICKS(10) : 1);
+  }
+}
+#else
 void run(void*) {
   i2s_chan_handle_t rx = (i2s_chan_handle_t)sound::micChannel();
   i2s_event_callbacks_t cb = {};
@@ -84,10 +107,15 @@ void run(void*) {
     if (s) s(mono, N);
   }
 }
+#endif
 
 }  // namespace
 
+#ifdef ESPOS_QEMU
+bool available() { return true; }
+#else
 bool available() { return sound::micChannel() != nullptr; }
+#endif
 
 bool open(Sink s) {
   if (!available()) return false;

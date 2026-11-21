@@ -399,6 +399,12 @@ func (e *Engine) step(f *Flow, n Node, vars, ctx map[string]any, base string) (s
 		vars[n.ID] = map[string]any{"ok": true, "delivered": 0}
 		return "", false, nil, nil
 
+	case "stream_token":
+		// A token for the hosted platform's realtime stream (a WebSocket a client subscribes to): there is none here,
+		// so the node fails and the run takes its error edge; clients keep to their sync and poll.
+		vars[n.ID] = map[string]any{"error": "no realtime stream on this server: sync or poll instead"}
+		return "", true, nil, nil
+
 	case "call_workflow":
 		in, _ := eval(cfg["input"], vars).(map[string]any)
 		res, err := e.Run(wm.Str(cfg["workflow"]), in, ctx, base)

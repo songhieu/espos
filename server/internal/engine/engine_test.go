@@ -168,3 +168,24 @@ func TestRunStoragePutAndPublish(t *testing.T) {
 		t.Fatalf("empty content should take the error edge: %+v", d)
 	}
 }
+
+// stream_token has no realtime stream behind it here: the run takes the node's error edge.
+func TestRunStreamTokenFails(t *testing.T) {
+	fsys := fstest.MapFS{"workflows/tok/workflow.json": {Data: []byte(`{"code":"tok","draft":{
+		"nodes":[{"id":"in","type":"function_in"},
+			{"id":"tok","type":"stream_token","config":{"channel":"rt:x"}},
+			{"id":"ok","type":"return","config":{"data":{"token":"{{ tok.token }}"}}},
+			{"id":"no","type":"return","config":{"data":{"error":"{{ tok.error }}"}}}],
+		"edges":[{"from":"in","to":"tok"},{"from":"tok","to":"ok"},{"from":"tok","to":"no","port":"error"}]}}`)}}
+	e, err := Load(fsys, "workflows", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	r, err := e.Run("tok", nil, nil, "http://x")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if d, _ := r.Data.(map[string]any); wm.Str(d["error"]) == "" {
+		t.Fatalf("stream_token should take the error edge: %+v", d)
+	}
+}

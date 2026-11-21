@@ -34,14 +34,20 @@ func hostedSecret(src []byte) string {
 var (
 	modelConst = regexp.MustCompile(`(?m)^const model = "[^"]+"\n`)
 	routerCall = regexp.MustCompile(`wm\.FetchWith\("POST", "https://router\.[a-z.]+/v1/chat/completions", req, map\[string\]any\{\s*"Authorization": "Bearer \{\{ secret\.hubapi_key \}\}", "Content-Type": "application/json"\}\)`)
-	textCheck  = "\tif len([]rune(text)) > 500 {\n\t\treturn fail(422, \"text_too_long\")\n\t}\n"
+	langSet    = "\tlang := st[\"sys.lang\"]\n\tif lang == \"\" {\n\t\tlang = \"vi\"\n\t}\n"
 )
 
-const sttStep = `	// Self-hosted: with a speech-to-text service set (ESPOS_STT_URL), the recording becomes words here and the model
-	// reads them as if typed, so a model that cannot hear works too (README "The dog assistant").
-	if audio != "" && wm.STTConfigured() {
-		if heardText, err := wm.Transcribe(audio); err != nil {
-			wm.Log("speech to text: ", err.Error(), " (the model gets the recording)")
+const sttStep = `	// Self-hosted: with a speech-to-text service set (ESPOS_STT_*), the recording becomes words here, in the device's
+	// language, and the model reads them as if typed. A model that cannot hear a recording (ESPOS_AI_AUDIO=0, or its
+	// ESPOS_AI_PROVIDER preset) never gets one: without words, the dog asks again (README "The dog assistant").
+	if audio != "" && (wm.STTConfigured() || !wm.AIHearsAudio()) {
+		if heardText, err := wm.TranscribeLang(audio, st["sys.lang"]); err != nil {
+			if wm.AIHearsAudio() {
+				wm.Log("speech to text: ", err.Error(), " (the model gets the recording)")
+			} else {
+				wm.Log("speech to text: ", err.Error(), " (the model cannot hear a recording, so the dog asks again: set ESPOS_STT_*)")
+				text, audio = "...", ""
+			}
 		} else {
 			text, audio = heardText, ""
 			if text == "" {
@@ -56,6 +62,9 @@ func portAssistant(code, stem, s string) string {
 	if !strings.Contains(s, "secret.hubapi_key") {
 		return s
 	}
+	if code+"/"+stem != "assist_reply/talk" {
+		return portModelCall(code, stem, s)
+	}
 	n := 0
 	s = modelConst.ReplaceAllStringFunc(s, func(string) string {
 		n++
@@ -65,8 +74,8 @@ func portAssistant(code, stem, s string) string {
 		n++
 		return "wm.AIChat(req)"
 	})
-	if strings.Contains(s, textCheck) {
-		s = strings.Replace(s, textCheck, textCheck+sttStep, 1)
+	if strings.Count(s, langSet) == 1 {
+		s = strings.Replace(s, langSet, langSet+sttStep, 1)
 		n++
 	}
 	if n != 3 || strings.Contains(s, "secret.hubapi_key\"") || routerHost.MatchString(stripComments(s)) {
@@ -205,4 +214,17 @@ func mustJSON(v any) string {
 	b, err := json.Marshal(v)
 	must(err)
 	return string(b)
+}
+
+// portModelCall: another node that asks the dog's model (dictation, the sessions app): only the call moves to
+// wm.AIChat, which takes the model, its address and its key from ESPOS_AI_* (the hosted model name in the request
+// is replaced there). Such a node may send a recording: the model set here must hear audio for it (README).
+func portModelCall(code, stem, s string) string {
+	n := len(routerCall.FindAllStringIndex(s, -1))
+	s = routerCall.ReplaceAllString(s, "wm.AIChat(req)")
+	if n == 0 || strings.Contains(s, "secret.hubapi_key\"") || routerHost.MatchString(stripComments(s)) {
+		log.Fatalf("%s/%s: the hosted model call changed; update portModelCall in tools/importer/assistant.go", code, stem)
+	}
+	s = strings.ReplaceAll(s, "{{ secret.hubapi_key }}", "ESPOS_AI_KEY")
+	return routerHost.ReplaceAllString(s, "the AI model set in ESPOS_AI_*")
 }

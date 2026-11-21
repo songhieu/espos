@@ -18,7 +18,8 @@
           "input": {
             "body": "{{ input.body }}",
             "device": "{{ input.guard.require_device }}",
-            "host": "{{ input.headers.host }}"
+            "host": "{{ input.headers.host }}",
+            "desk_on": "{{ var.desktop_enabled }}"
           }
         }
       },

@@ -185,6 +185,34 @@
       "required": false,
       "type": "integer",
       "unique": false
+    },
+    {
+      "code": "usage_sig",
+      "default": null,
+      "help": "What the S3's Claude widget shows, coarsely (5-hour and week % in fives, sessions open/waiting, mode)",
+      "indexed": false,
+      "label": "Usage signature",
+      "options": [],
+      "position": 14,
+      "read_only": false,
+      "ref_table": null,
+      "required": false,
+      "type": "text",
+      "unique": false
+    },
+    {
+      "code": "usage_ms",
+      "default": null,
+      "help": "When usage_sig last changed; folded into the S3's ping rev",
+      "indexed": true,
+      "label": "Usage changed (epoch ms)",
+      "options": [],
+      "position": 15,
+      "read_only": false,
+      "ref_table": null,
+      "required": false,
+      "type": "integer",
+      "unique": false
     }
   ]
 }

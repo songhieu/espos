@@ -108,6 +108,7 @@ extern const std::vector<Style> MARKETS_STYLES, PRICE_STYLES;                   
 extern const std::vector<Style> NEWS_STYLES;                                                        // news.cpp
 extern const std::vector<Style> REMIND_STYLES, NOTES_STYLES, PHOTO_STYLES, NOTIFY_STYLES, SYSTEM_STYLES;  // misc.cpp
 extern const std::vector<Style> READING_STYLES, STATS_STYLES, BOOKS_STYLES, BOOKS_FLAGS;            // read.cpp
+extern const std::vector<Style> CLAUDE_STYLES;                                                      // claude.cpp
 
 // Live parts: fn(obj, now, newDay) runs at every new minute (every second with everySecond) while obj lives, with
 // SKIN, INK, GREY and PAPER as they were when live() was called (the widget's own, not the last one drawn).
@@ -139,5 +140,6 @@ void wReading(lv_obj_t* parent, const Item& it, Card c);  // src/wid/read.cpp
 void wStats(lv_obj_t* parent, const Item& it, Card c);
 void wBooks(lv_obj_t* parent, const Item& it, Card c);
 void wOverview(lv_obj_t* parent, const Item& it, Card c);
+void wClaude(lv_obj_t* parent, const Item& it, Card c);   // src/wid/claude.cpp
 
 }  // namespace wid

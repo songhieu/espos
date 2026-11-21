@@ -6,6 +6,7 @@ package flows
 import (
 	"espos/internal/engine"
 	admin_sign_check "espos/internal/flows/admin_sign/check"
+	app_manifests_tick_work "espos/internal/flows/app_manifests_tick/work"
 	assist_apply_dfix "espos/internal/flows/assist_apply/dfix"
 	assist_apply_fix "espos/internal/flows/assist_apply/fix"
 	assist_apply_pre "espos/internal/flows/assist_apply/pre"
@@ -29,13 +30,23 @@ import (
 	delete_photo_work "espos/internal/flows/delete_photo/work"
 	delete_user_pkg_work "espos/internal/flows/delete_user_pkg/work"
 	delete_wallpaper_work "espos/internal/flows/delete_wallpaper/work"
+	desk_app_auth_who "espos/internal/flows/desk_app_auth/who"
 	desk_queue_hold "espos/internal/flows/desk_queue/hold"
 	desk_queue_work "espos/internal/flows/desk_queue/work"
+	desk_sweep_work "espos/internal/flows/desk_sweep/work"
+	desktop_act_work "espos/internal/flows/desktop_act/work"
+	desktop_rotate_work "espos/internal/flows/desktop_rotate/work"
+	desktop_screen_work "espos/internal/flows/desktop_screen/work"
+	desktop_sync_work "espos/internal/flows/desktop_sync/work"
+	desktop_token_work "espos/internal/flows/desktop_token/work"
+	desktop_unpair_work "espos/internal/flows/desktop_unpair/work"
+	desktop_view_work "espos/internal/flows/desktop_view/work"
 	dev_me_work "espos/internal/flows/dev_me/work"
 	device_assist_prep "espos/internal/flows/device_assist/prep"
 	device_assist_take "espos/internal/flows/device_assist/take"
 	device_assist_say_prep "espos/internal/flows/device_assist_say/prep"
 	device_book_find "espos/internal/flows/device_book/find"
+	device_dictate_work "espos/internal/flows/device_dictate/work"
 	device_firmware_work "espos/internal/flows/device_firmware/work"
 	device_news_list "espos/internal/flows/device_news/list"
 	device_news_article_find "espos/internal/flows/device_news_article/find"
@@ -64,6 +75,7 @@ import (
 	list_assist_memories_work "espos/internal/flows/list_assist_memories/work"
 	list_books_work "espos/internal/flows/list_books/work"
 	list_dev_keys_work "espos/internal/flows/list_dev_keys/work"
+	list_device_apps_work "espos/internal/flows/list_device_apps/work"
 	list_devices_work "espos/internal/flows/list_devices/work"
 	list_photos_work "espos/internal/flows/list_photos/work"
 	list_user_pkgs_work "espos/internal/flows/list_user_pkgs/work"
@@ -73,6 +85,7 @@ import (
 	photo_source_find "espos/internal/flows/photo_source/find"
 	post_notification_work "espos/internal/flows/post_notification/work"
 	push_user_pkg_work "espos/internal/flows/push_user_pkg/work"
+	put_app_secret_work "espos/internal/flows/put_app_secret/work"
 	put_device_settings_work "espos/internal/flows/put_device_settings/work"
 	remote_input_work "espos/internal/flows/remote_input/work"
 	remote_view_work "espos/internal/flows/remote_view/work"
@@ -84,6 +97,9 @@ import (
 	save_profile_work "espos/internal/flows/save_profile/work"
 	save_wifi_work "espos/internal/flows/save_wifi/work"
 	say_device_dog_prep "espos/internal/flows/say_device_dog/prep"
+	sess_app_ai "espos/internal/flows/sess_app/ai"
+	sess_app_fin "espos/internal/flows/sess_app/fin"
+	sess_app_work "espos/internal/flows/sess_app/work"
 	sign_pkg_upload_check "espos/internal/flows/sign_pkg_upload/check"
 	start_book_upload_prep "espos/internal/flows/start_book_upload/prep"
 	start_pair_work "espos/internal/flows/start_pair/work"
@@ -97,6 +113,7 @@ import (
 // Nodes is every code node, by "<workflow>/<node>".
 var Nodes = map[string]engine.NodeFunc{
 	"admin_sign/check":            admin_sign_check.Run,
+	"app_manifests_tick/work":     app_manifests_tick_work.Run,
 	"assist_apply/dfix":           assist_apply_dfix.Run,
 	"assist_apply/fix":            assist_apply_fix.Run,
 	"assist_apply/pre":            assist_apply_pre.Run,
@@ -120,13 +137,23 @@ var Nodes = map[string]engine.NodeFunc{
 	"delete_photo/work":           delete_photo_work.Run,
 	"delete_user_pkg/work":        delete_user_pkg_work.Run,
 	"delete_wallpaper/work":       delete_wallpaper_work.Run,
+	"desk_app_auth/who":           desk_app_auth_who.Run,
 	"desk_queue/hold":             desk_queue_hold.Run,
 	"desk_queue/work":             desk_queue_work.Run,
+	"desk_sweep/work":             desk_sweep_work.Run,
+	"desktop_act/work":            desktop_act_work.Run,
+	"desktop_rotate/work":         desktop_rotate_work.Run,
+	"desktop_screen/work":         desktop_screen_work.Run,
+	"desktop_sync/work":           desktop_sync_work.Run,
+	"desktop_token/work":          desktop_token_work.Run,
+	"desktop_unpair/work":         desktop_unpair_work.Run,
+	"desktop_view/work":           desktop_view_work.Run,
 	"dev_me/work":                 dev_me_work.Run,
 	"device_assist/prep":          device_assist_prep.Run,
 	"device_assist/take":          device_assist_take.Run,
 	"device_assist_say/prep":      device_assist_say_prep.Run,
 	"device_book/find":            device_book_find.Run,
+	"device_dictate/work":         device_dictate_work.Run,
 	"device_firmware/work":        device_firmware_work.Run,
 	"device_news/list":            device_news_list.Run,
 	"device_news_article/find":    device_news_article_find.Run,
@@ -155,6 +182,7 @@ var Nodes = map[string]engine.NodeFunc{
 	"list_assist_memories/work":   list_assist_memories_work.Run,
 	"list_books/work":             list_books_work.Run,
 	"list_dev_keys/work":          list_dev_keys_work.Run,
+	"list_device_apps/work":       list_device_apps_work.Run,
 	"list_devices/work":           list_devices_work.Run,
 	"list_photos/work":            list_photos_work.Run,
 	"list_user_pkgs/work":         list_user_pkgs_work.Run,
@@ -164,6 +192,7 @@ var Nodes = map[string]engine.NodeFunc{
 	"photo_source/find":           photo_source_find.Run,
 	"post_notification/work":      post_notification_work.Run,
 	"push_user_pkg/work":          push_user_pkg_work.Run,
+	"put_app_secret/work":         put_app_secret_work.Run,
 	"put_device_settings/work":    put_device_settings_work.Run,
 	"remote_input/work":           remote_input_work.Run,
 	"remote_view/work":            remote_view_work.Run,
@@ -175,6 +204,9 @@ var Nodes = map[string]engine.NodeFunc{
 	"save_profile/work":           save_profile_work.Run,
 	"save_wifi/work":              save_wifi_work.Run,
 	"say_device_dog/prep":         say_device_dog_prep.Run,
+	"sess_app/ai":                 sess_app_ai.Run,
+	"sess_app/fin":                sess_app_fin.Run,
+	"sess_app/work":               sess_app_work.Run,
 	"sign_pkg_upload/check":       sign_pkg_upload_check.Run,
 	"start_book_upload/prep":      start_book_upload_prep.Run,
 	"start_pair/work":             start_pair_work.Run,

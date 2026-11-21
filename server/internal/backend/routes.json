@@ -60,6 +60,56 @@
   },
   {
     "method": "POST",
+    "path": "/v1/desktop/rotate",
+    "auth": "public",
+    "guards": [
+      "require_device"
+    ],
+    "workflow": "desktop_rotate",
+    "rate_limit_per_min": 10
+  },
+  {
+    "method": "POST",
+    "path": "/v1/desktop/screen",
+    "auth": "public",
+    "guards": [
+      "require_device"
+    ],
+    "workflow": "desktop_screen",
+    "rate_limit_per_min": 300
+  },
+  {
+    "method": "POST",
+    "path": "/v1/desktop/sync",
+    "auth": "public",
+    "guards": [
+      "require_device"
+    ],
+    "workflow": "desktop_sync",
+    "rate_limit_per_min": 120
+  },
+  {
+    "method": "POST",
+    "path": "/v1/desktop/token",
+    "auth": "public",
+    "guards": [
+      "require_device"
+    ],
+    "workflow": "desktop_token",
+    "rate_limit_per_min": 30
+  },
+  {
+    "method": "POST",
+    "path": "/v1/desktop/unpair",
+    "auth": "public",
+    "guards": [
+      "require_device"
+    ],
+    "workflow": "desktop_unpair",
+    "rate_limit_per_min": 10
+  },
+  {
+    "method": "POST",
     "path": "/v1/dev-keys/delete",
     "auth": "end_user",
     "workflow": "delete_dev_key",
@@ -141,6 +191,28 @@
   },
   {
     "method": "GET",
+    "path": "/v1/device/app/dev.espos.sessions/:op",
+    "auth": "public",
+    "guards": [
+      "require_device",
+      "desk_app_auth"
+    ],
+    "workflow": "sess_app",
+    "rate_limit_per_min": 240
+  },
+  {
+    "method": "POST",
+    "path": "/v1/device/app/dev.espos.sessions/:op",
+    "auth": "public",
+    "guards": [
+      "require_device",
+      "desk_app_auth"
+    ],
+    "workflow": "sess_app",
+    "rate_limit_per_min": 120
+  },
+  {
+    "method": "GET",
     "path": "/v1/device/assist/say",
     "auth": "public",
     "guards": [
@@ -178,6 +250,16 @@
     ],
     "workflow": "device_dashboard",
     "rate_limit_per_min": 30
+  },
+  {
+    "method": "POST",
+    "path": "/v1/device/dictate",
+    "auth": "public",
+    "guards": [
+      "require_device"
+    ],
+    "workflow": "device_dictate",
+    "rate_limit_per_min": 20
   },
   {
     "method": "GET",
@@ -281,6 +363,12 @@
   },
   {
     "method": "GET",
+    "path": "/v1/devices/:id/apps",
+    "auth": "end_user",
+    "workflow": "list_device_apps"
+  },
+  {
+    "method": "GET",
     "path": "/v1/devices/:id/assist/say",
     "auth": "end_user",
     "workflow": "say_device_dog",
@@ -302,6 +390,20 @@
   },
   {
     "method": "POST",
+    "path": "/v1/devices/:id/desktop/act",
+    "auth": "end_user",
+    "workflow": "desktop_act",
+    "rate_limit_per_min": 60
+  },
+  {
+    "method": "GET",
+    "path": "/v1/devices/:id/desktop",
+    "auth": "end_user",
+    "workflow": "desktop_view",
+    "rate_limit_per_min": 120
+  },
+  {
+    "method": "POST",
     "path": "/v1/devices/:id/firmware",
     "auth": "end_user",
     "workflow": "device_firmware",
@@ -320,6 +422,20 @@
     "auth": "end_user",
     "workflow": "remote_view",
     "rate_limit_per_min": 600
+  },
+  {
+    "method": "DELETE",
+    "path": "/v1/devices/:id/secrets",
+    "auth": "end_user",
+    "workflow": "put_app_secret",
+    "rate_limit_per_min": 30
+  },
+  {
+    "method": "POST",
+    "path": "/v1/devices/:id/secrets",
+    "auth": "end_user",
+    "workflow": "put_app_secret",
+    "rate_limit_per_min": 30
   },
   {
     "method": "GET",

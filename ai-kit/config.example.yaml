@@ -1,0 +1,97 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Cấu hình gateway (giọng đọc + mô hình trả lời + nghe giọng). install.sh tạo config.yaml từ file này
+# rồi ghi danh sách models theo lựa chọn lúc cài.
+# Có thể dùng biến môi trường: key: ${TTS_KEY_ESP32}
+# Đường dẫn tương đối tính từ thư mục chứa file này.
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Địa chỉ API. 0.0.0.0 = máy khác trong mạng nhà (ESP32 ở nhà) gọi được.
+# Chỉ dùng qua Cloudflare Tunnel thì có thể đổi thành 127.0.0.1:8080.
+listen: "0.0.0.0:8080"
+
+# Mỗi thiết bị/người một key, để lỡ lộ thì xoá đúng key đó.
+# Tạo key: openssl rand -hex 24
+# Gửi kèm request:  Authorization: Bearer <key>   hoặc   X-API-Key: <key>
+api_keys:
+  - name: me
+    key: "CHANGE_ME"
+  # - name: esp32-phong-khach
+  #   key: "..."
+
+max_chars: 1000        # độ dài tối đa của 1 câu gửi lên
+queue_timeout: 10s     # hết worker rảnh thì chờ tối đa bấy lâu, quá thì trả 429
+max_waiting: 32        # số request được xếp hàng tối đa cho mỗi model
+keep_awake: true       # chặn máy Mac ngủ khi gateway đang chạy (cần cắm sạc)
+keep_warm: 60s         # worker rảnh thì cứ 60s đọc thử 1 câu ngắn để macOS không đẩy model xuống swap
+                       # (máy thiếu RAM mà không có cái này thì câu đầu sau khi nghỉ chậm 5-7s). 0 = tắt
+
+# ── Models ───────────────────────────────────────────────────────────────────
+# workers = số tiến trình của model đó. workers: 0 = tắt model. threads = số nhân CPU mỗi worker dùng.
+# Giọng đọc (engine vieneu-*, piper): mỗi worker đọc 1 câu một lúc; model giọng đầu tiên là mặc định của /v1/tts.
+# Mô hình trả lời (engine llm) và nghe giọng (engine stt): chạy bằng GPU, 1 worker là đủ;
+#   slots = số request 1 worker xử lý cùng lúc (llm: trả lời cùng lúc, chung 1 lần nạp model).
+#
+# RAM mỗi worker (đo trên M1 Pro): vieneu-turbo ~1.4GB, vieneu-nano ~0.5GB, piper ~0.3GB
+# Gợi ý cho "nửa con M4 24GB": turbo 2x2, nano 1x2, piper 4x1  => ~4.5GB RAM
+models:
+  - id: vieneu-turbo       # chất lượng tốt nhất, 48 kHz, stream ~0.3s là có tiếng
+    engine: vieneu-turbo
+    workers: 2
+    threads: 2
+    # default_voice: "Hải Đăng"
+
+  - id: vieneu-nano        # nhẹ hơn nhưng chất lượng thấp hơn, 24 kHz
+    engine: vieneu-nano
+    workers: 1
+    threads: 2
+
+  - id: piper              # rất nhanh, rất nhẹ, giọng "máy" hơn
+    engine: piper
+    workers: 4
+    threads: 1
+    default_voice: vais1000
+    voices:
+      vais1000: models/piper/vi_VN-vais1000-medium.onnx
+      # 2 giọng dưới bị mất ký hiệu dấu thanh với piper-tts 1.8 (dễ đọc sai dấu) — không khuyên dùng:
+      # 25hours: models/piper/vi_VN-25hours_single-low.onnx
+      # vivos:   models/piper/vi_VN-vivos-x_low.onnx
+
+  # Gemma 4 (POST /v1/chat/completions, kiểu OpenAI). install.sh tải model và bật mục này.
+  - id: gemma-4-e2b
+    engine: llm
+    model: models/llm/gemma-4-E2B-it-qat-UD-Q4_K_XL.gguf   # 2,6 GB; E4B: gemma-4-E4B-it-qat-UD-Q4_K_XL.gguf (4,2 GB)
+    workers: 0               # install.sh đặt 1
+    slots: 2                 # 16 GB RAM: 2; 24 GB+: 4
+    ctx: 16384               # token tối đa mỗi request (câu hỏi + trả lời)
+    threads: 4
+    # queue_timeout: 60s     # mặc định của llm: chờ slot rảnh tối đa 60s rồi trả 429
+    # args: ["--dump-prompts", "logs/prompts"]   # cờ thêm cho bin/llm-server (xem llm-server --help)
+
+  # Whisper (POST /v1/audio/transcriptions, kiểu OpenAI)
+  - id: whisper
+    engine: stt
+    model: models/stt/ggml-large-v3-turbo-q5_0.bin       # 0,57 GB; nhẹ hơn: ggml-small-q5_1.bin
+    vad_model: models/stt/ggml-silero-v6.2.0.bin          # bỏ đoạn im lặng: nhanh hơn, không "nghe" ra chữ khi im
+    language: vi
+    workers: 0               # install.sh đặt 1
+    slots: 1
+    threads: 4
+
+# ── Cloudflare Tunnel (truy cập từ ngoài, IP động vẫn chạy) ──────────────────
+tunnel:
+  enabled: false
+  # quick: không cần tài khoản/tên miền, link https://xxx.trycloudflare.com ĐỔI mỗi lần chạy lại (để test)
+  # token: link cố định trên tên miền của bạn (xem README, mục Cloudflare)
+  mode: quick
+  token: ""                # dán token của tunnel vào đây, hoặc: token: ${CLOUDFLARE_TUNNEL_TOKEN}
+  public_url: ""           # vd https://tts.tenmien.com — chỉ để in ra log cho dễ nhìn
+  cloudflared: cloudflared # đường dẫn tới binary nếu không nằm trong PATH
+
+# ── Nâng cao (thường không cần sửa) ──────────────────────────────────────────
+python_bin: worker/.venv/bin/python
+worker_script: worker/worker.py
+worker_base_port: 9100     # worker nội bộ dùng cổng 9101.., 9201.., 9301.. trên 127.0.0.1
+llm_bin: bin/llm-server    # install.sh build 2 file này (C++, llama.cpp / whisper.cpp, Metal)
+stt_bin: bin/stt-server
+max_upload_mb: 25          # file ghi âm lớn nhất gửi lên /v1/audio/transcriptions
+startup_timeout: 15m       # lần chạy đầu phải tải model nên lâu

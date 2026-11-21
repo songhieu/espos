@@ -5,6 +5,8 @@ Licences by folder:
 - s3/        Apache License 2.0 (s3/LICENSE, s3/NOTICE; vendored code and fonts in
              s3/THIRD_PARTY.md).
 - server/    GNU Affero General Public License v3.0 (server/LICENSE).
+- ai-kit/    GNU Affero General Public License v3.0 (ai-kit/LICENSE; what install.sh downloads keeps its
+             own licence, ai-kit/THIRD_PARTY.md).
 - Everything else (docs/, assets/, the files at the top, CI): Apache License 2.0 (LICENSE).
 
 Bundled fonts keep their own licences:

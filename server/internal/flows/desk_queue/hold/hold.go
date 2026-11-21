@@ -15,7 +15,11 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 	if !wm.Bool(in["wait"]) || wm.Str(in["id"]) == "" {
 		return map[string]any{"state": state, "text": "", "err": ""}
 	}
-	end := time.Now().Add(2 * time.Second)
+	w := wm.Int(in["wait_s"]) // 2, or 9 for yt.play (it checks the music really plays)
+	if w < 1 || w > 9 {
+		w = 2
+	}
+	end := time.Now().Add(time.Duration(w) * time.Second)
 	for time.Now().Before(end) {
 		time.Sleep(150 * time.Millisecond)
 		rows, err := wm.QueryOpts("desk_cmds", map[string]any{"filters": []map[string]any{

@@ -231,7 +231,7 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 		return map[string]any{"status": 404, "body": map[string]any{"error": "not found"}}
 	}
 	rows, err := wm.QueryOpts("device_settings", map[string]any{"filters": []map[string]any{
-		{"column": "device_id", "op": "eq", "value": id}}, "limit": 200})
+		{"column": "device_id", "op": "eq", "value": id}}, "limit": 500}) // as device_sync (package settings add rows)
 	if err != nil {
 		return wm.Fail(err)
 	}
@@ -254,8 +254,8 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 	}
 	for _, r := range rows {
 		k := wm.Str(r["skey"])
-		if _, known := settings[k]; !known && wm.Str(devs[0]["kind"]) == "bot" {
-			continue // a bot's answer holds only its own keys
+		if _, known := settings[k]; !known && wm.Str(devs[0]["kind"]) == "bot" && !strings.HasPrefix(k, "app.") {
+			continue // a bot's answer holds only its own keys (and its packages' settings)
 		}
 		settings[k] = map[string]any{"v": wm.Str(r["svalue"]), "source": wm.Str(r["source"]), "ms": wm.Num(r["updated_ms"])}
 	}
@@ -279,9 +279,24 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 		}
 	}
 	device["caps"] = d["caps"]
+	// The packages' server-kept secrets (s3desk docs/manifest-driven.md §1.4): whether each is set and its last 4
+	// characters, never the value (put_app_secret sets them).
+	secrets := map[string]any{}
+	srows, serr := wm.QueryOpts("app_secrets", map[string]any{"filters": []map[string]any{
+		{"column": "device_id", "op": "eq", "value": id}}, "limit": 100})
+	if serr != nil {
+		return wm.Fail(serr)
+	}
+	for _, r := range srows {
+		if wm.Str(r["value"]) == "" {
+			continue // a removal the device has not acked yet
+		}
+		secrets["app."+wm.Str(r["pkg_id"])+"."+wm.Str(r["skey"])] = map[string]any{"set": true, "last4": wm.Str(r["last4"]), "ms": wm.Num(r["updated_ms"])}
+	}
 	return map[string]any{"status": 200, "body": map[string]any{
 		"device":   device,
 		"settings": settings,
+		"secrets":  secrets,
 	}}
 }
 

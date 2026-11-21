@@ -289,6 +289,21 @@
    "src/saveredit.cpp:1143"
   ]
  },
+ "5-hour": {
+  "kind": "text",
+  "where": [
+   "src/wid/claude.cpp:228",
+   "src/wid/claude.cpp:289",
+   "src/wid/claude.cpp:301",
+   "src/wid/claude.cpp:320"
+  ]
+ },
+ "5-hour resets": {
+  "kind": "text",
+  "where": [
+   "src/wid/claude.cpp:306"
+  ]
+ },
  "60 min": {
   "kind": "text",
   "where": [
@@ -973,6 +988,18 @@
    "a heading in upper case: the dog as the device's assistant"
   ]
  },
+ "At API prices": {
+  "kind": "text",
+  "where": [
+   "src/wid/claude.cpp:366"
+  ]
+ },
+ "at API prices": {
+  "kind": "text",
+  "where": [
+   "src/wid/claude.cpp:352"
+  ]
+ },
  "At most 12 photos": {
   "kind": "text",
   "where": [
@@ -1093,6 +1120,12 @@
   "where": [
    "src/app_clock.cpp:379",
    "src/wid/clock.cpp:668"
+  ]
+ },
+ "Bars": {
+  "kind": "text",
+  "where": [
+   "src/wid/claude.cpp:19"
   ]
  },
  "Basic": {
@@ -1874,6 +1907,19 @@
   "kind": "text",
   "where": [
    "src/wid/faces.h:8"
+  ]
+ },
+ "Claude today": {
+  "kind": "text",
+  "where": [
+   "src/wid/claude.cpp:340",
+   "src/wid/claude.cpp:349"
+  ]
+ },
+ "Claude · 7 days": {
+  "kind": "text",
+  "where": [
+   "src/wid/claude.cpp:358"
   ]
  },
  "Clean": {
@@ -3150,6 +3196,12 @@
    "src/app_more.cpp:657"
   ]
  },
+ "Gauge": {
+  "kind": "text",
+  "where": [
+   "src/wid/claude.cpp:19"
+  ]
+ },
  "German": {
   "kind": "text",
   "where": [
@@ -4147,6 +4199,19 @@
    "src/pet/book.cpp:200"
   ]
  },
+ "Limits unknown": {
+  "kind": "text",
+  "where": [
+   "src/wid/claude.cpp:214",
+   "src/wid/claude.cpp:292"
+  ]
+ },
+ "Limits unknown: add the status line helper on your Mac": {
+  "kind": "text",
+  "where": [
+   "src/wid/claude.cpp:213"
+  ]
+ },
  "Link a Google, iCloud or Outlook calendar to see the next 7 days here.": {
   "kind": "text",
   "where": [
@@ -4550,6 +4615,20 @@
   ],
   "notes": [
    "the lunar date beside today's date (vi \"{0} âm\"); \"{0}\" alone on the 1st and 15th, already worded"
+  ]
+ },
+ "Mac offline": {
+  "kind": "text",
+  "where": [
+   "src/wid/claude.cpp:131",
+   "src/wid/claude.cpp:154",
+   "src/wid/claude.cpp:161"
+  ]
+ },
+ "Mac offline since {0}": {
+  "kind": "text",
+  "where": [
+   "src/wid/claude.cpp:131"
   ]
  },
  "made on the device": {
@@ -5382,6 +5461,12 @@
    "src/home.cpp:1601"
   ]
  },
+ "No session": {
+  "kind": "text",
+  "where": [
+   "src/wid/claude.cpp:305"
+  ]
+ },
  "No stories in this section yet. Wait for the next sync.": {
   "kind": "text",
   "where": [
@@ -6004,6 +6089,12 @@
    "src/saveredit.cpp:1306"
   ]
  },
+ "Pair EspOS Desktop on your Mac to see Claude usage": {
+  "kind": "text",
+  "where": [
+   "src/wid/claude.cpp:382"
+  ]
+ },
  "Pair this device again in Settings": {
   "kind": "text",
   "where": [
@@ -6618,6 +6709,13 @@
    "src/app_settings.cpp:947"
   ]
  },
+ "Resets {0}": {
+  "kind": "text",
+  "where": [
+   "src/wid/claude.cpp:127",
+   "src/wid/claude.cpp:326"
+  ]
+ },
  "Rest your eyes (every hour)": {
   "kind": "text",
   "where": [
@@ -7033,6 +7131,19 @@
   "kind": "text",
   "where": [
    "src/desk.cpp:804"
+  ]
+ },
+ "Sessions": {
+  "kind": "text",
+  "where": [
+   "src/wid/claude.cpp:306",
+   "src/wid/claude.cpp:367"
+  ]
+ },
+ "sessions": {
+  "kind": "text",
+  "where": [
+   "src/wid/claude.cpp:330"
   ]
  },
  "Sets {0}": {
@@ -8570,6 +8681,20 @@
    "a short button on the dog's pop-up: the dog sums up today's news (vi \"Tin hôm nay\")"
   ]
  },
+ "tokens": {
+  "kind": "text",
+  "where": [
+   "src/wid/claude.cpp:329",
+   "src/wid/claude.cpp:342",
+   "src/wid/claude.cpp:351"
+  ]
+ },
+ "tokens today": {
+  "kind": "text",
+  "where": [
+   "src/wid/claude.cpp:210"
+  ]
+ },
  "Tokyo": {
   "kind": "text",
   "where": [
@@ -8788,6 +8913,13 @@
    "src/wid/weather.cpp:26"
   ]
  },
+ "Unknown": {
+  "kind": "text",
+  "where": [
+   "src/wid/claude.cpp:303",
+   "src/wid/claude.cpp:328"
+  ]
+ },
  "Unknown language": {
   "kind": "text",
   "where": [
@@ -8855,6 +8987,12 @@
   "kind": "text",
   "where": [
    "src/wid/market.cpp:215"
+  ]
+ },
+ "usage from your Mac": {
+  "kind": "text",
+  "where": [
+   "src/wid.cpp:80"
   ]
  },
  "Use the network": {
@@ -9816,6 +9954,13 @@
    "src/home.cpp:1729"
   ]
  },
+ "{0} tokens": {
+  "kind": "text",
+  "where": [
+   "src/wid/claude.cpp:273",
+   "src/wid/claude.cpp:364"
+  ]
+ },
  "{0} updated to {1}": {
   "kind": "text",
   "where": [
@@ -9927,6 +10072,12 @@
    "a lunar day/month; {2} is \" leap\" for a leap month (vi \"{0}/{1}{2}\")"
   ]
  },
+ "{0}B": {
+  "kind": "text",
+  "where": [
+   "src/wid/claude.cpp:124"
+  ]
+ },
  "{0}h": {
   "kind": "text",
   "where": [
@@ -9934,6 +10085,18 @@
   ],
   "notes": [
    "an hour range like \"23-1\" (vi \"{0} giờ\")"
+  ]
+ },
+ "{0}K": {
+  "kind": "text",
+  "where": [
+   "src/wid/claude.cpp:122"
+  ]
+ },
+ "{0}M": {
+  "kind": "text",
+  "where": [
+   "src/wid/claude.cpp:123"
   ]
  },
  "{MM} {d}": {
@@ -10088,6 +10251,19 @@
    "src/app_settings.cpp:1275"
   ]
  },
+ "{n} session open|{n} sessions open": {
+  "kind": "plural",
+  "where": [
+   "src/wid/claude.cpp:136",
+   "src/wid/claude.cpp:362"
+  ]
+ },
+ "{n} session waiting|{n} sessions waiting": {
+  "kind": "plural",
+  "where": [
+   "src/wid/claude.cpp:134"
+  ]
+ },
  "{n} step left|{n} steps left": {
   "kind": "plural",
   "where": [
@@ -10101,6 +10277,12 @@
   ],
   "notes": [
    "a small chip on the dog's pop-up near the end of the free trial: the talks left (vi \"Còn {n} lượt\")"
+  ]
+ },
+ "{n} waiting|{n} waiting": {
+  "kind": "plural",
+  "where": [
+   "src/wid/claude.cpp:363"
   ]
  },
  "{W}, {MM} {d}": {

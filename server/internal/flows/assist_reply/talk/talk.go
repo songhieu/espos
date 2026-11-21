@@ -1521,18 +1521,6 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 	if len([]rune(text)) > 500 {
 		return fail(422, "text_too_long")
 	}
-	// Self-hosted: with a speech-to-text service set (ESPOS_STT_URL), the recording becomes words here and the model
-	// reads them as if typed, so a model that cannot hear works too (README "The dog assistant").
-	if audio != "" && wm.STTConfigured() {
-		if heardText, err := wm.Transcribe(audio); err != nil {
-			wm.Log("speech to text: ", err.Error(), " (the model gets the recording)")
-		} else {
-			text, audio = heardText, ""
-			if text == "" {
-				text = "..." // nothing heard: the dog asks again, no model call
-			}
-		}
-	}
 	fresh := cid == "new" // "new": start a new conversation even within 30 minutes of the last one
 	if cid != "" && (len(cid) != 16 || strings.Trim(cid, "0123456789abcdef") != "") {
 		cid = ""
@@ -1594,6 +1582,24 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 	lang := st["sys.lang"]
 	if lang == "" {
 		lang = "vi"
+	}
+	// Self-hosted: with a speech-to-text service set (ESPOS_STT_*), the recording becomes words here, in the device's
+	// language, and the model reads them as if typed. A model that cannot hear a recording (ESPOS_AI_AUDIO=0, or its
+	// ESPOS_AI_PROVIDER preset) never gets one: without words, the dog asks again (README "The dog assistant").
+	if audio != "" && (wm.STTConfigured() || !wm.AIHearsAudio()) {
+		if heardText, err := wm.TranscribeLang(audio, st["sys.lang"]); err != nil {
+			if wm.AIHearsAudio() {
+				wm.Log("speech to text: ", err.Error(), " (the model gets the recording)")
+			} else {
+				wm.Log("speech to text: ", err.Error(), " (the model cannot hear a recording, so the dog asks again: set ESPOS_STT_*)")
+				text, audio = "...", ""
+			}
+		} else {
+			text, audio = heardText, ""
+			if text == "" {
+				text = "..." // nothing heard: the dog asks again, no model call
+			}
+		}
 	}
 	dogKey := strings.ToLower(strings.TrimSpace(wm.Str(in["dog"])))
 	if dogOf(dogKey) == nil {
@@ -3387,7 +3393,7 @@ var deskHints = [][2]string{
 	{"web.search", `"engine": "google" hay "youtube", "q": chữ cần tìm`},
 	{"tab.new", ""}, {"tab.next", ""}, {"tab.prev", ""}, {"page.back", ""}, {"page.reload", ""},
 	{"video.pause", ""}, {"video.play", ""}, {"video.full", ""}, {"video.seek", `"s": số giây, số âm là tua lại`},
-	{"yt.play", `"q": bài hay ca sĩ, bỏ trống là mở trang YouTube`}, {"music.playlist", `"name": tên danh sách nhạc`},
+	{"yt.play", `"artist": ca sĩ (tên đầy đủ), "song": tên bài, "kind": "artist"|"song"|"genre"|"mood"|"playlist", "q": chữ tìm cho thể loại hay tâm trạng, "next": true khi đổi bài khác`}, {"music.playlist", `"name": tên danh sách nhạc`},
 	{"media.play", ""}, {"media.pause", ""}, {"media.toggle", ""}, {"media.next", ""}, {"media.prev", ""},
 	{"vol.up", `"by": 1 đến 30`}, {"vol.down", `"by": 1 đến 30`}, {"vol.set", `"v": 0 đến 100`}, {"vol.mute", `"on": 1 tắt tiếng, 0 bật tiếng lại`},
 	{"sys.lock", ""}, {"sys.display_off", ""}, {"sys.bright", `"by": -50 đến 50`}, {"sys.sleep", ""},
@@ -3397,8 +3403,12 @@ var deskHints = [][2]string{
 }
 
 const deskRules = `ĐIỀU KHIỂN MÁY TÍNH: chủ nhờ làm gì trên máy tính thì thêm vào "actions" đối tượng {"kind": "desk", "cmd": "<lệnh>", "args": {...}}, chỉ dùng LỆNH MÁY TÍNH ĐƯỢC BẬT với đúng tham số, nhiều nhất 3 lệnh một lượt. Ví dụ:
-  "mở nhạc", "bật nhạc lên" (không nói bài nào): {"kind": "desk", "cmd": "yt.play", "args": {}} (mở YouTube trên Chrome)
-  "mở nhạc Sơn Tùng": {"kind": "desk", "cmd": "yt.play", "args": {"q": "Sơn Tùng"}}
+  "mở nhạc Sơn Tùng" (chỉ ca sĩ): {"kind": "desk", "cmd": "yt.play", "args": {"artist": "Sơn Tùng M-TP", "kind": "artist"}}
+  "mở bài Lạc Trôi": {"kind": "desk", "cmd": "yt.play", "args": {"song": "Lạc Trôi", "artist": "Sơn Tùng M-TP", "kind": "song"}} (ghi ca sĩ khi biết chắc)
+  "mở nhạc Trịnh", "nhạc buồn buồn": {"kind": "desk", "cmd": "yt.play", "args": {"q": "nhạc Trịnh Công Sơn", "kind": "genre"}}
+  "mở nhạc", "bật nhạc lên" (không nói gì): theo gu của chủ trong TRÍ NHỚ (ca sĩ, thể loại chủ thích) như trên; không biết gu thì {"kind": "desk", "cmd": "yt.play", "args": {}} (máy tính mở nhạc mặc định của chủ, không phải trang chủ YouTube)
+  "đổi bài khác", "bài khác đi": {"kind": "desk", "cmd": "yt.play", "args": {"next": true}}
+  Nhạc: reply nói sẽ mở gì ("Mở nhạc Sơn Tùng nè"), đừng bịa tên bài; máy tính tìm bản chính thức và nói bài đang phát.
   "to tiếng lên": {"kind": "desk", "cmd": "vol.up", "args": {"by": 10}}; "mở Safari": {"kind": "desk", "cmd": "app.open", "args": {"name": "Safari"}}
 - Hỏi máy tính đang làm gì, pin, nhạc đang phát, phiên Claude, hạn mức Claude: trả lời từ MÁY TÍNH CỦA CHỦ, không cần actions.
 - Lệnh "ngay": reply nói gọn là đã làm (ví dụ "Mở YouTube rồi nè"). Lệnh "xác nhận": reply nói đã gửi, chủ bấm xác nhận trên máy tính hay trên web thì máy mới làm; đừng nói đã xong.

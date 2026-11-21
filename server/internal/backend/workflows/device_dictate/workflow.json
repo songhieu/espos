@@ -1,0 +1,66 @@
+{
+  "code": "device_dictate",
+  "name": "Device: dictation for any text field (the OS keyboard's mic key, voice.dictate()): a WAV in, its words out (desktop-protocol §9.4)",
+  "draft": {
+    "nodes": [
+      {
+        "id": "in",
+        "type": "http_in"
+      },
+      {
+        "id": "work",
+        "type": "code",
+        "config": {
+          "source": {
+            "$file": "nodes/work.go"
+          },
+          "timeout_ms": 45000,
+          "memory_mb": 256,
+          "input": {
+            "query": "{{ input.query }}",
+            "files": "{{ input.files }}",
+            "raw": "{{ input.raw_body_base64 }}",
+            "headers": "{{ input.headers }}",
+            "body": "{{ input.body }}"
+          }
+        }
+      },
+      {
+        "id": "out",
+        "type": "respond",
+        "config": {
+          "status": "{{ work.status }}",
+          "body": "{{ work.body }}",
+          "headers": {
+            "Cache-Control": "no-store"
+          }
+        }
+      },
+      {
+        "id": "fail",
+        "type": "respond",
+        "config": {
+          "status": 500,
+          "body": {
+            "error": "server_error"
+          }
+        }
+      }
+    ],
+    "edges": [
+      {
+        "from": "in",
+        "to": "work"
+      },
+      {
+        "from": "work",
+        "to": "out"
+      },
+      {
+        "from": "work",
+        "to": "fail",
+        "port": "error"
+      }
+    ]
+  }
+}

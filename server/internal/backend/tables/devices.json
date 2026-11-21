@@ -294,6 +294,20 @@
       "required": false,
       "type": "json",
       "unique": false
+    },
+    {
+      "code": "app_secrets",
+      "default": null,
+      "help": "Which package secrets the device's own store holds, from its last sync: {\"<pkg id>\": [\"key\", ...]} (s3desk docs/app-slots.md §15.2); never the values",
+      "indexed": false,
+      "label": "Package secrets held",
+      "options": [],
+      "position": 22,
+      "read_only": false,
+      "ref_table": null,
+      "required": false,
+      "type": "json",
+      "unique": false
     }
   ],
   "label": "Devices",

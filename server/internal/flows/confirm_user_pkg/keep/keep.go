@@ -36,6 +36,26 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 	if uerr != nil {
 		return wm.Fail(uerr)
 	}
+	// The package's settings schema and slots (s3desk docs/manifest-driven.md §1.3): its own app_manifests row (this
+	// person's), which the server checks app.<id>.<key> values against; a package without them drops its old row.
+	mrows, merr := wm.QueryOpts("app_manifests", map[string]any{"filters": []map[string]any{
+		{"column": "pkg_id", "op": "eq", "value": pkgID}, {"column": "user_id", "op": "eq", "value": uid}}, "limit": 1})
+	if merr != nil {
+		return wm.Fail(merr)
+	}
+	if meta["settings"] != nil || meta["provides"] != nil || meta["auth"] != nil || meta["server"] != nil {
+		if _, aerr := wm.Upsert("app_manifests", []string{"pkg_id", "user_id"}, map[string]any{
+			"pkg_id": pkgID, "user_id": uid, "code": wm.Int(in["code"]), "version": wm.Str(in["version"]),
+			"settings": meta["settings"], "provides": meta["provides"], "auth": meta["auth"], "server": meta["server"],
+			"source": "user", "updated_ms": time.Now().UnixMilli(),
+		}, nil); aerr != nil {
+			return wm.Fail(aerr)
+		}
+	} else if len(mrows) == 1 {
+		if derr := wm.Delete("app_manifests", wm.Int(mrows[0]["id"])); derr != nil {
+			return wm.Fail(derr)
+		}
+	}
 	// Earlier uploads of this id, and the upload itself (when it was not already this folder).
 	gone := 0
 	for _, prefix := range []string{base, wm.Str(in["upload_dir"])} {

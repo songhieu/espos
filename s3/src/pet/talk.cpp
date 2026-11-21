@@ -16,6 +16,7 @@
 #include "../led.h"
 #include "../lic.h"
 #include "../lock.h"
+#include "../mic.h"
 #include "../net.h"
 #include "../sound.h"
 #include "../trace.h"
@@ -578,11 +579,10 @@ void warmUp() {
 bool startListening(uint32_t fromSample, int maxMs, bool wakeTurn) {
   warmUp();
   voice::hush();
+  // the recording first: a try that finds no room leaves the listener as it was (held and let go every 100 ms
+  // during retryWake's 4 s, it traced "listening (resumed)" each time; the detector does not fire while recording)
+  if (!wake::captureStart(fromSample, maxMs)) return false;
   wake::hold(true);
-  if (!wake::captureStart(fromSample, maxMs)) {
-    wake::hold(false);
-    return false;
-  }
   byWake = wakeTurn, heard = false, typed = false, lastLoud = millis(), fallback = 0, dryRun = false, ackFrom = 0;
   winLoudMs = winOursMs = 0;  // never the last turn's count (it sent a call and the dog's "Dạ?" as a question, 2026-11-21)
   wake::vadQuestion(false);
@@ -1105,7 +1105,13 @@ void press() {
   if (st != St::Idle) cancelTurn();  // talking over the dog: it stops, you speak
   if (lock::accountBlocked()) return talkShow("stand", T_("Your account is locked"), T_("See espos.dev for details"));
   if (lic::aiLocked()) return showLock();  // nothing is recorded: the dog says how to unlock talking
-  if (!startListening(wake::now() - RATE / 10, 12100, false)) talkShow("look_up", T_("The microphone isn't working"), "");
+  if (!startListening(wake::now() - RATE / 10, 12100, false)) {
+    // the microphone is there: no room to record right now (PSRAM in pieces), not a broken microphone
+    if (!mic::available()) return talkShow("look_up", T_("The microphone isn't working"), "");
+    trace::add("talk: no room to record (largest PSRAM block %u KB)",
+               (unsigned)(heap_caps_get_largest_free_block(MALLOC_CAP_SPIRAM) / 1024));
+    talkShow("plead", T_("I'm here. Call me again, or hold the button and speak"), "");  // translated in every pack
+  }
 }
 
 void release() {
@@ -1219,6 +1225,13 @@ bool console(const char* cmd) {
     Serial.printf("DOGBENCH %s\n", dog::bench(cmd[8] == ' ' ? cmd + 9 : "happy", 20).c_str());
     return true;
   }
+#if defined(ESPOS_QA) || defined(SIM)
+  if (!strcmp(cmd, "TALKPRESS") || !strcmp(cmd, "TALKRELEASE")) {  // the talk button pressed / let go (tests)
+    if (cmd[4] == 'P') press();
+    else release();
+    return Serial.println("OK"), true;
+  }
+#endif
   if (!strcmp(cmd, "SUMMON")) {  // the pop-up over what is shown, as a call brings it (no turn, no app closed)
     talkOpen();
     return true;

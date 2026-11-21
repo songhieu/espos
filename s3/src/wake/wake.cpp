@@ -455,7 +455,17 @@ uint32_t now() { return clock_; }
 bool captureStart(uint32_t fromSample, int maxMs) {
   if (!mic::available()) return false;
   captureFree();
-  capCap = (uint32_t)maxMs * (RATE / 1000);
+  // As long as PSRAM's largest free block allows (48 KB kept for the rest), at least 6 s: a call asked one block
+  // of 544 KB with 375 KB the largest left (the 2.8", 2026-11-21: "still no room to record after 4 s"); 10 s of it
+  // holds the call, the ack and the question all the same (the question's end is heard long before the cap).
+  constexpr uint32_t MARGIN = 48 * 1024, MIN_MS = 6000;
+  const uint32_t want = (uint32_t)maxMs * (RATE / 1000);
+  const size_t big = heap_caps_get_largest_free_block(MALLOC_CAP_SPIRAM);
+  const uint32_t room = big > MARGIN + 44 ? (uint32_t)((big - MARGIN) / 2) - 22 : 0;
+  capCap = want < room ? want : room;
+  if (capCap < MIN_MS * (RATE / 1000) && capCap < want) return false;
+  if (capCap < want) trace::add("wake: recording room %u ms of %d (largest PSRAM block %u KB)", (unsigned)(capCap / (RATE / 1000)), maxMs,
+                                (unsigned)(big / 1024));
   cap = (int16_t*)heap_caps_malloc((capCap + 22) * 2, MALLOC_CAP_SPIRAM);
   if (!cap) return false;
   capLen = 0;

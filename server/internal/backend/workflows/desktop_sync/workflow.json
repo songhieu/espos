@@ -1,0 +1,18 @@
+{
+  "code": "desktop_sync",
+  "name": "EspOS Desktop: the Mac's sync (state and results up, commands down; long-poll when its channel is down)",
+  "draft": {
+    "nodes": [
+      { "id": "in", "type": "http_in" },
+      { "id": "work", "type": "code", "config": { "source": { "$file": "nodes/work.go" }, "timeout_ms": 35000,
+          "input": { "body": "{{ input.body }}", "device": "{{ input.guard.require_device }}", "on": "{{ var.desktop_enabled }}" } } },
+      { "id": "out", "type": "respond", "config": { "status": "{{ work.status }}", "body": "{{ work.body }}", "headers": { "Cache-Control": "no-store" } } },
+      { "id": "fail", "type": "respond", "config": { "status": 500, "body": { "error": "{{ work.error }}" } } }
+    ],
+    "edges": [
+      { "from": "in", "to": "work" },
+      { "from": "work", "to": "out" },
+      { "from": "work", "to": "fail", "port": "error" }
+    ]
+  }
+}

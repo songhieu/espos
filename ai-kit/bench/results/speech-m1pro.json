@@ -1,0 +1,762 @@
+{
+ "label": "m1pro",
+ "when": "2026-11-21 14:28",
+ "stt": {
+  "fitted": {
+   "rows": [
+    {
+     "voice": "mai-anh",
+     "ref": "Chào mày, hôm nay khỏe không?",
+     "hyp": "Chào mày hôm nay khỏe không?",
+     "ms": 329.0,
+     "audio_s": 2.1,
+     "cer": 0.0
+    },
+    {
+     "voice": "mai-anh",
+     "ref": "Mấy giờ rồi?",
+     "hyp": "Mấy sờ sôi?",
+     "ms": 319.0,
+     "audio_s": 1.54,
+     "cer": 0.364
+    },
+    {
+     "voice": "mai-anh",
+     "ref": "Hôm nay thứ mấy, âm lịch ngày bao nhiêu?",
+     "hyp": "Hôm nay từ mấy, âm lịch ngày bao nhiêu?",
+     "ms": 342.0,
+     "audio_s": 2.82,
+     "cer": 0.053
+    },
+    {
+     "voice": "mai-anh",
+     "ref": "Thời tiết hôm nay thế nào?",
+     "hyp": "Thời kết hôm nay thế nào?",
+     "ms": 326.0,
+     "audio_s": 2.02,
+     "cer": 0.08
+    },
+    {
+     "voice": "mai-anh",
+     "ref": "Ngày mai có mưa không?",
+     "hyp": "Ngày mai có mưa không?",
+     "ms": 321.0,
+     "audio_s": 1.94,
+     "cer": 0.0
+    },
+    {
+     "voice": "mai-anh",
+     "ref": "Đọc báo sáng nay đi.",
+     "hyp": "Đọc báo sẵn nay đi.",
+     "ms": 331.0,
+     "audio_s": 1.86,
+     "cer": 0.105
+    },
+    {
+     "voice": "mai-anh",
+     "ref": "Tin đầu tiên nói gì vậy?",
+     "hyp": "Tin đầu tiên nói gì vậy?",
+     "ms": 321.0,
+     "audio_s": 2.02,
+     "cer": 0.0
+    },
+    {
+     "voice": "mai-anh",
+     "ref": "Còn tin thể thao thì sao?",
+     "hyp": "Còn tin thể thao thì sao?",
+     "ms": 325.0,
+     "audio_s": 1.94,
+     "cer": 0.0
+    },
+    {
+     "voice": "mai-anh",
+     "ref": "Giá vàng hôm nay bao nhiêu?",
+     "hyp": "Giá vàng hôm nay bao nhiêu?",
+     "ms": 330.0,
+     "audio_s": 2.02,
+     "cer": 0.0
+    },
+    {
+     "voice": "mai-anh",
+     "ref": "Đặt báo thức 6 giờ 30 sáng mai.",
+     "hyp": "Đặt báo thức 6 giờ 30 sáng mai.",
+     "ms": 340.0,
+     "audio_s": 2.74,
+     "cer": 0.0
+    },
+    {
+     "voice": "mai-anh",
+     "ref": "Đặt thêm báo thức 7 giờ tối từ thứ Hai đến thứ Sáu.",
+     "hyp": "Đặt thêm báo thức 7 giờ tối từ thứ 2 đến thứ 6.",
+     "ms": 361.0,
+     "audio_s": 3.62,
+     "cer": 0.12
+    },
+    {
+     "voice": "mai-anh",
+     "ref": "Tao có những báo thức nào?",
+     "hyp": "Tao có những báo thức nào?",
+     "ms": 332.0,
+     "audio_s": 2.02,
+     "cer": 0.0
+    },
+    {
+     "voice": "mai-anh",
+     "ref": "Đổi báo thức 6 giờ 30 thành 6 giờ 45.",
+     "hyp": "Đổi báo thức 6h30 thành 6h45.",
+     "ms": 353.0,
+     "audio_s": 3.7,
+     "cer": 0.278
+    },
+    {
+     "voice": "mai-anh",
+     "ref": "Tắt báo thức 7 giờ tối đi.",
+     "hyp": "Át báo thức mẩy sờ tối bi.",
+     "ms": 357.0,
+     "audio_s": 2.26,
+     "cer": 0.32
+    },
+    {
+     "voice": "mai-anh",
+     "ref": "Xóa báo thức 6 giờ 45.",
+     "hyp": "Xóa báo thức 6 giờ 45.",
+     "ms": 346.0,
+     "audio_s": 2.58,
+     "cer": 0.0
+    },
+    {
+     "voice": "mai-anh",
+     "ref": "Ghi chú giúp tao: đồ cần mua là sữa, trứng và bánh mì.",
+     "hyp": "Ghi chú suốt tao đồ cần mua là sữa, trứng và bánh mì.",
+     "ms": 367.0,
+     "audio_s": 3.7,
+     "cer": 0.078
+    },
+    {
+     "voice": "mai-anh",
+     "ref": "Thêm cà phê vào ghi chú đồ cần mua.",
+     "hyp": "Thêm cà phê vào ghi chú đồ cần mua.",
+     "ms": 346.0,
+     "audio_s": 2.66,
+     "cer": 0.0
+    },
+    {
+     "voice": "mai-anh",
+     "ref": "Nhắc tao gọi điện cho mẹ.",
+     "hyp": "Nhắc tao gọi điện cho mẹ.",
+     "ms": 330.0,
+     "audio_s": 2.1,
+     "cer": 0.0
+    },
+    {
+     "voice": "mai-anh",
+     "ref": "Tao gọi cho mẹ xong rồi, đánh dấu xong đi.",
+     "hyp": "Tao gọi cho mẹ xong rồi, đánh dấu xong đi.",
+     "ms": 355.0,
+     "audio_s": 3.46,
+     "cer": 0.0
+    },
+    {
+     "voice": "mai-anh",
+     "ref": "Tăng âm lượng lên 70.",
+     "hyp": "Tăng âm lượng lên 70.",
+     "ms": 330.0,
+     "audio_s": 2.26,
+     "cer": 0.0
+    },
+    {
+     "voice": "mai-anh",
+     "ref": "Tao tên là Nam.",
+     "hyp": "Tao tên là Nam. Tao tên là Nam.",
+     "ms": 346.0,
+     "audio_s": 1.78,
+     "cer": 1.067
+    },
+    {
+     "voice": "mai-anh",
+     "ref": "Tao thích ăn phở bò lắm.",
+     "hyp": "Tao thích ăn phở bò lắm.",
+     "ms": 335.0,
+     "audio_s": 2.02,
+     "cer": 0.0
+    },
+    {
+     "voice": "mai-anh",
+     "ref": "Mày nhớ gì về tao?",
+     "hyp": "Mày nhớ gì về tao?",
+     "ms": 324.0,
+     "audio_s": 1.86,
+     "cer": 0.0
+    },
+    {
+     "voice": "mai-anh",
+     "ref": "Hôm nay tao mệt quá.",
+     "hyp": "Hôm nay tao mệt quá.",
+     "ms": 322.0,
+     "audio_s": 1.94,
+     "cer": 0.0
+    },
+    {
+     "voice": "mai-anh",
+     "ref": "Mày đang làm gì đó?",
+     "hyp": "Mày đang làm gì đó?",
+     "ms": 320.0,
+     "audio_s": 1.86,
+     "cer": 0.0
+    },
+    {
+     "voice": "mai-anh",
+     "ref": "Giải giúp tao phương trình 2x cộng 3 bằng 7.",
+     "hyp": "Giải giúp tao phương trình 2X cộng 3 bằng 7.",
+     "ms": 352.0,
+     "audio_s": 3.14,
+     "cer": 0.0
+    },
+    {
+     "voice": "mai-anh",
+     "ref": "Chơi đoán số đi.",
+     "hyp": "Chơi đoán số đi.",
+     "ms": 322.0,
+     "audio_s": 1.62,
+     "cer": 0.0
+    },
+    {
+     "voice": "mai-anh",
+     "ref": "Số 5.",
+     "hyp": "Số 5.",
+     "ms": 316.0,
+     "audio_s": 1.22,
+     "cer": 0.0
+    },
+    {
+     "voice": "hai-dang",
+     "ref": "Chào mày, hôm nay khỏe không?",
+     "hyp": "Chào May, hôn May khỏe không?",
+     "ms": 356.0,
+     "audio_s": 2.02,
+     "cer": 0.111
+    },
+    {
+     "voice": "hai-dang",
+     "ref": "Hôm nay thứ mấy, âm lịch ngày bao nhiêu?",
+     "hyp": "Hôm nay thứ mấy, âm lịch ngày bao nhiêu?",
+     "ms": 352.0,
+     "audio_s": 2.66,
+     "cer": 0.0
+    },
+    {
+     "voice": "hai-dang",
+     "ref": "Ngày mai có mưa không?",
+     "hyp": "Ngày mai có mưa không?",
+     "ms": 339.0,
+     "audio_s": 1.54,
+     "cer": 0.0
+    },
+    {
+     "voice": "hai-dang",
+     "ref": "Tin đầu tiên nói gì vậy?",
+     "hyp": "Tin đầu tiên nói gì vậy?",
+     "ms": 335.0,
+     "audio_s": 1.86,
+     "cer": 0.0
+    },
+    {
+     "voice": "hai-dang",
+     "ref": "Giá vàng hôm nay bao nhiêu?",
+     "hyp": "Giá vàng hôm nay bao nhiêu?",
+     "ms": 343.0,
+     "audio_s": 1.78,
+     "cer": 0.0
+    },
+    {
+     "voice": "hai-dang",
+     "ref": "Đặt thêm báo thức 7 giờ tối từ thứ Hai đến thứ Sáu.",
+     "hyp": "Đặt thêm báo thức 7 giờ tối thứ 2 đến thứ 6.",
+     "ms": 348.0,
+     "audio_s": 2.9,
+     "cer": 0.18
+    },
+    {
+     "voice": "hai-dang",
+     "ref": "Đổi báo thức 6 giờ 30 thành 6 giờ 45.",
+     "hyp": "Đổi bao thức 6h30-6h45.",
+     "ms": 335.0,
+     "audio_s": 3.22,
+     "cer": 0.472
+    },
+    {
+     "voice": "hai-dang",
+     "ref": "Xóa báo thức 6 giờ 45.",
+     "hyp": "So báo thức 6h45.",
+     "ms": 324.0,
+     "audio_s": 2.34,
+     "cer": 0.381
+    },
+    {
+     "voice": "hai-dang",
+     "ref": "Thêm cà phê vào ghi chú đồ cần mua.",
+     "hyp": "Thêm cà phê vào ly chú đổ cần mua.",
+     "ms": 347.0,
+     "audio_s": 2.34,
+     "cer": 0.118
+    },
+    {
+     "voice": "hai-dang",
+     "ref": "Tao gọi cho mẹ xong rồi, đánh dấu xong đi.",
+     "hyp": "Tao gọi cho mẹ xong rồi, đánh dấu xong đi.",
+     "ms": 353.0,
+     "audio_s": 2.82,
+     "cer": 0.0
+    },
+    {
+     "voice": "hai-dang",
+     "ref": "Tao tên là Nam.",
+     "hyp": "Tao tên là Nam.",
+     "ms": 328.0,
+     "audio_s": 1.54,
+     "cer": 0.0
+    },
+    {
+     "voice": "hai-dang",
+     "ref": "Mày nhớ gì về tao?",
+     "hyp": "Mày nhớ gì về tao?",
+     "ms": 331.0,
+     "audio_s": 1.7,
+     "cer": 0.0
+    },
+    {
+     "voice": "hai-dang",
+     "ref": "Mày đang làm gì đó?",
+     "hyp": "Mày đang làm gì đó?",
+     "ms": 327.0,
+     "audio_s": 1.7,
+     "cer": 0.0
+    },
+    {
+     "voice": "hai-dang",
+     "ref": "Chơi đoán số đi.",
+     "hyp": "Chơi đoàn xô đi.",
+     "ms": 328.0,
+     "audio_s": 1.46,
+     "cer": 0.2
+    }
+   ],
+   "median_ms": 333.5,
+   "p90_ms": 353.0,
+   "mean_cer": 0.093,
+   "exact": 27
+  },
+  "full30s": {
+   "rows": [
+    {
+     "voice": "mai-anh",
+     "ref": "Chào mày, hôm nay khỏe không?",
+     "hyp": "Chào mày hôm nay khỏe không?",
+     "ms": 1010.0,
+     "audio_s": 2.1,
+     "cer": 0.0
+    },
+    {
+     "voice": "mai-anh",
+     "ref": "Mấy giờ rồi?",
+     "hyp": "Mấy giờ rồi",
+     "ms": 988.0,
+     "audio_s": 1.54,
+     "cer": 0.0
+    },
+    {
+     "voice": "mai-anh",
+     "ref": "Hôm nay thứ mấy, âm lịch ngày bao nhiêu?",
+     "hyp": "Hôm nay từ mấy, âm lịch ngày bao nhiêu?",
+     "ms": 1045.0,
+     "audio_s": 2.82,
+     "cer": 0.053
+    },
+    {
+     "voice": "mai-anh",
+     "ref": "Thời tiết hôm nay thế nào?",
+     "hyp": "Thời tiết hôm nay thế nào?",
+     "ms": 1012.0,
+     "audio_s": 2.02,
+     "cer": 0.0
+    },
+    {
+     "voice": "mai-anh",
+     "ref": "Ngày mai có mưa không?",
+     "hyp": "Ngày mai có mưa không?",
+     "ms": 1001.0,
+     "audio_s": 1.94,
+     "cer": 0.0
+    },
+    {
+     "voice": "mai-anh",
+     "ref": "Đọc báo sáng nay đi.",
+     "hyp": "Đọc báo sáng nay đi.",
+     "ms": 1027.0,
+     "audio_s": 1.86,
+     "cer": 0.0
+    },
+    {
+     "voice": "mai-anh",
+     "ref": "Tin đầu tiên nói gì vậy?",
+     "hyp": "Tin đầu tiên nói gì vậy?",
+     "ms": 1004.0,
+     "audio_s": 2.02,
+     "cer": 0.0
+    },
+    {
+     "voice": "mai-anh",
+     "ref": "Còn tin thể thao thì sao?",
+     "hyp": "Còn tin thể thao thì sao?",
+     "ms": 1006.0,
+     "audio_s": 1.94,
+     "cer": 0.0
+    },
+    {
+     "voice": "mai-anh",
+     "ref": "Giá vàng hôm nay bao nhiêu?",
+     "hyp": "Giá vàng hôm nay bao nhiêu?",
+     "ms": 1007.0,
+     "audio_s": 2.02,
+     "cer": 0.0
+    },
+    {
+     "voice": "mai-anh",
+     "ref": "Đặt báo thức 6 giờ 30 sáng mai.",
+     "hyp": "Đặt báo thức 6h30 sáng mai.",
+     "ms": 1011.0,
+     "audio_s": 2.74,
+     "cer": 0.167
+    },
+    {
+     "voice": "mai-anh",
+     "ref": "Đặt thêm báo thức 7 giờ tối từ thứ Hai đến thứ Sáu.",
+     "hyp": "Đặt thêm báo thức 7 giờ tối từ thứ 2 đến thứ 6.",
+     "ms": 1031.0,
+     "audio_s": 3.62,
+     "cer": 0.12
+    },
+    {
+     "voice": "mai-anh",
+     "ref": "Tao có những báo thức nào?",
+     "hyp": "Tao có những báo thức nào?",
+     "ms": 1002.0,
+     "audio_s": 2.02,
+     "cer": 0.0
+    },
+    {
+     "voice": "mai-anh",
+     "ref": "Đổi báo thức 6 giờ 30 thành 6 giờ 45.",
+     "hyp": "Đổi báo thức 6h30 thành 6h45",
+     "ms": 1012.0,
+     "audio_s": 3.7,
+     "cer": 0.278
+    },
+    {
+     "voice": "mai-anh",
+     "ref": "Tắt báo thức 7 giờ tối đi.",
+     "hyp": "Át báo thức 7 giờ tối bi",
+     "ms": 1005.0,
+     "audio_s": 2.26,
+     "cer": 0.12
+    },
+    {
+     "voice": "mai-anh",
+     "ref": "Xóa báo thức 6 giờ 45.",
+     "hyp": "Xóa báo thức 6h45",
+     "ms": 1002.0,
+     "audio_s": 2.58,
+     "cer": 0.238
+    },
+    {
+     "voice": "mai-anh",
+     "ref": "Ghi chú giúp tao: đồ cần mua là sữa, trứng và bánh mì.",
+     "hyp": "Ghi chú súp tao đồ cần mua là sữa, trứng và bánh mì.",
+     "ms": 1041.0,
+     "audio_s": 3.7,
+     "cer": 0.039
+    },
+    {
+     "voice": "mai-anh",
+     "ref": "Thêm cà phê vào ghi chú đồ cần mua.",
+     "hyp": "Thêm cà phê vào ghi chú đồ cần mua.",
+     "ms": 1022.0,
+     "audio_s": 2.66,
+     "cer": 0.0
+    },
+    {
+     "voice": "mai-anh",
+     "ref": "Nhắc tao gọi điện cho mẹ.",
+     "hyp": "Nhắc tao gọi điện cho mẹ",
+     "ms": 1004.0,
+     "audio_s": 2.1,
+     "cer": 0.0
+    },
+    {
+     "voice": "mai-anh",
+     "ref": "Tao gọi cho mẹ xong rồi, đánh dấu xong đi.",
+     "hyp": "Tao gọi cho mẹ xong rồi, đánh dấu xong đi.",
+     "ms": 1025.0,
+     "audio_s": 3.46,
+     "cer": 0.0
+    },
+    {
+     "voice": "mai-anh",
+     "ref": "Tăng âm lượng lên 70.",
+     "hyp": "Tăng âm lượng lên 70",
+     "ms": 1002.0,
+     "audio_s": 2.26,
+     "cer": 0.0
+    },
+    {
+     "voice": "mai-anh",
+     "ref": "Tao tên là Nam.",
+     "hyp": "Tao tên là Nam",
+     "ms": 1002.0,
+     "audio_s": 1.78,
+     "cer": 0.0
+    },
+    {
+     "voice": "mai-anh",
+     "ref": "Tao thích ăn phở bò lắm.",
+     "hyp": "Tao thích ăn phở bò lắm.",
+     "ms": 1010.0,
+     "audio_s": 2.02,
+     "cer": 0.0
+    },
+    {
+     "voice": "mai-anh",
+     "ref": "Mày nhớ gì về tao?",
+     "hyp": "Mày nhớ gì về tao?",
+     "ms": 1000.0,
+     "audio_s": 1.86,
+     "cer": 0.0
+    },
+    {
+     "voice": "mai-anh",
+     "ref": "Hôm nay tao mệt quá.",
+     "hyp": "Hôm nay tao mệt quá",
+     "ms": 998.0,
+     "audio_s": 1.94,
+     "cer": 0.0
+    },
+    {
+     "voice": "mai-anh",
+     "ref": "Mày đang làm gì đó?",
+     "hyp": "Mày đang làm gì đó?",
+     "ms": 994.0,
+     "audio_s": 1.86,
+     "cer": 0.0
+    },
+    {
+     "voice": "mai-anh",
+     "ref": "Giải giúp tao phương trình 2x cộng 3 bằng 7.",
+     "hyp": "Giải súc tao phương trình 2X cộng 3 bằng 7.",
+     "ms": 1027.0,
+     "audio_s": 3.14,
+     "cer": 0.07
+    },
+    {
+     "voice": "mai-anh",
+     "ref": "Chơi đoán số đi.",
+     "hyp": "Chơi đoán số đi",
+     "ms": 994.0,
+     "audio_s": 1.62,
+     "cer": 0.0
+    },
+    {
+     "voice": "mai-anh",
+     "ref": "Số 5.",
+     "hyp": "Số 5",
+     "ms": 983.0,
+     "audio_s": 1.22,
+     "cer": 0.0
+    },
+    {
+     "voice": "hai-dang",
+     "ref": "Chào mày, hôm nay khỏe không?",
+     "hyp": "Chào May, hôm nay khỏe không?",
+     "ms": 1008.0,
+     "audio_s": 2.02,
+     "cer": 0.037
+    },
+    {
+     "voice": "hai-dang",
+     "ref": "Hôm nay thứ mấy, âm lịch ngày bao nhiêu?",
+     "hyp": "Hôm nay thứ mấy, âm lịch ngày bao nhiêu?",
+     "ms": 1019.0,
+     "audio_s": 2.66,
+     "cer": 0.0
+    },
+    {
+     "voice": "hai-dang",
+     "ref": "Ngày mai có mưa không?",
+     "hyp": "Ngày mai có mưa không?",
+     "ms": 997.0,
+     "audio_s": 1.54,
+     "cer": 0.0
+    },
+    {
+     "voice": "hai-dang",
+     "ref": "Tin đầu tiên nói gì vậy?",
+     "hyp": "Tin đầu tiên nói gì vậy?",
+     "ms": 997.0,
+     "audio_s": 1.86,
+     "cer": 0.0
+    },
+    {
+     "voice": "hai-dang",
+     "ref": "Giá vàng hôm nay bao nhiêu?",
+     "hyp": "Giá vàng hôm nay bao nhiêu",
+     "ms": 1003.0,
+     "audio_s": 1.78,
+     "cer": 0.0
+    },
+    {
+     "voice": "hai-dang",
+     "ref": "Đặt thêm báo thức 7 giờ tối từ thứ Hai đến thứ Sáu.",
+     "hyp": "Đặt thêm báo thức 7 giờ tối thứ 2 đến thứ 6",
+     "ms": 1021.0,
+     "audio_s": 2.9,
+     "cer": 0.18
+    },
+    {
+     "voice": "hai-dang",
+     "ref": "Đổi báo thức 6 giờ 30 thành 6 giờ 45.",
+     "hyp": "Đổi bao thức 6h30 thành 6h45",
+     "ms": 1008.0,
+     "audio_s": 3.22,
+     "cer": 0.306
+    },
+    {
+     "voice": "hai-dang",
+     "ref": "Xóa báo thức 6 giờ 45.",
+     "hyp": "So báo thức 6h45",
+     "ms": 997.0,
+     "audio_s": 2.34,
+     "cer": 0.381
+    },
+    {
+     "voice": "hai-dang",
+     "ref": "Thêm cà phê vào ghi chú đồ cần mua.",
+     "hyp": "Thêm cà phê vào ghi chú đổ cần mua.",
+     "ms": 1022.0,
+     "audio_s": 2.34,
+     "cer": 0.029
+    },
+    {
+     "voice": "hai-dang",
+     "ref": "Tao gọi cho mẹ xong rồi, đánh dấu xong đi.",
+     "hyp": "Tao gọi cho mẹ xong rồi, đánh dấu xong đi.",
+     "ms": 1026.0,
+     "audio_s": 2.82,
+     "cer": 0.0
+    },
+    {
+     "voice": "hai-dang",
+     "ref": "Tao tên là Nam.",
+     "hyp": "Tao tên là Nam",
+     "ms": 992.0,
+     "audio_s": 1.54,
+     "cer": 0.0
+    },
+    {
+     "voice": "hai-dang",
+     "ref": "Mày nhớ gì về tao?",
+     "hyp": "Mày nhớ gì về tao?",
+     "ms": 999.0,
+     "audio_s": 1.7,
+     "cer": 0.0
+    },
+    {
+     "voice": "hai-dang",
+     "ref": "Mày đang làm gì đó?",
+     "hyp": "Mày đang làm gì đó?",
+     "ms": 995.0,
+     "audio_s": 1.7,
+     "cer": 0.0
+    },
+    {
+     "voice": "hai-dang",
+     "ref": "Chơi đoán số đi.",
+     "hyp": "Chơi đoán xô đi.",
+     "ms": 999.0,
+     "audio_s": 1.46,
+     "cer": 0.133
+    }
+   ],
+   "median_ms": 1004.5,
+   "p90_ms": 1026.0,
+   "mean_cer": 0.051,
+   "exact": 28
+  }
+ },
+ "real": [
+  {
+   "file": "ack.wav",
+   "audio_s": 28.4,
+   "ms": 1059.0,
+   "text": "Gấu cấu Khách nợ phơ bo Gấu cấu"
+  },
+  {
+   "file": "bot5.wav",
+   "audio_s": 85.2,
+   "ms": 3292.0,
+   "text": "Gấu gấu Kiki Lú lú Cùng ấy Ní lù ơi"
+  },
+  {
+   "file": "noise.wav",
+   "audio_s": 44.0,
+   "ms": 2172.0,
+   "text": "Đầu cầu dịch giúp tôi câu này sang tiếng Anh Đầu cầu dịch giúp tôi câu này sang tiếng Anh Đầu cầu dịch giúp tôi câu này sang tiếng Anh"
+  },
+  {
+   "file": "soft.wav",
+   "audio_s": 30.0,
+   "ms": 998.0,
+   "text": "Gấu gấu"
+  },
+  {
+   "file": "stale.wav",
+   "audio_s": 28.0,
+   "ms": 1051.0,
+   "text": "Gấu cấu, khắc nợ phơ bo Gấu cấu Gấu cấu"
+  }
+ ],
+ "tts": {
+  "vieneu-turbo": {
+   "rows": [
+    {
+     "chars": 30,
+     "first_ms": 168,
+     "total_ms": 535,
+     "audio_s": 1.84,
+     "rtf": 0.291
+    },
+    {
+     "chars": 74,
+     "first_ms": 208,
+     "total_ms": 1091,
+     "audio_s": 4.08,
+     "rtf": 0.267
+    },
+    {
+     "chars": 66,
+     "first_ms": 197,
+     "total_ms": 958,
+     "audio_s": 3.52,
+     "rtf": 0.272
+    },
+    {
+     "chars": 184,
+     "first_ms": 303,
+     "total_ms": 2352,
+     "audio_s": 8.72,
+     "rtf": 0.27
+    }
+   ],
+   "median_first_ms": 202.5,
+   "median_rtf": 0.271
+  }
+ }
+}

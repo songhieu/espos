@@ -7,7 +7,7 @@
       { "id": "dash", "type": "code", "config": {
           "source": { "$file": "nodes/dash.go" },
           "timeout_ms": 25000,
-          "input": { "device_id": "{{ input.device_id }}", "user_id": "{{ input.user_id }}" } } },
+          "input": { "device_id": "{{ input.device_id }}", "user_id": "{{ input.user_id }}", "desk_on": "{{ var.desktop_enabled }}" } } },
       { "id": "out", "type": "return", "config": { "data": { "dashboard": "{{ dash.dashboard }}" } } }
     ],
     "edges": [

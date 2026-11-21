@@ -1,0 +1,29 @@
+{
+  "code": "desktop_token",
+  "name": "EspOS Desktop: a subscribe-only token for the Mac's poke channel rt:desk:<id>:<key>",
+  "draft": {
+    "nodes": [
+      { "id": "in", "type": "http_in" },
+      { "id": "work", "type": "code", "config": { "source": { "$file": "nodes/work.go" },
+          "input": { "device": "{{ input.guard.require_device }}", "host": "{{ input.headers.host }}", "on": "{{ var.desktop_enabled }}" } } },
+      { "id": "okb", "type": "branch", "config": { "rules": [ { "left": "{{ work.ok }}", "op": "eq", "right": true } ] } },
+      { "id": "tok", "type": "stream_token", "config": { "channel": "rt:desk:{{ work.chan }}", "subscribe": true, "max_conns": 2,
+          "ttl_s": 3600, "identity": "{{ work.identity }}" } },
+      { "id": "out", "type": "respond", "config": { "status": 200, "headers": { "Cache-Control": "no-store" }, "body": {
+          "token": "{{ tok.token }}", "expires_at": "{{ tok.expires_at }}", "ws_path": "{{ tok.ws_path }}", "ttl_s": 3600,
+          "channel": "{{ work.channel }}", "api": "{{ work.api }}" } } },
+      { "id": "bad", "type": "respond", "config": { "status": "{{ work.status }}", "body": "{{ work.body }}" } },
+      { "id": "fail", "type": "respond", "config": { "status": 500, "body": { "error": "{{ work.error }}" } } },
+      { "id": "fail2", "type": "respond", "config": { "status": 500, "body": { "error": "{{ tok.error }}" } } }
+    ],
+    "edges": [
+      { "from": "in", "to": "work" },
+      { "from": "work", "to": "okb" },
+      { "from": "work", "to": "fail", "port": "error" },
+      { "from": "okb", "to": "tok", "port": "true" },
+      { "from": "okb", "to": "bad", "port": "false" },
+      { "from": "tok", "to": "out" },
+      { "from": "tok", "to": "fail2", "port": "error" }
+    ]
+  }
+}

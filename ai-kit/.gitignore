@@ -1,0 +1,19 @@
+# Made on each machine by install.sh
+bin/
+build/
+build-*.log
+third_party/
+models/
+worker/.venv/
+logs/
+.cloudflared.pid
+# Your API keys and the tunnel token
+config.yaml
+config.yaml.bak
+# Benchmark work folders and today's real headlines (bench/make_news_fixture.py)
+bench/work/
+bench/fixtures/news.local.json
+__pycache__/
+.DS_Store
+# the gateway binary when built in place (go build in gateway/)
+gateway/tts-gateway

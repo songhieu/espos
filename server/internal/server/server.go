@@ -168,7 +168,10 @@ func (s *Server) route(rt Route) http.HandlerFunc {
 			input["user"] = map[string]any{"id": float64(s.userID), "email": s.cfg.User}
 			ctx["end_user_id"] = float64(s.userID)
 		}
+		// Each guard sees what the ones before it returned (desk_app_auth reads require_device's), as on the hosted
+		// platform; the workflow then gets them all.
 		guards := map[string]any{}
+		input["guard"] = guards
 		for _, g := range rt.Guards {
 			res, err := s.eng.Run(g, input, ctx, s.base(r))
 			if err != nil {
@@ -186,7 +189,6 @@ func (s *Server) route(rt Route) http.HandlerFunc {
 			}
 			guards[g] = res.Data
 		}
-		input["guard"] = guards
 		res, err := s.eng.Run(rt.Workflow, input, ctx, s.base(r))
 		if err != nil {
 			log.Printf("%s %s: %v", rt.Method, rt.Path, err)

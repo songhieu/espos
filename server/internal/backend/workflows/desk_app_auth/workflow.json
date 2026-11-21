@@ -1,0 +1,24 @@
+{
+  "code": "desk_app_auth",
+  "name": "Guard: a device app's call on /v1/device/app/<app id>/* (the OS adds the device credential for the calling app's own path): that app must be installed on the device (desktop-protocol §9.0); 403 app_not_installed",
+  "draft": {
+    "nodes": [
+      { "id": "in", "type": "function_in" },
+      { "id": "who", "type": "code", "config": {
+          "source": { "$file": "nodes/who.go" },
+          "input": { "device": "{{ input.guard.require_device }}", "path": "{{ input.path }}" } } },
+      { "id": "ok", "type": "branch", "config": { "rules": [ { "left": "{{ who.ok }}", "op": "eq", "right": true } ] } },
+      { "id": "pass", "type": "return", "config": { "data": { "device_id": "{{ who.device_id }}", "user_id": "{{ who.user_id }}",
+          "pkg_id": "{{ who.pkg_id }}", "dev_name": "{{ who.dev_name }}" } } },
+      { "id": "deny", "type": "return", "config": { "deny": true, "status": "{{ who.status }}", "body": { "error": "{{ who.error }}" } } },
+      { "id": "boom", "type": "return", "config": { "deny": true, "status": 500, "body": { "error": "server_error" } } }
+    ],
+    "edges": [
+      { "from": "in", "to": "who" },
+      { "from": "who", "to": "ok" },
+      { "from": "who", "to": "boom", "port": "error" },
+      { "from": "ok", "to": "pass", "port": "true" },
+      { "from": "ok", "to": "deny", "port": "false" }
+    ]
+  }
+}

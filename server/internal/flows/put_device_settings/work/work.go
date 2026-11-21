@@ -1001,12 +1001,59 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 		return map[string]any{"status": 422, "body": map[string]any{"error": "changes"}}
 	}
 	vals := map[string]string{}
+	// Package settings (app.<package id>.<key>, docs/manifest-driven.md §1, s3desk): checked against the package's
+	// schema (app_manifests) and the device's packages (its last report and the store's wanted list s3.pkgs).
+	appSchemas := map[string]any{}
+	appAuth := map[string]any{}
+	appInst := map[string]bool{}
+	appIDs := []any{}
+	for k := range changes {
+		if pid, _, ok := appKey(k); ok {
+			appIDs = append(appIDs, pid)
+		}
+	}
+	if len(appIDs) > 0 {
+		mans, qerr := wm.QueryOpts("app_manifests", map[string]any{"filters": []map[string]any{
+			{"column": "pkg_id", "op": "in", "value": appIDs}, {"column": "user_id", "op": "in", "value": []any{0, uid}}}, "limit": 80})
+		if qerr != nil {
+			return wm.Fail(qerr)
+		}
+		for _, own := range []bool{false, true} { // the store's row, then the person's own upload of that id wins
+			for _, r := range mans {
+				if (wm.Int(r["user_id"]) != 0) == own {
+					appSchemas[wm.Str(r["pkg_id"])] = r["settings"]
+					appAuth[wm.Str(r["pkg_id"])] = r["auth"]
+				}
+			}
+		}
+		wanted, werr := wm.QueryOpts("device_settings", map[string]any{"filters": []map[string]any{
+			{"column": "device_id", "op": "eq", "value": id}, {"column": "skey", "op": "eq", "value": "s3.pkgs"}}, "limit": 1})
+		if werr != nil {
+			return wm.Fail(werr)
+		}
+		w := ""
+		if len(wanted) == 1 {
+			w = wm.Str(wanted[0]["svalue"])
+		}
+		appInst = appInstalled(devs[0]["pkgs"], w)
+	}
 	// A city picked from the web's list comes with its coordinates: no lookup needed.
 	lat, latOK := coord(wm.Str(changes["dash.lat"]), 90)
 	lon, lonOK := coord(wm.Str(changes["dash.lon"]), 180)
 	for k, v := range changes {
 		s := strings.TrimSpace(wm.Str(v))
 		if k == "dash.lat" || k == "dash.lon" {
+			continue
+		}
+		if strings.HasPrefix(k, "app.") {
+			// Kept as typed (a text's spaces and lines matter); colour desks and bots only.
+			if kind := wm.Str(devs[0]["kind"]); kind != "s3" && kind != "bot" {
+				return map[string]any{"status": 422, "body": map[string]any{"error": k + ": máy này không có ứng dụng", "code": "no_packages", "key": k}}
+			}
+			if code, why := appCheckCode(k, wm.Str(v), appSchemas, appInst); why != "" {
+				return map[string]any{"status": 422, "body": map[string]any{"error": why, "code": code, "key": k, "why": why}}
+			}
+			vals[k] = wm.Str(v)
 			continue
 		}
 		// The EspOS Bot (kind "bot"): its own keys (checkBot) and city / time zone; nothing else, and its keys
@@ -1057,6 +1104,28 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 	for k, v := range vals {
 		if perr := putSetting(id, uid, k, v, ms); perr != nil {
 			return wm.Fail(perr)
+		}
+	}
+	// A package's address changed (a url or text field an "auth" binding sends to, s3desk docs/app-slots.md §15.1):
+	// its server-kept secrets are cleared, so keys never follow a re-pointed address. A removal the device must hear
+	// of stays as an empty row until the device acks it (device_sync).
+	for k := range vals {
+		pid, field, ok := appKey(k)
+		if !ok {
+			continue
+		}
+		for _, sk := range appRepointed(appAuth[pid], field) {
+			old, qerr := wm.QueryOpts("app_secrets", map[string]any{"filters": []map[string]any{
+				{"column": "device_id", "op": "eq", "value": id}, {"column": "pkg_id", "op": "eq", "value": pid},
+				{"column": "skey", "op": "eq", "value": sk}}, "limit": 1})
+			if qerr != nil {
+				return wm.Fail(qerr)
+			}
+			if len(old) == 1 && wm.Str(old[0]["value"]) != "" {
+				if _, uerr := wm.Update("app_secrets", wm.Int(old[0]["id"]), map[string]any{"value": "", "last4": "", "updated_ms": ms, "delivered_ms": 0}); uerr != nil {
+					return wm.Fail(uerr)
+				}
+			}
 		}
 	}
 	// New calendar links: drop today's cached events so the next dashboard reads them.
@@ -1349,3 +1418,391 @@ func checkBot(k, v string) string {
 }
 
 // ---- end of the EspOS Bot keys block
+
+// BEGIN APPSET (scripts/appset/appset.go, copied by scripts/sync-appset.py: edit it there)
+
+// Package settings (docs/manifest-driven.md §1): "app.<package id>.<key>" values, checked against the package's
+// schema as the SDK's cli/src/settings.ts checkValue does (the same cases: sdk/schemas/settings-vectors.json).
+const appMaxValue = 2000 // characters of one value
+
+// appKey splits "app.<package id>.<key>": the key is after the last dot, the id between "app." and it.
+func appKey(k string) (string, string, bool) {
+	if !strings.HasPrefix(k, "app.") {
+		return "", "", false
+	}
+	rest := k[4:]
+	i := strings.LastIndex(rest, ".")
+	if i <= 0 || i == len(rest)-1 {
+		return "", "", false
+	}
+	id, key := rest[:i], rest[i+1:]
+	return id, key, appIDOK(id) && appFieldKeyOK(key)
+}
+
+// appIDOK: a package id (a-z 0-9 . _ -, 1-48 characters, starting with a letter or digit).
+func appIDOK(id string) bool {
+	if len(id) < 1 || len(id) > 48 {
+		return false
+	}
+	for i, c := range id {
+		ok := (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || (i > 0 && (c == '.' || c == '_' || c == '-'))
+		if !ok {
+			return false
+		}
+	}
+	return true
+}
+
+// appFieldKeyOK: a field key (a-z 0-9 _, 1-24 characters, starting with a letter).
+func appFieldKeyOK(k string) bool {
+	if len(k) < 1 || len(k) > 24 || k[0] < 'a' || k[0] > 'z' {
+		return false
+	}
+	for _, c := range k {
+		if !((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '_') {
+			return false
+		}
+	}
+	return true
+}
+
+// appFields: a schema's fields by key (sections skipped).
+func appFields(settings any) map[string]map[string]any {
+	out := map[string]map[string]any{}
+	list, _ := settings.([]any)
+	for _, x := range list {
+		f, _ := x.(map[string]any)
+		k, _ := f["key"].(string)
+		if f != nil && k != "" && f["type"] != "section" {
+			out[k] = f
+		}
+	}
+	return out
+}
+
+func appNum(v any) (float64, bool) {
+	switch x := v.(type) {
+	case float64:
+		return x, true
+	case int:
+		return float64(x), true
+	case int64:
+		return float64(x), true
+	case json.Number:
+		f, err := x.Float64()
+		return f, err == nil
+	}
+	return 0, false
+}
+
+func appRunes(s string) int { return len([]rune(s)) }
+
+// appDecimal: -?(digits[.digits] | .digits), as the SDK's number rule.
+func appDecimal(s string) bool {
+	if strings.HasPrefix(s, "-") {
+		s = s[1:]
+	}
+	dot := strings.Index(s, ".")
+	whole := s
+	frac := ""
+	if dot >= 0 {
+		whole = s[:dot]
+		frac = s[dot+1:]
+		if frac == "" {
+			return false
+		}
+	}
+	if whole == "" && frac == "" {
+		return false
+	}
+	for _, c := range whole + frac {
+		if c < '0' || c > '9' {
+			return false
+		}
+	}
+	return true
+}
+
+// appCheckValue: "" when raw is a valid value of field f, else why not (the SDK's checkValue, rule for rule).
+func appCheckValue(f map[string]any, raw string) string {
+	if appRunes(raw) > appMaxValue {
+		return "at most " + strconv.Itoa(appMaxValue) + " characters"
+	}
+	typ, _ := f["type"].(string)
+	for _, c := range raw {
+		if (c < 0x20 && c != '\t' && c != '\n' && c != '\r') || c == 0x7f {
+			return "no control characters"
+		}
+		if (c == '\n' || c == '\r') && typ != "text" {
+			return "no control characters"
+		}
+	}
+	switch typ {
+	case "string", "text":
+		max := 80
+		if typ == "text" {
+			max = 500
+		}
+		if m, ok := appNum(f["max"]); ok {
+			max = int(m)
+		}
+		if appRunes(raw) > max {
+			return "at most " + strconv.Itoa(max) + " characters"
+		}
+		return ""
+	case "number":
+		if !appDecimal(raw) {
+			return "a number like 4 or 2.5"
+		}
+		v, err := strconv.ParseFloat(raw, 64)
+		if err != nil {
+			return "a number like 4 or 2.5"
+		}
+		min, hasMin := appNum(f["min"])
+		if hasMin && v < min {
+			return "at least " + strconv.FormatFloat(min, 'f', -1, 64)
+		}
+		if max, ok := appNum(f["max"]); ok && v > max {
+			return "at most " + strconv.FormatFloat(max, 'f', -1, 64)
+		}
+		if b, _ := f["int"].(bool); b && v != float64(int64(v)) {
+			return "a whole number"
+		}
+		if step, ok := appNum(f["step"]); ok && step > 0 {
+			n := (v - min) / step // min is 0 when the field has none
+			fr := n - float64(int64(n))
+			if fr < 0 {
+				fr = -fr
+			}
+			if fr > 1e-9 && 1-fr > 1e-9 {
+				return "in steps of " + strconv.FormatFloat(step, 'f', -1, 64)
+			}
+		}
+		return ""
+	case "bool":
+		if raw == "1" || raw == "0" {
+			return ""
+		}
+		return "\"1\" or \"0\""
+	case "enum":
+		opts, _ := f["options"].([]any)
+		for _, o := range opts {
+			if om, _ := o.(map[string]any); om != nil && om["v"] == raw {
+				return ""
+			}
+		}
+		return "one of the options"
+	case "list":
+		var a []any
+		if json.Unmarshal([]byte(raw), &a) != nil || a == nil && raw != "[]" {
+			return "a JSON list"
+		}
+		max := 50
+		if m, ok := appNum(f["max_items"]); ok {
+			max = int(m)
+		}
+		if len(a) > max {
+			return "at most " + strconv.Itoa(max) + " items"
+		}
+		of, _ := f["of"].(map[string]any)
+		if of == nil {
+			of = map[string]any{"type": "string"}
+		}
+		for _, x := range a {
+			s, ok := x.(string)
+			if !ok {
+				return "each item is text"
+			}
+			if e := appCheckValue(of, s); e != "" {
+				return "an item: " + e
+			}
+		}
+		return ""
+	case "time":
+		if len(raw) == 5 && raw[2] == ':' {
+			h, e1 := strconv.Atoi(raw[:2])
+			m, e2 := strconv.Atoi(raw[3:])
+			if e1 == nil && e2 == nil && raw[0] != '-' && raw[3] != '-' && h < 24 && m < 60 {
+				return ""
+			}
+		}
+		return "HH:MM (00:00 to 23:59)"
+	case "date":
+		if len(raw) != 10 {
+			return "YYYY-MM-DD"
+		}
+		if _, err := time.Parse("2006-01-02", raw); err != nil {
+			return "a real date"
+		}
+		return ""
+	case "color":
+		if len(raw) == 7 && raw[0] == '#' {
+			for _, c := range raw[1:] {
+				if !((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F')) {
+					return "#rrggbb"
+				}
+			}
+			return ""
+		}
+		return "#rrggbb"
+	case "url":
+		bad := "an https:// address of at most 300 characters"
+		if appRunes(raw) > 300 || !strings.HasPrefix(raw, "https://") || strings.ContainsAny(raw, " \t") {
+			return bad
+		}
+		host := raw[8:]
+		if i := strings.IndexAny(host, "/?#"); i >= 0 {
+			host = host[:i]
+		}
+		dot := strings.Index(host, ".")
+		if host == "" || dot <= 0 || dot == len(host)-1 {
+			return bad
+		}
+		return ""
+	case "city":
+		var c map[string]any
+		if json.Unmarshal([]byte(raw), &c) != nil || c == nil {
+			return "JSON {\"name\", \"lat\", \"lon\"}"
+		}
+		name, _ := c["name"].(string)
+		if strings.TrimSpace(name) == "" || appRunes(name) > 80 {
+			return "JSON {\"name\": 1-80 characters, \"lat\", \"lon\"}"
+		}
+		lat, ok1 := appNum(c["lat"])
+		lon, ok2 := appNum(c["lon"])
+		if !ok1 || !ok2 || lat < -90 || lat > 90 || lon < -180 || lon > 180 {
+			return "lat -90..90 and lon -180..180"
+		}
+		return ""
+	case "photo":
+		if len(raw) < 1 || len(raw) > 40 {
+			return "a photo id"
+		}
+		for _, c := range raw {
+			if !((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '_' || c == '-') {
+				return "a photo id"
+			}
+		}
+		return ""
+	case "secret":
+		return "a secret is never a setting value (the OS keeps it apart)"
+	case "section":
+		return "a section has no value"
+	}
+	return "unknown type"
+}
+
+// appInstalled: the packages of a device, from its last report (devices.pkgs: {"installed": [{"id"}]}) and the
+// store's wanted list (the setting s3.pkgs: [{"id", "rm"}]), so a value can be set while a package installs.
+func appInstalled(report any, wanted string) map[string]bool {
+	out := map[string]bool{}
+	if r, _ := report.(map[string]any); r != nil {
+		list, _ := r["installed"].([]any)
+		for _, x := range list {
+			if p, _ := x.(map[string]any); p != nil {
+				if id, _ := p["id"].(string); id != "" {
+					out[id] = true
+				}
+			}
+		}
+	}
+	var w []any
+	if json.Unmarshal([]byte(wanted), &w) == nil {
+		for _, x := range w {
+			if p, _ := x.(map[string]any); p != nil {
+				if id, _ := p["id"].(string); id != "" && p["rm"] != true {
+					out[id] = true
+				}
+			}
+		}
+	}
+	return out
+}
+
+// appCheckCode: ("", "") when the change k = v may be stored for this device, else a code for the web
+// (unknown_app_key, app_not_installed, invalid_setting) and why not. schemas holds each package's "settings" (from
+// app_manifests) by id; installed what the device has.
+func appCheckCode(k, v string, schemas map[string]any, installed map[string]bool) (string, string) {
+	id, key, ok := appKey(k)
+	if !ok {
+		return "unknown_app_key", k + ": not a package setting (app.<package id>.<key>)"
+	}
+	if !installed[id] {
+		return "app_not_installed", k + ": " + id + " is not installed on this device"
+	}
+	f := appFields(schemas[id])[key]
+	if f == nil {
+		return "unknown_app_key", k + ": " + id + " has no setting " + key
+	}
+	if v == "" && f["type"] != "secret" {
+		return "", "" // not set: the device uses the field's default (kept as "", so the device hears of the reset)
+	}
+	if e := appCheckValue(f, v); e != "" {
+		return "invalid_setting", k + ": " + e
+	}
+	return "", ""
+}
+
+// appCheck: "" when the change may be stored, else why not (appCheckCode without the code).
+func appCheck(k, v string, schemas map[string]any, installed map[string]bool) string {
+	_, why := appCheckCode(k, v, schemas, installed)
+	return why
+}
+
+// appBound: the secret keys a package's "auth" bindings use (docs/app-slots.md §15.1); a server-kept one of them is
+// delivered to the device, the others stay on the server.
+func appBound(auth any) map[string]bool {
+	out := map[string]bool{}
+	a, _ := auth.(map[string]any)
+	for _, x := range a {
+		b, _ := x.(map[string]any)
+		if b == nil {
+			continue
+		}
+		if l, ok := b["basic"].([]any); ok {
+			for _, k := range l {
+				if s, _ := k.(string); s != "" {
+					out[s] = true
+				}
+			}
+		}
+		if s, _ := b["bearer"].(string); s != "" {
+			out[s] = true
+		}
+		for _, part := range []string{"header", "query"} {
+			if m, ok := b[part].(map[string]any); ok {
+				for _, k := range m {
+					if s, _ := k.(string); s != "" {
+						out[s] = true
+					}
+				}
+			}
+		}
+	}
+	return out
+}
+
+// appRepointed: the secret keys of the bindings whose send_to starts with {field}: they must be entered again when
+// that field changes, so keys never follow a re-pointed address.
+func appRepointed(auth any, field string) []string {
+	out := []string{}
+	a, _ := auth.(map[string]any)
+	for _, x := range a {
+		b, _ := x.(map[string]any)
+		to, _ := b["send_to"].([]any)
+		hit := false
+		for _, t := range to {
+			if s, _ := t.(string); strings.HasPrefix(s, "{"+field+"}") {
+				hit = true
+			}
+		}
+		if hit {
+			for k := range appBound(map[string]any{"b": b}) {
+				out = append(out, k)
+			}
+		}
+	}
+	return out
+}
+
+// END APPSET

@@ -65,7 +65,7 @@ ESPOS_PASSWORD='a long password' ./espos
 | `ESPOS_DATA` | `./data` | Database, files and the link-signing key. |
 | `ESPOS_PUBLIC_URL` | (none) | The address the browser and the devices use, e.g. `https://espos.example.com`. Set it behind a reverse proxy. Without it the server uses the Host of each request. |
 | `ESPOS_AI_*`, `ESPOS_STT_*`, `ESPOS_TTS_*` | (none) | The dog assistant's AI model, speech-to-text and voice: see [The dog assistant](#the-dog-assistant-ai-and-voice). |
-| `ESPOS_PKG_CATALOG` | (none) | A v2 `apps/catalog.json` URL offered to e-ink reader devices (support paused, see the top README). |
+| `ESPOS_PKG_CATALOG` | (none) | Store catalogs (`apps-s3/catalog.json`, the v2 `apps/catalog.json`), separated by commas. Every 15 minutes the server reads the apps' settings schemas from them and checks the apps' settings against those; e-ink readers (paused) are also offered the v2 one. Without it, only your own uploads have settings. |
 
 ## Connecting a desk or a Bot
 
@@ -103,17 +103,41 @@ The device needs nothing new: build its firmware with this server's address
 
 ### 1. The AI model (required)
 
-Any API that speaks OpenAI's `POST /chat/completions` works.
+Any API that speaks OpenAI's `POST /chat/completions` works. Providers differ in small ways (one
+refuses JSON mode, another a temperature, a third thinks until the answer is cut), so
+`ESPOS_AI_PROVIDER` sets the right values for each; any variable you set yourself wins.
+
+| `ESPOS_AI_PROVIDER` | Address and default model | What the preset sets |
+|---|---|---|
+| `gemini` (the default) | Gemini's API, `gemini-3.5-flash-lite` | JSON mode, `reasoning_effort: low`, 2048 tokens (thinking counts), hears recordings |
+| `openai` | `https://api.openai.com/v1`, `gpt-5.4-mini` | JSON mode, no temperature, `max_completion_tokens` 2048 |
+| `anthropic` | `https://api.anthropic.com/v1`, `claude-haiku-4-5-20251001` | the answer's JSON schema (it refuses JSON mode), no temperature, 2048 tokens |
+| `groq` | `https://api.groq.com/openai/v1`, `openai/gpt-oss-20b` | JSON mode, `reasoning_effort: low`, `max_completion_tokens` 2048 |
+| `deepseek` | `https://api.deepseek.com`, `deepseek-flash` | JSON mode, `reasoning_effort: none` (DeepSeek thinks unless told not to) |
+| `mistral` | `https://api.mistral.ai/v1`, `mistral-small-latest` | JSON mode |
+| `xai` | `https://api.x.ai/v1`, `grok-4.3` | JSON mode, `reasoning_effort: none`, `max_completion_tokens` 2048 |
+| `openrouter` | `https://openrouter.ai/api/v1`, `google/gemini-3.5-flash-lite` | JSON mode, 2048 tokens, hears recordings (that model does) |
+| `azure` | set `ESPOS_AI_URL=https://<resource>.openai.azure.com/openai/v1` and `ESPOS_AI_MODEL=<deployment>` | JSON mode, no temperature, `max_completion_tokens` 2048 |
+| `local` | `http://127.0.0.1:8080/v1` (the AI kit, `../ai-kit`), `gemma-4-e2b` | JSON mode, the short prompt, 60 s timeout, no key |
+
+Only `gemini` and `openrouter` hear a recording; with every other preset a spoken question goes
+through speech-to-text (part 2) and never reaches the model as audio. Model names change often:
+take the current one from the provider's list.
 
 | Variable | Default | |
 |---|---|---|
+| `ESPOS_AI_PROVIDER` | `gemini` when `ESPOS_AI_URL` is unset or Gemini's, else none | A preset (table above). |
 | `ESPOS_AI_KEY` | (none) | The API key, sent as `Authorization: Bearer`. |
-| `ESPOS_AI_URL` | `https://generativelanguage.googleapis.com/v1beta/openai` | The API's base, the part before `/chat/completions`. |
-| `ESPOS_AI_MODEL` | `gemini-3.5-flash-lite` | The model, the same one the hosted service uses. |
-| `ESPOS_AI_REASONING` | `low` on Gemini, not sent elsewhere | Sent as `reasoning_effort`. `off` never sends it. Most models other than Gemini and OpenAI's reasoning models refuse it. |
-| `ESPOS_AI_JSON` | `1` | The dog asks for a JSON answer (`response_format: json_object`). Set `0` for an API that refuses it; the server still reads JSON from plain text. |
+| `ESPOS_AI_URL` | the preset's | The API's base, the part before `/chat/completions`. |
+| `ESPOS_AI_MODEL` | the preset's (`gemini-3.5-flash-lite`) | The model; on Azure, the deployment's name. |
+| `ESPOS_AI_JSON` | the preset's (`object`) | `object` (or `1`): `response_format: json_object`. `schema`: the answer's JSON schema, strict. `off` (or `0`): none; the server still reads JSON from plain text. |
+| `ESPOS_AI_REASONING` | the preset's | Sent as `reasoning_effort` (`none`, `minimal`, `low`...). `off` never sends it. |
+| `ESPOS_AI_TEMPERATURE` | the dog's (0.7, 0.4 on a retry) | A temperature of your own, or `off` to send none (reasoning models, Claude 4.7 and later). |
+| `ESPOS_AI_TOKENS_PARAM` | `max_tokens` | `max_completion_tokens` for APIs that want that name (OpenAI's reasoning models). |
+| `ESPOS_AI_MAX_TOKENS` | the preset's (the dog asks 700) | The answer's limit. A model that thinks spends part of it thinking: an answer cut at the limit is named in the log. |
+| `ESPOS_AI_AUDIO` | the preset's (`1` without one) | `1`: the model hears a recording itself. `0`: it cannot; a spoken question needs speech-to-text. |
 | `ESPOS_AI_PROMPT` | (full) | `short`: a shorter prompt, ordered so that a model on your own machine can reuse most of the last turn's prompt from its cache (below). |
-| `ESPOS_AI_TIMEOUT` | `25` | Seconds to wait for the model's answer. |
+| `ESPOS_AI_TIMEOUT` | `25` (`60` for `local`) | Seconds to wait for the model's answer. |
 
 **Recommended: Google Gemini.** It has a free tier, hears recordings directly (no speech-to-text
 needed) and understands Vietnamese well. Get a key at https://aistudio.google.com/apikey, then:
@@ -134,13 +158,12 @@ curl -s https://generativelanguage.googleapis.com/v1beta/openai/chat/completions
 
 | Service | `ESPOS_AI_URL` | `ESPOS_AI_MODEL` (example) | Hears recordings? |
 |---|---|---|---|
-| Google Gemini | (default) | `gemini-3.5-flash-lite`, `gemini-3.8-flash` | yes |
-| OpenRouter | `https://openrouter.ai/api/v1` | a Gemini model there, e.g. `google/gemini-…` | only models that list audio input |
-| OpenAI | `https://api.openai.com/v1` | `gpt-4.1-mini` | no: add speech-to-text |
-| Ollama (on your own machine) | `http://localhost:11434/v1` (Docker: `http://host.docker.internal:11434/v1`) | `qwen2.5:7b` | no: add speech-to-text; leave `ESPOS_AI_KEY` empty |
-
-Model names change often: take the current one from the service's own list. A model that
-cannot hear needs speech-to-text (part 2), or every spoken question fails.
+| Service | Settings |
+|---|---|
+| A provider above | `ESPOS_AI_PROVIDER=openai` (and so on) and `ESPOS_AI_KEY` |
+| The EspOS AI kit (Gemma 4, Whisper and voices on your Mac, `../ai-kit`) | `ESPOS_AI_PROVIDER=local`, `ESPOS_AI_KEY` = a key from its `config.yaml` |
+| Ollama or another local server | `ESPOS_AI_PROVIDER=local`, `ESPOS_AI_URL=http://localhost:11434/v1` (Docker: `http://host.docker.internal:11434/v1`), `ESPOS_AI_MODEL=` one of its models |
+| Any other OpenAI-style API | `ESPOS_AI_URL`, `ESPOS_AI_KEY`, `ESPOS_AI_MODEL`, and the variables above for its quirks |
 
 **A model on your own machine.** A small model on a laptop or a Mac mini (for example Gemma 4 E2B) reads the prompt
 much more slowly than a hosted one: the dog's full prompt (about 8,000 tokens) takes 20 s or more the first time.
@@ -153,15 +176,18 @@ starts still reads the whole prompt.
 ### 2. Speech-to-text (optional)
 
 Set it when your AI model cannot hear audio, or to save on audio tokens. Any API with OpenAI's
-`POST /audio/transcriptions` works. With it set, the recording becomes words on this server and
-the model only reads text. If the service fails, the model gets the recording as before.
+`POST /audio/transcriptions` works, and ElevenLabs, Google Cloud and Azure have their own adapters.
+With it set, the recording becomes words on this server and the model only reads text. If the
+service fails, the model gets the recording as before.
 
 | Variable | Default | |
 |---|---|---|
-| `ESPOS_STT_URL` | (none) | The API's base, the part before `/audio/transcriptions`. |
-| `ESPOS_STT_KEY` | (none) | Its key. |
-| `ESPOS_STT_MODEL` | `whisper-1` | The model. |
-| `ESPOS_STT_LANG` | (the service guesses) | The language you speak, ISO 639-1: `vi`, `en`. Setting it is faster and more accurate. |
+| `ESPOS_STT_API` | `openai` | `openai` (any `/audio/transcriptions`: OpenAI, Groq, a local Whisper), `elevenlabs`, `google` or `azure`. |
+| `ESPOS_STT_URL` | (none) | `openai`: the API's base, the part before `/audio/transcriptions`. The others: optional, the vendor's own address is used. |
+| `ESPOS_STT_KEY` | (none) | Its key: Bearer (`openai`), `xi-api-key` (`elevenlabs`), `X-Goog-Api-Key` (`google`), `Ocp-Apim-Subscription-Key` (`azure`). |
+| `ESPOS_STT_MODEL` | `whisper-1` (`scribe_v2` for `elevenlabs`) | The model. Google and Azure take none. |
+| `ESPOS_STT_LANG` | each device's language | The language you speak, ISO 639-1 (`en`, `vi`, `de`...), for every device. Unset: each device's own language (its Settings) is the hint; without one, OpenAI-style APIs and ElevenLabs guess, and Google and Azure use `en-US`. |
+| `ESPOS_STT_REGION` | (none) | `azure` only: the Speech resource's region (`southeastasia`, `eastus`...), unless `ESPOS_STT_URL` is set. |
 
 Groq has a free, fast Whisper (key at https://console.groq.com/keys):
 
@@ -169,27 +195,42 @@ Groq has a free, fast Whisper (key at https://console.groq.com/keys):
 ESPOS_STT_URL=https://api.groq.com/openai/v1
 ESPOS_STT_KEY=gsk_...
 ESPOS_STT_MODEL=whisper-large-v3-turbo
-ESPOS_STT_LANG=vi
 ```
 
 OpenAI: `ESPOS_STT_URL=https://api.openai.com/v1`, model `whisper-1` or `gpt-4o-mini-transcribe`.
-A local [faster-whisper-server / speaches](https://github.com/speaches-ai/speaches) works the
-same way at its own address.
+A local Whisper (the AI kit's, `../ai-kit`, or [speaches](https://github.com/speaches-ai/speaches))
+works the same way at its own address.
+
+```sh
+# ElevenLabs Scribe
+ESPOS_STT_API=elevenlabs
+ESPOS_STT_KEY=...your-xi-api-key...
+# Google Cloud Speech-to-Text (an API key with the Speech-to-Text API enabled)
+ESPOS_STT_API=google
+ESPOS_STT_KEY=AIza...
+# Azure AI Speech (short-audio REST API)
+ESPOS_STT_API=azure
+ESPOS_STT_KEY=...your-speech-key...
+ESPOS_STT_REGION=southeastasia
+```
 
 ### 3. The voice (optional)
 
 | Variable | Default | |
 |---|---|---|
-| `ESPOS_TTS_URL` | (none: no voice) | An OpenAI-style base (the part before `/audio/speech`), or with `ESPOS_TTS_API=espos` the full URL of a `/v1/tts` service. |
-| `ESPOS_TTS_KEY` | (none) | Its key, sent as `Authorization: Bearer`. |
-| `ESPOS_TTS_API` | `openai` | `openai` or `espos` (below). |
-| `ESPOS_TTS_MODEL` | `gpt-4o-mini-tts` (`vieneu-turbo` for `espos`) | The model. |
-| `ESPOS_TTS_VOICE` | `alloy` (for `espos`: each dog's own voice) | The voice. With `openai`, every dog uses this one voice. |
-| `ESPOS_TTS_FORMAT` | `pcm` | What to ask for: `pcm` (raw 16-bit mono) or `wav`. Use `wav` when you do not know the service's sample rate: the WAV header says it. |
-| `ESPOS_TTS_RATE` | `24000` | The sample rate of a `pcm` answer (OpenAI's is 24000). |
+| `ESPOS_TTS_API` | `openai` | `openai`, `espos` (below), `elevenlabs`, `google` or `azure`. |
+| `ESPOS_TTS_URL` | (none: no voice) | `openai`: the base, the part before `/audio/speech`. `espos`: the full URL of a `/v1/tts` service. `elevenlabs`, `google`, `azure`: optional, the vendor's own address is used. |
+| `ESPOS_TTS_KEY` | (none) | Its key: Bearer (`openai`, `espos`), `xi-api-key` (`elevenlabs`), `X-Goog-Api-Key` (`google`), `Ocp-Apim-Subscription-Key` (`azure`). |
+| `ESPOS_TTS_MODEL` | `gpt-4o-mini-tts`; `vieneu-turbo` (`espos`); `eleven_flash_v2_5` (`elevenlabs`) | The model. Google and Azure take none. |
+| `ESPOS_TTS_VOICE` | `alloy`; each dog's own voice (`espos`); none (`elevenlabs`: required); a voice for the reply's language (`google`, `azure`) | The voice. Except with `espos`, every dog uses this one voice. A Google or Azure voice name carries its language (`en-US-...`). |
+| `ESPOS_TTS_LANG` | (guessed from the reply) | The language the dog speaks, `en`, `vi`, `de`...: it picks the Google and Azure voice and ElevenLabs' `language_code`. Unset, the reply's letters decide; English when nothing marks another language. |
+| `ESPOS_TTS_REGION` | (none) | `azure` only: the Speech resource's region, unless `ESPOS_TTS_URL` is set. |
+| `ESPOS_TTS_FORMAT` | `pcm` | `openai` only: `pcm` (raw 16-bit mono) or `wav`. Use `wav` when you do not know the service's sample rate: the WAV header says it. |
+| `ESPOS_TTS_RATE` | `24000` | `openai` only: the sample rate of a `pcm` answer (OpenAI's is 24000). |
 
-The server converts the voice to the device's 16 kHz as it streams, so the dog starts talking
-before the whole reply is read.
+The device plays 16-bit mono PCM at 16 kHz. ElevenLabs and Azure are asked for raw PCM at that
+rate and Google for LINEAR16 at that rate; anything else is converted as it streams, so the dog
+starts talking before the whole reply is read.
 
 **Free and good at Vietnamese: Microsoft Edge voices** through
 [openai-edge-tts](https://github.com/travisvn/openai-edge-tts), a small proxy you run yourself:
@@ -215,8 +256,37 @@ ESPOS_TTS_MODEL=gpt-4o-mini-tts
 ESPOS_TTS_VOICE=alloy
 ```
 
-**Your own speech server (`espos`).** The hosted service's own voices answer this request; a
-server of yours that does the same works here:
+**ElevenLabs** (16-bit PCM at 16 kHz; `eleven_flash_v2_5` speaks 32 languages):
+
+```sh
+ESPOS_TTS_API=elevenlabs
+ESPOS_TTS_KEY=...your-xi-api-key...
+ESPOS_TTS_MODEL=eleven_flash_v2_5
+ESPOS_TTS_VOICE=...a-voice-id...            # required: a voice from your ElevenLabs voices (each account has its own)
+```
+
+**Google Cloud Text-to-Speech** (an API key with the Text-to-Speech API enabled):
+
+```sh
+ESPOS_TTS_API=google
+ESPOS_TTS_KEY=AIza...
+# ESPOS_TTS_VOICE=en-US-Neural2-F          # optional: unset, en-US-Neural2-F for English, vi-VN-Neural2-A for
+                                           # Vietnamese, and Google's own pick for other languages
+```
+
+**Azure AI Speech** (raw-16khz-16bit-mono-pcm):
+
+```sh
+ESPOS_TTS_API=azure
+ESPOS_TTS_KEY=...your-speech-key...
+ESPOS_TTS_REGION=southeastasia             # the region of your Speech resource
+# ESPOS_TTS_VOICE=en-US-JennyNeural        # optional: unset, vi-VN-HoaiMyNeural for Vietnamese and the
+                                           # multilingual en-US-AvaMultilingualNeural for every other language
+```
+
+**Your own speech server (`espos`).** The hosted service's own voices answer this request, and so
+does the AI kit in `../ai-kit` (VieNeu-TTS and Piper on a Mac); a server of yours that does the same
+works here:
 
 ```
 POST <ESPOS_TTS_URL>          Authorization: Bearer <ESPOS_TTS_KEY>
@@ -271,7 +341,8 @@ The server log says what failed, one line per failed call:
 | `model failed: …` after a spoken question | The model cannot hear audio: use Gemini, or set speech-to-text. |
 | `speech to text: …` | The speech-to-text service failed; the model got the recording instead. |
 | `device_assist / say: no speech service set` | No voice is set: the dog answers on the screen only (expected). |
-| `speech service answered …` | The voice service refused: check its key, model and voice. |
+| `speech service answered …` | The voice service refused: check its key, model, voice (and region for Azure). |
+| `azure speech: set ESPOS_TTS_REGION` | Azure needs the Speech resource's region (or `ESPOS_TTS_URL`). |
 | `the WAV must be 16-bit mono` | Ask that service for `pcm` with the right `ESPOS_TTS_RATE`, or a mono voice. |
 
 ### Tiếng Việt: cấu hình chó AI
@@ -295,9 +366,11 @@ Có 3 phần, chỉ phần 1 là bắt buộc:
    ```
    Các biến khác để mặc định: `ESPOS_AI_URL` là API Gemini, `ESPOS_AI_MODEL` là
    `gemini-3.5-flash-lite` (giống bản hosted).
-3. Muốn dùng dịch vụ khác (OpenRouter, OpenAI, Ollama chạy trên máy nhà), đặt thêm
-   `ESPOS_AI_URL` và `ESPOS_AI_MODEL` theo bảng "Other services" ở trên. OpenAI và Ollama
-   không nghe được ghi âm, nên phải làm thêm bước 2.
+3. Muốn dùng dịch vụ khác, đặt `ESPOS_AI_PROVIDER` (`openai`, `anthropic`, `groq`, `deepseek`,
+   `mistral`, `xai`, `openrouter`, `azure`, `local`) và khoá của dịch vụ đó: server tự đặt địa chỉ,
+   model và các chỉnh riêng của từng bên (bảng `ESPOS_AI_PROVIDER` ở trên). Trừ Gemini và
+   OpenRouter, các dịch vụ khác không nghe được ghi âm, nên phải làm thêm bước 2.
+   Chạy hết trên máy Mac ở nhà (Gemma 4, Whisper, VieNeu): xem `../ai-kit`.
 
 **Bước 2 (tuỳ chọn): chuyển giọng nói thành chữ bằng Groq, miễn phí.**
 
@@ -307,8 +380,10 @@ Lấy khoá ở https://console.groq.com/keys rồi thêm vào `.env`:
 ESPOS_STT_URL=https://api.groq.com/openai/v1
 ESPOS_STT_KEY=gsk_...
 ESPOS_STT_MODEL=whisper-large-v3-turbo
-ESPOS_STT_LANG=vi
 ```
+
+Không cần đặt ngôn ngữ: server lấy ngôn ngữ của từng máy (trong Cài đặt) làm gợi ý.
+Cũng dùng được ElevenLabs, Google Cloud hay Azure (`ESPOS_STT_API`, xem mục 2 ở trên).
 
 **Bước 3 (tuỳ chọn): giọng đọc tiếng Việt miễn phí bằng giọng Microsoft Edge.**
 
@@ -328,7 +403,8 @@ ESPOS_STT_LANG=vi
    qua Docker thì dùng `http://localhost:5050/v1`. Trên Linux xem ghi chú
    `host.docker.internal` ở mục "A complete example".
 3. Muốn dùng OpenAI thì đặt `ESPOS_TTS_URL=https://api.openai.com/v1`, `ESPOS_TTS_KEY=sk-...`,
-   `ESPOS_TTS_VOICE=alloy`.
+   `ESPOS_TTS_VOICE=alloy`. ElevenLabs, Google Cloud, Azure: `ESPOS_TTS_API=elevenlabs|google|azure`
+   và khoá (mục 3 ở trên); Google và Azure tự chọn giọng theo ngôn ngữ của câu trả lời.
 
 **Bước 4: khởi động lại và thử.**
 
@@ -378,8 +454,9 @@ switched on.
 - `internal/server`: the web app, sign-in, the `/v1` API, signed file links.
 - `internal/backend`: routes, tables and workflow graphs (JSON). Each route runs a workflow:
   a small graph such as http_in → code → branch → respond.
-- `internal/engine`: runs those graphs and the scheduled ones (cron). `publish` (the hosted platform's
-  realtime push) has no listener here and only lets the run go on: clients see the change at their next sync.
+- `internal/engine`: runs those graphs and the scheduled ones (cron). There is no realtime stream here:
+  `publish` (the hosted platform's push) only lets the run go on, and `stream_token` fails into its error
+  edge; clients see changes at their next sync or poll.
 - `internal/flows`: the code nodes, one Go package per node.
 - `internal/wm`: what the nodes call: tables on SQLite, files on disk, outbound HTTP.
 - `internal/jobs/newsjob`: the morning paper builder, run as a background job.
@@ -397,9 +474,14 @@ switched on.
   with `ESPOS_STT_URL` set, the recording is turned into words first), and its requests to the
   hosted speech service become `tts` nodes that read `ESPOS_TTS_*` and fall back to a text-only
   answer (`tools/importer/assistant.go`). A workflow that needs any other hosted secret is left out.
+  Dictation (`/v1/device/dictate`) and the sessions app's AI turns use the same `ESPOS_AI_*` model, which
+  must hear audio for dictation.
   The hosted service's administration (`admin_*`: users, roles, licences, trials, device stock) is
   left out as well, and its guards are dropped from the routes: here nothing is blocked or
-  licensed, and a device that sees no licence in its sync locks nothing.
+  licensed, and a device that sees no licence in its sync locks nothing. The licence check other
+  workflows call (`admin_lic_core`) is replaced by a stand-in that allows the AI; a route whose own
+  guard is left out is left out with it, never left open. EspOS Desktop (the Mac companion) is not
+  public yet: its routes are imported but answer `desktop_disabled` here.
 
 ```sh
 make test     # Go tests

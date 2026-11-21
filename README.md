@@ -33,6 +33,7 @@ to commit `9059678` (folder `firmware/`).
 |---|---|---|
 | [`s3/`](s3/README.md) | The ESP32-S3 firmware for the desks and the EspOS Bot, their simulators (host build and QEMU), tools, the SDK (`espos` CLI, typings, schemas), sample apps, translations, the wake word's training code and the developer docs site. | Apache-2.0 |
 | [`server/`](server/README.md) | The self-hosted server: Go API, the React web app (embedded in the binary), SQLite storage, background jobs (weather, calendars, market prices, news), the dog assistant with your own AI and voice services. | AGPL-3.0 |
+| [`ai-kit/`](ai-kit/README.md) | The AI kit: the dog assistant's model, speech-to-text and voices on your own Mac (llama.cpp, whisper.cpp, VieNeu-TTS and Piper behind one gateway), for the self-hosted server. | AGPL-3.0 |
 | [`docs/device-api.md`](docs/device-api.md) | The contract between the devices and the server. | Apache-2.0 |
 
 ## Self-hosting quick start
@@ -88,6 +89,8 @@ CI builds the server and its Docker image on every push and pull request.
   libopus, Espressif drivers, Ubuntu and Noto fonts) are listed in
   [s3/THIRD_PARTY.md](s3/THIRD_PARTY.md).
 - `server/`: GNU AGPL-3.0, see [server/LICENSE](server/LICENSE).
+- `ai-kit/`: GNU AGPL-3.0, see [ai-kit/LICENSE](ai-kit/LICENSE); what it downloads keeps its own licence
+  ([ai-kit/THIRD_PARTY.md](ai-kit/THIRD_PARTY.md)).
 - Everything else: Apache-2.0, see [LICENSE](LICENSE) and [NOTICE](NOTICE).
 - Earlier versions, up to commit `fac0c54` (2026-11-18), were published under the MIT License and
   stay under it.

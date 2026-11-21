@@ -119,7 +119,7 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 		}
 	}
 	if on("notes") {
-		n, nerr := notes(userID, now, loc)
+		n, nerr := notes(userID, now, loc, st["sys.lang"])
 		if nerr != nil {
 			return wm.Fail(nerr)
 		}
@@ -185,6 +185,16 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 			wm.Log("reading: ", rerr.Error())
 		} else {
 			d["reading"] = r
+		}
+	}
+	// The colour desk's Claude widget (src/wid/claude.cpp, 2026-11-21): the Claude usage the person's EspOS Desktop
+	// (their own Mac, same account) last sent, from desk_state. Only while the desktop feature is on.
+	if s3 && wm.Str(in["desk_on"]) == "1" {
+		c, cerr := claudeFor(userID, now, loc)
+		if cerr != nil {
+			wm.Log("claude: ", cerr.Error())
+		} else if c != nil {
+			d["claude"] = c
 		}
 	}
 	// Stamped last: the device sets its clock from it, so the time spent building must not count.
@@ -1453,7 +1463,46 @@ func ruleHits(rule string, sday, today time.Time, loc *time.Location) bool {
 
 // ---------- notes ----------
 
-func notes(userID int, now time.Time, loc *time.Location) ([]any, error) {
+// popTitle: a Claude pop-up's title in the device's language (Vietnamese or English; the OS translates the buttons).
+func popTitle(kind, tool, lang string) string {
+	vi := strings.HasPrefix(lang, "vi")
+	switch {
+	case kind == "claude_wait" && vi:
+		return "Claude đang chờ bạn"
+	case kind == "claude_wait":
+		return "Claude is waiting for you"
+	case tool == "Bash" && vi:
+		return "Claude xin chạy lệnh"
+	case tool == "Bash":
+		return "Claude wants to run a command"
+	case vi:
+		return "Claude xin quyền"
+	}
+	return "Claude asks for permission"
+}
+
+// claudePop: the pop-up card of a Claude note (desktop-protocol §9.6): what it shows, and the buttons the OS posts to the
+// app's own /send (it adds the nonce and the device credential). Approve takes a second tap (risky).
+func claudePop(kind string, data map[string]any, lang string) (map[string]any, []any) {
+	pop := map[string]any{"head": wm.Str(data["head"]), "title": popTitle(kind, wm.Str(data["tool"]), lang)}
+	if t := wm.Str(data["mono"]); t != "" {
+		pop["mono"] = t
+	}
+	if t := wm.Str(data["text"]); t != "" {
+		pop["text"] = t
+	}
+	acts := []any{}
+	if kind == "claude_perm" && wm.Str(data["req"]) != "" {
+		body := func(k string) map[string]any {
+			return map[string]any{"mac": wm.Int(data["mac"]), "s": wm.Str(data["s"]), "kind": k, "req": wm.Str(data["req"])}
+		}
+		acts = append(acts, map[string]any{"id": "deny", "post": "/send", "body": body("deny")},
+			map[string]any{"id": "approve", "post": "/send", "body": body("approve"), "risky": true})
+	}
+	return pop, acts
+}
+
+func notes(userID int, now time.Time, loc *time.Location, lang string) ([]any, error) {
 	rows, err := wm.QueryOpts("notifications", map[string]any{
 		"filters":  []map[string]any{{"column": "user_id", "op": "eq", "value": userID}, {"column": "created_at", "op": "gte", "value": now.Add(-24 * time.Hour).UTC().Format(time.RFC3339)}},
 		"order_by": "created_at", "desc": true, "limit": 2,
@@ -1463,11 +1512,28 @@ func notes(userID int, now time.Time, loc *time.Location) ([]any, error) {
 	}
 	out := []any{}
 	for _, r := range rows {
+		exp := int64(wm.Num(r["exp_ms"]))
+		if exp > 0 && exp < now.UnixMilli() {
+			continue // a Claude note past its time (desktop-protocol §9.6)
+		}
 		t := ""
 		if ts, perr := time.Parse(time.RFC3339, wm.Str(r["created_at"])); perr == nil {
 			t = ts.In(loc).Format("15:04")
 		}
-		out = append(out, map[string]any{"title": cut(wm.Str(r["title"]), 60), "time": t})
+		n := map[string]any{"title": cut(wm.Str(r["title"]), 60), "time": t}
+		// a note that opens an app (the S3's Claude pop-up: kind claude_perm / claude_wait, app, arg, exp_ms)
+		if k := wm.Str(r["kind"]); k != "" {
+			n["kind"] = k
+			n["app"] = wm.Str(r["app"])
+			n["arg"] = wm.Str(r["arg"])
+			n["exp_ms"] = exp
+			if data, _ := r["data"].(map[string]any); data != nil && (k == "claude_perm" || k == "claude_wait") {
+				pop, acts := claudePop(k, data, lang)
+				n["pop"] = pop
+				n["acts"] = acts
+			}
+		}
+		out = append(out, n)
 	}
 	return out, nil
 }
@@ -1596,4 +1662,102 @@ func solar2Lunar(dd, mm, yy int, tz float64) (int, int, int, bool) {
 		lunarYear--
 	}
 	return lunarDay, lunarMonth, lunarYear, leap
+}
+
+// claudeFor: the newest EspOS Desktop of the person (desk_state) as the S3's Claude widget reads it
+// (s3desk/docs/desktop-protocol.md §2.1 usage): online, the Mac's name and mode, the 5-hour and weekly windows (only
+// when the Mac's status line helper sent them), tokens and the API-price estimate today, the last 7 days' tokens,
+// sessions open and waiting (for approval or a reply). nil when the person has no desktop.
+func claudeFor(userID int, now time.Time, loc *time.Location) (map[string]any, error) {
+	rows, err := wm.QueryOpts("desk_state", map[string]any{
+		"filters":  []map[string]any{{"column": "user_id", "op": "eq", "value": userID}},
+		"order_by": "seen_ms", "desc": true, "limit": 1,
+	})
+	if err != nil || len(rows) == 0 {
+		return nil, err
+	}
+	r := rows[0]
+	st, _ := r["state"].(map[string]any)
+	if raw, isStr := r["state"].(string); isStr && raw != "" {
+		_ = json.Unmarshal([]byte(raw), &st)
+	}
+	seen := int64(wm.Num(r["seen_ms"]))
+	mode := wm.Str(r["mode"])
+	out := map[string]any{"online": seen > 0 && now.UnixMilli()-seen <= 180000 && mode != "off", "seen_ms": seen, "mode": mode,
+		"name": cut(wm.Str(st["name"]), 40)}
+	// Times in the person's own zone, ready to print (device and web preview show the same text): "16:20", the
+	// weekday (0 = Sunday) and how many days from today.
+	today := now.In(loc)
+	t0 := time.Date(today.Year(), today.Month(), today.Day(), 0, 0, 0, 0, loc)
+	when := func(sec int64) map[string]any {
+		t := time.Unix(sec, 0).In(loc)
+		d0 := time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, loc)
+		return map[string]any{"hm": t.Format("15:04"), "wd": int(t.Weekday()), "dd": int(math.Round(d0.Sub(t0).Hours() / 24)), "dm": t.Format("02/01")}
+	}
+	if seen > 0 {
+		out["seen"] = when(seen / 1000)
+	}
+	waiting, open := 0, 0
+	if ss, ok := st["sessions"].([]any); ok {
+		for _, x := range ss {
+			if m, isMap := x.(map[string]any); isMap {
+				open++
+				if s := wm.Str(m["state"]); s == "perm" || s == "input" {
+					waiting++
+				}
+			}
+		}
+	}
+	out["waiting"] = waiting
+	out["sessions"] = open
+	u, _ := st["usage"].(map[string]any)
+	if u == nil {
+		return out, nil
+	}
+	win := func(k string) map[string]any {
+		w, _ := u[k].(map[string]any)
+		if w == nil || w["pct"] == nil {
+			return nil
+		}
+		resets := int64(wm.Num(w["resets_s"]))
+		if resets > 0 && resets < now.Unix() {
+			return nil // the window has reset since: the old figure no longer holds
+		}
+		o := map[string]any{"pct": math.Round(math.Max(0, math.Min(100, wm.Num(w["pct"])))), "resets_s": resets}
+		if resets > 0 {
+			o["at"] = when(resets)
+		}
+		return o
+	}
+	if w := win("five_hour"); w != nil {
+		out["five"] = w
+	}
+	if w := win("seven_day"); w != nil {
+		out["week"] = w
+	}
+	if a := int64(wm.Num(u["as_of_ms"])); a > 0 {
+		out["as_of_ms"] = a
+	}
+	if t, ok := u["today"].(map[string]any); ok {
+		out["tokens"] = int64(wm.Num(t["tokens"]))
+		out["usd"] = math.Round(wm.Num(t["usd"])*100) / 100
+	}
+	days := []any{}
+	if ds, ok := u["days"].([]any); ok {
+		for _, x := range ds {
+			if m, isMap := x.(map[string]any); isMap {
+				days = append(days, int64(wm.Num(m["tokens"])))
+			}
+		}
+	}
+	if len(days) > 7 {
+		days = days[len(days)-7:]
+	}
+	if len(days) > 0 {
+		out["days"] = days
+	}
+	if n := wm.Int(u["sessions_open"]); n > open {
+		out["sessions"] = n
+	}
+	return out, nil
 }

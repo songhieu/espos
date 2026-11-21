@@ -1,0 +1,36 @@
+{
+  "code": "desktop_act",
+  "name": "Web: confirm or cancel a desktop command, or send a new one",
+  "draft": {
+    "nodes": [
+      { "id": "in", "type": "http_in" },
+      { "id": "work", "type": "code", "config": { "source": { "$file": "nodes/work.go" },
+          "input": { "uid": "{{ input.user.id }}", "params": "{{ input.params }}", "body": "{{ input.body }}", "on": "{{ var.desktop_enabled }}" } } },
+      { "id": "isrun", "type": "branch", "config": { "rules": [ { "left": "{{ work.run }}", "op": "eq", "right": true } ] } },
+      { "id": "q", "type": "call_workflow", "config": { "workflow": "desk_queue", "input": {
+          "uid": "{{ input.user.id }}", "cmd": "{{ work.cmd }}", "args": "{{ work.args }}", "desktop_id": "{{ work.desktop_id }}",
+          "via": "web", "from_name": "web", "confirm": "{{ work.confirm }}" } } },
+      { "id": "outq", "type": "respond", "config": { "status": "{{ q.status }}", "body": {
+          "ok": "{{ q.ok }}", "id": "{{ q.id }}", "state": "{{ q.state }}", "risk": "{{ q.risk }}", "what": "{{ q.what }}",
+          "text": "{{ q.text }}", "err": "{{ q.err }}", "exp_ms": "{{ q.exp_ms }}", "error": "{{ q.error }}" } } },
+      { "id": "pk", "type": "branch", "config": { "rules": [ { "left": "{{ work.poke }}", "op": "eq", "right": true } ] } },
+      { "id": "pub", "type": "publish", "config": { "channel": "rt:desk:{{ work.chan }}", "data": { "t": "sync" } } },
+      { "id": "out", "type": "respond", "config": { "status": "{{ work.status }}", "body": "{{ work.body }}" } },
+      { "id": "fail", "type": "respond", "config": { "status": 500, "body": { "error": "{{ work.error }}" } } },
+      { "id": "failq", "type": "respond", "config": { "status": 500, "body": { "error": "{{ q.error }}" } } }
+    ],
+    "edges": [
+      { "from": "in", "to": "work" },
+      { "from": "work", "to": "isrun" },
+      { "from": "work", "to": "fail", "port": "error" },
+      { "from": "isrun", "to": "q", "port": "true" },
+      { "from": "isrun", "to": "pk", "port": "false" },
+      { "from": "q", "to": "outq" },
+      { "from": "q", "to": "failq", "port": "error" },
+      { "from": "pk", "to": "pub", "port": "true" },
+      { "from": "pk", "to": "out", "port": "false" },
+      { "from": "pub", "to": "out" },
+      { "from": "pub", "to": "out", "port": "error" }
+    ]
+  }
+}

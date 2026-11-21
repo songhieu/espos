@@ -76,6 +76,8 @@ const std::vector<Kind>& kinds() {
        BOOKS_FLAGS},
       {"overview", N_("Overview"), N_("Clock"), 6, "cal", N_("time, date, weather, calendar"), 0xffffff, {}, Opt::None,
        {}},
+      // EspOS Desktop (2026-11-21): the Claude usage of the person's Mac (dashboard `claude`).
+      {"claude", "Claude", N_("Tools"), 7, "", N_("usage from your Mac"), 0xd97757, CLAUDE_STYLES, Opt::None, {}},
   };
   return K;
 }
@@ -156,6 +158,7 @@ lv_obj_t* create(lv_obj_t* parent, const Item& it, int w, int h, bool interactiv
   else if (k == "stats") wStats(parent, it, c);
   else if (k == "books") wBooks(parent, it, c);
   else if (k == "overview") wOverview(parent, it, c);
+  else if (k == "claude") wClaude(parent, it, c);
 #ifndef NO_PET
   else if (k == "pet") pet::widget(c.o, w, h, it.size);
 #endif

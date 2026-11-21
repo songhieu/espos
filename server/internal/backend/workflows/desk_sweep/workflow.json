@@ -1,0 +1,17 @@
+{
+  "code": "desk_sweep",
+  "name": "Schedule: EspOS Desktop forgets terminal screens 10 min after the last watch and old Claude notes (desktop-protocol §9.2, §9.6)",
+  "draft": {
+    "nodes": [
+      { "id": "tick", "type": "schedule_trigger", "config": { "expression": "*/5 * * * *" } },
+      { "id": "work", "type": "code", "config": { "source": { "$file": "nodes/work.go" }, "timeout_ms": 30000, "input": {} } },
+      { "id": "done", "type": "respond", "config": { "status": 200, "body": "{{ work }}" } },
+      { "id": "fail", "type": "respond", "config": { "status": 500, "body": { "error": "{{ work.error }}" } } }
+    ],
+    "edges": [
+      { "from": "tick", "to": "work" },
+      { "from": "work", "to": "done" },
+      { "from": "work", "to": "fail", "port": "error" }
+    ]
+  }
+}

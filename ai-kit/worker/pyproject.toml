@@ -1,0 +1,16 @@
+[project]
+name = "tts-worker"
+version = "0.1.0"
+description = "TTS worker process (VieNeu-TTS / Piper) started by the Go gateway"
+requires-python = ">=3.10,<3.13"
+dependencies = [
+    "vieneu==3.8.4",
+    "piper-tts==1.8.0",
+    "fastapi",
+    "uvicorn",
+    "soxr",
+    "numpy",
+]
+
+[tool.uv]
+package = false

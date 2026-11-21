@@ -14,6 +14,11 @@ var publicURL string // ESPOS_PUBLIC_URL, when set
 // faces and widgets from: ESPOS_PKG_CATALOG, or "" for none (the sync answer then offers no packages).
 func PkgCatalogURL() string { return strings.TrimSpace(os.Getenv("ESPOS_PKG_CATALOG")) }
 
+// PkgCatalogURLs is every catalog in ESPOS_PKG_CATALOG (URLs separated by commas or spaces); none = no store.
+func PkgCatalogURLs() []string {
+	return strings.FieldsFunc(PkgCatalogURL(), func(r rune) bool { return r == ',' || r == ' ' })
+}
+
 // SetPublicURL fixes the server's public address ("https://espos.example.com").
 func SetPublicURL(u string) { publicURL = strings.TrimRight(u, "/") }
 

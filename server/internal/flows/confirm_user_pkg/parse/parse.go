@@ -769,6 +769,13 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 	if license != "" {
 		meta["license"] = license
 	}
+	// Manifest v2 parts the server acts on (s3desk docs/manifest-driven.md, app-slots.md §15): kept for keep, which
+	// writes the package's app_manifests row, so its settings app.<id>.<key> are checked like a store package's.
+	for _, k := range []string{"settings", "provides", "auth", "server"} {
+		if v, has := m[k]; has && v != nil {
+			meta[k] = v
+		}
+	}
 	if j2me {
 		meta["j2me"] = j2
 		meta["jar_size"] = jarSize

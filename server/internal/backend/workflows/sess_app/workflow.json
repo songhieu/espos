@@ -1,0 +1,56 @@
+{
+  "code": "sess_app",
+  "name": "Device app: the S3's Claude Sessions app (dev.espos.sessions): sessions, screens, send, AI suggestions (desktop-protocol §9)",
+  "draft": {
+    "nodes": [
+      { "id": "in", "type": "http_in" },
+      { "id": "work", "type": "code", "config": {
+          "source": { "$file": "nodes/work.go" }, "timeout_ms": 12000,
+          "input": { "method": "{{ input.method }}", "params": "{{ input.params }}", "query": "{{ input.query }}", "body": "{{ input.body }}",
+                     "auth": "{{ input.guard.desk_app_auth }}", "on": "{{ var.desktop_enabled }}" } } },
+      { "id": "isq", "type": "branch", "config": { "rules": [ { "left": "{{ work.next }}", "op": "eq", "right": "send" } ] } },
+      { "id": "q", "type": "call_workflow", "config": { "workflow": "desk_queue", "input": {
+          "uid": "{{ work.q.uid }}", "cmd": "{{ work.q.cmd }}", "args": "{{ work.q.args }}", "desktop_id": "{{ work.q.desktop_id }}",
+          "from_device_id": "{{ work.q.from_device_id }}", "from_name": "{{ work.q.from_name }}", "via": "app",
+          "confirm": "{{ work.q.confirm }}", "key": "{{ work.q.key }}" } } },
+      { "id": "fin", "type": "code", "config": { "source": { "$file": "nodes/fin.go" }, "input": { "q": "{{ q }}" } } },
+      { "id": "outq", "type": "respond", "config": { "status": "{{ fin.status }}", "body": "{{ fin.body }}", "headers": { "Cache-Control": "no-store" } } },
+      { "id": "isai", "type": "branch", "config": { "rules": [ { "left": "{{ work.next }}", "op": "eq", "right": "ai" } ] } },
+      { "id": "lic", "type": "call_workflow", "config": { "workflow": "admin_lic_core", "input": {
+          "device_id": "{{ work.device_id }}", "user_id": "{{ work.user_id }}", "use_ai": true } } },
+      { "id": "may", "type": "branch", "config": { "rules": [ { "left": "{{ lic.ai_ok }}", "op": "eq", "right": true } ] } },
+      { "id": "ai", "type": "code", "config": { "source": { "$file": "nodes/ai.go" }, "timeout_ms": 30000, "input": { "ai": "{{ work.ai }}" } } },
+      { "id": "outai", "type": "respond", "config": { "status": "{{ ai.status }}", "body": "{{ ai.body }}", "headers": { "Cache-Control": "no-store" } } },
+      { "id": "over", "type": "respond", "config": { "status": 402, "body": { "error": "trial_over", "locked": "{{ lic.locked }}", "buy_url": "{{ lic.buy_url }}" } } },
+      { "id": "pk", "type": "branch", "config": { "rules": [ { "left": "{{ work.poke }}", "op": "eq", "right": true } ] } },
+      { "id": "pub", "type": "publish", "config": { "channel": "rt:desk:{{ work.chan }}", "data": { "t": "sync" } } },
+      { "id": "out", "type": "respond", "config": { "status": "{{ work.status }}", "body": "{{ work.body }}", "headers": { "Cache-Control": "no-store" } } },
+      { "id": "fail", "type": "respond", "config": { "status": 500, "body": { "error": "server_error" } } },
+      { "id": "failq", "type": "respond", "config": { "status": 500, "body": { "state": "failed", "err": "server_error" } } },
+      { "id": "failai", "type": "respond", "config": { "status": 502, "body": { "error": "ai_failed" } } }
+    ],
+    "edges": [
+      { "from": "in", "to": "work" },
+      { "from": "work", "to": "fail", "port": "error" },
+      { "from": "work", "to": "isq" },
+      { "from": "isq", "to": "q", "port": "true" },
+      { "from": "isq", "to": "isai", "port": "false" },
+      { "from": "q", "to": "fin" },
+      { "from": "q", "to": "failq", "port": "error" },
+      { "from": "fin", "to": "outq" },
+      { "from": "fin", "to": "failq", "port": "error" },
+      { "from": "isai", "to": "lic", "port": "true" },
+      { "from": "isai", "to": "pk", "port": "false" },
+      { "from": "lic", "to": "may" },
+      { "from": "lic", "to": "failai", "port": "error" },
+      { "from": "may", "to": "ai", "port": "true" },
+      { "from": "may", "to": "over", "port": "false" },
+      { "from": "ai", "to": "outai" },
+      { "from": "ai", "to": "failai", "port": "error" },
+      { "from": "pk", "to": "pub", "port": "true" },
+      { "from": "pk", "to": "out", "port": "false" },
+      { "from": "pub", "to": "out" },
+      { "from": "pub", "to": "out", "port": "error" }
+    ]
+  }
+}

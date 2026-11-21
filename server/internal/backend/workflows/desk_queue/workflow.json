@@ -3,41 +3,197 @@
   "name": "EspOS Desktop: queue one command for the person's Mac (checked against what the Mac enabled), poke it, wait up to 2 s for a safe command's result",
   "draft": {
     "nodes": [
-      { "id": "in", "type": "function_in", "config": {
-          "inputs": ["uid", "cmd"],
-          "optional": ["args", "desktop_id", "from_device_id", "from_name", "via", "heard", "confirm"] } },
-      { "id": "work", "type": "code", "config": { "source": { "$file": "nodes/work.go" }, "timeout_ms": 10000,
-          "input": { "uid": "{{ input.uid }}", "cmd": "{{ input.cmd }}", "args": "{{ input.args }}",
-                     "desktop_id": "{{ input.desktop_id }}", "from_device_id": "{{ input.from_device_id }}",
-                     "from_name": "{{ input.from_name }}", "via": "{{ input.via }}", "heard": "{{ input.heard }}",
-                     "confirm": "{{ input.confirm }}", "on": "{{ var.desktop_enabled }}" } } },
-      { "id": "okb", "type": "branch", "config": { "rules": [ { "left": "{{ work.ok }}", "op": "eq", "right": true } ] } },
-      { "id": "pub", "type": "publish", "config": { "channel": "rt:desk:{{ work.chan }}", "data": { "t": "sync" } } },
-      { "id": "hold", "type": "code", "config": { "source": { "$file": "nodes/hold.go" }, "timeout_ms": 6000,
-          "input": { "id": "{{ work.id }}", "state": "{{ work.state }}", "wait": "{{ work.wait }}" } } },
-      { "id": "done", "type": "return", "config": { "data": {
-          "ok": true, "status": 200, "id": "{{ work.id }}", "state": "{{ hold.state }}", "text": "{{ hold.text }}",
-          "err": "{{ hold.err }}", "risk": "{{ work.risk }}", "what": "{{ work.what }}", "exp_ms": "{{ work.exp_ms }}",
-          "desktop_id": "{{ work.desktop_id }}", "where": "{{ work.where }}", "error": "" } } },
-      { "id": "held", "type": "return", "config": { "data": {
-          "ok": true, "status": 200, "id": "{{ work.id }}", "state": "{{ work.state }}", "text": "", "err": "",
-          "risk": "{{ work.risk }}", "what": "{{ work.what }}", "exp_ms": "{{ work.exp_ms }}",
-          "desktop_id": "{{ work.desktop_id }}", "where": "{{ work.where }}", "error": "" } } },
-      { "id": "no", "type": "return", "config": { "data": {
-          "ok": false, "status": "{{ work.status }}", "error": "{{ work.error }}", "state": "refused", "what": "{{ work.what }}" } } },
-      { "id": "boom", "type": "return", "config": { "data": {
-          "ok": false, "status": 500, "error": "server_error", "detail": "{{ work.error }}", "state": "refused" } } }
+      {
+        "id": "in",
+        "type": "function_in",
+        "config": {
+          "inputs": [
+            "uid",
+            "cmd"
+          ],
+          "optional": [
+            "args",
+            "desktop_id",
+            "from_device_id",
+            "from_name",
+            "via",
+            "heard",
+            "confirm",
+            "key"
+          ]
+        }
+      },
+      {
+        "id": "work",
+        "type": "code",
+        "config": {
+          "source": {
+            "$file": "nodes/work.go"
+          },
+          "timeout_ms": 10000,
+          "input": {
+            "uid": "{{ input.uid }}",
+            "cmd": "{{ input.cmd }}",
+            "args": "{{ input.args }}",
+            "desktop_id": "{{ input.desktop_id }}",
+            "from_device_id": "{{ input.from_device_id }}",
+            "from_name": "{{ input.from_name }}",
+            "via": "{{ input.via }}",
+            "heard": "{{ input.heard }}",
+            "confirm": "{{ input.confirm }}",
+            "on": "{{ var.desktop_enabled }}",
+            "key": "{{ input.key }}"
+          }
+        }
+      },
+      {
+        "id": "okb",
+        "type": "branch",
+        "config": {
+          "rules": [
+            {
+              "left": "{{ work.ok }}",
+              "op": "eq",
+              "right": true
+            }
+          ]
+        }
+      },
+      {
+        "id": "pub",
+        "type": "publish",
+        "config": {
+          "channel": "rt:desk:{{ work.chan }}",
+          "data": {
+            "t": "sync"
+          }
+        }
+      },
+      {
+        "id": "hold",
+        "type": "code",
+        "config": {
+          "source": {
+            "$file": "nodes/hold.go"
+          },
+          "timeout_ms": 11000,
+          "input": {
+            "id": "{{ work.id }}",
+            "state": "{{ work.state }}",
+            "wait": "{{ work.wait }}",
+            "wait_s": "{{ work.wait_s }}"
+          }
+        }
+      },
+      {
+        "id": "done",
+        "type": "return",
+        "config": {
+          "data": {
+            "ok": true,
+            "status": 200,
+            "id": "{{ work.id }}",
+            "state": "{{ hold.state }}",
+            "text": "{{ hold.text }}",
+            "err": "{{ hold.err }}",
+            "risk": "{{ work.risk }}",
+            "what": "{{ work.what }}",
+            "exp_ms": "{{ work.exp_ms }}",
+            "desktop_id": "{{ work.desktop_id }}",
+            "where": "{{ work.where }}",
+            "error": ""
+          }
+        }
+      },
+      {
+        "id": "held",
+        "type": "return",
+        "config": {
+          "data": {
+            "ok": true,
+            "status": 200,
+            "id": "{{ work.id }}",
+            "state": "{{ work.state }}",
+            "text": "",
+            "err": "",
+            "risk": "{{ work.risk }}",
+            "what": "{{ work.what }}",
+            "exp_ms": "{{ work.exp_ms }}",
+            "desktop_id": "{{ work.desktop_id }}",
+            "where": "{{ work.where }}",
+            "error": ""
+          }
+        }
+      },
+      {
+        "id": "no",
+        "type": "return",
+        "config": {
+          "data": {
+            "ok": false,
+            "status": "{{ work.status }}",
+            "error": "{{ work.error }}",
+            "state": "refused",
+            "what": "{{ work.what }}"
+          }
+        }
+      },
+      {
+        "id": "boom",
+        "type": "return",
+        "config": {
+          "data": {
+            "ok": false,
+            "status": 500,
+            "error": "server_error",
+            "detail": "{{ work.error }}",
+            "state": "refused"
+          }
+        }
+      }
     ],
     "edges": [
-      { "from": "in", "to": "work" },
-      { "from": "work", "to": "okb" },
-      { "from": "work", "to": "boom", "port": "error" },
-      { "from": "okb", "to": "pub", "port": "true" },
-      { "from": "okb", "to": "no", "port": "false" },
-      { "from": "pub", "to": "hold" },
-      { "from": "pub", "to": "hold", "port": "error" },
-      { "from": "hold", "to": "done" },
-      { "from": "hold", "to": "held", "port": "error" }
+      {
+        "from": "in",
+        "to": "work"
+      },
+      {
+        "from": "work",
+        "to": "okb"
+      },
+      {
+        "from": "work",
+        "to": "boom",
+        "port": "error"
+      },
+      {
+        "from": "okb",
+        "to": "pub",
+        "port": "true"
+      },
+      {
+        "from": "okb",
+        "to": "no",
+        "port": "false"
+      },
+      {
+        "from": "pub",
+        "to": "hold"
+      },
+      {
+        "from": "pub",
+        "to": "hold",
+        "port": "error"
+      },
+      {
+        "from": "hold",
+        "to": "done"
+      },
+      {
+        "from": "hold",
+        "to": "held",
+        "port": "error"
+      }
     ]
   }
 }

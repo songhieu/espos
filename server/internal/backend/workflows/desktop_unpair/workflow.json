@@ -1,0 +1,18 @@
+{
+  "code": "desktop_unpair",
+  "name": "EspOS Desktop: the Mac unpairs itself (device revoked, its waiting commands cancelled)",
+  "draft": {
+    "nodes": [
+      { "id": "in", "type": "http_in" },
+      { "id": "work", "type": "code", "config": { "source": { "$file": "nodes/work.go" },
+          "input": { "device": "{{ input.guard.require_device }}", "on": "{{ var.desktop_enabled }}" } } },
+      { "id": "out", "type": "respond", "config": { "status": "{{ work.status }}", "body": "{{ work.body }}" } },
+      { "id": "fail", "type": "respond", "config": { "status": 500, "body": { "error": "{{ work.error }}" } } }
+    ],
+    "edges": [
+      { "from": "in", "to": "work" },
+      { "from": "work", "to": "out" },
+      { "from": "work", "to": "fail", "port": "error" }
+    ]
+  }
+}

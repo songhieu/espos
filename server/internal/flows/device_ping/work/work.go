@@ -135,10 +135,11 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 	// One round trip: the device's row, its settings, the user's news settings, the releases.
 	res, err := wm.QueryMany([]map[string]any{
 		{"table": "devices", "filters": []map[string]any{{"column": "id", "op": "eq", "value": deviceID}}, "limit": 1, "with_total": false},
-		{"table": "device_settings", "filters": []map[string]any{{"column": "device_id", "op": "eq", "value": deviceID}}, "limit": 200, "with_total": false},
+		{"table": "device_settings", "filters": []map[string]any{{"column": "device_id", "op": "eq", "value": deviceID}}, "limit": 500, "with_total": false}, // as device_sync (package settings add rows)
 		{"table": "news_prefs", "filters": []map[string]any{{"column": "user_id", "op": "eq", "value": userID}}, "limit": 1, "with_total": false},
 		{"table": "firmware", "order_by": "code", "desc": true, "limit": 50, "with_total": false},
 		{"table": "notifications", "filters": []map[string]any{{"column": "user_id", "op": "eq", "value": userID}}, "order_by": "created_at", "desc": true, "limit": 1, "with_total": false},
+		{"table": "desk_state", "filters": []map[string]any{{"column": "user_id", "op": "eq", "value": userID}}, "order_by": "usage_ms", "desc": true, "limit": 1, "with_total": false},
 	})
 	if err != nil {
 		return wm.Fail(err)
@@ -156,6 +157,7 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 		at[wm.Str(r["skey"])] = int64(wm.Num(r["updated_ms"]))
 	}
 	var rev int64
+	pingS := 0 // ping_s: a faster ping while a Claude session waits (below)
 	take := func(v int64) {
 		if v > rev {
 			rev = v
@@ -179,6 +181,15 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 		}
 		take(at[k])
 	}
+	if kind == "s3" || kind == "bot" {
+		// Package settings (app.<package id>.<key>, docs/manifest-driven.md): every one of the device, as device_sync's
+		// answer has them (scripts/check-ping-keys.py checks both do).
+		for k, v := range at {
+			if strings.HasPrefix(k, "app.") {
+				take(v)
+			}
+		}
+	}
 	if kind == "s3" {
 		for _, k := range sharedKeys {
 			take(at[k])
@@ -193,6 +204,18 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 		// device_sync folds in the same; scripts/check-ping-keys.py checks both do.
 		if nr := rowsOf(res, 4); len(nr) == 1 {
 			take(ms(nr[0]["created_at"]))
+		}
+		// The Claude widget (2026-11-21): the person's desktop's usage_ms (desktop_sync moves it when what the widget
+		// shows changes), as device_sync folds in; scripts/check-ping-keys.py checks both do.
+		if ur := rowsOf(res, 5); len(ur) == 1 {
+			take(int64(wm.Num(ur[0]["usage_ms"])))
+			// A Claude session waiting for the person (a permission request or a question, desktop-protocol §9.6):
+			// the S3 pings every 10 s until it is answered, so its pop-up shows soon even with the app closed.
+			// usage_sig is "five|week|open|waiting|mode" (desktop_sync usageSig).
+			if p := strings.Split(wm.Str(ur[0]["usage_sig"]), "|"); len(p) == 5 && p[3] != "0" && p[4] == "on" &&
+				time.Now().UnixMilli()-int64(wm.Num(ur[0]["seen_ms"])) < 180000 {
+				pingS = 10
+			}
 		}
 	}
 
@@ -237,5 +260,9 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 			break
 		}
 	}
-	return map[string]any{"status": 200, "body": map[string]any{"rev": rev, "fw": fw}}
+	out := map[string]any{"rev": rev, "fw": fw}
+	if pingS > 0 {
+		out["ping_s"] = pingS
+	}
+	return map[string]any{"status": 200, "body": out}
 }

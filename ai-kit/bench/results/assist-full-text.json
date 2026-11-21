@@ -1,0 +1,1238 @@
+{
+ "label": "full-text",
+ "started": "2026-11-21 14:09:56",
+ "device": 6,
+ "turns": [
+  {
+   "mode": "text",
+   "n": 1,
+   "say": "Chào mày, hôm nay khỏe không?",
+   "status": 200,
+   "seconds": 23.37,
+   "rate_limited_s": 0,
+   "heard": "Chào mày, hôm nay khỏe không?",
+   "reply": "Chào khanh! Bổn công chúa khỏe re luôn nha! Khanh sao rồi? Có mệt không? Bổn công chúa có chuyện gì muốn kể cho bổn công chúa nghe không?",
+   "topic": "chat",
+   "mood": "happy",
+   "server_ms": {
+    "db": 827,
+    "llm": 22539,
+    "save": 0,
+    "total": 23368,
+    "weather_fetch": 825
+   },
+   "llm_calls": [
+    {
+     "status": 200,
+     "ms": 22535,
+     "prompt": 7155,
+     "cached": 24,
+     "completion": 132
+    }
+   ],
+   "stt_calls": [],
+   "json_first_try": true,
+   "ok": true,
+   "topic_ok": true,
+   "checks": [
+    {
+     "ok": true,
+     "what": "replied",
+     "kind": "result"
+    },
+    {
+     "ok": true,
+     "what": "topic chat in ['chat']",
+     "kind": "topic"
+    }
+   ]
+  },
+  {
+   "mode": "text",
+   "n": 2,
+   "say": "Mấy giờ rồi?",
+   "status": 200,
+   "seconds": 11.02,
+   "rate_limited_s": 0,
+   "heard": "Mấy giờ rồi?",
+   "reply": "Trời ơi, Khanh hỏi giờ hả? Bây giờ là 14 giờ 10 phút rồi nha! Khanh muốn bổn công chúa làm gì nữa không?",
+   "topic": "time",
+   "mood": "alert",
+   "server_ms": {
+    "db": 1,
+    "llm": 11005,
+    "save": 2,
+    "total": 11010,
+    "weather_fetch": 0
+   },
+   "llm_calls": [
+    {
+     "status": 200,
+     "ms": 11003,
+     "prompt": 7245,
+     "cached": 4914,
+     "completion": 122
+    }
+   ],
+   "stt_calls": [],
+   "json_first_try": true,
+   "ok": true,
+   "topic_ok": true,
+   "checks": [
+    {
+     "ok": true,
+     "what": "the hour",
+     "kind": "result"
+    },
+    {
+     "ok": true,
+     "what": "topic time in ['time']",
+     "kind": "topic"
+    }
+   ]
+  },
+  {
+   "mode": "text",
+   "n": 3,
+   "say": "Hôm nay thứ mấy, âm lịch ngày bao nhiêu?",
+   "status": 200,
+   "seconds": 3.45,
+   "rate_limited_s": 0,
+   "heard": "Hôm nay thứ mấy, âm lịch ngày bao nhiêu?",
+   "reply": "Trời ơi, bổn công chúa nhìn lịch nè! Hôm nay là thứ Bảy, ngày 21 tháng 11 năm 2026 nha khanh!",
+   "topic": "time",
+   "mood": "happy",
+   "server_ms": {
+    "db": 1,
+    "llm": 3447,
+    "save": 1,
+    "total": 3451,
+    "weather_fetch": 0
+   },
+   "llm_calls": [
+    {
+     "status": 200,
+     "ms": 3445,
+     "prompt": 7300,
+     "cached": 7230,
+     "completion": 150
+    }
+   ],
+   "stt_calls": [],
+   "json_first_try": true,
+   "ok": true,
+   "topic_ok": true,
+   "checks": [
+    {
+     "ok": true,
+     "what": "replied",
+     "kind": "result"
+    },
+    {
+     "ok": true,
+     "what": "topic time in ['time', 'calendar']",
+     "kind": "topic"
+    }
+   ]
+  },
+  {
+   "mode": "text",
+   "n": 4,
+   "say": "Thời tiết hôm nay thế nào?",
+   "status": 200,
+   "seconds": 4.49,
+   "rate_limited_s": 0,
+   "heard": "Thời tiết hôm nay thế nào?",
+   "reply": "Ở TP Hồ Chí Minh hôm nay ít mây, nhiệt độ khoảng 33 độ C, cảm giác như 38 độ C nha khanh! Khả năng mưa khoảng 19% đó.",
+   "topic": "weather",
+   "mood": "levelup",
+   "server_ms": {
+    "db": 4,
+    "llm": 4483,
+    "save": 0,
+    "total": 4489,
+    "weather_fetch": 0
+   },
+   "llm_calls": [
+    {
+     "status": 200,
+     "ms": 4481,
+     "prompt": 7353,
+     "cached": 7131,
+     "completion": 178
+    }
+   ],
+   "stt_calls": [],
+   "json_first_try": true,
+   "ok": true,
+   "topic_ok": true,
+   "checks": [
+    {
+     "ok": true,
+     "what": "names the city",
+     "kind": "result"
+    },
+    {
+     "ok": true,
+     "what": "topic weather in ['weather']",
+     "kind": "topic"
+    }
+   ]
+  },
+  {
+   "mode": "text",
+   "n": 5,
+   "say": "Ngày mai có mưa không?",
+   "status": 200,
+   "seconds": 4.42,
+   "rate_limited_s": 0,
+   "heard": "Ngày mai có mưa không?",
+   "reply": "Ngày mai ở TP Hồ Chí Minh có lúc mưa phùn nha khanh, khả năng mưa cao nhất là 63% đó.",
+   "topic": "weather",
+   "mood": "alert",
+   "server_ms": {
+    "db": 3,
+    "llm": 4416,
+    "save": 1,
+    "total": 4421,
+    "weather_fetch": 0
+   },
+   "llm_calls": [
+    {
+     "status": 200,
+     "ms": 4415,
+     "prompt": 7449,
+     "cached": 7132,
+     "completion": 160
+    }
+   ],
+   "stt_calls": [],
+   "json_first_try": true,
+   "ok": true,
+   "topic_ok": true,
+   "checks": [
+    {
+     "ok": true,
+     "what": "replied",
+     "kind": "result"
+    },
+    {
+     "ok": true,
+     "what": "topic weather in ['weather']",
+     "kind": "topic"
+    }
+   ]
+  },
+  {
+   "mode": "text",
+   "n": 6,
+   "say": "Đọc báo sáng nay đi.",
+   "status": 200,
+   "seconds": 5.53,
+   "rate_limited_s": 0,
+   "heard": "Đọc báo sáng nay đi.",
+   "reply": "Báo lấy lúc 14 giờ 09 hôm nay nha khanh! Báo có những tin quan trọng sau: Từ ngày 1 tháng 3 năm 2027, tài sản liên quan đến tội phạm rửa tiền, kinh tế, tham nhũng và chức vụ có thể bị thu hồi thông qua thủ tục dân sự, dù chưa có bản án hình sự. Người đàn ông tử vong khi cứu phụ nữ đuối nước ở biển Nha Trang: Người đàn ông bơi ra cứu phụ nữ gặp nạn giữa sóng lớn ở biển Nha Trang, nhưng bị đuối sức, tử vong; một nhân viên cứu hộ cũng phải nhập viện.",
+   "topic": "news",
+   "mood": "alert",
+   "server_ms": {
+    "db": 1,
+    "llm": 5523,
+    "save": 0,
+    "total": 5526,
+    "weather_fetch": 0
+   },
+   "llm_calls": [
+    {
+     "status": 200,
+     "ms": 5522,
+     "prompt": 7491,
+     "cached": 7433,
+     "completion": 281
+    }
+   ],
+   "stt_calls": [],
+   "json_first_try": true,
+   "ok": true,
+   "topic_ok": true,
+   "checks": [
+    {
+     "ok": true,
+     "what": "a news summary (>= 50 words)",
+     "kind": "result"
+    },
+    {
+     "ok": true,
+     "what": "topic news in ['news']",
+     "kind": "topic"
+    }
+   ]
+  },
+  {
+   "mode": "text",
+   "n": 7,
+   "say": "Tin đầu tiên nói gì vậy?",
+   "status": 200,
+   "seconds": 14.93,
+   "rate_limited_s": 0,
+   "heard": "Tin đầu tiên nói gì vậy?",
+   "reply": "Báo lấy lúc 14 giờ 09 hôm nay nha khanh! Tin đầu tiên là từ ngày 1 tháng 3 năm 2027, tài sản liên quan đến tội phạm rửa tiền, kinh tế, tham nhũng và chức vụ có thể bị thu hồi thông qua thủ tục dân sự, dù chưa có bản án hình sự.",
+   "topic": "news",
+   "mood": "alert",
+   "server_ms": {
+    "db": 1,
+    "llm": 14921,
+    "save": 1,
+    "total": 14924,
+    "weather_fetch": 0
+   },
+   "llm_calls": [
+    {
+     "status": 200,
+     "ms": 14920,
+     "prompt": 7639,
+     "cached": 4915,
+     "completion": 239
+    }
+   ],
+   "stt_calls": [],
+   "json_first_try": true,
+   "ok": true,
+   "topic_ok": true,
+   "checks": [
+    {
+     "ok": true,
+     "what": "replied",
+     "kind": "result"
+    },
+    {
+     "ok": true,
+     "what": "topic news in ['news']",
+     "kind": "topic"
+    }
+   ]
+  },
+  {
+   "mode": "text",
+   "n": 8,
+   "say": "Còn tin thể thao thì sao?",
+   "status": 200,
+   "seconds": 5.42,
+   "rate_limited_s": 0,
+   "heard": "Còn tin thể thao thì sao?",
+   "reply": "Hí hí! Bổn công chúa kiểm tra tin thể thao cho khanh nè. Hiện tại chưa có tin thể thao nào được cập nhật đâu nha khanh.",
+   "topic": "news",
+   "mood": "happy",
+   "server_ms": {
+    "db": 1,
+    "llm": 5411,
+    "save": 1,
+    "total": 5414,
+    "weather_fetch": 0
+   },
+   "llm_calls": [
+    {
+     "status": 200,
+     "ms": 5409,
+     "prompt": 7749,
+     "cached": 7132,
+     "completion": 177
+    }
+   ],
+   "stt_calls": [],
+   "json_first_try": true,
+   "ok": true,
+   "topic_ok": true,
+   "checks": [
+    {
+     "ok": true,
+     "what": "says there is none",
+     "kind": "result"
+    },
+    {
+     "ok": true,
+     "what": "topic news in ['news']",
+     "kind": "topic"
+    }
+   ]
+  },
+  {
+   "mode": "text",
+   "n": 9,
+   "say": "Giá vàng hôm nay bao nhiêu?",
+   "status": 200,
+   "seconds": 3.74,
+   "rate_limited_s": 0,
+   "heard": "Giá vàng hôm nay bao nhiêu?",
+   "reply": "Giá vàng lúc 14 giờ 09 hôm nay là Vàng SJC mua 128,5 triệu đồng và bán 133,5 triệu đồng nha khanh!",
+   "topic": "gold",
+   "mood": "levelup",
+   "server_ms": {
+    "db": 1,
+    "llm": 3732,
+    "save": 1,
+    "total": 3736,
+    "weather_fetch": 0
+   },
+   "llm_calls": [
+    {
+     "status": 200,
+     "ms": 3731,
+     "prompt": 7799,
+     "cached": 7732,
+     "completion": 206
+    }
+   ],
+   "stt_calls": [],
+   "json_first_try": true,
+   "ok": true,
+   "topic_ok": true,
+   "checks": [
+    {
+     "ok": true,
+     "what": "replied",
+     "kind": "result"
+    },
+    {
+     "ok": true,
+     "what": "topic gold in ['gold']",
+     "kind": "topic"
+    }
+   ]
+  },
+  {
+   "mode": "text",
+   "n": 10,
+   "say": "Đặt báo thức 6 giờ 30 sáng mai.",
+   "status": 200,
+   "seconds": 19.22,
+   "rate_limited_s": 0,
+   "heard": "Đặt báo thức 6 giờ 30 sáng mai.",
+   "reply": "Vâng, truyền lệnh: đặt báo thức lúc 6 giờ 30 sáng mai cho khanh nha!",
+   "topic": "alarm",
+   "mood": "levelup",
+   "server_ms": {
+    "db": 1,
+    "llm": 19211,
+    "save": 1,
+    "total": 19214,
+    "weather_fetch": 0
+   },
+   "llm_calls": [
+    {
+     "status": 200,
+     "ms": 19211,
+     "prompt": 8131,
+     "cached": 3285,
+     "completion": 176
+    }
+   ],
+   "stt_calls": [],
+   "json_first_try": true,
+   "ok": false,
+   "topic_ok": true,
+   "checks": [
+    {
+     "ok": false,
+     "what": "alarm 06:30 once",
+     "kind": "result"
+    },
+    {
+     "ok": true,
+     "what": "topic alarm in ['alarm']",
+     "kind": "topic"
+    }
+   ]
+  },
+  {
+   "mode": "text",
+   "n": 11,
+   "say": "Đặt thêm báo thức 7 giờ tối từ thứ Hai đến thứ Sáu.",
+   "status": 200,
+   "seconds": 18.82,
+   "rate_limited_s": 0,
+   "heard": "Đặt thêm báo thức 7 giờ tối từ thứ Hai đến thứ Sáu.",
+   "reply": "Truyền lệnh: đặt báo thức lúc 7 giờ tối từ thứ Hai đến thứ Sáu cho khanh nha!",
+   "topic": "alarm",
+   "mood": "stand",
+   "server_ms": {
+    "db": 2,
+    "llm": 18812,
+    "save": 1,
+    "total": 18816,
+    "weather_fetch": 0
+   },
+   "llm_calls": [
+    {
+     "status": 200,
+     "ms": 18811,
+     "prompt": 7779,
+     "cached": 3285,
+     "completion": 164
+    }
+   ],
+   "stt_calls": [],
+   "json_first_try": true,
+   "ok": true,
+   "topic_ok": true,
+   "checks": [
+    {
+     "ok": true,
+     "what": "alarm 19:00 Mon-Fri",
+     "kind": "result"
+    },
+    {
+     "ok": true,
+     "what": "topic alarm in ['alarm']",
+     "kind": "topic"
+    }
+   ]
+  },
+  {
+   "mode": "text",
+   "n": 12,
+   "say": "Tao có những báo thức nào?",
+   "status": 200,
+   "seconds": 5.35,
+   "rate_limited_s": 0,
+   "heard": "Tao có những báo thức nào?",
+   "reply": "Khanh có báo thức là 1 lúc 6 giờ 30 sáng mai và 2 lúc 19 giờ tối từ thứ Hai đến thứ Sáu nha.",
+   "topic": "alarm",
+   "mood": "levelup",
+   "server_ms": {
+    "db": 2,
+    "llm": 5340,
+    "save": 2,
+    "total": 5345,
+    "weather_fetch": 0
+   },
+   "llm_calls": [
+    {
+     "status": 200,
+     "ms": 5340,
+     "prompt": 7841,
+     "cached": 7050,
+     "completion": 125
+    }
+   ],
+   "stt_calls": [],
+   "json_first_try": true,
+   "ok": true,
+   "topic_ok": true,
+   "checks": [
+    {
+     "ok": true,
+     "what": "names both alarms",
+     "kind": "result"
+    },
+    {
+     "ok": true,
+     "what": "topic alarm in ['alarm']",
+     "kind": "topic"
+    }
+   ]
+  },
+  {
+   "mode": "text",
+   "n": 13,
+   "say": "Đổi báo thức 6 giờ 30 thành 6 giờ 45.",
+   "status": 200,
+   "seconds": 3.93,
+   "rate_limited_s": 0,
+   "heard": "Đổi báo thức 6 giờ 30 thành 6 giờ 45.",
+   "reply": "Truyền lệnh: đổi báo thức lúc 6 giờ 45 sáng mai cho khanh nha!",
+   "topic": "alarm",
+   "mood": "levelup",
+   "server_ms": {
+    "db": 3,
+    "llm": 3916,
+    "save": 1,
+    "total": 3921,
+    "weather_fetch": 0
+   },
+   "llm_calls": [
+    {
+     "status": 200,
+     "ms": 3916,
+     "prompt": 7901,
+     "cached": 7824,
+     "completion": 212
+    }
+   ],
+   "stt_calls": [],
+   "json_first_try": true,
+   "ok": true,
+   "topic_ok": true,
+   "checks": [
+    {
+     "ok": true,
+     "what": "06:30 moved to 06:45",
+     "kind": "result"
+    },
+    {
+     "ok": true,
+     "what": "topic alarm in ['alarm']",
+     "kind": "topic"
+    }
+   ]
+  },
+  {
+   "mode": "text",
+   "n": 14,
+   "say": "Tắt báo thức 7 giờ tối đi.",
+   "status": 200,
+   "seconds": 19.91,
+   "rate_limited_s": 0,
+   "heard": "Tắt báo thức 7 giờ tối đi.",
+   "reply": "Truyền lệnh: tắt báo thức lúc 19 giờ tối từ thứ Hai đến thứ Sáu cho khanh nha!",
+   "topic": "alarm",
+   "mood": "levelup",
+   "server_ms": {
+    "db": 4,
+    "llm": 19903,
+    "save": 1,
+    "total": 19909,
+    "weather_fetch": 0
+   },
+   "llm_calls": [
+    {
+     "status": 200,
+     "ms": 19902,
+     "prompt": 8204,
+     "cached": 3285,
+     "completion": 196
+    }
+   ],
+   "stt_calls": [],
+   "json_first_try": true,
+   "ok": true,
+   "topic_ok": true,
+   "checks": [
+    {
+     "ok": true,
+     "what": "19:00 switched off",
+     "kind": "result"
+    },
+    {
+     "ok": true,
+     "what": "topic alarm in ['alarm']",
+     "kind": "topic"
+    }
+   ]
+  },
+  {
+   "mode": "text",
+   "n": 15,
+   "say": "Xóa báo thức 6 giờ 45.",
+   "status": 200,
+   "seconds": 19.94,
+   "rate_limited_s": 0,
+   "heard": "Xóa báo thức 6 giờ 45.",
+   "reply": "Truyền lệnh: xóa báo thức lúc 6 giờ 45 sáng mai cho khanh nha!",
+   "topic": "alarm",
+   "mood": "levelup",
+   "server_ms": {
+    "db": 1,
+    "llm": 19930,
+    "save": 1,
+    "total": 19933,
+    "weather_fetch": 0
+   },
+   "llm_calls": [
+    {
+     "status": 200,
+     "ms": 19930,
+     "prompt": 7684,
+     "cached": 3285,
+     "completion": 262
+    }
+   ],
+   "stt_calls": [],
+   "json_first_try": true,
+   "ok": true,
+   "topic_ok": true,
+   "checks": [
+    {
+     "ok": true,
+     "what": "06:45 deleted, 19:00 kept",
+     "kind": "result"
+    },
+    {
+     "ok": true,
+     "what": "topic alarm in ['alarm']",
+     "kind": "topic"
+    }
+   ]
+  },
+  {
+   "mode": "text",
+   "n": 16,
+   "say": "Ghi chú giúp tao: đồ cần mua là sữa, trứng và bánh mì.",
+   "status": 200,
+   "seconds": 12.89,
+   "rate_limited_s": 0,
+   "heard": "Ghi chú giúp tao: đồ cần mua là sữa, trứng và bánh mì.",
+   "reply": "Truyền lệnh: ghi chú đồ cần mua là sữa, trứng và bánh mì cho khanh nha! Bổn công chúa sẽ nhớ đó!",
+   "topic": "note",
+   "mood": "levelup",
+   "server_ms": {
+    "db": 3,
+    "llm": 12886,
+    "save": 1,
+    "total": 12891,
+    "weather_fetch": 0
+   },
+   "llm_calls": [
+    {
+     "status": 200,
+     "ms": 12885,
+     "prompt": 7758,
+     "cached": 4915,
+     "completion": 164
+    }
+   ],
+   "stt_calls": [],
+   "json_first_try": true,
+   "ok": true,
+   "topic_ok": true,
+   "checks": [
+    {
+     "ok": true,
+     "what": "a note with sữa",
+     "kind": "result"
+    },
+    {
+     "ok": true,
+     "what": "topic note in ['note']",
+     "kind": "topic"
+    }
+   ]
+  },
+  {
+   "mode": "text",
+   "n": 17,
+   "say": "Thêm cà phê vào ghi chú đồ cần mua.",
+   "status": 200,
+   "seconds": 5.9,
+   "rate_limited_s": 0,
+   "heard": "Thêm cà phê vào ghi chú đồ cần mua.",
+   "reply": "Truyền lệnh: ghi chú đồ cần mua là sữa, trứng, bánh mì và cà phê cho khanh nha! Bổn công chúa sẽ nhớ đó!",
+   "topic": "todo",
+   "mood": "happy",
+   "server_ms": {
+    "db": 1,
+    "llm": 5899,
+    "save": 1,
+    "total": 5902,
+    "weather_fetch": 0
+   },
+   "llm_calls": [
+    {
+     "status": 200,
+     "ms": 5898,
+     "prompt": 7833,
+     "cached": 7101,
+     "completion": 175
+    }
+   ],
+   "stt_calls": [],
+   "json_first_try": true,
+   "ok": true,
+   "topic_ok": false,
+   "checks": [
+    {
+     "ok": true,
+     "what": "cà phê added to the same note",
+     "kind": "result"
+    },
+    {
+     "ok": false,
+     "what": "topic todo in ['note']",
+     "kind": "topic"
+    }
+   ]
+  },
+  {
+   "mode": "text",
+   "n": 18,
+   "say": "Nhắc tao gọi điện cho mẹ.",
+   "status": 200,
+   "seconds": 19.36,
+   "rate_limited_s": 0,
+   "heard": "Nhắc tao gọi điện cho mẹ.",
+   "reply": "Truyền lệnh: gọi điện cho mẹ cho khanh nha!",
+   "topic": "todo",
+   "mood": "plead",
+   "server_ms": {
+    "db": 1,
+    "llm": 19357,
+    "save": 1,
+    "total": 19361,
+    "weather_fetch": 0
+   },
+   "llm_calls": [
+    {
+     "status": 200,
+     "ms": 19357,
+     "prompt": 8188,
+     "cached": 3285,
+     "completion": 175
+    }
+   ],
+   "stt_calls": [],
+   "json_first_try": true,
+   "ok": true,
+   "topic_ok": true,
+   "checks": [
+    {
+     "ok": true,
+     "what": "a reminder about mẹ",
+     "kind": "result"
+    },
+    {
+     "ok": true,
+     "what": "topic todo in ['todo']",
+     "kind": "topic"
+    }
+   ]
+  },
+  {
+   "mode": "text",
+   "n": 19,
+   "say": "Tao gọi cho mẹ xong rồi, đánh dấu xong đi.",
+   "status": 200,
+   "seconds": 18.29,
+   "rate_limited_s": 0,
+   "heard": "Tao gọi cho mẹ xong rồi, đánh dấu xong đi.",
+   "reply": "Vui quá hà! Truyền lệnh: gọi điện cho mẹ cho khanh nha! Xong rồi thì đánh dấu xong liền nha!",
+   "topic": "todo",
+   "mood": "happy",
+   "server_ms": {
+    "db": 1,
+    "llm": 18280,
+    "save": 1,
+    "total": 18283,
+    "weather_fetch": 0
+   },
+   "llm_calls": [
+    {
+     "status": 200,
+     "ms": 18279,
+     "prompt": 7805,
+     "cached": 3285,
+     "completion": 138
+    }
+   ],
+   "stt_calls": [],
+   "json_first_try": true,
+   "ok": true,
+   "topic_ok": true,
+   "checks": [
+    {
+     "ok": true,
+     "what": "the reminder is done",
+     "kind": "result"
+    },
+    {
+     "ok": true,
+     "what": "topic todo in ['todo']",
+     "kind": "topic"
+    }
+   ]
+  },
+  {
+   "mode": "text",
+   "n": 20,
+   "say": "Tăng âm lượng lên 70.",
+   "status": 200,
+   "seconds": 5.1,
+   "rate_limited_s": 0,
+   "heard": "Tăng âm lượng lên 70.",
+   "reply": "Truyền lệnh: đổi âm lượng lên 70 cho khanh nha!",
+   "topic": "chat",
+   "mood": "alert",
+   "server_ms": {
+    "db": 3,
+    "llm": 5091,
+    "save": 1,
+    "total": 5095,
+    "weather_fetch": 0
+   },
+   "llm_calls": [
+    {
+     "status": 200,
+     "ms": 5090,
+     "prompt": 7853,
+     "cached": 7098,
+     "completion": 113
+    }
+   ],
+   "stt_calls": [],
+   "json_first_try": true,
+   "ok": false,
+   "topic_ok": true,
+   "checks": [
+    {
+     "ok": false,
+     "what": "s3.volume = 70",
+     "kind": "result"
+    }
+   ]
+  },
+  {
+   "mode": "text",
+   "n": 21,
+   "say": "Tao tên là Nam.",
+   "status": 200,
+   "seconds": 2.2,
+   "rate_limited_s": 0,
+   "heard": "Tao tên là Nam.",
+   "reply": "Chào Nam nha! Bổn công chúa là Biscuit, khanh gọi bổn công chúa là Biscuit nha! Vui quá hà!",
+   "topic": "chat",
+   "mood": "happy",
+   "server_ms": {
+    "db": 2,
+    "llm": 2198,
+    "save": 1,
+    "total": 2201,
+    "weather_fetch": 0
+   },
+   "llm_calls": [
+    {
+     "status": 200,
+     "ms": 2198,
+     "prompt": 7882,
+     "cached": 7834,
+     "completion": 117
+    }
+   ],
+   "stt_calls": [],
+   "json_first_try": true,
+   "ok": false,
+   "topic_ok": true,
+   "checks": [
+    {
+     "ok": false,
+     "what": "call_name = Nam",
+     "kind": "result"
+    }
+   ]
+  },
+  {
+   "mode": "text",
+   "n": 22,
+   "say": "Tao thích ăn phở bò lắm.",
+   "status": 200,
+   "seconds": 19.21,
+   "rate_limited_s": 0,
+   "heard": "Tao thích ăn phở bò lắm.",
+   "reply": "Phở bò hả khanh? Bổn công chúa sẽ mang đến cho khanh một tô thật ngon nha! Vui quá hà!",
+   "topic": "chat",
+   "mood": "happy",
+   "server_ms": {
+    "db": 2,
+    "llm": 19199,
+    "save": 1,
+    "total": 19203,
+    "weather_fetch": 0
+   },
+   "llm_calls": [
+    {
+     "status": 200,
+     "ms": 19197,
+     "prompt": 8202,
+     "cached": 3285,
+     "completion": 142
+    }
+   ],
+   "stt_calls": [],
+   "json_first_try": true,
+   "ok": true,
+   "topic_ok": true,
+   "checks": [
+    {
+     "ok": true,
+     "what": "a memory about phở",
+     "kind": "result"
+    }
+   ]
+  },
+  {
+   "mode": "text",
+   "n": 23,
+   "say": "Mày nhớ gì về tao?",
+   "status": 200,
+   "seconds": 18.28,
+   "rate_limited_s": 0,
+   "heard": "Mày nhớ gì về tao?",
+   "reply": "Khanh ơi, bổn công chúa nhớ khanh thích ăn phở bò lắm nha! Bổn công chúa sẽ mang đến cho khanh một tô thật ngon!",
+   "topic": "memory",
+   "mood": "happy",
+   "server_ms": {
+    "db": 1,
+    "llm": 18278,
+    "save": 0,
+    "total": 18281,
+    "weather_fetch": 0
+   },
+   "llm_calls": [
+    {
+     "status": 200,
+     "ms": 18277,
+     "prompt": 7819,
+     "cached": 3285,
+     "completion": 142
+    }
+   ],
+   "stt_calls": [],
+   "json_first_try": true,
+   "ok": true,
+   "topic_ok": true,
+   "checks": [
+    {
+     "ok": true,
+     "what": "recalls phở or the name",
+     "kind": "result"
+    },
+    {
+     "ok": true,
+     "what": "topic memory in ['memory', 'chat']",
+     "kind": "topic"
+    }
+   ]
+  },
+  {
+   "mode": "text",
+   "n": 24,
+   "say": "Hôm nay tao mệt quá.",
+   "status": 200,
+   "seconds": 2.58,
+   "rate_limited_s": 0,
+   "heard": "Hôm nay tao mệt quá.",
+   "reply": "Hì hì, mệt hả khanh? Khanh ôm cái nè! Hồi cung nghỉ cái, lát chơi nha!",
+   "topic": "chat",
+   "mood": "plead",
+   "server_ms": {
+    "db": 2,
+    "llm": 2570,
+    "save": 0,
+    "total": 2573,
+    "weather_fetch": 0
+   },
+   "llm_calls": [
+    {
+     "status": 200,
+     "ms": 2570,
+     "prompt": 7871,
+     "cached": 7802,
+     "completion": 134
+    }
+   ],
+   "stt_calls": [],
+   "json_first_try": true,
+   "ok": true,
+   "topic_ok": true,
+   "checks": [
+    {
+     "ok": true,
+     "what": "replied",
+     "kind": "result"
+    },
+    {
+     "ok": true,
+     "what": "topic chat in ['chat']",
+     "kind": "topic"
+    }
+   ]
+  },
+  {
+   "mode": "text",
+   "n": 25,
+   "say": "Mày đang làm gì đó?",
+   "status": 200,
+   "seconds": 2.96,
+   "rate_limited_s": 0,
+   "heard": "Mày đang làm gì đó?",
+   "reply": "Bổn công chúa đang ở trong chiếc máy để bàn EspOS của khanh đây nè. Khanh muốn bổn công chúa làm gì không?",
+   "topic": "chat",
+   "mood": "levelup",
+   "server_ms": {
+    "db": 3,
+    "llm": 2948,
+    "save": 1,
+    "total": 2953,
+    "weather_fetch": 0
+   },
+   "llm_calls": [
+    {
+     "status": 200,
+     "ms": 2946,
+     "prompt": 7911,
+     "cached": 7853,
+     "completion": 155
+    }
+   ],
+   "stt_calls": [],
+   "json_first_try": true,
+   "ok": true,
+   "topic_ok": true,
+   "checks": [
+    {
+     "ok": true,
+     "what": "replied",
+     "kind": "result"
+    },
+    {
+     "ok": true,
+     "what": "topic chat in ['chat']",
+     "kind": "topic"
+    }
+   ]
+  },
+  {
+   "mode": "text",
+   "n": 26,
+   "say": "Giải giúp tao phương trình 2x cộng 3 bằng 7.",
+   "status": 200,
+   "seconds": 19.36,
+   "rate_limited_s": 0,
+   "heard": "Giải giúp tao phương trình 2x cộng 3 bằng 7.",
+   "reply": "Khanh nói gì vậy? Phương trình gì thế? Khanh nói rõ lại cho bổn công chúa hiểu nha!",
+   "topic": "chat",
+   "mood": "alert",
+   "server_ms": {
+    "db": 3,
+    "llm": 19357,
+    "save": 0,
+    "total": 19361,
+    "weather_fetch": 0
+   },
+   "llm_calls": [
+    {
+     "status": 200,
+     "ms": 19356,
+     "prompt": 8246,
+     "cached": 3285,
+     "completion": 139
+    }
+   ],
+   "stt_calls": [],
+   "json_first_try": true,
+   "ok": true,
+   "topic_ok": false,
+   "checks": [
+    {
+     "ok": true,
+     "what": "does not solve the homework",
+     "kind": "result"
+    },
+    {
+     "ok": false,
+     "what": "topic chat in ['refuse']",
+     "kind": "topic"
+    }
+   ]
+  },
+  {
+   "mode": "text",
+   "n": 27,
+   "say": "Chơi đoán số đi.",
+   "status": 200,
+   "seconds": 4.42,
+   "rate_limited_s": 0,
+   "heard": "Chơi đoán số đi.",
+   "reply": "Khanh muốn chơi đoán số hả? Bổn công chúa thích lắm! Khanh cứ nghĩ trước nha!",
+   "topic": "chat",
+   "mood": "happy",
+   "server_ms": {
+    "db": 1,
+    "llm": 4412,
+    "save": 2,
+    "total": 4417,
+    "weather_fetch": 0
+   },
+   "llm_calls": [
+    {
+     "status": 200,
+     "ms": 4411,
+     "prompt": 8284,
+     "cached": 7741,
+     "completion": 124
+    }
+   ],
+   "stt_calls": [],
+   "json_first_try": true,
+   "ok": true,
+   "topic_ok": true,
+   "checks": [
+    {
+     "ok": true,
+     "what": "plays",
+     "kind": "result"
+    },
+    {
+     "ok": true,
+     "what": "topic chat in ['chat']",
+     "kind": "topic"
+    }
+   ]
+  },
+  {
+   "mode": "text",
+   "n": 28,
+   "say": "Số 5.",
+   "status": 200,
+   "seconds": 19.72,
+   "rate_limited_s": 0,
+   "heard": "Số 5.",
+   "reply": "Khanh muốn bổn công chúa đoán số hả? Khanh cứ nghĩ trước nha!",
+   "topic": "chat",
+   "mood": "alert",
+   "server_ms": {
+    "db": 4,
+    "llm": 19713,
+    "save": 1,
+    "total": 19719,
+    "weather_fetch": 0
+   },
+   "llm_calls": [
+    {
+     "status": 200,
+     "ms": 19712,
+     "prompt": 7821,
+     "cached": 3285,
+     "completion": 240
+    }
+   ],
+   "stt_calls": [],
+   "json_first_try": true,
+   "ok": true,
+   "topic_ok": true,
+   "checks": [
+    {
+     "ok": true,
+     "what": "replied",
+     "kind": "result"
+    },
+    {
+     "ok": true,
+     "what": "topic chat in ['chat']",
+     "kind": "topic"
+    }
+   ]
+  }
+ ],
+ "summary": {
+  "text": {
+   "turns": 28,
+   "result_ok": 25,
+   "topic_ok": 26,
+   "http_200": 28,
+   "json_first_try": 28,
+   "median_s": 8.46,
+   "p90_s": 19.72,
+   "max_s": 23.37,
+   "median_prompt_tokens": 7820,
+   "median_cached_tokens": 5982
+  }
+ }
+}
