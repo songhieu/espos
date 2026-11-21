@@ -14,6 +14,7 @@ const Settings& defaults() {
       {"bot.style", "eyes"},
       {"bot.screens", R"([{"id":"clock_bold","s":20},{"id":"date_page","s":8},{"id":"weather","s":8},{"id":"eyes","s":20},{"id":"aquarium","s":15}])"},
       {"bot.bright", "60"},
+      {"bot.flip", "0"},
       {"bot.night", "22:00-07:00"},
       {"bot.dog", ""},
       {"bot.wake", "2"},

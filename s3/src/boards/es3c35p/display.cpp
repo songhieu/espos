@@ -12,6 +12,7 @@
 #include "esp_lcd_panel_io.h"
 #include "esp_lcd_panel_ops.h"
 #include "es3c35p.h"
+#include "lcd.h"
 #include "freertos/queue.h"
 #include "freertos/semphr.h"
 #include "vendor/esp_lcd_st77922.h"
@@ -340,6 +341,13 @@ lv_display_t* begin() {
 }
 
 void setRotation(lv_display_rotation_t r) {
+  // Upside down (180, and 270 = 90 upside down) is the panel's own mirrored scan (MADCTL MX+MY: no cost); LVGL, the
+  // games and the aquarium then draw as at 0 / 90 (lcd.h flipped()). The software 180 turn made the aquarium saver
+  // take 160 ms a loop on a test board (2026-11-20).
+  const bool flip = r == LV_DISPLAY_ROTATION_180 || r == LV_DISPLAY_ROTATION_270;
+  if (flip) r = r == LV_DISPLAY_ROTATION_180 ? LV_DISPLAY_ROTATION_0 : LV_DISPLAY_ROTATION_90;
+  esp_lcd_panel_mirror(panel, flip, flip);
+  lcd::setFlipped(flip);
   const bool side = r == LV_DISPLAY_ROTATION_90 || r == LV_DISPLAY_ROTATION_270;
   if (side && !shadow) {
     shadow = (uint16_t*)heap_caps_malloc(LCD_W * LCD_H * 2, MALLOC_CAP_SPIRAM);

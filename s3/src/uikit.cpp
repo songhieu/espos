@@ -234,7 +234,11 @@ lv_obj_t* listRow(lv_obj_t* parent, const char* name, const char* value, lv_even
   const int nw = textW(name, 15), vw = *vt ? textW(vt, 14) : 0;
   if (rw > 60 && nw + vw + 12 > rw) {
     const int vroom = max(rw / 3, rw - nw - 12);
-    if (vw > vroom) fitText(b, vt, vroom, 20, 14, 12);
+    // One line if it can (14..12 px, then letters 1 px closer, as fitText does); else two lines, which fit the 46 px
+    // row (it was a one-line box the text ran out of).
+    int n = 0;
+    for (const char* q = vt; *q; q++) n += (*q & 0xC0) != 0x80;
+    if (vw > vroom) fitText(b, vt, vroom, textW(vt, 12) - (n - 1) > vroom ? 38 : 20, 14, 12);
     const int nroom = rw - min(vw, vroom) - 12;
     if (nw > nroom) fitText(a, name, nroom, 40, 15, 12);
   }

@@ -45,6 +45,17 @@ python3 tools/bot/gen.py     # bot-art's art2 (tools/bot/art2) -> src/bot/art.{h
 
 **Way 2:** `ESPOS:PROVISION` over USB.
 
+**Lost WiFi** (a router that is off, a move, a changed password):
+- **Offline more than 20 s:** "Mất WiFi <tên> · Đang thử lại · bấm nút để cài WiFi". Standby and the night clock show a small crossed-out WiFi mark.
+- **The setup WiFi opens by itself** when:
+  - the bot has been offline 2 minutes;
+  - or, at boot, two full rounds of the saved networks failed;
+  - or a saved network refused its password 3 times;
+  - or nothing is saved.
+- **It never opens** while online or during a turn. A press of BOOT or Vol+ while offline opens it at once.
+- **While it's up:** the reason shows for 4 s of every 12 ("Mất WiFi <tên> · Cài WiFi mới trên điện thoại" / "Sai mật khẩu WiFi <tên> · Cài lại trên điện thoại").
+- **The saved networks are still tried** every 30 s, only when one is in the scan and no phone is on the setup WiFi. When one comes back the bot joins it, and the setup WiFi closes 20 s later.
+
 **Buttons** (active low):
 
 | button | short press | held 5 s | twice quickly |
@@ -111,6 +122,7 @@ BOT_SIM_LIVE=1                      the real api.espos.dev (live AI/TTS calls: o
 | `window NAME` | a picture of the window (not headless) |
 | `expect ui STATE` | fails the run when the screen is another one |
 | `expect talk active\|idle` | fails the run when the turn is in another state |
+| `expect portal on\|off`, `expect online yes\|no` | the setup WiFi, the network |
 | `quit` | ends the run |
 
 Headless runs also write what the speaker played: `speaker.wav`.
@@ -120,6 +132,9 @@ Headless runs also write what the speaker played: `speaker.wav`.
 - `wake.txt`: needs `BOT_SIM_CALL`, a recording of a real "gâu gâu". The Mac's synthetic voice does not wake the model.
 - `setup.txt`: the phone page with a wrong password, then the right one → pairing code → the web confirms → hello → standby.
 - `buttons.txt`: Vol−, Vol+ twice, Vol+ once (talk).
+- `lostwifi.txt`, `newpass.txt`, `boot_offline.txt` (with `BOT_SIM_ROUTER=down`): the router played over the console
+  (`NETSIM down|up|newpass`). A drop and a return, a changed password, a boot with no network.
+- `coffee.txt`: with `BOT_SIM_TIME=HH:MM` (a fake local clock, +7), the morning coffee and its greeting.
 - `setup_chars.txt`: a network name with spaces and a password with signs, saved exactly as typed (the page's
   form encoding).
 
@@ -151,6 +166,7 @@ The server side belongs to admin-users: `web/scripts/bot-keys.go.txt`, `web/scri
   - `bot.style` eyes|pixel|line
   - `bot.screens` [{id: clock|date|weather|dog, s}]
   - `bot.bright` 5-100
+  - `bot.flip` "1" = the panel turned 180° (the SSD1306's own remap A0/C0, applied live), default "0"
   - `bot.night` "HH:MM-HH:MM"
   - `bot.wake` 0 off / 1-3
   - `bot.follow`

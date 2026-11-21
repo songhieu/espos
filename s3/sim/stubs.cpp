@@ -518,6 +518,8 @@ void setRotation(lv_display_rotation_t r) {
   lv_display_set_resolution(simDisp, land ? hal::uiH() : hal::uiW(), land ? hal::uiW() : hal::uiH());
 }
 void setBacklight(int p) { simBacklight = p; }
+bool flipped() { return false; }
+void setFlipped(bool) {}
 void stats(uint32_t& f, uint32_t& u) { f = u = 0; }
 void logInvalid(bool) {}
 }  // namespace lcd

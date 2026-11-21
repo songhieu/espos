@@ -117,7 +117,7 @@ const uint8_t* simModel(uint32_t& size) {
 namespace oled {
 static uint8_t shown[1024];
 static int bright = 60;
-static bool on = true;
+static bool on = true, flipped = false;
 static uint32_t pushes = 0;
 bool begin() { return true; }
 bool ok() { return true; }
@@ -125,6 +125,7 @@ void push(const uint8_t* fb) { memcpy(shown, fb, sizeof shown), pushes++; }
 void pushAll(const uint8_t* fb) { push(fb); }
 void brightness(int pct) { bright = pct; }
 void power(bool o) { on = o; }
+void flip(bool f) { flipped = f; }
 uint32_t errors() { return 0; }
 }  // namespace oled
 }  // namespace bot
@@ -397,7 +398,8 @@ void render(const std::string& capture) {
   const uint8_t r = (uint8_t)(238 * b), g = (uint8_t)(245 * b), bl = (uint8_t)(255 * b);
   for (int y = 0; y < 64; y++)
     for (int x = 0; x < 128; x++)
-      px[y * 128 + x] = bot::oled::shown[(y >> 3) * 128 + x] >> (y & 7) & 1 ? (0xFFu << 24 | r << 16 | g << 8 | bl) : 0;
+      px[bot::oled::flipped ? (63 - y) * 128 + (127 - x) : y * 128 + x] =  // bot.flip: the panel turned 180°
+          bot::oled::shown[(y >> 3) * 128 + x] >> (y & 7) & 1 ? (0xFFu << 24 | r << 16 | g << 8 | bl) : 0;
   SDL_UpdateTexture(texCrisp, nullptr, px, 128 * 4);
   SDL_UpdateTexture(texGlow, nullptr, px, 128 * 4);
   SDL_SetRenderDrawColor(ren, 24, 26, 31, 255);  // the desk

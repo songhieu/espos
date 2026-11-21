@@ -952,7 +952,8 @@ void fillLibrary() {
   lv_obj_add_flag(pill, LV_OBJ_FLAG_CLICKABLE);
   lv_obj_t* g = glyph(pill, &gl_search_16, theme::home().dim);
   lv_obj_align(g, LV_ALIGN_LEFT_MID, 12, 0);
-  lv_obj_t* ph = label(pill, N_("Search apps"), 15, false, theme::home().dim);
+  lv_obj_t* ph = label(pill, "", 15, false, theme::home().dim);
+  fitText(ph, N_("Search apps"), (land ? GX + COLS * CW - px : os::W() - 24) - 36 - 10, 20, 15, 12, false, 0);
   lv_obj_align(ph, LV_ALIGN_LEFT_MID, 36, 0);
   lv_obj_add_event_cb(pill, [](lv_event_t*) {
     if (!edit) search::open();

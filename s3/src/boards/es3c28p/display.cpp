@@ -16,6 +16,7 @@
 #include "es3c28p.h"
 #include "esp_lcd_panel_io.h"
 #include "scale.h"
+#include "lcd.h"
 #include "src/display/lv_display_private.h"
 #include "trace.h"
 
@@ -246,11 +247,16 @@ lv_display_t* begin() {
 }
 
 void setRotation(lv_display_rotation_t r) {
+  // Upside down portrait is the panel's own mirrored scan (MADCTL MY instead of MX: 0x88), not a software turn:
+  // LVGL and the aquarium draw as upright (lcd.h flipped()). The two landscape ways were already the panel's own.
+  const bool flip = r == LV_DISPLAY_ROTATION_180;
+  if (flip) r = LV_DISPLAY_ROTATION_0;
+  lcd::setFlipped(flip);
   side = r == LV_DISPLAY_ROTATION_90 || r == LV_DISPLAY_ROTATION_270;
-  upside = r == LV_DISPLAY_ROTATION_180;
+  upside = false;
   // Portrait: MX (as the vendor's demos). Landscape: the row/column exchange, the two ways up as LVGL's 90 and 270
   // turn the UI (90: MY MX MV; 270: MV). LVGL redraws the whole panel, nothing to clear.
-  const uint8_t m = r == LV_DISPLAY_ROTATION_90 ? 0xE8 : r == LV_DISPLAY_ROTATION_270 ? 0x28 : 0x48;
+  const uint8_t m = r == LV_DISPLAY_ROTATION_90 ? 0xE8 : r == LV_DISPLAY_ROTATION_270 ? 0x28 : flip ? 0x88 : 0x48;
   cmd(0x36, &m, 1);
   pw = side ? PANEL28_H : PANEL28_W, ph = side ? PANEL28_W : PANEL28_H;
   trace::add("lcd: rotation %d (%s)", (int)r, side ? "landscape, 480x360 at 2/3" : "portrait");

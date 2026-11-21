@@ -14,6 +14,7 @@ uint8_t addr = 0;
 uint8_t shadow[1024];
 bool shadowOk = false;
 uint32_t errs = 0;
+bool flipped = false;
 
 void cmd(std::initializer_list<uint8_t> c) {
   Wire.beginTransmission(addr);
@@ -45,7 +46,8 @@ bool begin() {
   }
   if (!addr) return false;
   Wire.setClock(800000);
-  cmd({0xAE, 0xD5, 0x80, 0xA8, 63, 0xD3, 0x00, 0x40, 0x8D, 0x14, 0x20, 0x00, 0xA1, 0xC8});
+  cmd({0xAE, 0xD5, 0x80, 0xA8, 63, 0xD3, 0x00, 0x40, 0x8D, 0x14, 0x20, 0x00});
+  cmd({(uint8_t)(flipped ? 0xA0 : 0xA1), (uint8_t)(flipped ? 0xC0 : 0xC8)});
   cmd({0xDA, 0x12, 0x81, 0x9F, 0xD9, 0xF1, 0xDB, 0x40, 0xA4, 0xA6, 0x2E, 0xAF});
   shadowOk = false;
   return true;
@@ -73,6 +75,19 @@ void brightness(int pct) {
   const int c = 1 + (pct - 5) * (pct - 5) * 254 / (95 * 95);
   // Precharge lower too when dim: the dimmest the SSD1306 goes.
   cmd({0x81, (uint8_t)c, 0xD9, (uint8_t)(pct < 20 ? 0x22 : 0xF1), 0xDB, (uint8_t)(pct < 20 ? 0x00 : 0x40)});
+}
+
+// Segment remap (A0/A1) applies to what is written next, the COM scan (C0/C8) at once: so the whole picture again.
+void flip(bool on) {
+  if (on == flipped) return;
+  flipped = on;
+  if (!addr) return;
+  cmd({(uint8_t)(flipped ? 0xA0 : 0xA1), (uint8_t)(flipped ? 0xC0 : 0xC8)});
+  if (shadowOk) {
+    static uint8_t again[sizeof shadow];
+    memcpy(again, shadow, sizeof again);
+    pushAll(again);
+  }
 }
 
 void power(bool on) {

@@ -8,6 +8,12 @@
 namespace lcd {
 lv_display_t* begin();                    // bus + panel init, LVGL display with two band buffers
 void setRotation(lv_display_rotation_t r);  // also flips touch through LVGL
+// Upside down done by the panel itself (its scan mirrored, MADCTL MX+MY): LVGL, the games and the aquarium draw as
+// if upright (180 -> LVGL 0, 270 -> LVGL 90), at no cost; touch mirrors its points to match (touch.cpp). The drivers
+// set it in setRotation (owner, 2026-11-20: the board will stand with its USB on top, and the software 180 turn made
+// the aquarium saver take 160 ms a loop).
+bool flipped();
+void setFlipped(bool on);
 void setBacklight(int percent);           // 0..100 (0 = off)
 void stats(uint32_t& frames, uint32_t& avgFlushUs);  // since the last call
 void logInvalid(bool on);  // print what each frame redraws

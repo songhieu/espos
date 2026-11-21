@@ -1,7 +1,7 @@
 # PlatformIO pre-script (env bot128): the wake model the firmware builds in. The model is the "Gâu" package's own
 # file (wake/pkg/dev.espos.wake.gau/gau.ewm); it is never in the public repository (scripts/sync_oss_s3.sh drops every
-# *.ewm), so a copy goes to .pio/bot/gau.ewm, and an empty one when the package's file is missing: the firmware then
-# builds and runs without the wake word (ear.cpp logs "model refused"; BOOT still talks).
+# *.ewm), so a copy goes to .pio/bot/gau.ewm, and a 1-byte stand-in when the package's file is missing: the firmware
+# then builds and runs without the wake word (ear.cpp logs "model refused"; BOOT still talks).
 import os
 import shutil
 
@@ -17,4 +17,5 @@ if os.path.isfile(src):
         shutil.copyfile(src, dst)
 else:
     print("bot128: no wake model (wake/pkg/dev.espos.wake.gau/gau.ewm): building without the wake word")
-    open(dst, "wb").write(b"\0")  # one byte, not a model: objcopy refuses an empty file
+    with open(dst, "wb") as f:  # one byte (the build refuses an empty file); shorter than a model header: rejected
+        f.write(b"\0")

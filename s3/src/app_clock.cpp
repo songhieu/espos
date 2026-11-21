@@ -189,16 +189,22 @@ void fillAlarms() {
   const auto all = alarms::list();
   int i = 0;
   for (const auto& a : all) {
-    lv_obj_t* c = darkCell(content, 84);
+    String sub = alarms::daysText(a.days);
+    if (a.label.length()) sub += " · " + a.label;
+    // The days and the name on one line under the time; too long even at 12 px (a longer language, a half-width card
+    // in landscape): two lines, the card taller.
+    const int subW = (os::landscape() ? halfW() : os::W() - 24) - 28 - 60;
+    int n = 0;
+    for (const char* q = sub.c_str(); *q; q++) n += (*q & 0xC0) != 0x80;
+    const bool two = textW(sub.c_str(), 12) - (n - 1) > subW;
+    lv_obj_t* c = darkCell(content, two ? 102 : 84);
     if (os::landscape()) lv_obj_set_width(c, halfW());
     lv_obj_add_flag(c, LV_OBJ_FLAG_CLICKABLE);
     lv_obj_set_style_bg_color(c, C(0x1f2531), LV_STATE_PRESSED);
     lv_obj_t* t = label(c, hhmm(a.h, a.m).c_str(), 44, true, a.on ? FG : 0x4b5563);
     lv_obj_align(t, LV_ALIGN_TOP_LEFT, 0, 6);
-    String sub = alarms::daysText(a.days);
-    if (a.label.length()) sub += " · " + a.label;
     lv_obj_t* d = label(c, "", 13, false, a.on ? DIM : 0x4b5563);
-    fitText(d, sub.c_str(), (os::landscape() ? halfW() : os::W() - 24) - 28 - 60, 18, 13, 12);
+    fitText(d, sub.c_str(), subW, two ? 36 : 18, 13, 12);
     lv_obj_align(d, LV_ALIGN_BOTTOM_LEFT, 0, -8);
     lv_obj_t* sw = toggle(c, a.on, [](lv_event_t* e) {
       const int i = (int)(intptr_t)lv_event_get_user_data(e);

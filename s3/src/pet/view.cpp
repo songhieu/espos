@@ -1,4 +1,5 @@
 #include "view.h"
+#include "voice.h"
 
 #include <Arduino.h>
 
@@ -90,7 +91,11 @@ void View::onTimer(lv_timer_t* t) {
   if (os::saverOn() || (s != lv_screen_active() && s != lv_layer_top())) return;  // not seen: no work
   // 10 pictures a second; 5 while the assistant's TLS connection is being made: each picture is ~55 ms of decoding
   // on core 0, the handshake's core (the board, 2026-11-20: 4.8 s for the handshake beside the dog at 10, 2.4 s alone).
-  const float every = talk::warming() ? 0.2f : 0.1f;
+  // In a turn (owner, 2026-11-21: "giảm animation… lag quá"): the mic, the upload and the answer come first, so the
+  // dog moves at under 2 pictures a second while it listens and waits (each picture ~55 ms of decoding on the
+  // network's core), 5 while it speaks.
+  float every = talk::warming() ? 0.2f : 0.1f;
+  if (talk::busy()) every = voice::busy() ? 0.2f : 0.6f;
   v->acc_ += dt;
   if (v->acc_ < every) return;
   v->acc_ = v->acc_ > 3 * every ? 0 : v->acc_ - every;

@@ -572,11 +572,12 @@ void brightnessSlider(lv_obj_t* body) {
 }
 
 // One way up as a picture: the device drawn turned that way, a grey mark where its USB-C port then is (on the
-// physical bottom edge: LVGL's 90 puts it on the left, 270 on the right), the name under it.
-void rotTile(lv_obj_t* parent, int r, int w) {
+// physical bottom edge: LVGL's 90 puts it on the left, 270 on the right), the name under it (h: 100, or 116 when a
+// name takes two lines, so it stays clear of the picture).
+void rotTile(lv_obj_t* parent, int r, int w, int h) {
   const bool on = r == os::rotation(), side = r & 1;
   lv_obj_t* t = box(parent, pal().cell, 14);
-  lv_obj_set_size(t, w, 100);
+  lv_obj_set_size(t, w, h);
   lv_obj_add_flag(t, LV_OBJ_FLAG_CLICKABLE);
   lv_obj_set_style_bg_color(t, C(pal().press), LV_STATE_PRESSED);
   if (on) {
@@ -598,7 +599,7 @@ void rotTile(lv_obj_t* parent, int r, int w) {
   lv_obj_set_pos(usb, side ? (r == 1 ? -3 : dw - 6 - uw + 3) : (dw - 6 - uw) / 2,
                  side ? (dh - 6 - uh) / 2 : (r == 2 ? -3 : dh - 6 - uh + 3));
   lv_obj_t* l = label(t, "", 12, on, pal().fg);
-  fitText(l, rotName(r), w - 12, 30, 13, 12, on, 0);
+  fitText(l, rotName(r), w - 12, textW(rotName(r), 12, on) > w - 12 ? 38 : 30, 13, 12, on, 0);  // one line if it can
   lv_obj_set_style_text_align(l, LV_TEXT_ALIGN_CENTER, 0);
   lv_obj_align(l, LV_ALIGN_BOTTOM_MID, 0, -6);
   lv_obj_add_event_cb(t, [](lv_event_t* e) {
@@ -621,9 +622,12 @@ void openDisplay() {
   lv_obj_set_flex_flow(row, LV_FLEX_FLOW_ROW_WRAP);
   lv_obj_set_style_pad_gap(row, 8, 0);
   const int per = os::landscape() ? 4 : 2, w = (os::W() - 24 - 8 * (per - 1)) / per;
-  for (int r : {0, 1, 2, 3}) rotTile(row, r, w);
+  int h = 100;
+  for (int r : {0, 1, 2, 3})
+    if (textW(rotName(r), 12, r == os::rotation()) > w - 12) h = 116;  // a name on two lines (bold: the one chosen)
+  for (int r : {0, 1, 2, 3}) rotTile(row, r, w, h);
   hint(body, N_("There is no tilt sensor: the screen turns when you pick a way up here, with Rotate in the Control "
-                "Center, or on the EspOS web."));
+                "Center (touch and hold it to flip the screen over), or on the EspOS web."));
   os::open(s);
 }
 
@@ -1155,7 +1159,10 @@ void openPhotos() {
 // A settings row with an app-style icon on the left.
 lv_obj_t* iconRow(lv_obj_t* parent, uint32_t color, const lv_image_dsc_t* g, const char* name, const char* value,
                   lv_event_cb_t cb) {
-  lv_obj_t* r = listRow(parent, name, value, cb);
+  // Half a line (a TWO list in landscape): the value is laid out below, once (not first squeezed by listRow).
+  const bool halfList = lv_obj_has_flag(parent, LV_OBJ_FLAG_USER_1);
+  lv_obj_t* r = listRow(parent, name, halfList ? "" : value, cb);
+  if (halfList) lv_label_set_text(lv_obj_get_child(r, 1), i18n::trl(value));
   lv_obj_t* ic = box(r, color, 7);
   lv_obj_set_size(ic, 28, 28);
   lv_obj_align(ic, LV_ALIGN_LEFT_MID, 0, 0);

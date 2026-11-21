@@ -72,8 +72,13 @@ bool followUp = false;
 // After a spoken answer: the next question must START within FOLLOW_MS (the ears up, no call needed) and be close to
 // the device: FOLLOW_DB above the room's floor and louder than FOLLOW_MIN (owner, 2026-11-19: talk across the room was
 // taken as questions with 6 s and floor + 9 dB). Setting s3.assist "follow" (default on).
-constexpr uint32_t FOLLOW_MS = 2750;  // 250 ms deciding + 2.5 s
-constexpr float FOLLOW_DB = 15, FOLLOW_MIN = -42;
+// Owner, 2026-11-20 (the color S3 against the OLED bot: "nó trả lời xong nói được tiếp"): 2.75 s was too short to
+// begin the next sentence (a follow-up begun at 2.6 s was cut), so 5 s, and close speech a little softer (12 dB over
+// the floor, over -45 dBFS) than the 15 / -42 of 11-19, still well above talk across the room.
+constexpr uint32_t FOLLOW_MS = 5000;  // 250 ms deciding + 4.75 s
+// 2026-11-21: still too strict on the board: the owner's follow-up peaked at -46 dBFS (22 dB over the floor) and was
+// dropped by the -45 floor, while the OLED bot took it. Normal speech now: 9 dB over the floor, over -56 dBFS.
+constexpr float FOLLOW_DB = 9, FOLLOW_MIN = -56;
 // The dog's answer ended with a question to the person (the server's "asks", 2026-11-20): the answer is expected, so
 // the follow-up listens as after a call (QUESTION_MS, any speech at SPEAK_DB), not only for close speech.
 bool lastAsks = false, asksFollow = false;
@@ -446,6 +451,13 @@ bool exchange(void*, NetworkClientSecure*, const char*, const char*) {
 #endif
 
 bool netRetried = false;  // this turn was sent again once already
+// A wake call that found no room to record (onWake): tried again for a few seconds; noCall: the recording began
+// after the call, so there is no call to cut from its start.
+uint32_t retryAt = 0, retryUntil = 0;
+lv_timer_t* retryTimer = nullptr;
+bool noCall = false;
+void retryWake(lv_timer_t*);
+void wakeBegan(bool waiting, bool callInside);
 
 // A kept connection the server closed while it was idle fails at once, before any answer (-2: the request could not
 // be written, -3: no status line): seen on a test board, the first question after a pause. The turn is sent
@@ -571,6 +583,7 @@ bool startListening(uint32_t fromSample, int maxMs, bool wakeTurn) {
     return false;
   }
   byWake = wakeTurn, heard = false, typed = false, lastLoud = millis(), fallback = 0, dryRun = false;
+  noCall = false;  // (wakeBegan says otherwise for a call that waited for room)
   set(St::Listen);
   led::mode(led::Mode::Listen);
   startTimer();
@@ -724,6 +737,9 @@ void handleJson() {
     if (submit(path, b, n, json, get, base)) return set(St::Wait);
     heap_caps_free(base ? base : b);
   }
+  // No status line after a long wait: the server took the question but its AI stalled (2026-11-20 on the board: 28 s,
+  // then the server cancelled it). The network is fine, so say so as "wait, then ask again", not "can't reach".
+  if (s == -3 && ex.tSent && ex.tEnd - ex.tSent >= 20000) return failShow("no_tired", "no_tired", N_("Wait a moment, then ask again"));
   if (s < 0) return failShow("look_up", nullptr, N_("Can't reach the server"));
   failShow("no_tired", "no_tired", N_("Something went wrong, try again"));
 }
@@ -762,7 +778,7 @@ void step(lv_timer_t*) {
         if (!decided && t >= 250) {
           decided = decidedNow = true;
           pausedAfterCall = !loud;
-          trimMs = again || followUp ? 0 : pausedAfterCall ? 1100 : 950;  // keep 0.1 s (0.25 s speaking on) before the call ended
+          trimMs = again || followUp || noCall ? 0 : pausedAfterCall ? 1100 : 950;  // keep 0.1 s (0.25 s speaking on) before the call ended
           if (pausedAfterCall && !again && !followUp) {
             // The dog answers its name at once (owner: heard from across the room): a word in its own voice, a
             // beep, or nothing (s3.assist "ack"). Its sound is not the question: not counted as speech, and cut
@@ -800,9 +816,11 @@ void step(lv_timer_t*) {
           spPeak = max(lv, v.peakDb), turnFloor = fl, silentMs = 0;
           talkShow(nullptr, T_("Listening"), T_("Say what you need"));
         } else if (heard && !ours) {
-          // Speech = within 10 dB of this question's own peak (which forgets 2 dB a second) and over the floor + 6.
+          // Speech = within 10 dB of this question's own peak (which forgets 2 dB a second) and over the floor + 9
+          // (was + 6: on the board, 2026-11-20, a room's hum kept "speech" alive to the 8 s cap; the OLED bot, which
+          // counts only clear speech, sends 2 s after the last word).
           spPeak = v.peakDb > spPeak ? v.peakDb : spPeak - 0.002f * dt;
-          if (v.ms && v.peakDb > spPeak - 10 && v.peakDb > turnFloor + 6) lastLoud = millis();
+          if (v.ms && v.peakDb > spPeak - 10 && v.peakDb > turnFloor + 9) lastLoud = millis();
           silentMs = v.peakDb < turnFloor + 3 ? silentMs + (int)v.ms : 0;
         }
         if (heard) {
@@ -900,10 +918,47 @@ void onWake(uint32_t at) {
   if (!talkOpen()) return;
   if (waiting) wake::captureFree();
   // From 1.2 s before (the call itself too); 1.2 + 0.25 + the ack + the 6 s window + 8 s of question at most.
-  if (!startListening(at - (uint32_t)(RATE * 6 / 5), 17000, true)) return;
+  if (!startListening(at - (uint32_t)(RATE * 6 / 5), 17000, true)) {
+    // No room for the recording yet. On the board (2026-11-20) the call came over the aquarium saver, which lets its
+    // pictures go about 2 s after the saver closes: the pop-up opened but never listened ("gọi không lên"). Tried
+    // again for 4 s instead (retryWake), the pop-up saying it is listening meanwhile.
+    trace::add("talk: no room to record yet (largest PSRAM block %u KB), trying again",
+               (unsigned)(heap_caps_get_largest_free_block(MALLOC_CAP_SPIRAM) / 1024));
+    retryAt = at, retryUntil = millis() + 4000;
+    if (!retryTimer) retryTimer = lv_timer_create(retryWake, 100, nullptr);
+    talkShow("alert", T_("I'm listening"), T_("Say what you need"));
+    return;
+  }
+  wakeBegan(waiting, true);
+}
+
+void wakeBegan(bool waiting, bool callInside) {
   led::mode(led::Mode::Wake);
   decided = false, again = false, followUp = false, trimMs = 0, quietUntil = 0;
-  trace::add("talk: called by the wake word%s", waiting ? " (again)" : "");
+  noCall = !callInside;
+  trace::add("talk: called by the wake word%s", waiting ? " (again)" : !callInside ? " (after waiting for room to record)" : "");
+}
+
+void retryWake(lv_timer_t*) {
+  const bool idle = st == St::Idle || st == St::After;
+  if (!idle || millis() > retryUntil) {
+    if (idle) trace::add("talk: still no room to record after 4 s (largest PSRAM block %u KB)",
+                         (unsigned)(heap_caps_get_largest_free_block(MALLOC_CAP_SPIRAM) / 1024));
+    lv_timer_delete(retryTimer);
+    retryTimer = nullptr;
+    retryUntil = 0;
+    if (idle) talkShow("plead", T_("I'm here. Call me again, or hold the button and speak"), "");
+    return;
+  }
+  // The mic ring keeps the last 2 s: the call itself (1.2 s before it fired) is in it for 0.8 s more; later, the
+  // recording begins now and there is no call in it to cut (noCall).
+  const uint32_t now = wake::now(), from = retryAt - (uint32_t)(RATE * 6 / 5);
+  const bool callInside = now - from < (uint32_t)(RATE * 19 / 10);
+  if (!startListening(callInside ? from : now, 17000, true)) return;
+  lv_timer_delete(retryTimer);
+  retryTimer = nullptr;
+  retryUntil = 0;
+  wakeBegan(false, callInside);
 }
 
 // After the dog's answer: FOLLOW_MS of listening without the call, the ears up (its own voice not counted).

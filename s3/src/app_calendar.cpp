@@ -115,7 +115,7 @@ void fillDay() {
   const String head = upperVi(i18n::date(N_("{W}, {M} {d}"), d.d, d.m, d.y, d.wday) + " · " +
                               i18n::fmt(N_("{0} (lunar)"), String(l.d) + "/" + l.m));
   lv_obj_t* h = label(S.dayBox, "", 13, true, col::RED);
-  fitText(h, head.c_str(), w - 8, 34, 13, 12, true);
+  fitText(h, head.c_str(), w - 8, 38, 13, 12, true);  // two lines of 12 px bold (the landscape pane)
   lv_obj_set_style_pad_left(h, 4, 0);
   // i18n: the day's, month's and year's stems and branches (vi "Ngày {0}, tháng {1}, năm {2}")
   String sub = i18n::fmt(N_("{0} day, {1} month, {2} year"), data::canChiDay(d), data::canChiMonth(l), data::canChiYear(l.y));

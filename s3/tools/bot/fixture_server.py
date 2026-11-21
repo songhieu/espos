@@ -33,7 +33,7 @@ from urllib.parse import parse_qs, urlparse
 DEFAULTS = {
     "bot.style": "eyes",
     "bot.screens": '[{"id":"clock_bold","s":20},{"id":"date_page","s":8},{"id":"weather","s":8},{"id":"eyes","s":20},{"id":"aquarium","s":15}]',
-    "bot.bright": "60", "bot.night": "22:00-07:00", "bot.dog": "", "bot.wake": "2", "bot.follow": "1", "bot.voice": "1",
+    "bot.bright": "60", "bot.flip": "0", "bot.night": "22:00-07:00", "bot.dog": "", "bot.wake": "2", "bot.follow": "1", "bot.voice": "1",
     "bot.volume": "60", "bot.alarms": "", "bot.ota": "stable", "sys.lang": "vi",
     "dash.city": "Hà Nội", "dash.lat": "21.03", "dash.lon": "105.85", "sys.tz_min": "420",
 }

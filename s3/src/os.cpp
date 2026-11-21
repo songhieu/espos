@@ -520,12 +520,15 @@ void buildControl() {
     desk::setSetting("s3.dnd", desk::settingInt("s3.dnd", 0) ? "0" : "1");
   }));
   // Rotate: between the user's own portrait way and landscape way (the last one used of each, so never upside
-  // down by surprise); touch and hold: Settings > Display, where all four are.
+  // down by surprise); touch and hold: the other way of the same shape, turned 180 degrees (owner, 2026-11-20: "lật
+  // màn 180°"). Settings > Display has all four.
   lv_obj_t* rt = ccToggle(b1, &gl_rotate_22, N_("Rotate"), nullptr);
   lv_obj_add_event_cb(rt, [](lv_event_t*) { lv_async_call([](void*) { turn(); }, nullptr); }, LV_EVENT_SHORT_CLICKED, nullptr);
   lv_obj_add_event_cb(rt, [](lv_event_t*) {
-    closeCcNow();
-    apps::open("settings", "display");
+    lv_async_call([](void*) {
+      applyRotation(rot ^ 2);
+      toast(N_("Screen flipped"));  // after the rebuild (it clears the top layer)
+    }, nullptr);
   }, LV_EVENT_LONG_PRESSED, nullptr);
   // Block 2: the next alarm.
   keep(&ccAlarm, box(cc, 0x22274a, 22));

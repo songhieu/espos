@@ -11,7 +11,7 @@
 
 #include "hal/board.h"
 
-constexpr const char* FW_VERSION = "espos-s3-0.5.7";  // 0.5.7: boot splash + loading screens, faster boot, store progress/cancel, the 2.8" fills its screen (360x480) with its IPS colours, trial/claim, wake ack/follow-up, PawBoop sounds, aquarium speed (2026-11-20); 0.5.6: the Hồ cá cảnh aquarium, the RGB LED, swipe to close the dog, fonts deflated; 0.5.5 (never released): the dog assistant talks (mic, push to talk, "Gâu" wake word, streamed voice); 0.5.4: PawBoop froze on a letter its font lacked (LVGL assert); dog records read lazily (2026-11-18)
+constexpr const char* FW_VERSION = "espos-s3-0.5.8";  // 0.5.8: turn the screen any way up (Settings > Display, Rotate held), upside down done by the panel itself (both boards), talking: short spoken answers, a 5 s follow-up that takes normal speech, room hum no longer holds a question open, a call over the aquarium saver waits for room to record, the dog calmer while talking, the saver at 5 pictures a second, a warm pop-up on colour themes (2026-11-21); 0.5.7: boot splash + loading screens, faster boot, store progress/cancel, the 2.8" fills its screen (360x480) with its IPS colours, trial/claim, wake ack/follow-up, PawBoop sounds, aquarium speed (2026-11-20); 0.5.6: the Hồ cá cảnh aquarium, the RGB LED, swipe to close the dog, fonts deflated; 0.5.5 (never released): the dog assistant talks (mic, push to talk, "Gâu" wake word, streamed voice); 0.5.4: PawBoop froze on a letter its font lacked (LVGL assert); dog records read lazily (2026-11-18)
 
 namespace board {
 inline const char* name() { return hal::board().name; }    // "es3c35p", "es3c28p"

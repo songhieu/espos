@@ -1,0 +1,9 @@
+# bot.flip: the panel turned 180° (the window shows it turned); set on the device, kept through a sync.
+serial ESPOS:PROVISION {"token":"SIMTOKENSIMTOKENSIMTOKENSIMTOKENSIMTOKENSIMTOKENSIMTOKENSIMTOKEN","api":"http://127.0.0.1:8098","wifi":[{"ssid":"Home WiFi","pass":"x"}]}
+wait 3000
+serial SET bot.flip 1
+wait 500
+serial SYNC
+wait 2500
+serial SETTINGS
+wait 300

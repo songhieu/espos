@@ -12,6 +12,7 @@ void push(const uint8_t* fb);     // gfx::fb's order: page by page, 128 bytes ea
 void pushAll(const uint8_t* fb);  // every page (after a reset of the panel)
 void brightness(int pct);         // 5..100 (the panel's contrast)
 void power(bool on);
+void flip(bool on);               // turned 180° (bot.flip): the panel's own remap, the picture sent again
 uint32_t errors();                // I2C transfers that failed
 
 }  // namespace oled

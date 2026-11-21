@@ -82,7 +82,8 @@ void fillList(const std::vector<Story>& stories) {
     String meta = s.sec.length() ? s.sec : String("VnExpress");
     const String a = ago(s.pub, now);
     if (a.length()) meta += " · " + a;
-    lv_obj_t* m = label(c, meta.c_str(), 12, false, pal().faint);
+    lv_obj_t* m = label(c, "", 12, false, pal().faint);
+    fitText(m, meta.c_str(), w - 20 - x, 36, 12, 12);  // inside the card (a longer language: two lines)
     lv_obj_align_to(m, t, LV_ALIGN_OUT_BOTTOM_LEFT, 0, 4);
     (void)n;
     lv_obj_add_event_cb(c, [](lv_event_t* e) {

@@ -14,6 +14,7 @@
 #include "board.h"
 #include "driver/i2c_master.h"
 #include "hal/board.h"
+#include "lcd.h"
 #include "sound.h"
 #include "src/display/lv_display_private.h"
 #include "trace.h"
@@ -101,6 +102,7 @@ void track(const Sample& s) {
 void toScreen(int32_t& x, int32_t& y) {
   const lv_display_rotation_t r = lv_display_get_rotation(display);
   const int32_t hor = display->hor_res, ver = display->ver_res;  // as LVGL: the panel's own size
+  if (lcd::flipped()) x = hor - x - 1, y = ver - y - 1;  // as read() does
   if (r == LV_DISPLAY_ROTATION_180 || r == LV_DISPLAY_ROTATION_270) x = hor - x - 1, y = ver - y - 1;
   if (r == LV_DISPLAY_ROTATION_90 || r == LV_DISPLAY_ROTATION_270) {
     const int32_t t = y;
@@ -170,6 +172,10 @@ void read(lv_indev_t*, lv_indev_data_t* data) {
   data->state = lvDown ? LV_INDEV_STATE_PRESSED : LV_INDEV_STATE_RELEASED;
   data->point.x = lvX;  // native panel coordinates; LVGL applies the display rotation
   data->point.y = lvY;
+  if (lcd::flipped()) {  // the panel turned 180 by itself (lcd.h): LVGL draws upright, so the point turns here
+    data->point.x = display->hor_res - 1 - lvX;
+    data->point.y = display->ver_res - 1 - lvY;
+  }
   data->continue_reading = pendAt < pendN;
 }
 
@@ -221,6 +227,10 @@ void toNative(int x, int y, int& nx, int& ny) {
     case LV_DISPLAY_ROTATION_180: nx = W - 1 - x, ny = H - 1 - y; break;
     case LV_DISPLAY_ROTATION_270: nx = W - 1 - y, ny = x; break;
     default: break;
+  }
+  if (lcd::flipped()) {  // the inverse of read()'s turn (the panel's own size, as LVGL's)
+    nx = display->hor_res - 1 - nx;
+    ny = display->ver_res - 1 - ny;
   }
 }
 

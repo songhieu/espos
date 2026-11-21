@@ -46,13 +46,13 @@
  "\"Gâu gâu\" alone is the safest. \"Gâu\" too wakes it more easily, also by mistake.": {
   "kind": "text",
   "where": [
-   "src/pet/book.cpp:123"
+   "src/pet/book.cpp:124"
   ]
  },
  "\"Gâu\" too": {
   "kind": "text",
   "where": [
-   "src/pet/book.cpp:102"
+   "src/pet/book.cpp:103"
   ],
   "notes": [
    "\"Gâu gâu\" is the call itself: keep it as is"
@@ -116,7 +116,7 @@
  "%lu min": {
   "kind": "text",
   "where": [
-   "src/app_settings.cpp:863"
+   "src/app_settings.cpp:867"
   ]
  },
  "%s · %d min": {
@@ -128,7 +128,7 @@
  "%s · %d XP to level %d · %d gold": {
   "kind": "text",
   "where": [
-   "src/pet/book.cpp:274"
+   "src/pet/book.cpp:275"
   ],
   "notes": [
    "mood, the XP still needed, the next level, her gold coins"
@@ -137,14 +137,14 @@
  "%s · top level · %d gold": {
   "kind": "text",
   "where": [
-   "src/pet/book.cpp:275"
+   "src/pet/book.cpp:276"
   ]
  },
  "%u KB free": {
   "kind": "text",
   "where": [
-   "src/app_settings.cpp:858",
-   "src/app_settings.cpp:860"
+   "src/app_settings.cpp:862",
+   "src/app_settings.cpp:864"
   ]
  },
  "%u KB/s · %u min left": {
@@ -164,7 +164,7 @@
  "+ Add": {
   "kind": "text",
   "where": [
-   "src/saveredit.cpp:1318"
+   "src/saveredit.cpp:1320"
   ]
  },
  "+ Add a task": {
@@ -194,7 +194,7 @@
  "+ Text on photo": {
   "kind": "text",
   "where": [
-   "src/saveredit.cpp:537"
+   "src/saveredit.cpp:540"
   ]
  },
  "+{n} more|+{n} more": {
@@ -218,7 +218,7 @@
  "08:30 Meeting": {
   "kind": "text",
   "where": [
-   "src/home.cpp:1364"
+   "src/home.cpp:1369"
   ],
   "notes": [
    "a sample event"
@@ -227,21 +227,21 @@
  "1 min": {
   "kind": "text",
   "where": [
-   "src/app_settings.cpp:669",
-   "src/saveredit.cpp:541",
-   "src/saveredit.cpp:1140"
+   "src/app_settings.cpp:673",
+   "src/saveredit.cpp:544",
+   "src/saveredit.cpp:1143"
   ]
  },
  "10 min": {
   "kind": "text",
   "where": [
-   "src/app_settings.cpp:669"
+   "src/app_settings.cpp:673"
   ]
  },
  "10 sec": {
   "kind": "text",
   "where": [
-   "src/saveredit.cpp:541"
+   "src/saveredit.cpp:544"
   ]
  },
  "12-hour": {
@@ -253,46 +253,46 @@
  "15 min": {
   "kind": "text",
   "where": [
-   "src/saveredit.cpp:541",
-   "src/saveredit.cpp:1140"
+   "src/saveredit.cpp:544",
+   "src/saveredit.cpp:1143"
   ]
  },
  "2 min": {
   "kind": "text",
   "where": [
-   "src/app_settings.cpp:669"
+   "src/app_settings.cpp:673"
   ]
  },
  "29° and weather": {
   "kind": "text",
   "where": [
-   "src/saveredit.cpp:440"
+   "src/saveredit.cpp:443"
   ]
  },
  "29° Sunny": {
   "kind": "text",
   "where": [
-   "src/home.cpp:1366"
+   "src/home.cpp:1371"
   ]
  },
  "30 sec": {
   "kind": "text",
   "where": [
-   "src/saveredit.cpp:541"
+   "src/saveredit.cpp:544"
   ]
  },
  "5 min": {
   "kind": "text",
   "where": [
-   "src/app_settings.cpp:669",
-   "src/saveredit.cpp:541",
-   "src/saveredit.cpp:1140"
+   "src/app_settings.cpp:673",
+   "src/saveredit.cpp:544",
+   "src/saveredit.cpp:1143"
   ]
  },
  "60 min": {
   "kind": "text",
   "where": [
-   "src/app_settings.cpp:1065"
+   "src/app_settings.cpp:1069"
   ]
  },
  "7 days": {
@@ -305,13 +305,13 @@
  "7:21 AM": {
   "kind": "text",
   "where": [
-   "src/saveredit.cpp:434"
+   "src/saveredit.cpp:437"
   ]
  },
  "8 pages is the most": {
   "kind": "text",
   "where": [
-   "src/home.cpp:2126"
+   "src/home.cpp:2133"
   ]
  },
  "@branches": {
@@ -449,7 +449,7 @@
  "a downloaded file has the wrong size": {
   "kind": "text",
   "where": [
-   "src/pkg/store.cpp:419"
+   "src/pkg/store.cpp:422"
   ]
  },
  "a downloaded file is wrong (CRC)": {
@@ -463,7 +463,7 @@
  "a downloaded file is wrong (SHA-256)": {
   "kind": "text",
   "where": [
-   "src/pkg/store.cpp:420"
+   "src/pkg/store.cpp:423"
   ]
  },
  "a file name in the package is not valid": {
@@ -475,7 +475,7 @@
  "a new one each day": {
   "kind": "text",
   "where": [
-   "src/home.cpp:1461"
+   "src/home.cpp:1466"
   ]
  },
  "a newer package format: update the software": {
@@ -487,7 +487,7 @@
  "A night page of its own": {
   "kind": "text",
   "where": [
-   "src/saveredit.cpp:1122"
+   "src/saveredit.cpp:1125"
   ]
  },
  "A saying a day": {
@@ -499,7 +499,7 @@
  "a saying a day": {
   "kind": "text",
   "where": [
-   "src/wid.cpp:43"
+   "src/wid.cpp:44"
   ]
  },
  "A WiFi password has at least 8 characters.": {
@@ -517,8 +517,8 @@
  "About this device": {
   "kind": "text",
   "where": [
-   "src/app_settings.cpp:853",
-   "src/app_settings.cpp:1261"
+   "src/app_settings.cpp:857",
+   "src/app_settings.cpp:1268"
   ]
  },
  "Account": {
@@ -530,7 +530,7 @@
  "ack\u0004A beep": {
   "kind": "text",
   "where": [
-   "src/pet/book.cpp:117"
+   "src/pet/book.cpp:118"
   ],
   "notes": [
    "chips: nothing, a short beep, a word in the dog's own voice (\"Dạ?\")"
@@ -539,7 +539,7 @@
  "ack\u0004Its voice": {
   "kind": "text",
   "where": [
-   "src/pet/book.cpp:117"
+   "src/pet/book.cpp:118"
   ],
   "notes": [
    "chips: nothing, a short beep, a word in the dog's own voice (\"Dạ?\")"
@@ -548,7 +548,7 @@
  "ack\u0004Nothing": {
   "kind": "text",
   "where": [
-   "src/pet/book.cpp:117"
+   "src/pet/book.cpp:118"
   ],
   "notes": [
    "chips: nothing, a short beep, a word in the dog's own voice (\"Dạ?\")"
@@ -565,7 +565,7 @@
   "where": [
    "src/app_calendar.cpp:386",
    "src/app_notes.cpp:294",
-   "src/home.cpp:1533",
+   "src/home.cpp:1538",
    "src/mywid.cpp:175",
    "src/widopts.cpp:269"
   ]
@@ -573,13 +573,13 @@
  "Add a blank page": {
   "kind": "text",
   "where": [
-   "src/saveredit.cpp:847"
+   "src/saveredit.cpp:850"
   ]
  },
  "Add a city": {
   "kind": "text",
   "where": [
-   "src/app_clock.cpp:426"
+   "src/app_clock.cpp:432"
   ]
  },
  "Add a map for Coin Run first": {
@@ -591,7 +591,7 @@
  "Add a map from the Store: PawBoop, Run maps.": {
   "kind": "text",
   "where": [
-   "src/run/run.cpp:1074"
+   "src/run/run.cpp:1082"
   ]
  },
  "Add a name": {
@@ -615,20 +615,20 @@
  "Add photos on the EspOS web, under Photos": {
   "kind": "text",
   "where": [
-   "src/home.cpp:1875",
-   "src/saveredit.cpp:503"
+   "src/home.cpp:1880",
+   "src/saveredit.cpp:506"
   ]
  },
  "Add photos on the EspOS web: Devices, Photos": {
   "kind": "text",
   "where": [
-   "src/wid/misc.cpp:144"
+   "src/wid/misc.cpp:145"
   ]
  },
  "Add photos on the EspOS website, Photos (the browser crops them for the screen). The first one is the wallpaper when the appearance is Your photo.": {
   "kind": "text",
   "where": [
-   "src/app_settings.cpp:1141"
+   "src/app_settings.cpp:1145"
   ]
  },
  "Add photos on the web, under Photos": {
@@ -640,13 +640,13 @@
  "Add to the saver": {
   "kind": "text",
   "where": [
-   "src/saveredit.cpp:812"
+   "src/saveredit.cpp:815"
   ]
  },
  "Add widget": {
   "kind": "text",
   "where": [
-   "src/home.cpp:1548"
+   "src/home.cpp:1553"
   ]
  },
  "Add-ons": {
@@ -658,7 +658,7 @@
  "Added to Home": {
   "kind": "text",
   "where": [
-   "src/home.cpp:2136"
+   "src/home.cpp:2143"
   ]
  },
  "Added, hidden: 5 calendars are shown already": {
@@ -670,7 +670,7 @@
  "Address": {
   "kind": "text",
   "where": [
-   "src/app_settings.cpp:888"
+   "src/app_settings.cpp:892"
   ]
  },
  "After restart": {
@@ -683,7 +683,7 @@
   "kind": "text",
   "where": [
    "src/app_weather.cpp:351",
-   "src/wid/weather.cpp:119"
+   "src/wid/weather.cpp:120"
   ]
  },
  "Alarm": {
@@ -693,13 +693,13 @@
    "src/alarm.cpp:156",
    "src/alarm.cpp:187",
    "src/alarm.cpp:231",
-   "src/app_clock.cpp:463",
-   "src/home.cpp:1365",
-   "src/os.cpp:539",
-   "src/os.cpp:572",
-   "src/saveredit.cpp:422",
+   "src/app_clock.cpp:469",
+   "src/home.cpp:1370",
+   "src/os.cpp:543",
+   "src/os.cpp:576",
+   "src/saveredit.cpp:425",
    "src/wid/clock.cpp:724",
-   "src/wid.cpp:50"
+   "src/wid.cpp:51"
   ]
  },
  "Alarm {0}": {
@@ -717,19 +717,19 @@
  "Alarms ring through the speaker, even when the screen saver has dimmed the screen or Do Not Disturb is on. You can edit them on the web too.": {
   "kind": "text",
   "where": [
-   "src/app_clock.cpp:223"
+   "src/app_clock.cpp:229"
   ]
  },
  "Alas, our free talks have ended! Scan this code and let me speak again!": {
   "kind": "text",
   "where": [
-   "src/pet/talk.cpp:934"
+   "src/pet/talk.cpp:998"
   ]
  },
  "Alas, the door to talking is still locked! Scan this code and let me speak!": {
   "kind": "text",
   "where": [
-   "src/pet/talk.cpp:947"
+   "src/pet/talk.cpp:1011"
   ]
  },
  "All": {
@@ -737,7 +737,7 @@
   "where": [
    "src/app_markets.cpp:23",
    "src/app_more.cpp:422",
-   "src/app_news.cpp:328",
+   "src/app_news.cpp:329",
    "src/wid/clock.cpp:39",
    "src/widopts.cpp:418"
   ],
@@ -758,50 +758,51 @@
  "All photos, changing": {
   "kind": "text",
   "where": [
-   "src/saveredit.cpp:486"
+   "src/saveredit.cpp:489"
   ]
  },
  "All tasks": {
   "kind": "text",
   "where": [
-   "src/wid/misc.cpp:21"
+   "src/wid/misc.cpp:22"
   ]
  },
  "All tasks done, great job!": {
   "kind": "text",
   "where": [
-   "src/pet/summon.cpp:167"
+   "src/pet/summon.cpp:182"
   ]
  },
  "All the device's photos, in order": {
   "kind": "text",
   "where": [
-   "src/saveredit.cpp:502"
+   "src/saveredit.cpp:505"
   ]
  },
  "Allow": {
   "kind": "text",
   "where": [
-   "src/app_settings.cpp:876"
+   "src/app_settings.cpp:880"
   ]
  },
  "Already at the back": {
   "kind": "text",
   "where": [
-   "src/saveredit.cpp:456"
+   "src/saveredit.cpp:459"
   ]
  },
  "Already at the front": {
   "kind": "text",
   "where": [
-   "src/saveredit.cpp:456"
+   "src/saveredit.cpp:459"
   ]
  },
  "Already in the queue": {
   "kind": "text",
   "where": [
-   "src/pkg/store.cpp:794",
-   "src/pkg/store.cpp:1202"
+   "src/pkg/store.cpp:797",
+   "src/pkg/store.cpp:1179",
+   "src/pkg/store.cpp:1235"
   ]
  },
  "Also remove {0}": {
@@ -814,7 +815,7 @@
  "Always": {
   "kind": "text",
   "where": [
-   "src/pet/book.cpp:92"
+   "src/pet/book.cpp:93"
   ],
   "notes": [
    "chips, short"
@@ -830,13 +831,13 @@
  "An orange dot at the top of the screen shows when the microphone is on. The microphone tile in the Control Center stops it at any time.": {
   "kind": "text",
   "where": [
-   "src/pet/book.cpp:60"
+   "src/pet/book.cpp:61"
   ]
  },
  "any date": {
   "kind": "text",
   "where": [
-   "src/home.cpp:1460"
+   "src/home.cpp:1465"
   ]
  },
  "Anyone with this link can see your calendar, so it only shows when you tap Show link.": {
@@ -866,14 +867,14 @@
  "App Library": {
   "kind": "text",
   "where": [
-   "src/home.cpp:939"
+   "src/home.cpp:943"
   ]
  },
  "Appearance": {
   "kind": "text",
   "where": [
    "src/app_settings.cpp:476",
-   "src/app_settings.cpp:1223",
+   "src/app_settings.cpp:1230",
    "src/search.cpp:75"
   ]
  },
@@ -900,9 +901,9 @@
  "Aquarium": {
   "kind": "text",
   "where": [
-   "src/home.cpp:1884",
-   "src/saveredit.cpp:1053",
-   "src/tank/screen.cpp:490"
+   "src/home.cpp:1889",
+   "src/saveredit.cpp:1056",
+   "src/tank/screen.cpp:550"
   ]
  },
  "Aquarium: every fish, tank look and the sea tank": {
@@ -935,7 +936,7 @@
  "Ask the next question within 2 seconds, close to the device, without calling it again.": {
   "kind": "text",
   "where": [
-   "src/pet/book.cpp:141"
+   "src/pet/book.cpp:142"
   ],
   "notes": [
    "under that switch: what \"listening on\" means"
@@ -944,7 +945,7 @@
  "ASSISTANT": {
   "kind": "text",
   "where": [
-   "src/pet/book.cpp:411"
+   "src/pet/book.cpp:412"
   ],
   "notes": [
    "a heading in upper case: the dog as the device's assistant"
@@ -953,25 +954,25 @@
  "At most 12 photos": {
   "kind": "text",
   "where": [
-   "src/saveredit.cpp:531"
+   "src/saveredit.cpp:534"
   ]
  },
  "At most 24 items a page": {
   "kind": "text",
   "where": [
-   "src/saveredit.cpp:770"
+   "src/saveredit.cpp:773"
   ]
  },
  "At most 3 pages for each way up.": {
   "kind": "text",
   "where": [
-   "src/saveredit.cpp:877"
+   "src/saveredit.cpp:880"
   ]
  },
  "At most 3 slideshows a page": {
   "kind": "text",
   "where": [
-   "src/saveredit.cpp:471"
+   "src/saveredit.cpp:474"
   ]
  },
  "At most 5 calendars can be shown: turn one off first": {
@@ -983,7 +984,7 @@
  "At most 8 cities": {
   "kind": "text",
   "where": [
-   "src/app_clock.cpp:445"
+   "src/app_clock.cpp:451"
   ]
  },
  "At most {0} codes": {
@@ -996,13 +997,13 @@
  "At night, {0} to {1}": {
   "kind": "text",
   "where": [
-   "src/saveredit.cpp:1119"
+   "src/saveredit.cpp:1122"
   ]
  },
  "At night: {0}": {
   "kind": "text",
   "where": [
-   "src/app_settings.cpp:649"
+   "src/app_settings.cpp:653"
   ]
  },
  "at {0}": {
@@ -1023,7 +1024,7 @@
  "Back home": {
   "kind": "text",
   "where": [
-   "src/run/run.cpp:392"
+   "src/run/run.cpp:393"
   ],
   "notes": [
    "back to the dog's home (the pet game); short"
@@ -1032,62 +1033,62 @@
  "Back to the day pages": {
   "kind": "text",
   "where": [
-   "src/saveredit.cpp:829"
+   "src/saveredit.cpp:832"
   ]
  },
  "Background music": {
   "kind": "text",
   "where": [
-   "src/pet/book.cpp:399"
+   "src/pet/book.cpp:400"
   ]
  },
  "Band": {
   "kind": "text",
   "where": [
-   "src/saveredit.cpp:624"
+   "src/saveredit.cpp:627"
   ]
  },
  "Band colour": {
   "kind": "text",
   "where": [
-   "src/saveredit.cpp:633"
+   "src/saveredit.cpp:636"
   ]
  },
  "Band corners": {
   "kind": "text",
   "where": [
-   "src/saveredit.cpp:641"
+   "src/saveredit.cpp:644"
   ]
  },
  "Band opacity": {
   "kind": "text",
   "where": [
-   "src/saveredit.cpp:637"
+   "src/saveredit.cpp:640"
   ]
  },
  "Bangkok": {
   "kind": "text",
   "where": [
-   "src/app_clock.cpp:373",
+   "src/app_clock.cpp:379",
    "src/wid/clock.cpp:668"
   ]
  },
  "Basic": {
   "kind": "text",
   "where": [
-   "src/home.cpp:1357"
+   "src/home.cpp:1362"
   ]
  },
  "Battery, WiFi, sync": {
   "kind": "text",
   "where": [
-   "src/wid/misc.cpp:25"
+   "src/wid/misc.cpp:26"
   ]
  },
  "battery, WiFi, sync": {
   "kind": "text",
   "where": [
-   "src/wid.cpp:61"
+   "src/wid.cpp:62"
   ]
  },
  "Bauhaus": {
@@ -1099,26 +1100,26 @@
  "Beep. Talking is not activated. Please scan the code.": {
   "kind": "text",
   "where": [
-   "src/pet/talk.cpp:944"
+   "src/pet/talk.cpp:1008"
   ]
  },
  "Beep. Your trial talks have ended. Please scan the code to continue.": {
   "kind": "text",
   "where": [
-   "src/pet/talk.cpp:931"
+   "src/pet/talk.cpp:995"
   ]
  },
  "Beijing": {
   "kind": "text",
   "where": [
-   "src/app_clock.cpp:372",
+   "src/app_clock.cpp:378",
    "src/wid/clock.cpp:663"
   ]
  },
  "Berlin": {
   "kind": "text",
   "where": [
-   "src/app_clock.cpp:376",
+   "src/app_clock.cpp:382",
    "src/wid/clock.cpp:666"
   ]
  },
@@ -1137,13 +1138,13 @@
  "Best streak: {0}. Care for {1} once today to start a new streak.": {
   "kind": "text",
   "where": [
-   "src/pet/book.cpp:325"
+   "src/pet/book.cpp:326"
   ]
  },
  "Best streak: {0}. Feed, play with, bathe or pet {1} once a day to keep it going.": {
   "kind": "text",
   "where": [
-   "src/pet/book.cpp:323"
+   "src/pet/book.cpp:324"
   ],
   "notes": [
    "%d is the longest streak in days"
@@ -1170,7 +1171,7 @@
  "Big temperature": {
   "kind": "text",
   "where": [
-   "src/wid/weather.cpp:16"
+   "src/wid/weather.cpp:17"
   ]
  },
  "Big text": {
@@ -1194,62 +1195,62 @@
  "Biscuit and her needs": {
   "kind": "text",
   "where": [
-   "src/wid.cpp:57"
+   "src/wid.cpp:58"
   ]
  },
  "Biscuit didn't catch that. Say it again for me.": {
   "kind": "text",
   "where": [
-   "src/pet/talk.cpp:996"
+   "src/pet/talk.cpp:1060"
   ]
  },
  "Black": {
   "kind": "text",
   "where": [
-   "src/saveredit.cpp:1056"
+   "src/saveredit.cpp:1059"
   ]
  },
  "Bold": {
   "kind": "text",
   "where": [
-   "src/saveredit.cpp:610"
+   "src/saveredit.cpp:613"
   ]
  },
  "Book library": {
   "kind": "text",
   "where": [
    "src/wid/read.cpp:410",
-   "src/wid.cpp:74"
+   "src/wid.cpp:75"
   ]
  },
  "Bored, wants to play": {
   "kind": "text",
   "where": [
-   "src/pet/book.cpp:209"
+   "src/pet/book.cpp:210"
   ]
  },
  "BOSS, TALKING ISN'T ON! SCAN THIS CODE, BOSS! HURRY!": {
   "kind": "text",
   "where": [
-   "src/pet/talk.cpp:941"
+   "src/pet/talk.cpp:1005"
   ]
  },
  "BOSS, THE FREE TALKS ARE OVER! SCAN THIS CODE, BOSS! I'VE GOT TONS TO SAY!": {
   "kind": "text",
   "where": [
-   "src/pet/talk.cpp:928"
+   "src/pet/talk.cpp:992"
   ]
  },
  "Brazil, Argentina": {
   "kind": "text",
   "where": [
-   "src/app_settings.cpp:949"
+   "src/app_settings.cpp:953"
   ]
  },
  "Brightness": {
   "kind": "text",
   "where": [
-   "src/app_settings.cpp:615"
+   "src/app_settings.cpp:616"
   ]
  },
  "brightness rotate landscape portrait": {
@@ -1261,13 +1262,13 @@
  "Bring forward": {
   "kind": "text",
   "where": [
-   "src/saveredit.cpp:570"
+   "src/saveredit.cpp:573"
   ]
  },
  "Brisbane, Guam": {
   "kind": "text",
   "where": [
-   "src/app_settings.cpp:941"
+   "src/app_settings.cpp:945"
   ]
  },
  "broken {0}": {
@@ -1288,13 +1289,13 @@
  "Built-in wallpapers": {
   "kind": "text",
   "where": [
-   "src/home.cpp:1865"
+   "src/home.cpp:1870"
   ]
  },
  "Business": {
   "kind": "text",
   "where": [
-   "src/app_news.cpp:212"
+   "src/app_news.cpp:213"
   ]
  },
  "Buy": {
@@ -1322,7 +1323,7 @@
  "buy, sell": {
   "kind": "text",
   "where": [
-   "src/wid.cpp:64"
+   "src/wid.cpp:65"
   ]
  },
  "bytes\u0004Size": {
@@ -1344,13 +1345,13 @@
    "src/app_calendar.cpp:212",
    "src/app_calendar.cpp:407",
    "src/apps.cpp:36",
-   "src/home.cpp:1358",
-   "src/wid.cpp:36",
-   "src/wid.cpp:38",
+   "src/home.cpp:1363",
+   "src/wid.cpp:37",
    "src/wid.cpp:39",
-   "src/wid.cpp:41",
-   "src/wid.cpp:43",
-   "src/wid.cpp:52"
+   "src/wid.cpp:40",
+   "src/wid.cpp:42",
+   "src/wid.cpp:44",
+   "src/wid.cpp:53"
   ]
  },
  "Calendar added": {
@@ -1374,13 +1375,13 @@
  "Call it with": {
   "kind": "text",
   "where": [
-   "src/pet/book.cpp:101"
+   "src/pet/book.cpp:102"
   ]
  },
  "CALL WITH \"GÂU\"": {
   "kind": "text",
   "where": [
-   "src/pet/book.cpp:82"
+   "src/pet/book.cpp:83"
   ],
   "notes": [
    "a heading in upper case; \"GÂU\" is the dog's call, as is"
@@ -1389,7 +1390,7 @@
  "Call with \"Gâu\"": {
   "kind": "text",
   "where": [
-   "src/pet/book.cpp:48"
+   "src/pet/book.cpp:49"
   ],
   "notes": [
    "a screen title; \"Gâu\" is the dog's call, as is"
@@ -1398,25 +1399,25 @@
  "Call {0}": {
   "kind": "text",
   "where": [
-   "src/pet/book.cpp:449"
+   "src/pet/book.cpp:450"
   ]
  },
  "Can't reach the server": {
   "kind": "text",
   "where": [
-   "src/pet/talk.cpp:591",
-   "src/pet/talk.cpp:722",
-   "src/pet/talk.cpp:829",
-   "src/pet/talk.cpp:846"
+   "src/pet/talk.cpp:607",
+   "src/pet/talk.cpp:743",
+   "src/pet/talk.cpp:856",
+   "src/pet/talk.cpp:873"
   ]
  },
  "Cancel": {
   "kind": "text",
   "where": [
-   "src/app_clock.cpp:251",
+   "src/app_clock.cpp:257",
    "src/app_more.cpp:944",
-   "src/home.cpp:1742",
-   "src/saveredit.cpp:1280",
+   "src/home.cpp:1747",
+   "src/saveredit.cpp:1282",
    "src/search.cpp:309"
   ]
  },
@@ -1432,14 +1433,14 @@
  "cannot download": {
   "kind": "text",
   "where": [
-   "src/pkg/store.cpp:378",
-   "src/pkg/store.cpp:768"
+   "src/pkg/store.cpp:381",
+   "src/pkg/store.cpp:771"
   ]
  },
  "cannot erase the flash": {
   "kind": "text",
   "where": [
-   "src/pkg/store.cpp:298"
+   "src/pkg/store.cpp:301"
   ]
  },
  "cannot open a connection": {
@@ -1463,7 +1464,7 @@
  "cannot read a file": {
   "kind": "text",
   "where": [
-   "src/pkg/store.cpp:534"
+   "src/pkg/store.cpp:537"
   ]
  },
  "Cannot read PawBoop on the memory card": {
@@ -1475,7 +1476,7 @@
  "cannot read the memory card": {
   "kind": "text",
   "where": [
-   "src/pkg/store.cpp:616"
+   "src/pkg/store.cpp:619"
   ]
  },
  "Cannot read this game": {
@@ -1487,7 +1488,7 @@
  "cannot replace the old version": {
   "kind": "text",
   "where": [
-   "src/pkg/store.cpp:474"
+   "src/pkg/store.cpp:477"
   ]
  },
  "cannot write": {
@@ -1500,44 +1501,44 @@
  "cannot write a file": {
   "kind": "text",
   "where": [
-   "src/pkg/store.cpp:283",
-   "src/pkg/store.cpp:315",
-   "src/pkg/store.cpp:320",
-   "src/pkg/store.cpp:466",
-   "src/pkg/store.cpp:480",
-   "src/pkg/store.cpp:527",
-   "src/pkg/store.cpp:541",
-   "src/pkg/store.cpp:577",
-   "src/pkg/store.cpp:582"
+   "src/pkg/store.cpp:286",
+   "src/pkg/store.cpp:318",
+   "src/pkg/store.cpp:323",
+   "src/pkg/store.cpp:469",
+   "src/pkg/store.cpp:483",
+   "src/pkg/store.cpp:530",
+   "src/pkg/store.cpp:544",
+   "src/pkg/store.cpp:580",
+   "src/pkg/store.cpp:585"
   ]
  },
  "cannot write a file (full?)": {
   "kind": "text",
   "where": [
-   "src/pkg/store.cpp:535"
+   "src/pkg/store.cpp:538"
   ]
  },
  "cannot write the app list": {
   "kind": "text",
   "where": [
-   "src/pkg/store.cpp:459",
-   "src/pkg/store.cpp:508",
-   "src/pkg/store.cpp:636"
+   "src/pkg/store.cpp:462",
+   "src/pkg/store.cpp:511",
+   "src/pkg/store.cpp:639"
   ]
  },
  "cannot write the flash": {
   "kind": "text",
   "where": [
-   "src/pkg/store.cpp:304",
-   "src/pkg/store.cpp:368",
-   "src/pkg/store.cpp:625"
+   "src/pkg/store.cpp:307",
+   "src/pkg/store.cpp:371",
+   "src/pkg/store.cpp:628"
   ]
  },
  "cannot write to the memory card": {
   "kind": "text",
   "where": [
-   "src/pkg/store.cpp:285",
-   "src/pkg/store.cpp:368"
+   "src/pkg/store.cpp:288",
+   "src/pkg/store.cpp:371"
   ]
  },
  "Card": {
@@ -1564,7 +1565,7 @@
  "CARE STREAK": {
   "kind": "text",
   "where": [
-   "src/pet/book.cpp:306"
+   "src/pet/book.cpp:307"
   ],
   "notes": [
    "a heading in upper case: days in a row the dog was cared for"
@@ -1573,13 +1574,13 @@
  "Cared for {n} day in a row|Cared for {n} days in a row": {
   "kind": "plural",
   "where": [
-   "src/pet/book.cpp:199"
+   "src/pet/book.cpp:200"
   ]
  },
  "Cars": {
   "kind": "text",
   "where": [
-   "src/app_news.cpp:215"
+   "src/app_news.cpp:216"
   ]
  },
  "Category": {
@@ -1591,7 +1592,7 @@
  "cc\u0004Do Not Disturb": {
   "kind": "text",
   "where": [
-   "src/os.cpp:518"
+   "src/os.cpp:519"
   ],
   "notes": [
    "a tile, 2 short lines"
@@ -1600,7 +1601,7 @@
  "cc\u0004Settings": {
   "kind": "text",
   "where": [
-   "src/os.cpp:587"
+   "src/os.cpp:591"
   ],
   "notes": [
    "a tile ~9 letters wide"
@@ -1609,7 +1610,7 @@
  "cc\u0004Sync": {
   "kind": "text",
   "where": [
-   "src/os.cpp:509"
+   "src/os.cpp:510"
   ],
   "notes": [
    "a small tile, ~8 letters"
@@ -1630,7 +1631,7 @@
  "Centre": {
   "kind": "text",
   "where": [
-   "src/saveredit.cpp:615"
+   "src/saveredit.cpp:618"
   ]
  },
  "Chance of rain": {
@@ -1648,25 +1649,25 @@
  "Change every": {
   "kind": "text",
   "where": [
-   "src/saveredit.cpp:539"
+   "src/saveredit.cpp:542"
   ]
  },
  "Change pages every": {
   "kind": "text",
   "where": [
-   "src/saveredit.cpp:1137"
+   "src/saveredit.cpp:1140"
   ]
  },
  "Charging": {
   "kind": "text",
   "where": [
-   "src/wid/misc.cpp:332"
+   "src/wid/misc.cpp:333"
   ]
  },
  "Check now": {
   "kind": "text",
   "where": [
-   "src/app_settings.cpp:784"
+   "src/app_settings.cpp:788"
   ]
  },
  "Check the file": {
@@ -1679,9 +1680,9 @@
   "kind": "text",
   "where": [
    "src/app_more.cpp:948",
-   "src/app_settings.cpp:786",
+   "src/app_settings.cpp:790",
    "src/ota.cpp:309",
-   "src/pkg/store.cpp:1314"
+   "src/pkg/store.cpp:1347"
   ]
  },
  "Checking the file": {
@@ -1693,7 +1694,7 @@
  "Chicago (winter), Denver (summer)": {
   "kind": "text",
   "where": [
-   "src/app_settings.cpp:952"
+   "src/app_settings.cpp:956"
   ]
  },
  "Children's Day": {
@@ -1711,7 +1712,7 @@
  "Chip": {
   "kind": "text",
   "where": [
-   "src/app_settings.cpp:857"
+   "src/app_settings.cpp:861"
   ]
  },
  "Choose a city": {
@@ -1729,7 +1730,7 @@
  "Choose a dog in PawBoop first": {
   "kind": "text",
   "where": [
-   "src/pet/summon.cpp:592"
+   "src/pet/summon.cpp:608"
   ]
  },
  "Choose a pack: {0}": {
@@ -1741,13 +1742,13 @@
  "Choose a time first": {
   "kind": "text",
   "where": [
-   "src/app_clock.cpp:284"
+   "src/app_clock.cpp:290"
   ]
  },
  "Choose another dog": {
   "kind": "text",
   "where": [
-   "src/pet/book.cpp:407"
+   "src/pet/book.cpp:408"
   ]
  },
  "Choose what to download": {
@@ -1783,7 +1784,7 @@
  "cities": {
   "kind": "text",
   "where": [
-   "src/wid.cpp:51"
+   "src/wid.cpp:52"
   ]
  },
  "Cities (up to 4)": {
@@ -1801,7 +1802,7 @@
  "city\u0004Remove": {
   "kind": "text",
   "where": [
-   "src/app_clock.cpp:411"
+   "src/app_clock.cpp:417"
   ],
   "notes": [
    "takes a city off the world clocks (vi \"Bỏ\")"
@@ -1816,7 +1817,7 @@
  "Clean": {
   "kind": "text",
   "where": [
-   "src/pet/book.cpp:189"
+   "src/pet/book.cpp:190"
   ],
   "notes": [
    "the dog's four needs (gauges): fed, fun, health, clean"
@@ -1831,13 +1832,13 @@
  "Clock": {
   "kind": "text",
   "where": [
-   "src/app_clock.cpp:471",
+   "src/app_clock.cpp:477",
    "src/apps.cpp:38",
-   "src/home.cpp:1357",
-   "src/wid.cpp:35",
-   "src/wid.cpp:50",
+   "src/home.cpp:1362",
+   "src/wid.cpp:36",
    "src/wid.cpp:51",
-   "src/wid.cpp:76"
+   "src/wid.cpp:52",
+   "src/wid.cpp:77"
   ]
  },
  "Close": {
@@ -1855,7 +1856,7 @@
  "Coin Run": {
   "kind": "text",
   "where": [
-   "src/pet/app.cpp:1001"
+   "src/pet/app.cpp:1003"
   ],
   "notes": [
    "the run game's name on a small orange pill"
@@ -1880,15 +1881,15 @@
   "kind": "text",
   "where": [
    "src/app_settings.cpp:478",
-   "src/app_settings.cpp:1223"
+   "src/app_settings.cpp:1230"
   ]
  },
  "Colour": {
   "kind": "text",
   "where": [
    "src/mywid.cpp:57",
-   "src/saveredit.cpp:604",
-   "src/saveredit.cpp:648"
+   "src/saveredit.cpp:607",
+   "src/saveredit.cpp:651"
   ]
  },
  "Coming up": {
@@ -1900,7 +1901,7 @@
  "Command not received. Please repeat.": {
   "kind": "text",
   "where": [
-   "src/pet/talk.cpp:994"
+   "src/pet/talk.cpp:1058"
   ]
  },
  "Compact": {
@@ -1976,26 +1977,26 @@
  "Corners": {
   "kind": "text",
   "where": [
-   "src/saveredit.cpp:659"
+   "src/saveredit.cpp:662"
   ]
  },
  "Could not get new templates; these are the ones on the device.": {
   "kind": "text",
   "where": [
-   "src/saveredit.cpp:927",
-   "src/saveredit.cpp:1014"
+   "src/saveredit.cpp:930",
+   "src/saveredit.cpp:1017"
   ]
  },
  "Could not install {0}: {1}": {
   "kind": "text",
   "where": [
-   "src/pkg/store.cpp:972"
+   "src/pkg/store.cpp:993"
   ]
  },
  "Could not load the article, try again later.": {
   "kind": "text",
   "where": [
-   "src/app_news.cpp:148"
+   "src/app_news.cpp:149"
   ]
  },
  "Could not load the list of apps, try again later.": {
@@ -2007,13 +2008,13 @@
  "Could not move {0}: {1}": {
   "kind": "text",
   "where": [
-   "src/pkg/store.cpp:971"
+   "src/pkg/store.cpp:992"
   ]
  },
  "Could not remove {0}: {1}": {
   "kind": "text",
   "where": [
-   "src/pkg/store.cpp:971"
+   "src/pkg/store.cpp:992"
   ]
  },
  "could not switch to the new version": {
@@ -2037,7 +2038,7 @@
  "Couldn't install {0}": {
   "kind": "text",
   "where": [
-   "src/app_settings.cpp:749"
+   "src/app_settings.cpp:753"
   ]
  },
  "Couldn't install: %s": {
@@ -2067,15 +2068,15 @@
  "Countdown": {
   "kind": "text",
   "where": [
-   "src/home.cpp:1460",
+   "src/home.cpp:1465",
    "src/mywid.cpp:247",
-   "src/wid.cpp:41"
+   "src/wid.cpp:42"
   ]
  },
  "countdown": {
   "kind": "text",
   "where": [
-   "src/home.cpp:1469"
+   "src/home.cpp:1474"
   ],
   "notes": [
    "the kind of a widget made on the device, small under its name"
@@ -2093,7 +2094,7 @@
   "where": [
    "src/app_markets.cpp:23",
    "src/wid/market.cpp:209",
-   "src/wid.cpp:69",
+   "src/wid.cpp:70",
    "src/widopts.cpp:146",
    "src/widopts.cpp:225",
    "src/widopts.cpp:273"
@@ -2111,38 +2112,38 @@
  "Current": {
   "kind": "text",
   "where": [
-   "src/wid/weather.cpp:15"
+   "src/wid/weather.cpp:16"
   ]
  },
  "Current affairs": {
   "kind": "text",
   "where": [
-   "src/app_news.cpp:211"
+   "src/app_news.cpp:212"
   ]
  },
  "Custom": {
   "kind": "text",
   "where": [
-   "src/home.cpp:1357",
-   "src/wid.cpp:55"
+   "src/home.cpp:1362",
+   "src/wid.cpp:56"
   ]
  },
  "custom": {
   "kind": "text",
   "where": [
-   "src/app_settings.cpp:1239"
+   "src/app_settings.cpp:1246"
   ]
  },
  "Cut": {
   "kind": "text",
   "where": [
-   "src/saveredit.cpp:549"
+   "src/saveredit.cpp:552"
   ]
  },
  "Daily": {
   "kind": "text",
   "where": [
-   "src/wid/weather.cpp:15"
+   "src/wid/weather.cpp:16"
   ]
  },
  "Daily average": {
@@ -2154,16 +2155,16 @@
  "Daily calendar": {
   "kind": "text",
   "where": [
-   "src/wid.cpp:36"
+   "src/wid.cpp:37"
   ]
  },
  "Dark": {
   "kind": "text",
   "where": [
    "src/app_settings.cpp:478",
-   "src/app_settings.cpp:1223",
+   "src/app_settings.cpp:1230",
    "src/theme.cpp:25",
-   "src/wid.cpp:104"
+   "src/wid.cpp:105"
   ]
  },
  "Dark at night": {
@@ -2175,27 +2176,27 @@
  "Darken for easier reading: {0}%": {
   "kind": "text",
   "where": [
-   "src/home.cpp:1920"
+   "src/home.cpp:1925"
   ]
  },
  "Darling, our free talks are over. Scan this code so the princess can keep chatting!": {
   "kind": "text",
   "where": [
-   "src/pet/talk.cpp:933"
+   "src/pet/talk.cpp:997"
   ]
  },
  "Darling, talking isn't open yet. Scan this code so the princess can chat with you!": {
   "kind": "text",
   "where": [
-   "src/pet/talk.cpp:946"
+   "src/pet/talk.cpp:1010"
   ]
  },
  "Date": {
   "kind": "text",
   "where": [
-   "src/home.cpp:1361",
+   "src/home.cpp:1366",
    "src/mywid.cpp:133",
-   "src/saveredit.cpp:421"
+   "src/saveredit.cpp:424"
   ],
   "notes": [
    "a sample date"
@@ -2222,7 +2223,7 @@
   "kind": "plural",
   "where": [
    "src/wid/cal.cpp:842",
-   "src/wid/misc.cpp:195"
+   "src/wid/misc.cpp:196"
   ],
   "notes": [
    "under a big number of days gone by (vi \"ngày đã qua\")"
@@ -2231,20 +2232,20 @@
  "Day length {0}": {
   "kind": "text",
   "where": [
-   "src/wid/weather.cpp:329"
+   "src/wid/weather.cpp:330"
   ]
  },
  "Day number": {
   "kind": "text",
   "where": [
-   "src/saveredit.cpp:437"
+   "src/saveredit.cpp:440"
   ]
  },
  "day to go|days to go": {
   "kind": "plural",
   "where": [
    "src/wid/cal.cpp:752",
-   "src/wid/misc.cpp:194"
+   "src/wid/misc.cpp:195"
   ],
   "notes": [
    "under a big number of days still to come (vi \"ngày nữa\")",
@@ -2270,14 +2271,14 @@
  "Daytime brightness: {0}%": {
   "kind": "text",
   "where": [
-   "src/saveredit.cpp:1095",
-   "src/saveredit.cpp:1111"
+   "src/saveredit.cpp:1098",
+   "src/saveredit.cpp:1114"
   ]
  },
  "Default": {
   "kind": "text",
   "where": [
-   "src/wid.cpp:104"
+   "src/wid.cpp:105"
   ]
  },
  "Delete": {
@@ -2287,7 +2288,7 @@
    "src/app_notes.cpp:253",
    "src/mywid.cpp:197",
    "src/mywid.cpp:199",
-   "src/saveredit.cpp:572"
+   "src/saveredit.cpp:575"
   ]
  },
  "Delete alarm": {
@@ -2299,20 +2300,20 @@
  "Delete this page": {
   "kind": "text",
   "where": [
-   "src/saveredit.cpp:867"
+   "src/saveredit.cpp:870"
   ]
  },
  "Desk": {
   "kind": "text",
   "where": [
-   "src/desksaver.cpp:600"
+   "src/desksaver.cpp:599"
   ]
  },
  "Details": {
   "kind": "text",
   "where": [
    "src/wid/cal.cpp:18",
-   "src/wid/weather.cpp:16"
+   "src/wid/weather.cpp:17"
   ]
  },
  "Device": {
@@ -2320,24 +2321,24 @@
   "where": [
    "src/app_settings.cpp:436",
    "src/pkg/storage_ui.cpp:83",
-   "src/pkg/store.cpp:1190",
-   "src/pkg/store.cpp:1248",
-   "src/wid/misc.cpp:308",
-   "src/wid.cpp:61"
+   "src/pkg/store.cpp:1223",
+   "src/pkg/store.cpp:1281",
+   "src/wid/misc.cpp:309",
+   "src/wid.cpp:62"
   ]
  },
  "Device name": {
   "kind": "text",
   "where": [
-   "src/app_settings.cpp:833",
-   "src/app_settings.cpp:1248",
+   "src/app_settings.cpp:837",
+   "src/app_settings.cpp:1255",
    "src/search.cpp:83"
   ]
  },
  "Device name saved": {
   "kind": "text",
   "where": [
-   "src/app_settings.cpp:847"
+   "src/app_settings.cpp:851"
   ]
  },
  "Device: {0} free": {
@@ -2349,13 +2350,13 @@
  "Didn't catch it! Say it again, loud and clear!": {
   "kind": "text",
   "where": [
-   "src/pet/talk.cpp:998"
+   "src/pet/talk.cpp:1062"
   ]
  },
  "Didn't catch that, kid. Say it again.": {
   "kind": "text",
   "where": [
-   "src/pet/talk.cpp:989"
+   "src/pet/talk.cpp:1053"
   ],
   "notes": [
    "the dog's own words when it could not make out what was said; each dog has its manner (docs: assistant-ai.md §8)"
@@ -2364,7 +2365,7 @@
  "Didn't hear. Again.": {
   "kind": "text",
   "where": [
-   "src/pet/talk.cpp:995"
+   "src/pet/talk.cpp:1059"
   ]
  },
  "Digital": {
@@ -2376,31 +2377,31 @@
  "Dim red clock": {
   "kind": "text",
   "where": [
-   "src/saveredit.cpp:1122"
+   "src/saveredit.cpp:1125"
   ]
  },
  "dim red clock": {
   "kind": "text",
   "where": [
-   "src/app_settings.cpp:646"
+   "src/app_settings.cpp:650"
   ]
  },
  "dim red time, alarm": {
   "kind": "text",
   "where": [
-   "src/desksaver.cpp:603"
+   "src/desksaver.cpp:602"
   ]
  },
  "Discard": {
   "kind": "text",
   "where": [
-   "src/saveredit.cpp:1282"
+   "src/saveredit.cpp:1284"
   ]
  },
  "Discard changes?": {
   "kind": "text",
   "where": [
-   "src/saveredit.cpp:1282"
+   "src/saveredit.cpp:1284"
   ]
  },
  "Disconnect": {
@@ -2412,8 +2413,8 @@
  "Display": {
   "kind": "text",
   "where": [
-   "src/app_settings.cpp:614",
-   "src/app_settings.cpp:1225",
+   "src/app_settings.cpp:615",
+   "src/app_settings.cpp:1232",
    "src/search.cpp:77"
   ]
  },
@@ -2426,13 +2427,13 @@
  "Do Not Disturb": {
   "kind": "text",
   "where": [
-   "src/app_settings.cpp:705"
+   "src/app_settings.cpp:709"
   ]
  },
  "Do Not Disturb silences touch sounds and notifications; alarms still ring.": {
   "kind": "text",
   "where": [
-   "src/app_settings.cpp:712"
+   "src/app_settings.cpp:716"
   ]
  },
  "dog pictures broken": {
@@ -2476,10 +2477,10 @@
   "where": [
    "src/app_notes.cpp:85",
    "src/claim.cpp:145",
-   "src/home.cpp:1279",
+   "src/home.cpp:1284",
    "src/keyboard.h:13",
-   "src/pkg/store.cpp:1315",
-   "src/saveredit.cpp:1286"
+   "src/pkg/store.cpp:1348",
+   "src/saveredit.cpp:1288"
   ]
  },
  "Done, restarting": {
@@ -2504,13 +2505,13 @@
  "Download and install": {
   "kind": "text",
   "where": [
-   "src/app_settings.cpp:767"
+   "src/app_settings.cpp:771"
   ]
  },
  "Download the \"Gâu\" listener (40 KB)": {
   "kind": "text",
   "where": [
-   "src/pet/book.cpp:171"
+   "src/pet/book.cpp:172"
   ]
  },
  "Download · %d streams": {
@@ -2531,8 +2532,8 @@
    "src/app_more.cpp:948",
    "src/langui.cpp:107",
    "src/ota.cpp:309",
-   "src/pet/book.cpp:179",
-   "src/pkg/store.cpp:1309"
+   "src/pet/book.cpp:180",
+   "src/pkg/store.cpp:1342"
   ]
  },
  "Downloading %d%% · %.1f / %.1f MB": {
@@ -2550,7 +2551,7 @@
  "Drag to move · tap to edit": {
   "kind": "text",
   "where": [
-   "src/saveredit.cpp:1350"
+   "src/saveredit.cpp:1352"
   ]
  },
  "Dragon Boat Festival": {
@@ -2565,21 +2566,21 @@
  "Drink water (every 2 hours)": {
   "kind": "text",
   "where": [
-   "src/pet/book.cpp:443"
+   "src/pet/book.cpp:444"
   ]
  },
  "Dubai": {
   "kind": "text",
   "where": [
-   "src/app_clock.cpp:374",
-   "src/app_settings.cpp:944",
+   "src/app_clock.cpp:380",
+   "src/app_settings.cpp:948",
    "src/wid/clock.cpp:665"
   ]
  },
  "Duplicate this page": {
   "kind": "text",
   "where": [
-   "src/saveredit.cpp:856"
+   "src/saveredit.cpp:859"
   ]
  },
  "e.g. Mum's birthday": {
@@ -2598,20 +2599,20 @@
  "Eastern Europe (winter), Egypt, South Africa": {
   "kind": "text",
   "where": [
-   "src/app_settings.cpp:946"
+   "src/app_settings.cpp:950"
   ]
  },
  "Easy to read over photos": {
   "kind": "text",
   "where": [
-   "src/saveredit.cpp:622"
+   "src/saveredit.cpp:625"
   ]
  },
  "Edit": {
   "kind": "text",
   "where": [
    "src/app_markets.cpp:115",
-   "src/app_news.cpp:320"
+   "src/app_news.cpp:321"
   ]
  },
  "Edit alarm": {
@@ -2623,31 +2624,31 @@
  "Edit content": {
   "kind": "text",
   "where": [
-   "src/home.cpp:1607"
+   "src/home.cpp:1612"
   ]
  },
  "Edit text": {
   "kind": "text",
   "where": [
-   "src/saveredit.cpp:582"
+   "src/saveredit.cpp:585"
   ]
  },
  "Edit the night page": {
   "kind": "text",
   "where": [
-   "src/saveredit.cpp:1131"
+   "src/saveredit.cpp:1134"
   ]
  },
  "Edit the screen saver": {
   "kind": "text",
   "where": [
-   "src/app_settings.cpp:660"
+   "src/app_settings.cpp:664"
   ]
  },
  "Education": {
   "kind": "text",
   "where": [
-   "src/app_news.cpp:213"
+   "src/app_news.cpp:214"
   ]
  },
  "English": {
@@ -2665,21 +2666,21 @@
  "Entertainment": {
   "kind": "text",
   "where": [
-   "src/app_news.cpp:215"
+   "src/app_news.cpp:216"
   ]
  },
  "Error": {
   "kind": "text",
   "where": [
    "src/app_more.cpp:302",
-   "src/pkg/store.cpp:1316"
+   "src/pkg/store.cpp:1349"
   ]
  },
  "EspOS account": {
   "kind": "text",
   "where": [
    "src/app_settings.cpp:450",
-   "src/app_settings.cpp:1215",
+   "src/app_settings.cpp:1222",
    "src/search.cpp:74"
   ]
  },
@@ -2714,7 +2715,7 @@
   "kind": "text",
   "where": [
    "src/wid/market.cpp:209",
-   "src/wid.cpp:67",
+   "src/wid.cpp:68",
    "src/widopts.cpp:145",
    "src/widopts.cpp:224",
    "src/widopts.cpp:272"
@@ -2729,7 +2730,7 @@
  "Fade": {
   "kind": "text",
   "where": [
-   "src/saveredit.cpp:549"
+   "src/saveredit.cpp:552"
   ]
  },
  "fair": {
@@ -2741,7 +2742,7 @@
  "Fed": {
   "kind": "text",
   "where": [
-   "src/pet/book.cpp:189"
+   "src/pet/book.cpp:190"
   ],
   "notes": [
    "the dog's four needs (gauges): fed, fun, health, clean"
@@ -2750,7 +2751,7 @@
  "Feels like": {
   "kind": "text",
   "where": [
-   "src/wid/weather.cpp:114"
+   "src/wid/weather.cpp:115"
   ]
  },
  "Feels like {0}°": {
@@ -2762,13 +2763,13 @@
  "Fetch new data every": {
   "kind": "text",
   "where": [
-   "src/app_settings.cpp:1064"
+   "src/app_settings.cpp:1068"
   ]
  },
  "Fill": {
   "kind": "text",
   "where": [
-   "src/wid/misc.cpp:23"
+   "src/wid/misc.cpp:24"
   ]
  },
  "Finished": {
@@ -2780,55 +2781,55 @@
  "Firmware": {
   "kind": "text",
   "where": [
-   "src/app_settings.cpp:855"
+   "src/app_settings.cpp:859"
   ]
  },
  "First bath": {
   "kind": "text",
   "where": [
-   "src/pet/book.cpp:197"
+   "src/pet/book.cpp:198"
   ]
  },
  "First day with {0}": {
   "kind": "text",
   "where": [
-   "src/pet/book.cpp:194"
+   "src/pet/book.cpp:195"
   ]
  },
  "First favourite food": {
   "kind": "text",
   "where": [
-   "src/pet/book.cpp:196"
+   "src/pet/book.cpp:197"
   ]
  },
  "First gold coin": {
   "kind": "text",
   "where": [
-   "src/pet/book.cpp:198"
+   "src/pet/book.cpp:199"
   ]
  },
  "First high five": {
   "kind": "text",
   "where": [
-   "src/pet/book.cpp:200"
+   "src/pet/book.cpp:201"
   ]
  },
  "First nap": {
   "kind": "text",
   "where": [
-   "src/pet/book.cpp:201"
+   "src/pet/book.cpp:202"
   ]
  },
  "Fit": {
   "kind": "text",
   "where": [
-   "src/wid/misc.cpp:23"
+   "src/wid/misc.cpp:24"
   ]
  },
  "Fit the box": {
   "kind": "text",
   "where": [
-   "src/saveredit.cpp:600"
+   "src/saveredit.cpp:603"
   ]
  },
  "Flip": {
@@ -2846,7 +2847,7 @@
  "Following": {
   "kind": "text",
   "where": [
-   "src/app_news.cpp:239"
+   "src/app_news.cpp:240"
   ]
  },
  "For example: Get up for work": {
@@ -2876,19 +2877,19 @@
  "Frame": {
   "kind": "text",
   "where": [
-   "src/wid/misc.cpp:23"
+   "src/wid/misc.cpp:24"
   ]
  },
  "frames, lines": {
   "kind": "text",
   "where": [
-   "src/home.cpp:1367"
+   "src/home.cpp:1372"
   ]
  },
  "France, Germany, Italy (winter)": {
   "kind": "text",
   "where": [
-   "src/app_settings.cpp:947"
+   "src/app_settings.cpp:951"
   ]
  },
  "Free": {
@@ -2900,7 +2901,7 @@
  "Free talks are over. Scan the code. I'll wait.": {
   "kind": "text",
   "where": [
-   "src/pet/talk.cpp:932"
+   "src/pet/talk.cpp:996"
   ]
  },
  "Free this week": {
@@ -2918,7 +2919,7 @@
  "From": {
   "kind": "text",
   "where": [
-   "src/app_settings.cpp:1074"
+   "src/app_settings.cpp:1078"
   ]
  },
  "From the EspOS web": {
@@ -2930,8 +2931,8 @@
  "From the theme": {
   "kind": "text",
   "where": [
-   "src/home.cpp:1863",
-   "src/saveredit.cpp:1051"
+   "src/home.cpp:1868",
+   "src/saveredit.cpp:1054"
   ]
  },
  "from {0}": {
@@ -2946,7 +2947,7 @@
  "FULL": {
   "kind": "text",
   "where": [
-   "src/saveredit.cpp:436"
+   "src/saveredit.cpp:439"
   ],
   "notes": [
    "a sample day and month"
@@ -2955,8 +2956,8 @@
  "Full": {
   "kind": "text",
   "where": [
-   "src/saveredit.cpp:436",
-   "src/saveredit.cpp:439"
+   "src/saveredit.cpp:439",
+   "src/saveredit.cpp:442"
   ],
   "notes": [
    "a sample day and month",
@@ -2981,25 +2982,25 @@
  "Fully charged": {
   "kind": "text",
   "where": [
-   "src/wid/misc.cpp:332"
+   "src/wid/misc.cpp:333"
   ]
  },
  "Fun": {
   "kind": "text",
   "where": [
-   "src/wid.cpp:57"
+   "src/wid.cpp:58"
   ]
  },
  "Game data missing": {
   "kind": "text",
   "where": [
-   "src/run/run.cpp:1073"
+   "src/run/run.cpp:1081"
   ]
  },
  "Game sounds": {
   "kind": "text",
   "where": [
-   "src/pet/book.cpp:396"
+   "src/pet/book.cpp:397"
   ]
  },
  "Games": {
@@ -3032,7 +3033,7 @@
  "Getting the \"Gâu\" listener": {
   "kind": "text",
   "where": [
-   "src/wake/wake.cpp:307"
+   "src/wake/wake.cpp:333"
   ]
  },
  "Getting the dogs from the Store, try again in a moment": {
@@ -3044,13 +3045,13 @@
  "Getting the Java game runtime, try again soon": {
   "kind": "text",
   "where": [
-   "src/pkg/store.cpp:1161"
+   "src/pkg/store.cpp:1194"
   ]
  },
  "Glass": {
   "kind": "text",
   "where": [
-   "src/wid.cpp:104"
+   "src/wid.cpp:105"
   ]
  },
  "Go to espos.dev, create an account, choose Add device and enter this code. Or scan the QR code with your phone.": {
@@ -3097,7 +3098,7 @@
  "Gold price": {
   "kind": "text",
   "where": [
-   "src/wid.cpp:64"
+   "src/wid.cpp:65"
   ]
  },
  "Gold prices": {
@@ -3121,7 +3122,7 @@
  "gold, stocks": {
   "kind": "text",
   "where": [
-   "src/wid.cpp:46"
+   "src/wid.cpp:47"
   ]
  },
  "Golden": {
@@ -3134,7 +3135,7 @@
   "kind": "text",
   "where": [
    "src/app_weather.cpp:166",
-   "src/wid/weather.cpp:22"
+   "src/wid/weather.cpp:23"
   ]
  },
  "Google: Settings, Integrate calendar, \"Secret address in iCal format\". iCloud: Public Calendar. Outlook: Publish a calendar, ICS link.": {
@@ -3146,8 +3147,8 @@
  "Gradient": {
   "kind": "text",
   "where": [
-   "src/home.cpp:1908",
-   "src/saveredit.cpp:1054"
+   "src/home.cpp:1913",
+   "src/saveredit.cpp:1057"
   ]
  },
  "Graphite": {
@@ -3159,13 +3160,13 @@
  "Greets you by the time of day": {
   "kind": "text",
   "where": [
-   "src/pet/book.cpp:441"
+   "src/pet/book.cpp:442"
   ]
  },
  "Gâu gâu": {
   "kind": "text",
   "where": [
-   "src/pet/book.cpp:102"
+   "src/pet/book.cpp:103"
   ],
   "notes": [
    "\"Gâu gâu\" is the call itself: keep it as is"
@@ -3174,20 +3175,20 @@
  "H {0}° L {1}°": {
   "kind": "text",
   "where": [
-   "src/wid/weather.cpp:391"
+   "src/wid/weather.cpp:392"
   ]
  },
  "Hanoi": {
   "kind": "text",
   "where": [
-   "src/app_clock.cpp:371",
+   "src/app_clock.cpp:377",
    "src/wid/clock.cpp:662"
   ]
  },
  "Happy": {
   "kind": "text",
   "where": [
-   "src/pet/book.cpp:210"
+   "src/pet/book.cpp:211"
   ]
  },
  "Happy New Year": {
@@ -3199,28 +3200,28 @@
  "Hawaii": {
   "kind": "text",
   "where": [
-   "src/app_settings.cpp:955"
+   "src/app_settings.cpp:959"
   ]
  },
  "Hazardous": {
   "kind": "text",
   "where": [
    "src/app_weather.cpp:171",
-   "src/wid/weather.cpp:27"
+   "src/wid/weather.cpp:28"
   ]
  },
  "Headlines": {
   "kind": "text",
   "where": [
-   "src/wid/news.cpp:15"
+   "src/wid/news.cpp:16"
   ]
  },
  "Health": {
   "kind": "text",
   "where": [
    "src/app_more.cpp:423",
-   "src/app_news.cpp:213",
-   "src/pet/book.cpp:189",
+   "src/app_news.cpp:214",
+   "src/pet/book.cpp:190",
    "src/pkg/storage_ui.cpp:78"
   ],
   "notes": [
@@ -3256,21 +3257,21 @@
   "kind": "text",
   "where": [
    "src/app_weather.cpp:355",
-   "src/pet/book.cpp:162",
-   "src/wid/weather.cpp:29"
+   "src/pet/book.cpp:163",
+   "src/wid/weather.cpp:30"
   ]
  },
  "Hold the button while you speak": {
   "kind": "text",
   "where": [
-   "src/pet/talk.cpp:1026"
+   "src/pet/talk.cpp:1090"
   ]
  },
  "Hold to talk": {
   "kind": "text",
   "where": [
-   "src/pet/summon.cpp:547",
-   "src/pet/summon.cpp:713"
+   "src/pet/summon.cpp:563",
+   "src/pet/summon.cpp:729"
   ],
   "notes": [
    "under the round mic button, very short",
@@ -3286,15 +3287,15 @@
  "Home Screen": {
   "kind": "text",
   "where": [
-   "src/app_settings.cpp:912",
-   "src/app_settings.cpp:1224",
+   "src/app_settings.cpp:916",
+   "src/app_settings.cpp:1231",
    "src/search.cpp:76"
   ]
  },
  "Home Screen reset": {
   "kind": "text",
   "where": [
-   "src/app_settings.cpp:926"
+   "src/app_settings.cpp:930"
   ]
  },
  "Home Screen, widgets, notes and alarms can be edited on the device and at espos.dev/app; the device syncs by itself.": {
@@ -3306,13 +3307,13 @@
  "Hourly": {
   "kind": "text",
   "where": [
-   "src/wid/weather.cpp:15"
+   "src/wid/weather.cpp:16"
   ]
  },
  "hourly\u0004Next": {
   "kind": "text",
   "where": [
-   "src/wid/weather.cpp:199"
+   "src/wid/weather.cpp:200"
   ],
   "notes": [
    "the first hour of an hourly forecast (vi \"Giờ tới\"), at most ~55 px at 13 px bold"
@@ -3321,13 +3322,13 @@
  "hours": {
   "kind": "text",
   "where": [
-   "src/app_clock.cpp:278"
+   "src/app_clock.cpp:284"
   ]
  },
  "How easily it wakes": {
   "kind": "text",
   "where": [
-   "src/pet/book.cpp:108"
+   "src/pet/book.cpp:109"
   ]
  },
  "https:// or webcal://": {
@@ -3339,20 +3340,20 @@
  "Huh? Say that again, boss!": {
   "kind": "text",
   "where": [
-   "src/pet/talk.cpp:991"
+   "src/pet/talk.cpp:1055"
   ]
  },
  "Humidity": {
   "kind": "text",
   "where": [
    "src/app_weather.cpp:357",
-   "src/wid/weather.cpp:115"
+   "src/wid/weather.cpp:116"
   ]
  },
  "Humidity {0}%": {
   "kind": "text",
   "where": [
-   "src/wid/weather.cpp:427"
+   "src/wid/weather.cpp:428"
   ]
  },
  "Hung Kings' Day": {
@@ -3367,26 +3368,28 @@
  "Hungry": {
   "kind": "text",
   "where": [
-   "src/pet/book.cpp:207"
+   "src/pet/book.cpp:208"
   ]
  },
  "I didn't catch that. Say it again?": {
   "kind": "text",
   "where": [
-   "src/pet/talk.cpp:999"
+   "src/pet/talk.cpp:1063"
   ]
  },
  "I'm here. Call me again, or hold the button and speak": {
   "kind": "text",
   "where": [
-   "src/pet/talk.cpp:820"
+   "src/pet/talk.cpp:847",
+   "src/pet/talk.cpp:950"
   ]
  },
  "I'm listening": {
   "kind": "text",
   "where": [
-   "src/pet/talk.cpp:575",
-   "src/pet/talk.cpp:905"
+   "src/pet/talk.cpp:591",
+   "src/pet/talk.cpp:929",
+   "src/pet/talk.cpp:969"
   ]
  },
  "icon\u0004Lunar": {
@@ -3401,13 +3404,13 @@
  "If the dog is on the memory card, put the card back in.": {
   "kind": "text",
   "where": [
-   "src/pet/app.cpp:939"
+   "src/pet/app.cpp:940"
   ]
  },
  "In order": {
   "kind": "text",
   "where": [
-   "src/saveredit.cpp:549"
+   "src/saveredit.cpp:552"
   ]
  },
  "In the Store": {
@@ -3419,7 +3422,7 @@
  "In these hours the screen saver shows its night page and notifications stay silent.": {
   "kind": "text",
   "where": [
-   "src/app_settings.cpp:1076"
+   "src/app_settings.cpp:1080"
   ]
  },
  "in {n} day|in {n} days": {
@@ -3437,13 +3440,13 @@
  "indexes, shares": {
   "kind": "text",
   "where": [
-   "src/wid.cpp:65"
+   "src/wid.cpp:66"
   ]
  },
  "India": {
   "kind": "text",
   "where": [
-   "src/app_settings.cpp:943"
+   "src/app_settings.cpp:947"
   ]
  },
  "Indices": {
@@ -3473,8 +3476,8 @@
  "Insert the memory card with this app to remove it": {
   "kind": "text",
   "where": [
-   "src/pkg/store.cpp:507",
-   "src/pkg/store.cpp:1234"
+   "src/pkg/store.cpp:510",
+   "src/pkg/store.cpp:1267"
   ]
  },
  "Install": {
@@ -3487,7 +3490,7 @@
  "Install of {0} cancelled": {
   "kind": "text",
   "where": [
-   "src/pkg/store.cpp:966"
+   "src/pkg/store.cpp:987"
   ]
  },
  "Install on": {
@@ -3506,7 +3509,7 @@
  "Install PawBoop again from the Store.": {
   "kind": "text",
   "where": [
-   "src/pet/app.cpp:938"
+   "src/pet/app.cpp:939"
   ]
  },
  "Install the Java game runtime first": {
@@ -3518,9 +3521,9 @@
  "Install {0} first": {
   "kind": "text",
   "where": [
-   "src/pkg/store.cpp:347",
-   "src/pkg/store.cpp:1173",
-   "src/pkg/store.cpp:1177"
+   "src/pkg/store.cpp:350",
+   "src/pkg/store.cpp:1206",
+   "src/pkg/store.cpp:1210"
   ]
  },
  "Install {0} first.": {
@@ -3550,7 +3553,7 @@
  "Installed {0}": {
   "kind": "text",
   "where": [
-   "src/pkg/store.cpp:976"
+   "src/pkg/store.cpp:997"
   ]
  },
  "Installing": {
@@ -3569,7 +3572,7 @@
  "Internal RAM": {
   "kind": "text",
   "where": [
-   "src/app_settings.cpp:861"
+   "src/app_settings.cpp:865"
   ]
  },
  "IP address": {
@@ -3581,7 +3584,7 @@
  "is today": {
   "kind": "text",
   "where": [
-   "src/wid/misc.cpp:195"
+   "src/wid/misc.cpp:196"
   ]
  },
  "It can't be cancelled now": {
@@ -3593,7 +3596,8 @@
  "It is already there": {
   "kind": "text",
   "where": [
-   "src/pkg/store.cpp:1245"
+   "src/pkg/store.cpp:1183",
+   "src/pkg/store.cpp:1278"
   ]
  },
  "Items (tap to tick off)": {
@@ -3605,13 +3609,13 @@
  "its own night page": {
   "kind": "text",
   "where": [
-   "src/app_settings.cpp:646"
+   "src/app_settings.cpp:650"
   ]
  },
  "Japan, Korea": {
   "kind": "text",
   "where": [
-   "src/app_settings.cpp:940"
+   "src/app_settings.cpp:944"
   ]
  },
  "Japanese": {
@@ -3623,25 +3627,25 @@
  "just now": {
   "kind": "text",
   "where": [
-   "src/uikit.cpp:397"
+   "src/uikit.cpp:401"
   ]
  },
  "Keep at least one section": {
   "kind": "text",
   "where": [
-   "src/app_news.cpp:261"
+   "src/app_news.cpp:262"
   ]
  },
  "Keep editing": {
   "kind": "text",
   "where": [
-   "src/saveredit.cpp:1282"
+   "src/saveredit.cpp:1284"
   ]
  },
  "Keep listening after it answers": {
   "kind": "text",
   "where": [
-   "src/pet/book.cpp:138"
+   "src/pet/book.cpp:139"
   ],
   "notes": [
    "a switch in the dog's book: after the dog answers, it listens on for the next question"
@@ -3659,8 +3663,8 @@
  "Keyboard test": {
   "kind": "text",
   "where": [
-   "src/app_settings.cpp:1249",
-   "src/app_settings.cpp:1251"
+   "src/app_settings.cpp:1256",
+   "src/app_settings.cpp:1258"
   ]
  },
  "Kids": {
@@ -3699,13 +3703,13 @@
  "Landscape has its own pages. They start as a copy of the portrait ones; after that each is edited on its own.": {
   "kind": "text",
   "where": [
-   "src/app_settings.cpp:921"
+   "src/app_settings.cpp:925"
   ]
  },
  "Landscape pages laid out again": {
   "kind": "text",
   "where": [
-   "src/app_settings.cpp:918"
+   "src/app_settings.cpp:922"
   ]
  },
  "Landscape, upside down": {
@@ -3717,7 +3721,7 @@
  "Language": {
   "kind": "text",
   "where": [
-   "src/app_settings.cpp:1221",
+   "src/app_settings.cpp:1228",
    "src/claim.cpp:269",
    "src/langui.cpp:147"
   ]
@@ -3734,13 +3738,13 @@
  "Lap": {
   "kind": "text",
   "where": [
-   "src/app_clock.cpp:349"
+   "src/app_clock.cpp:355"
   ]
  },
  "Lap {0}": {
   "kind": "text",
   "where": [
-   "src/app_clock.cpp:331"
+   "src/app_clock.cpp:337"
   ]
  },
  "Large": {
@@ -3752,7 +3756,7 @@
  "Large 4×4": {
   "kind": "text",
   "where": [
-   "src/home.cpp:1517"
+   "src/home.cpp:1522"
   ]
  },
  "Last 7 days": {
@@ -3765,7 +3769,7 @@
  "Last checked at {0}.": {
   "kind": "text",
   "where": [
-   "src/app_settings.cpp:781"
+   "src/app_settings.cpp:785"
   ]
  },
  "Last sync {0}.": {
@@ -3783,52 +3787,52 @@
  "Latest": {
   "kind": "text",
   "where": [
-   "src/wid/misc.cpp:24",
+   "src/wid/misc.cpp:25",
    "src/widopts.cpp:375"
   ]
  },
  "Latest news": {
   "kind": "text",
   "where": [
-   "src/app_news.cpp:211",
-   "src/wid/news.cpp:48",
-   "src/wid.cpp:48"
+   "src/app_news.cpp:212",
+   "src/wid/news.cpp:49",
+   "src/wid.cpp:49"
   ]
  },
  "Latest news · VnExpress": {
   "kind": "text",
   "where": [
-   "src/wid/news.cpp:48"
+   "src/wid/news.cpp:49"
   ]
  },
  "latest news, with photos": {
   "kind": "text",
   "where": [
-   "src/wid.cpp:48"
+   "src/wid.cpp:49"
   ]
  },
  "latest note": {
   "kind": "text",
   "where": [
-   "src/wid.cpp:53"
+   "src/wid.cpp:54"
   ]
  },
  "latest notifications": {
   "kind": "text",
   "where": [
-   "src/wid.cpp:59"
+   "src/wid.cpp:60"
   ]
  },
  "Law": {
   "kind": "text",
   "where": [
-   "src/app_news.cpp:214"
+   "src/app_news.cpp:215"
   ]
  },
  "Lay out landscape from portrait again": {
   "kind": "text",
   "where": [
-   "src/app_settings.cpp:916"
+   "src/app_settings.cpp:920"
   ]
  },
  "LCD": {
@@ -3840,7 +3844,7 @@
  "Leaf didn't hear that. Say it again, please.": {
   "kind": "text",
   "where": [
-   "src/pet/talk.cpp:992"
+   "src/pet/talk.cpp:1056"
   ]
  },
  "leap": {
@@ -3852,25 +3856,25 @@
  "led\u0004Off": {
   "kind": "text",
   "where": [
-   "src/pet/book.cpp:154"
+   "src/pet/book.cpp:155"
   ]
  },
  "led\u0004Talking": {
   "kind": "text",
   "where": [
-   "src/pet/book.cpp:154"
+   "src/pet/book.cpp:155"
   ]
  },
  "led\u0004Talking + alerts": {
   "kind": "text",
   "where": [
-   "src/pet/book.cpp:154"
+   "src/pet/book.cpp:155"
   ]
  },
  "Left": {
   "kind": "text",
   "where": [
-   "src/saveredit.cpp:615"
+   "src/saveredit.cpp:618"
   ]
  },
  "Left key": {
@@ -3884,7 +3888,7 @@
  "Less often": {
   "kind": "text",
   "where": [
-   "src/pet/book.cpp:109"
+   "src/pet/book.cpp:110"
   ],
   "notes": [
    "chips, short"
@@ -3893,8 +3897,8 @@
  "Let go to send": {
   "kind": "text",
   "where": [
-   "src/pet/summon.cpp:713",
-   "src/pet/talk.cpp:576"
+   "src/pet/summon.cpp:729",
+   "src/pet/talk.cpp:592"
   ],
   "notes": [
    "under the round mic button: held / called by \"Gâu\" (a tap ends it) / ready"
@@ -3903,13 +3907,13 @@
  "Level %d": {
   "kind": "text",
   "where": [
-   "src/pet/widget.cpp:78"
+   "src/pet/widget.cpp:79"
   ]
  },
  "Level %d · %d gold": {
   "kind": "text",
   "where": [
-   "src/pet/widget.cpp:78"
+   "src/pet/widget.cpp:79"
   ]
  },
  "Library": {
@@ -3921,13 +3925,13 @@
  "Life": {
   "kind": "text",
   "where": [
-   "src/app_news.cpp:214"
+   "src/app_news.cpp:215"
   ]
  },
  "LIGHT": {
   "kind": "text",
   "where": [
-   "src/pet/book.cpp:143"
+   "src/pet/book.cpp:144"
   ],
   "notes": [
    "a heading in upper case: the board's small coloured light"
@@ -3937,15 +3941,15 @@
   "kind": "text",
   "where": [
    "src/app_settings.cpp:478",
-   "src/app_settings.cpp:1223",
+   "src/app_settings.cpp:1230",
    "src/theme.cpp:24",
-   "src/wid.cpp:104"
+   "src/wid.cpp:105"
   ]
  },
  "Light brightness": {
   "kind": "text",
   "where": [
-   "src/pet/book.cpp:161"
+   "src/pet/book.cpp:162"
   ]
  },
  "Link a Google, iCloud or Outlook calendar to see the next 7 days here.": {
@@ -3969,14 +3973,14 @@
  "Link EspOS to read the news.": {
   "kind": "text",
   "where": [
-   "src/app_news.cpp:95"
+   "src/app_news.cpp:96"
   ]
  },
  "Link this device to your account first": {
   "kind": "text",
   "where": [
-   "src/pet/talk.cpp:1012",
-   "src/pet/talk.cpp:1099"
+   "src/pet/talk.cpp:1076",
+   "src/pet/talk.cpp:1164"
   ]
  },
  "Link to EspOS to get prices.": {
@@ -3988,7 +3992,7 @@
  "Link to EspOS to get updates over WiFi.": {
   "kind": "text",
   "where": [
-   "src/app_settings.cpp:789"
+   "src/app_settings.cpp:793"
   ]
  },
  "Link to EspOS to install more apps.": {
@@ -4006,7 +4010,7 @@
  "linked": {
   "kind": "text",
   "where": [
-   "src/app_settings.cpp:1216"
+   "src/app_settings.cpp:1223"
   ]
  },
  "Linked calendars": {
@@ -4014,7 +4018,7 @@
   "where": [
    "src/app_calendar.cpp:146",
    "src/app_calendar.cpp:394",
-   "src/app_settings.cpp:1236",
+   "src/app_settings.cpp:1243",
    "src/search.cpp:87"
   ],
   "notes": [
@@ -4024,18 +4028,18 @@
  "List": {
   "kind": "text",
   "where": [
-   "src/home.cpp:1462",
+   "src/home.cpp:1467",
    "src/mywid.cpp:248",
    "src/wid/clock.cpp:38",
    "src/wid/market.cpp:14",
-   "src/wid/misc.cpp:221",
+   "src/wid/misc.cpp:222",
    "src/wid/read.cpp:21"
   ]
  },
  "list": {
   "kind": "text",
   "where": [
-   "src/home.cpp:1469"
+   "src/home.cpp:1474"
   ],
   "notes": [
    "the kind of a widget made on the device, small under its name"
@@ -4050,34 +4054,34 @@
  "Listen for \"Gâu\"": {
   "kind": "text",
   "where": [
-   "src/pet/book.cpp:91"
+   "src/pet/book.cpp:92"
   ]
  },
  "Listening": {
   "kind": "text",
   "where": [
-   "src/pet/talk.cpp:575",
-   "src/pet/talk.cpp:792",
-   "src/pet/talk.cpp:905",
-   "src/pet/talk.cpp:915"
+   "src/pet/talk.cpp:591",
+   "src/pet/talk.cpp:817",
+   "src/pet/talk.cpp:969",
+   "src/pet/talk.cpp:979"
   ]
  },
  "Listening for \"Gâu\"": {
   "kind": "text",
   "where": [
-   "src/os.cpp:613"
+   "src/os.cpp:617"
   ]
  },
  "Loading": {
   "kind": "text",
   "where": [
-   "src/app_settings.cpp:1098"
+   "src/app_settings.cpp:1102"
   ]
  },
  "Loading new templates": {
   "kind": "text",
   "where": [
-   "src/saveredit.cpp:1014"
+   "src/saveredit.cpp:1017"
   ]
  },
  "Locked now": {
@@ -4086,19 +4090,19 @@
    "src/app_more.cpp:1245",
    "src/lock.cpp:622",
    "src/pet/chooser.cpp:108",
-   "src/run/run.cpp:377"
+   "src/run/run.cpp:378"
   ]
  },
  "Locked: buy it to download it": {
   "kind": "text",
   "where": [
-   "src/pkg/store.cpp:1149"
+   "src/pkg/store.cpp:1171"
   ]
  },
  "London": {
   "kind": "text",
   "where": [
-   "src/app_clock.cpp:376",
+   "src/app_clock.cpp:382",
    "src/wid/clock.cpp:666"
   ]
  },
@@ -4125,7 +4129,7 @@
  "long\u0004{0} min": {
   "kind": "text",
   "where": [
-   "src/app_clock.cpp:302"
+   "src/app_clock.cpp:308"
   ],
   "notes": [
    "a timer preset in minutes; the long form has room (vi \"{0} phút\", the short one \"{0} ph\")"
@@ -4155,28 +4159,28 @@
  "Los Angeles": {
   "kind": "text",
   "where": [
-   "src/app_clock.cpp:377",
+   "src/app_clock.cpp:383",
    "src/wid/clock.cpp:667"
   ]
  },
  "Los Angeles (summer), Denver (winter), Arizona": {
   "kind": "text",
   "where": [
-   "src/app_settings.cpp:953"
+   "src/app_settings.cpp:957"
   ]
  },
  "Los Angeles, Vancouver (winter)": {
   "kind": "text",
   "where": [
-   "src/app_settings.cpp:954"
+   "src/app_settings.cpp:958"
   ]
  },
  "Low": {
   "kind": "text",
   "where": [
    "src/app_weather.cpp:355",
-   "src/pet/book.cpp:162",
-   "src/wid/weather.cpp:29"
+   "src/pet/book.cpp:163",
+   "src/wid/weather.cpp:30"
   ]
  },
  "lower\u0004today": {
@@ -4205,8 +4209,8 @@
   "where": [
    "src/app_more.cpp:263",
    "src/apps.cpp:42",
-   "src/home.cpp:1362",
-   "src/saveredit.cpp:421",
+   "src/home.cpp:1367",
+   "src/saveredit.cpp:424",
    "src/wid/cal.cpp:180",
    "src/wid/cal.cpp:204",
    "src/wid/cal.cpp:246",
@@ -4217,7 +4221,7 @@
    "src/wid/clock.cpp:561",
    "src/wid/clock.cpp:568",
    "src/wid/clock.cpp:577",
-   "src/wid.cpp:39"
+   "src/wid.cpp:40"
   ],
   "notes": [
    "a sample lunar date"
@@ -4226,7 +4230,7 @@
  "Lunar 9/10": {
   "kind": "text",
   "where": [
-   "src/home.cpp:1362"
+   "src/home.cpp:1367"
   ],
   "notes": [
    "a sample lunar date"
@@ -4283,13 +4287,13 @@
  "Lunar New Year, any date": {
   "kind": "text",
   "where": [
-   "src/wid.cpp:41"
+   "src/wid.cpp:42"
   ]
  },
  "Lunar {0}": {
   "kind": "text",
   "where": [
-   "src/home.cpp:822",
+   "src/home.cpp:826",
    "src/wid/clock.cpp:69"
   ],
   "notes": [
@@ -4327,7 +4331,7 @@
  "lunar-day\u0004{0}": {
   "kind": "text",
   "where": [
-   "src/home.cpp:822"
+   "src/home.cpp:826"
   ],
   "notes": [
    "the lunar date beside today's date (vi \"{0} âm\"); \"{0}\" alone on the 1st and 15th, already worded"
@@ -4336,13 +4340,13 @@
  "made on the device": {
   "kind": "text",
   "where": [
-   "src/wid.cpp:55"
+   "src/wid.cpp:56"
   ]
  },
  "Make your widget on Home (+ Widget, Custom), then add it here.": {
   "kind": "text",
   "where": [
-   "src/home.cpp:1464"
+   "src/home.cpp:1469"
   ]
  },
  "Market codes": {
@@ -4355,15 +4359,15 @@
   "kind": "text",
   "where": [
    "src/app_markets.cpp:114",
-   "src/app_settings.cpp:1239",
+   "src/app_settings.cpp:1246",
    "src/apps.cpp:40",
-   "src/home.cpp:1358",
+   "src/home.cpp:1363",
    "src/wid/market.cpp:61",
-   "src/wid.cpp:46",
-   "src/wid.cpp:64",
+   "src/wid.cpp:47",
    "src/wid.cpp:65",
-   "src/wid.cpp:67",
-   "src/wid.cpp:69"
+   "src/wid.cpp:66",
+   "src/wid.cpp:68",
+   "src/wid.cpp:70"
   ]
  },
  "Markets shows only these codes; Mixed is every code the server sends. Prices update every 15 minutes.": {
@@ -4375,7 +4379,7 @@
  "Meal times (11:30, 18:30)": {
   "kind": "text",
   "where": [
-   "src/pet/book.cpp:446"
+   "src/pet/book.cpp:447"
   ]
  },
  "Medium": {
@@ -4387,15 +4391,15 @@
  "Medium 4×2": {
   "kind": "text",
   "where": [
-   "src/home.cpp:1517"
+   "src/home.cpp:1522"
   ]
  },
  "Memory card": {
   "kind": "text",
   "where": [
    "src/pkg/storage_ui.cpp:83",
-   "src/pkg/store.cpp:1190",
-   "src/pkg/store.cpp:1248"
+   "src/pkg/store.cpp:1223",
+   "src/pkg/store.cpp:1281"
   ]
  },
  "memory card space full remove apps": {
@@ -4431,7 +4435,7 @@
  "min": {
   "kind": "text",
   "where": [
-   "src/app_clock.cpp:281",
+   "src/app_clock.cpp:287",
    "src/wid/read.cpp:354",
    "src/wid/read.cpp:397"
   ]
@@ -4445,19 +4449,19 @@
  "Minimal": {
   "kind": "text",
   "where": [
-   "src/desksaver.cpp:601"
+   "src/desksaver.cpp:600"
   ]
  },
  "minutes read, streak": {
   "kind": "text",
   "where": [
-   "src/wid.cpp:72"
+   "src/wid.cpp:73"
   ]
  },
  "Missed that, man. Say it again, slowly.": {
   "kind": "text",
   "where": [
-   "src/pet/talk.cpp:990"
+   "src/pet/talk.cpp:1054"
   ]
  },
  "missing {0}": {
@@ -4465,7 +4469,7 @@
   "where": [
    "src/run/media.cpp:693",
    "src/run/media.cpp:783",
-   "src/run/run.cpp:932"
+   "src/run/run.cpp:940"
   ]
  },
  "Mixed": {
@@ -4479,20 +4483,20 @@
   "where": [
    "src/app_weather.cpp:167",
    "src/app_weather.cpp:355",
-   "src/wid/weather.cpp:23",
-   "src/wid/weather.cpp:29"
+   "src/wid/weather.cpp:24",
+   "src/wid/weather.cpp:30"
   ]
  },
  "Moment": {
   "kind": "text",
   "where": [
-   "src/pet/book.cpp:203"
+   "src/pet/book.cpp:204"
   ]
  },
  "MOMENTS": {
   "kind": "text",
   "where": [
-   "src/pet/book.cpp:333"
+   "src/pet/book.cpp:334"
   ],
   "notes": [
    "a heading in upper case: the dog's album of firsts"
@@ -4501,7 +4505,7 @@
  "Month": {
   "kind": "text",
   "where": [
-   "src/saveredit.cpp:438",
+   "src/saveredit.cpp:441",
    "src/wid/cal.cpp:16",
    "src/wid/cal.cpp:209",
    "src/wid/cal.cpp:246",
@@ -4524,7 +4528,7 @@
  "More often": {
   "kind": "text",
   "where": [
-   "src/pet/book.cpp:109"
+   "src/pet/book.cpp:110"
   ],
   "notes": [
    "chips, short"
@@ -4533,14 +4537,14 @@
  "Moscow": {
   "kind": "text",
   "where": [
-   "src/app_clock.cpp:375",
+   "src/app_clock.cpp:381",
    "src/wid/clock.cpp:668"
   ]
  },
  "Moscow, Saudi Arabia, Turkey": {
   "kind": "text",
   "where": [
-   "src/app_settings.cpp:945"
+   "src/app_settings.cpp:949"
   ]
  },
  "Move": {
@@ -4573,21 +4577,21 @@
  "Moved {0}": {
   "kind": "text",
   "where": [
-   "src/pkg/store.cpp:976"
+   "src/pkg/store.cpp:997"
   ]
  },
  "Moving": {
   "kind": "text",
   "where": [
-   "src/pkg/store.cpp:1311"
+   "src/pkg/store.cpp:1344"
   ]
  },
  "My widget": {
   "kind": "text",
   "where": [
    "src/mywid.cpp:249",
-   "src/wid/misc.cpp:173",
-   "src/wid.cpp:55",
+   "src/wid/misc.cpp:174",
+   "src/wid.cpp:56",
    "src/widopts.cpp:396"
   ]
  },
@@ -4617,7 +4621,7 @@
  "need\u0004Fun": {
   "kind": "text",
   "where": [
-   "src/pet/book.cpp:189"
+   "src/pet/book.cpp:190"
   ],
   "notes": [
    "the dog's four needs (gauges): fed, fun, health, clean"
@@ -4626,7 +4630,7 @@
  "NEEDS": {
   "kind": "text",
   "where": [
-   "src/pet/book.cpp:284"
+   "src/pet/book.cpp:285"
   ],
   "notes": [
    "a heading in upper case"
@@ -4639,15 +4643,15 @@
    "src/app_more.cpp:1254",
    "src/pkg/pkg.cpp:53",
    "src/pkg/pkg.cpp:629",
-   "src/pkg/store.cpp:256",
-   "src/pkg/store.cpp:257",
-   "src/pkg/store.cpp:1148"
+   "src/pkg/store.cpp:259",
+   "src/pkg/store.cpp:260",
+   "src/pkg/store.cpp:1170"
   ]
  },
  "Needs at least 2 photos: add photos on the EspOS web, under Photos": {
   "kind": "text",
   "where": [
-   "src/saveredit.cpp:492"
+   "src/saveredit.cpp:495"
   ]
  },
  "Needs the memory card": {
@@ -4656,10 +4660,10 @@
    "src/apps.cpp:256",
    "src/js/jsapp.cpp:609",
    "src/pkg/pkg.cpp:598",
-   "src/pkg/store.cpp:353",
-   "src/pkg/store.cpp:558",
-   "src/pkg/store.cpp:1152",
-   "src/pkg/store.cpp:1246"
+   "src/pkg/store.cpp:356",
+   "src/pkg/store.cpp:561",
+   "src/pkg/store.cpp:1185",
+   "src/pkg/store.cpp:1279"
   ]
  },
  "network internet connect wireless": {
@@ -4683,7 +4687,7 @@
  "Never": {
   "kind": "text",
   "where": [
-   "src/saveredit.cpp:1140"
+   "src/saveredit.cpp:1143"
   ]
  },
  "New": {
@@ -4722,13 +4726,13 @@
  "New version": {
   "kind": "text",
   "where": [
-   "src/app_settings.cpp:759"
+   "src/app_settings.cpp:763"
   ]
  },
  "new version": {
   "kind": "text",
   "where": [
-   "src/app_settings.cpp:1245"
+   "src/app_settings.cpp:1252"
   ]
  },
  "New Year countdown": {
@@ -4749,44 +4753,44 @@
  "New York": {
   "kind": "text",
   "where": [
-   "src/app_clock.cpp:377",
+   "src/app_clock.cpp:383",
    "src/wid/clock.cpp:667"
   ]
  },
  "New York (winter), Chicago (summer)": {
   "kind": "text",
   "where": [
-   "src/app_settings.cpp:951"
+   "src/app_settings.cpp:955"
   ]
  },
  "New York, Toronto (summer)": {
   "kind": "text",
   "where": [
-   "src/app_settings.cpp:950"
+   "src/app_settings.cpp:954"
   ]
  },
  "New Zealand (winter)": {
   "kind": "text",
   "where": [
-   "src/app_settings.cpp:942"
+   "src/app_settings.cpp:946"
   ]
  },
  "News": {
   "kind": "text",
   "where": [
-   "src/app_news.cpp:175",
-   "src/app_news.cpp:319",
-   "src/app_settings.cpp:1237",
+   "src/app_news.cpp:176",
+   "src/app_news.cpp:320",
+   "src/app_settings.cpp:1244",
    "src/apps.cpp:34",
-   "src/home.cpp:1358",
-   "src/wid.cpp:48",
-   "src/wid.cpp:53"
+   "src/home.cpp:1363",
+   "src/wid.cpp:49",
+   "src/wid.cpp:54"
   ]
  },
  "News from VnExpress, through the EspOS server.": {
   "kind": "text",
   "where": [
-   "src/app_news.cpp:344"
+   "src/app_news.cpp:345"
   ]
  },
  "news papers sections": {
@@ -4835,14 +4839,14 @@
  "next alarm": {
   "kind": "text",
   "where": [
-   "src/wid.cpp:50"
+   "src/wid.cpp:51"
   ]
  },
  "Next event": {
   "kind": "text",
   "where": [
-   "src/home.cpp:1364",
-   "src/saveredit.cpp:422"
+   "src/home.cpp:1369",
+   "src/saveredit.cpp:425"
   ],
   "notes": [
    "a sample event"
@@ -4858,7 +4862,7 @@
  "next hours, next days": {
   "kind": "text",
   "where": [
-   "src/wid.cpp:44"
+   "src/wid.cpp:45"
   ]
  },
  "Next: {0} {1}": {
@@ -4882,39 +4886,39 @@
  "Night": {
   "kind": "text",
   "where": [
-   "src/app_settings.cpp:1073"
+   "src/app_settings.cpp:1077"
   ]
  },
  "Night from": {
   "kind": "text",
   "where": [
-   "src/app_settings.cpp:1039"
+   "src/app_settings.cpp:1043"
   ]
  },
  "Night page": {
   "kind": "text",
   "where": [
-   "src/saveredit.cpp:826",
-   "src/saveredit.cpp:1302"
+   "src/saveredit.cpp:829",
+   "src/saveredit.cpp:1304"
   ]
  },
  "Night page background": {
   "kind": "text",
   "where": [
-   "src/saveredit.cpp:1088",
-   "src/saveredit.cpp:1093"
+   "src/saveredit.cpp:1091",
+   "src/saveredit.cpp:1096"
   ]
  },
  "Night templates": {
   "kind": "text",
   "where": [
-   "src/saveredit.cpp:1023"
+   "src/saveredit.cpp:1026"
   ]
  },
  "Night until": {
   "kind": "text",
   "where": [
-   "src/app_settings.cpp:1039"
+   "src/app_settings.cpp:1043"
   ]
  },
  "Night violet": {
@@ -4926,7 +4930,7 @@
  "No alarms yet. Tap + to add one.": {
   "kind": "text",
   "where": [
-   "src/app_clock.cpp:219"
+   "src/app_clock.cpp:225"
   ]
  },
  "No alarms. Tap to set one.": {
@@ -4969,7 +4973,7 @@
  "No card": {
   "kind": "text",
   "where": [
-   "src/wid.cpp:104"
+   "src/wid.cpp:105"
   ]
  },
  "No data yet, waiting for the next sync.": {
@@ -5014,15 +5018,15 @@
  "No internet": {
   "kind": "text",
   "where": [
-   "src/pet/talk.cpp:591",
-   "src/pet/talk.cpp:1013",
-   "src/pet/talk.cpp:1100"
+   "src/pet/talk.cpp:607",
+   "src/pet/talk.cpp:1077",
+   "src/pet/talk.cpp:1165"
   ]
  },
  "No maps yet": {
   "kind": "text",
   "where": [
-   "src/run/run.cpp:1073"
+   "src/run/run.cpp:1081"
   ]
  },
  "No memory card. Insert one (FAT32) to install big games and move apps to it.": {
@@ -5046,20 +5050,20 @@
  "No new notifications": {
   "kind": "text",
   "where": [
-   "src/os.cpp:653",
-   "src/wid/misc.cpp:253"
+   "src/os.cpp:657",
+   "src/wid/misc.cpp:254"
   ]
  },
  "No new version": {
   "kind": "text",
   "where": [
-   "src/pkg/store.cpp:1217"
+   "src/pkg/store.cpp:1250"
   ]
  },
  "No news yet, waiting for the next sync.": {
   "kind": "text",
   "where": [
-   "src/app_news.cpp:94"
+   "src/app_news.cpp:95"
   ]
  },
  "No notes yet. Tap + to write one (the keyboard types Vietnamese with Telex too).": {
@@ -5071,7 +5075,7 @@
  "No notes yet. Tap to write one.": {
   "kind": "text",
   "where": [
-   "src/wid/misc.cpp:107"
+   "src/wid/misc.cpp:108"
   ]
  },
  "No notifications": {
@@ -5083,7 +5087,7 @@
  "No notifications with Do Not Disturb on or in quiet hours.": {
   "kind": "text",
   "where": [
-   "src/pet/book.cpp:406"
+   "src/pet/book.cpp:407"
   ]
  },
  "No other books yet": {
@@ -5095,7 +5099,7 @@
  "No part chosen to download": {
   "kind": "text",
   "where": [
-   "src/pkg/store.cpp:1186"
+   "src/pkg/store.cpp:1219"
   ]
  },
  "No permissions needed": {
@@ -5107,7 +5111,7 @@
  "No photos on the device yet.": {
   "kind": "text",
   "where": [
-   "src/app_settings.cpp:1106"
+   "src/app_settings.cpp:1110"
   ]
  },
  "No photos on the device yet. Add them on the EspOS web (Devices, pick the S3, Photos); the device downloads them when it syncs. Photos are used by this app, the Photos widget, the \"Your photos\" wallpaper and the slideshow saver.": {
@@ -5140,25 +5144,25 @@
   "where": [
    "src/run/logic.cpp:189",
    "src/run/logic.cpp:200",
-   "src/run/run.cpp:1072"
+   "src/run/run.cpp:1080"
   ]
  },
  "No room on that page": {
   "kind": "text",
   "where": [
-   "src/home.cpp:693"
+   "src/home.cpp:697"
   ]
  },
  "No room on this page for that size": {
   "kind": "text",
   "where": [
-   "src/home.cpp:1596"
+   "src/home.cpp:1601"
   ]
  },
  "No stories in this section yet. Wait for the next sync.": {
   "kind": "text",
   "where": [
-   "src/wid/news.cpp:54"
+   "src/wid/news.cpp:55"
   ]
  },
  "No tasks left. Add one above; the Reminders widget shows the open ones.": {
@@ -5170,13 +5174,13 @@
  "No tasks left. Tap to add one.": {
   "kind": "text",
   "where": [
-   "src/wid/misc.cpp:90"
+   "src/wid/misc.cpp:91"
   ]
  },
  "No tasks yet. Tap to add one.": {
   "kind": "text",
   "where": [
-   "src/wid/misc.cpp:90"
+   "src/wid/misc.cpp:91"
   ]
  },
  "No upcoming events": {
@@ -5190,27 +5194,27 @@
  "No weather yet.": {
   "kind": "text",
   "where": [
-   "src/pet/summon.cpp:150"
+   "src/pet/summon.cpp:165"
   ]
  },
  "No WiFi": {
   "kind": "text",
   "where": [
-   "src/wid/misc.cpp:319"
+   "src/wid/misc.cpp:320"
   ]
  },
  "None": {
   "kind": "text",
   "where": [
-   "src/saveredit.cpp:624"
+   "src/saveredit.cpp:627"
   ]
  },
  "none": {
   "kind": "text",
   "where": [
    "src/app_calendar.cpp:146",
-   "src/app_settings.cpp:1236",
-   "src/app_settings.cpp:1242"
+   "src/app_settings.cpp:1243",
+   "src/app_settings.cpp:1249"
   ],
   "notes": [
    "no linked calendar yet (vi \"chưa có\")"
@@ -5226,8 +5230,8 @@
  "Normal": {
   "kind": "text",
   "where": [
-   "src/pet/book.cpp:109",
-   "src/pet/book.cpp:162"
+   "src/pet/book.cpp:110",
+   "src/pet/book.cpp:163"
   ],
   "notes": [
    "chips, short"
@@ -5257,27 +5261,27 @@
    "src/ota.cpp:157",
    "src/pkg/espk.cpp:67",
    "src/pkg/source.cpp:140",
-   "src/pkg/store.cpp:519",
-   "src/pkg/store.cpp:608",
-   "src/run/run.cpp:1010"
+   "src/pkg/store.cpp:522",
+   "src/pkg/store.cpp:611",
+   "src/run/run.cpp:1018"
   ]
  },
  "Not enough memory to open PawBoop": {
   "kind": "text",
   "where": [
-   "src/pet/app.cpp:947"
+   "src/pet/app.cpp:948"
   ]
  },
  "Not enough memory to open PawBoop Run": {
   "kind": "text",
   "where": [
-   "src/run/run.cpp:1178"
+   "src/run/run.cpp:1186"
   ]
  },
  "Not enough memory to open the aquarium": {
   "kind": "text",
   "where": [
-   "src/tank/screen.cpp:484"
+   "src/tank/screen.cpp:544"
   ]
  },
  "Not enough memory to open the game": {
@@ -5301,16 +5305,16 @@
  "Not enough room on the device": {
   "kind": "text",
   "where": [
-   "src/pkg/store.cpp:266",
-   "src/pkg/store.cpp:358",
-   "src/pkg/store.cpp:598",
-   "src/pkg/store.cpp:605"
+   "src/pkg/store.cpp:269",
+   "src/pkg/store.cpp:361",
+   "src/pkg/store.cpp:601",
+   "src/pkg/store.cpp:608"
   ]
  },
  "Not in the store yet, try again later": {
   "kind": "text",
   "where": [
-   "src/pet/book.cpp:176"
+   "src/pet/book.cpp:177"
   ]
  },
  "Not installed": {
@@ -5322,39 +5326,39 @@
  "not linked": {
   "kind": "text",
   "where": [
-   "src/app_settings.cpp:1216"
+   "src/app_settings.cpp:1223"
   ]
  },
  "Not listening for \"Gâu\"": {
   "kind": "text",
   "where": [
-   "src/os.cpp:613"
+   "src/os.cpp:617"
   ]
  },
  "Not now": {
   "kind": "text",
   "where": [
-   "src/pet/book.cpp:76",
-   "src/saveredit.cpp:1001"
+   "src/pet/book.cpp:77",
+   "src/saveredit.cpp:1004"
   ]
  },
  "Not set": {
   "kind": "text",
   "where": [
-   "src/os.cpp:673"
+   "src/os.cpp:677"
   ]
  },
  "not set": {
   "kind": "text",
   "where": [
-   "src/app_settings.cpp:1248"
+   "src/app_settings.cpp:1255"
   ]
  },
  "Not synced yet": {
   "kind": "text",
   "where": [
-   "src/wid/misc.cpp:322",
-   "src/wid/misc.cpp:342",
+   "src/wid/misc.cpp:323",
+   "src/wid/misc.cpp:343",
    "src/wid/read.cpp:605"
   ],
   "notes": [
@@ -5374,7 +5378,7 @@
    "src/app_notes.cpp:84",
    "src/app_notes.cpp:112",
    "src/search.cpp:132",
-   "src/wid/misc.cpp:22",
+   "src/wid/misc.cpp:23",
    "src/widopts.cpp:373",
    "src/widopts.cpp:382"
   ]
@@ -5382,7 +5386,7 @@
  "note": {
   "kind": "text",
   "where": [
-   "src/home.cpp:1469"
+   "src/home.cpp:1474"
   ],
   "notes": [
    "the kind of a widget made on the device, small under its name"
@@ -5394,8 +5398,8 @@
    "src/app_notes.cpp:193",
    "src/apps.cpp:39",
    "src/search.cpp:242",
-   "src/wid/misc.cpp:106",
-   "src/wid.cpp:53"
+   "src/wid/misc.cpp:107",
+   "src/wid.cpp:54"
   ]
  },
  "Notes typed here sync to the web. Pin a note to Home as a widget.": {
@@ -5407,7 +5411,7 @@
  "Nothing": {
   "kind": "text",
   "where": [
-   "src/home.cpp:1618"
+   "src/home.cpp:1623"
   ]
  },
  "Nothing today": {
@@ -5425,13 +5429,13 @@
  "Notifications": {
   "kind": "text",
   "where": [
-   "src/app_settings.cpp:1231",
+   "src/app_settings.cpp:1238",
    "src/notif.cpp:1013",
    "src/notif.cpp:1314",
-   "src/os.cpp:649",
+   "src/os.cpp:653",
    "src/search.cpp:80",
-   "src/wid/misc.cpp:251",
-   "src/wid.cpp:59"
+   "src/wid/misc.cpp:252",
+   "src/wid.cpp:60"
   ]
  },
  "notifications\u0004Off": {
@@ -5458,7 +5462,7 @@
  "Nov 17": {
   "kind": "text",
   "where": [
-   "src/saveredit.cpp:436"
+   "src/saveredit.cpp:439"
   ],
   "notes": [
    "a sample day and month"
@@ -5468,9 +5472,9 @@
   "kind": "text",
   "where": [
    "src/app_weather.cpp:301",
-   "src/wid/weather.cpp:215",
-   "src/wid/weather.cpp:233",
-   "src/wid/weather.cpp:415"
+   "src/wid/weather.cpp:216",
+   "src/wid/weather.cpp:234",
+   "src/wid/weather.cpp:416"
   ]
  },
  "now": {
@@ -5490,14 +5494,14 @@
    "src/wid/read.cpp:208",
    "src/wid/read.cpp:225",
    "src/wid/read.cpp:240",
-   "src/wid.cpp:70"
+   "src/wid.cpp:71"
   ]
  },
  "Off": {
   "kind": "text",
   "where": [
-   "src/app_settings.cpp:669",
-   "src/pet/book.cpp:92"
+   "src/app_settings.cpp:673",
+   "src/pet/book.cpp:93"
   ],
   "notes": [
    "chips, short"
@@ -5506,8 +5510,8 @@
  "off": {
   "kind": "text",
   "where": [
-   "src/app_settings.cpp:1228",
-   "src/app_settings.cpp:1258"
+   "src/app_settings.cpp:1235",
+   "src/app_settings.cpp:1265"
   ]
  },
  "Off: banners show only the app's name, not what it says.": {
@@ -5519,31 +5523,31 @@
  "Oh dear, Frost heard nothing at all! Say it again!": {
   "kind": "text",
   "where": [
-   "src/pet/talk.cpp:997"
+   "src/pet/talk.cpp:1061"
   ]
  },
  "on": {
   "kind": "text",
   "where": [
-   "src/app_settings.cpp:1258"
+   "src/app_settings.cpp:1265"
   ]
  },
  "on a blurred band": {
   "kind": "text",
   "where": [
-   "src/home.cpp:1369"
+   "src/home.cpp:1374"
   ]
  },
  "On battery": {
   "kind": "text",
   "where": [
-   "src/wid/misc.cpp:332"
+   "src/wid/misc.cpp:333"
   ]
  },
  "On the charger": {
   "kind": "text",
   "where": [
-   "src/pet/book.cpp:92"
+   "src/pet/book.cpp:93"
   ],
   "notes": [
    "chips, short"
@@ -5570,19 +5574,19 @@
  "One big story": {
   "kind": "text",
   "where": [
-   "src/wid/news.cpp:15"
+   "src/wid/news.cpp:16"
   ]
  },
  "One done! Just {n} task left.|One done! Just {n} tasks left.": {
   "kind": "plural",
   "where": [
-   "src/pet/summon.cpp:166"
+   "src/pet/summon.cpp:181"
   ]
  },
  "one or more photos": {
   "kind": "text",
   "where": [
-   "src/home.cpp:1368"
+   "src/home.cpp:1373"
   ]
  },
  "One per line; a new one each day": {
@@ -5594,25 +5598,25 @@
  "One photo": {
   "kind": "text",
   "where": [
-   "src/saveredit.cpp:486"
+   "src/saveredit.cpp:489"
   ]
  },
  "Only after \"Gâu\" does the device send what you said next to the server, so the dog can answer. No sound is kept there.": {
   "kind": "text",
   "where": [
-   "src/pet/book.cpp:58"
+   "src/pet/book.cpp:59"
   ]
  },
  "only the time and date": {
   "kind": "text",
   "where": [
-   "src/desksaver.cpp:601"
+   "src/desksaver.cpp:600"
   ]
  },
  "Opacity": {
   "kind": "text",
   "where": [
-   "src/saveredit.cpp:652"
+   "src/saveredit.cpp:655"
   ]
  },
  "Open": {
@@ -5625,31 +5629,31 @@
  "Open it from the EspOS website (the device page, Remote control) from anywhere, as long as the device is online. On the same WiFi it is faster: type the address above into a browser, then the PIN. Turn it off when you are not using it; turning it on again gives a new PIN.": {
   "kind": "text",
   "where": [
-   "src/app_settings.cpp:890"
+   "src/app_settings.cpp:894"
   ]
  },
  "Open PawBoop and choose a dog": {
   "kind": "text",
   "where": [
-   "src/pet/widget.cpp:121"
+   "src/pet/widget.cpp:122"
   ]
  },
  "Open PawBoop to look after {0}.": {
   "kind": "text",
   "where": [
-   "src/pet/summon.cpp:171"
+   "src/pet/summon.cpp:186"
   ]
  },
  "Open tasks": {
   "kind": "text",
   "where": [
-   "src/wid/misc.cpp:21"
+   "src/wid/misc.cpp:22"
   ]
  },
  "Opinion": {
   "kind": "text",
   "where": [
-   "src/app_news.cpp:216"
+   "src/app_news.cpp:217"
   ]
  },
  "Options": {
@@ -5667,13 +5671,13 @@
  "Order and change": {
   "kind": "text",
   "where": [
-   "src/saveredit.cpp:547"
+   "src/saveredit.cpp:550"
   ]
  },
  "Orientation": {
   "kind": "text",
   "where": [
-   "src/app_settings.cpp:617"
+   "src/app_settings.cpp:618"
   ]
  },
  "Other": {
@@ -5692,7 +5696,7 @@
  "Our family": {
   "kind": "text",
   "where": [
-   "src/saveredit.cpp:1198"
+   "src/saveredit.cpp:1201"
   ]
  },
  "Outline": {
@@ -5704,13 +5708,13 @@
  "Overview": {
   "kind": "text",
   "where": [
-   "src/wid.cpp:76"
+   "src/wid.cpp:77"
   ]
  },
  "overview": {
   "kind": "text",
   "where": [
-   "src/app_settings.cpp:1239"
+   "src/app_settings.cpp:1246"
   ]
  },
  "Owned": {
@@ -5728,31 +5732,31 @@
  "Page {0} of {1}": {
   "kind": "text",
   "where": [
-   "src/saveredit.cpp:826"
+   "src/saveredit.cpp:829"
   ]
  },
  "Page {0} wallpaper": {
   "kind": "text",
   "where": [
-   "src/home.cpp:1979"
+   "src/home.cpp:1984"
   ]
  },
  "Page {0}/{1}": {
   "kind": "text",
   "where": [
-   "src/saveredit.cpp:1304"
+   "src/saveredit.cpp:1306"
   ]
  },
  "Pair this device again in Settings": {
   "kind": "text",
   "where": [
-   "src/pet/talk.cpp:696"
+   "src/pet/talk.cpp:714"
   ]
  },
  "Paris": {
   "kind": "text",
   "where": [
-   "src/app_clock.cpp:375",
+   "src/app_clock.cpp:381",
    "src/wid/clock.cpp:665"
   ]
  },
@@ -5766,20 +5770,20 @@
  "Pause": {
   "kind": "text",
   "where": [
-   "src/app_clock.cpp:256"
+   "src/app_clock.cpp:262"
   ]
  },
  "PawBoop Run": {
   "kind": "text",
   "where": [
-   "src/run/run.cpp:909",
-   "src/run/run.cpp:1192"
+   "src/run/run.cpp:917",
+   "src/run/run.cpp:1200"
   ]
  },
  "PawBoop's data is missing": {
   "kind": "text",
   "where": [
-   "src/pet/app.cpp:938"
+   "src/pet/app.cpp:939"
   ]
  },
  "Permissions": {
@@ -5797,23 +5801,23 @@
  "Photo": {
   "kind": "text",
   "where": [
-   "src/app_settings.cpp:1223",
-   "src/home.cpp:1368",
-   "src/saveredit.cpp:423",
-   "src/saveredit.cpp:1054",
+   "src/app_settings.cpp:1230",
+   "src/home.cpp:1373",
+   "src/saveredit.cpp:426",
+   "src/saveredit.cpp:1057",
    "src/widopts.cpp:387"
   ]
  },
  "Photo frame": {
   "kind": "text",
   "where": [
-   "src/desksaver.cpp:602"
+   "src/desksaver.cpp:601"
   ]
  },
  "Photo removed from the device": {
   "kind": "text",
   "where": [
-   "src/app_settings.cpp:1136"
+   "src/app_settings.cpp:1140"
   ]
  },
  "Photo {0}": {
@@ -5827,15 +5831,15 @@
   "where": [
    "src/app_more.cpp:125",
    "src/apps.cpp:37",
-   "src/home.cpp:1358",
-   "src/wid/misc.cpp:143",
-   "src/wid.cpp:54"
+   "src/home.cpp:1363",
+   "src/wid/misc.cpp:144",
+   "src/wid.cpp:55"
   ]
  },
  "Photos in turn": {
   "kind": "text",
   "where": [
-   "src/saveredit.cpp:1054"
+   "src/saveredit.cpp:1057"
   ]
  },
  "Photos on device": {
@@ -5847,9 +5851,9 @@
  "Photos on the device": {
   "kind": "text",
   "where": [
-   "src/app_settings.cpp:1147",
-   "src/app_settings.cpp:1242",
-   "src/home.cpp:1874"
+   "src/app_settings.cpp:1151",
+   "src/app_settings.cpp:1249",
+   "src/home.cpp:1879"
   ]
  },
  "photos pictures": {
@@ -5861,7 +5865,7 @@
  "Pick a city at the bottom of the list": {
   "kind": "text",
   "where": [
-   "src/app_clock.cpp:474"
+   "src/app_clock.cpp:480"
   ]
  },
  "Pick a date in the widget's settings": {
@@ -5873,13 +5877,13 @@
  "Pick a photo": {
   "kind": "text",
   "where": [
-   "src/saveredit.cpp:501"
+   "src/saveredit.cpp:504"
   ]
  },
  "Pick photos; the numbers are the order": {
   "kind": "text",
   "where": [
-   "src/saveredit.cpp:501"
+   "src/saveredit.cpp:504"
   ]
  },
  "Pick your own": {
@@ -5897,7 +5901,7 @@
  "PIN": {
   "kind": "text",
   "where": [
-   "src/app_settings.cpp:885"
+   "src/app_settings.cpp:889"
   ]
  },
  "Pin to Home": {
@@ -5915,7 +5919,7 @@
  "Play with {0}": {
   "kind": "text",
   "where": [
-   "src/pet/summon.cpp:552"
+   "src/pet/summon.cpp:568"
   ],
   "notes": [
    "short buttons asking the dog (the dog answers in its own voice)"
@@ -5931,7 +5935,7 @@
  "Point your phone's camera at the code to open the page.": {
   "kind": "text",
   "where": [
-   "src/pet/summon.cpp:695"
+   "src/pet/summon.cpp:711"
   ],
   "notes": [
    "under that title: point the phone's camera at the code; the page opens there"
@@ -5950,7 +5954,7 @@
   "kind": "text",
   "where": [
    "src/app_weather.cpp:168",
-   "src/wid/weather.cpp:24"
+   "src/wid/weather.cpp:25"
   ]
  },
  "Portrait": {
@@ -6018,7 +6022,7 @@
  "Put the time, date, text, photos and widgets anywhere; portrait and landscape have their own pages. On the saver, touch and hold for 1 second to edit it too; on the web: the device page, Screen saver tab.": {
   "kind": "text",
   "where": [
-   "src/app_settings.cpp:676"
+   "src/app_settings.cpp:680"
   ]
  },
  "QEMU has no WiFi: the device uses QEMU's wired network.": {
@@ -6030,7 +6034,7 @@
  "Quick": {
   "kind": "text",
   "where": [
-   "src/app_clock.cpp:289"
+   "src/app_clock.cpp:295"
   ]
  },
  "Quick sets": {
@@ -6048,7 +6052,7 @@
  "Quotes": {
   "kind": "text",
   "where": [
-   "src/home.cpp:1461",
+   "src/home.cpp:1466",
    "src/mywid.cpp:247",
    "src/mywid.cpp:281"
   ]
@@ -6056,7 +6060,7 @@
  "quotes": {
   "kind": "text",
   "where": [
-   "src/home.cpp:1469"
+   "src/home.cpp:1474"
   ],
   "notes": [
    "the kind of a widget made on the device, small under its name"
@@ -6065,14 +6069,14 @@
  "Rain": {
   "kind": "text",
   "where": [
-   "src/wid/weather.cpp:120"
+   "src/wid/weather.cpp:121"
   ]
  },
  "rain {0}%": {
   "kind": "text",
   "where": [
    "src/wid/clock.cpp:616",
-   "src/wid/weather.cpp:237"
+   "src/wid/weather.cpp:238"
   ]
  },
  "Rates": {
@@ -6087,29 +6091,29 @@
  "Reached level {0}": {
   "kind": "text",
   "where": [
-   "src/pet/book.cpp:195"
+   "src/pet/book.cpp:196"
   ]
  },
  "Reading": {
   "kind": "text",
   "where": [
-   "src/home.cpp:1358",
+   "src/home.cpp:1363",
    "src/wid/read.cpp:315",
-   "src/wid.cpp:70",
-   "src/wid.cpp:72",
-   "src/wid.cpp:74"
+   "src/wid.cpp:71",
+   "src/wid.cpp:73",
+   "src/wid.cpp:75"
   ]
  },
  "Reading stats": {
   "kind": "text",
   "where": [
-   "src/wid.cpp:72"
+   "src/wid.cpp:73"
   ]
  },
  "Real estate": {
   "kind": "text",
   "where": [
-   "src/app_news.cpp:212"
+   "src/app_news.cpp:213"
   ]
  },
  "Really remove?": {
@@ -6122,13 +6126,13 @@
  "recently read books": {
   "kind": "text",
   "where": [
-   "src/wid.cpp:74"
+   "src/wid.cpp:75"
   ]
  },
  "Red clock": {
   "kind": "text",
   "where": [
-   "src/desksaver.cpp:603"
+   "src/desksaver.cpp:602"
   ]
  },
  "Red night": {
@@ -6140,7 +6144,7 @@
  "Reinstall PawBoop Run from the Store ({0}).": {
   "kind": "text",
   "where": [
-   "src/run/run.cpp:1075"
+   "src/run/run.cpp:1083"
   ]
  },
  "Reminder": {
@@ -6161,15 +6165,15 @@
    "src/app_notes.cpp:311",
    "src/apps.cpp:41",
    "src/search.cpp:242",
-   "src/wid/misc.cpp:63",
-   "src/wid.cpp:52"
+   "src/wid/misc.cpp:64",
+   "src/wid.cpp:53"
   ]
  },
  "Remote control": {
   "kind": "text",
   "where": [
-   "src/app_settings.cpp:898",
-   "src/app_settings.cpp:1258"
+   "src/app_settings.cpp:902",
+   "src/app_settings.cpp:1265"
   ]
  },
  "Remove": {
@@ -6188,7 +6192,7 @@
  "Remove from Home": {
   "kind": "text",
   "where": [
-   "src/home.cpp:1742"
+   "src/home.cpp:1747"
   ]
  },
  "Remove only the app": {
@@ -6206,7 +6210,7 @@
  "Remove photo": {
   "kind": "text",
   "where": [
-   "src/app_settings.cpp:1122"
+   "src/app_settings.cpp:1126"
   ]
  },
  "Remove some of the apps below, or install on the memory card.": {
@@ -6224,19 +6228,19 @@
  "Remove the app": {
   "kind": "text",
   "where": [
-   "src/home.cpp:1733"
+   "src/home.cpp:1738"
   ]
  },
  "Remove the app and add-ons": {
   "kind": "text",
   "where": [
-   "src/home.cpp:1733"
+   "src/home.cpp:1738"
   ]
  },
  "Remove the night page": {
   "kind": "text",
   "where": [
-   "src/saveredit.cpp:834"
+   "src/saveredit.cpp:837"
   ]
  },
  "Remove this calendar": {
@@ -6248,13 +6252,13 @@
  "Remove widget": {
   "kind": "text",
   "where": [
-   "src/home.cpp:1628"
+   "src/home.cpp:1633"
   ]
  },
  "Remove {0}": {
   "kind": "text",
   "where": [
-   "src/home.cpp:1739"
+   "src/home.cpp:1744"
   ]
  },
  "Remove {0} ({1}) and restart the device to make room, or install on the memory card.": {
@@ -6287,13 +6291,13 @@
  "Removed {0}": {
   "kind": "text",
   "where": [
-   "src/pkg/store.cpp:976"
+   "src/pkg/store.cpp:997"
   ]
  },
  "Removing": {
   "kind": "text",
   "where": [
-   "src/pkg/store.cpp:1312"
+   "src/pkg/store.cpp:1345"
   ]
  },
  "Removing an app keeps its data (levels, coins, notes) on the device; install it again to carry on.": {
@@ -6312,19 +6316,19 @@
  "Removing keeps the app's data (levels, coins, notes) on the device; reinstall it to carry on.": {
   "kind": "text",
   "where": [
-   "src/home.cpp:1749"
+   "src/home.cpp:1754"
   ]
  },
  "Removing the add-on": {
   "kind": "text",
   "where": [
-   "src/home.cpp:1687"
+   "src/home.cpp:1692"
   ]
  },
  "Removing the app": {
   "kind": "text",
   "where": [
-   "src/home.cpp:1687"
+   "src/home.cpp:1692"
   ]
  },
  "Repeat": {
@@ -6336,31 +6340,31 @@
  "Replace": {
   "kind": "text",
   "where": [
-   "src/saveredit.cpp:1001"
+   "src/saveredit.cpp:1004"
   ]
  },
  "Replace the current saver?": {
   "kind": "text",
   "where": [
-   "src/saveredit.cpp:1001"
+   "src/saveredit.cpp:1004"
   ]
  },
  "Reset": {
   "kind": "text",
   "where": [
-   "src/app_clock.cpp:349"
+   "src/app_clock.cpp:355"
   ]
  },
  "Reset to the original layout": {
   "kind": "text",
   "where": [
-   "src/app_settings.cpp:923"
+   "src/app_settings.cpp:927"
   ]
  },
  "Rest your eyes (every hour)": {
   "kind": "text",
   "where": [
-   "src/pet/book.cpp:445"
+   "src/pet/book.cpp:446"
   ]
  },
  "Restart": {
@@ -6374,7 +6378,7 @@
  "Restart the device to use the room just freed": {
   "kind": "text",
   "where": [
-   "src/pkg/store.cpp:358"
+   "src/pkg/store.cpp:361"
   ]
  },
  "Restart the device to use the room of the apps just removed.": {
@@ -6398,7 +6402,7 @@
  "Resume": {
   "kind": "text",
   "where": [
-   "src/app_clock.cpp:256",
+   "src/app_clock.cpp:262",
    "src/j2me/app_j2me.cpp:494"
   ]
  },
@@ -6414,7 +6418,7 @@
  "Right": {
   "kind": "text",
   "where": [
-   "src/saveredit.cpp:615"
+   "src/saveredit.cpp:618"
   ]
  },
  "Right key": {
@@ -6463,7 +6467,7 @@
  "Rotate": {
   "kind": "text",
   "where": [
-   "src/os.cpp:523"
+   "src/os.cpp:525"
   ]
  },
  "Run maps": {
@@ -6487,13 +6491,13 @@
  "Same as by day": {
   "kind": "text",
   "where": [
-   "src/saveredit.cpp:1122"
+   "src/saveredit.cpp:1125"
   ]
  },
  "same as by day": {
   "kind": "text",
   "where": [
-   "src/app_settings.cpp:645"
+   "src/app_settings.cpp:649"
   ]
  },
  "same time": {
@@ -6508,7 +6512,7 @@
  "Same time as here": {
   "kind": "text",
   "where": [
-   "src/app_clock.cpp:404"
+   "src/app_clock.cpp:410"
   ],
   "notes": [
    "the city is in the device's own time zone (vi \"Cùng giờ Việt Nam\": the owner's)"
@@ -6518,7 +6522,7 @@
   "kind": "text",
   "where": [
    "src/app_clock.cpp:125",
-   "src/app_settings.cpp:1040",
+   "src/app_settings.cpp:1044",
    "src/mywid.cpp:253"
   ]
  },
@@ -6535,7 +6539,7 @@
  "Saver": {
   "kind": "text",
   "where": [
-   "src/os.cpp:568"
+   "src/os.cpp:572"
   ],
   "notes": [
    "the screen saver (a short tile name)"
@@ -6553,33 +6557,34 @@
  "Saver settings": {
   "kind": "text",
   "where": [
-   "src/saveredit.cpp:1153"
+   "src/saveredit.cpp:1156"
   ]
  },
  "Saver templates": {
   "kind": "text",
   "where": [
-   "src/saveredit.cpp:1023"
+   "src/saveredit.cpp:1026"
   ]
  },
  "Say \"Gâu gâu\" and what you need, and {0} answers, like a phone's assistant.": {
   "kind": "text",
   "where": [
-   "src/pet/book.cpp:52"
+   "src/pet/book.cpp:53"
   ]
  },
  "Say it again, please": {
   "kind": "text",
   "where": [
-   "src/pet/talk.cpp:697"
+   "src/pet/talk.cpp:715"
   ]
  },
  "Say what you need": {
   "kind": "text",
   "where": [
-   "src/pet/talk.cpp:576",
-   "src/pet/talk.cpp:792",
-   "src/pet/talk.cpp:915"
+   "src/pet/talk.cpp:592",
+   "src/pet/talk.cpp:817",
+   "src/pet/talk.cpp:929",
+   "src/pet/talk.cpp:979"
   ]
  },
  "Saying of the day": {
@@ -6591,7 +6596,7 @@
  "Sayings": {
   "kind": "text",
   "where": [
-   "src/wid.cpp:43"
+   "src/wid.cpp:44"
   ]
  },
  "Scan the code, or enter it at espos.dev/app": {
@@ -6609,7 +6614,7 @@
  "Scan to keep talking": {
   "kind": "text",
   "where": [
-   "src/pet/summon.cpp:692"
+   "src/pet/summon.cpp:708"
   ],
   "notes": [
    "beside the QR code on the dog's pop-up when talking is locked (the trial is over): a short title"
@@ -6618,19 +6623,25 @@
  "Science & tech": {
   "kind": "text",
   "where": [
-   "src/app_news.cpp:213"
+   "src/app_news.cpp:214"
+  ]
+ },
+ "Screen flipped": {
+  "kind": "text",
+  "where": [
+   "src/os.cpp:530"
   ]
  },
  "Screen off": {
   "kind": "text",
   "where": [
-   "src/saveredit.cpp:1122"
+   "src/saveredit.cpp:1125"
   ]
  },
  "screen off": {
   "kind": "text",
   "where": [
-   "src/app_settings.cpp:645"
+   "src/app_settings.cpp:649"
   ]
  },
  "screen off picture clock": {
@@ -6642,8 +6653,8 @@
  "Screen saver": {
   "kind": "text",
   "where": [
-   "src/app_settings.cpp:655",
-   "src/app_settings.cpp:1227",
+   "src/app_settings.cpp:659",
+   "src/app_settings.cpp:1234",
    "src/search.cpp:78"
   ]
  },
@@ -6663,7 +6674,7 @@
  "Search apps": {
   "kind": "text",
   "where": [
-   "src/home.cpp:951"
+   "src/home.cpp:956"
   ]
  },
  "Search cities": {
@@ -6690,16 +6701,16 @@
  "Sections": {
   "kind": "text",
   "where": [
-   "src/app_news.cpp:292"
+   "src/app_news.cpp:293"
   ]
  },
  "See espos.dev for details": {
   "kind": "text",
   "where": [
-   "src/pet/talk.cpp:692",
-   "src/pet/talk.cpp:884",
-   "src/pet/talk.cpp:1017",
-   "src/pet/talk.cpp:1103"
+   "src/pet/talk.cpp:710",
+   "src/pet/talk.cpp:911",
+   "src/pet/talk.cpp:1081",
+   "src/pet/talk.cpp:1168"
   ],
   "notes": [
    "the dog's pop-up when the person's EspOS account is blocked or being deleted (calm, not an error)"
@@ -6733,7 +6744,7 @@
  "Send back": {
   "kind": "text",
   "where": [
-   "src/saveredit.cpp:571"
+   "src/saveredit.cpp:574"
   ]
  },
  "Send notifications": {
@@ -6751,7 +6762,7 @@
  "Seoul": {
   "kind": "text",
   "where": [
-   "src/app_clock.cpp:372",
+   "src/app_clock.cpp:378",
    "src/wid/clock.cpp:663"
   ]
  },
@@ -6764,7 +6775,7 @@
  "Sets {0}": {
   "kind": "text",
   "where": [
-   "src/wid/weather.cpp:337"
+   "src/wid/weather.cpp:338"
   ]
  },
  "sets {0}": {
@@ -6776,7 +6787,7 @@
  "SETTINGS": {
   "kind": "text",
   "where": [
-   "src/pet/book.cpp:377"
+   "src/pet/book.cpp:378"
   ],
   "notes": [
    "a heading in upper case"
@@ -6785,9 +6796,9 @@
  "Settings": {
   "kind": "text",
   "where": [
-   "src/app_settings.cpp:1207",
+   "src/app_settings.cpp:1214",
    "src/apps.cpp:45",
-   "src/saveredit.cpp:1320",
+   "src/saveredit.cpp:1322",
    "src/search.cpp:106",
    "src/search.cpp:242"
   ]
@@ -6795,32 +6806,32 @@
  "Several photos means 2 or more; for one, pick \"One photo\"": {
   "kind": "text",
   "where": [
-   "src/saveredit.cpp:529"
+   "src/saveredit.cpp:532"
   ]
  },
  "Several, changing": {
   "kind": "text",
   "where": [
-   "src/saveredit.cpp:486"
+   "src/saveredit.cpp:489"
   ]
  },
  "Shadow": {
   "kind": "text",
   "where": [
-   "src/saveredit.cpp:624"
+   "src/saveredit.cpp:627"
   ]
  },
  "Shapes": {
   "kind": "text",
   "where": [
-   "src/home.cpp:1367",
-   "src/saveredit.cpp:423"
+   "src/home.cpp:1372",
+   "src/saveredit.cpp:426"
   ]
  },
  "Shared with the News page on the web (and the morning paper). A new section's stories arrive after the next sync.": {
   "kind": "text",
   "where": [
-   "src/app_news.cpp:274"
+   "src/app_news.cpp:275"
   ]
  },
  "Shares": {
@@ -6862,7 +6873,7 @@
  "short\u0004{0} min": {
   "kind": "text",
   "where": [
-   "src/app_clock.cpp:302"
+   "src/app_clock.cpp:308"
   ],
   "notes": [
    "a timer preset in minutes; the long form has room (vi \"{0} phút\", the short one \"{0} ph\")"
@@ -6914,13 +6925,13 @@
  "Showing": {
   "kind": "text",
   "where": [
-   "src/saveredit.cpp:484"
+   "src/saveredit.cpp:487"
   ]
  },
  "Shuffle": {
   "kind": "text",
   "where": [
-   "src/saveredit.cpp:549"
+   "src/saveredit.cpp:552"
   ]
  },
  "Signal": {
@@ -6932,20 +6943,20 @@
  "Singapore": {
   "kind": "text",
   "where": [
-   "src/app_clock.cpp:373",
+   "src/app_clock.cpp:379",
    "src/wid/clock.cpp:664"
   ]
  },
  "Singapore, Malaysia, Philippines, China, Taiwan, Hong Kong, Perth": {
   "kind": "text",
   "where": [
-   "src/app_settings.cpp:939"
+   "src/app_settings.cpp:943"
   ]
  },
  "Size": {
   "kind": "text",
   "where": [
-   "src/home.cpp:1511",
+   "src/home.cpp:1516",
    "src/widopts.cpp:470"
   ]
  },
@@ -6958,13 +6969,13 @@
  "Sleepy": {
   "kind": "text",
   "where": [
-   "src/pet/book.cpp:208"
+   "src/pet/book.cpp:209"
   ]
  },
  "Slide\nshow": {
   "kind": "text",
   "where": [
-   "src/home.cpp:1877"
+   "src/home.cpp:1882"
   ],
   "notes": [
    "all photos in turn, two short lines in a 44 px tile"
@@ -6979,7 +6990,7 @@
  "Small 2×2": {
   "kind": "text",
   "where": [
-   "src/home.cpp:1517"
+   "src/home.cpp:1522"
   ]
  },
  "Small faces": {
@@ -7024,27 +7035,27 @@
  "Solid colour": {
   "kind": "text",
   "where": [
-   "src/home.cpp:1894",
-   "src/saveredit.cpp:1055"
+   "src/home.cpp:1899",
+   "src/saveredit.cpp:1058"
   ]
  },
  "Something else is being done with this app": {
   "kind": "text",
   "where": [
-   "src/pkg/store.cpp:792"
+   "src/pkg/store.cpp:795"
   ]
  },
  "Something went wrong, try again": {
   "kind": "text",
   "where": [
-   "src/pet/talk.cpp:723"
+   "src/pet/talk.cpp:744"
   ]
  },
  "Sound": {
   "kind": "text",
   "where": [
-   "src/app_settings.cpp:683",
-   "src/app_settings.cpp:1230",
+   "src/app_settings.cpp:687",
+   "src/app_settings.cpp:1237",
    "src/search.cpp:79"
   ]
  },
@@ -7063,7 +7074,7 @@
  "Source: VnExpress": {
   "kind": "text",
   "where": [
-   "src/app_news.cpp:167"
+   "src/app_news.cpp:168"
   ]
  },
  "Southern Vietnam": {
@@ -7090,13 +7101,13 @@
  "Speaks at alarms": {
   "kind": "text",
   "where": [
-   "src/pet/book.cpp:440"
+   "src/pet/book.cpp:441"
   ]
  },
  "Sports": {
   "kind": "text",
   "where": [
-   "src/app_news.cpp:215"
+   "src/app_news.cpp:216"
   ]
  },
  "Stacked": {
@@ -7108,26 +7119,26 @@
  "Stand up and move (every 90 minutes)": {
   "kind": "text",
   "where": [
-   "src/pet/book.cpp:444"
+   "src/pet/book.cpp:445"
   ]
  },
  "Start": {
   "kind": "text",
   "where": [
-   "src/app_clock.cpp:282",
-   "src/app_clock.cpp:355"
+   "src/app_clock.cpp:288",
+   "src/app_clock.cpp:361"
   ]
  },
  "Start from photo": {
   "kind": "text",
   "where": [
-   "src/saveredit.cpp:559"
+   "src/saveredit.cpp:562"
   ]
  },
  "Start it after no touch for": {
   "kind": "text",
   "where": [
-   "src/app_settings.cpp:667"
+   "src/app_settings.cpp:671"
   ]
  },
  "Starting to install %s": {
@@ -7175,9 +7186,9 @@
  "Sticky note": {
   "kind": "text",
   "where": [
-   "src/home.cpp:1459",
+   "src/home.cpp:1464",
    "src/mywid.cpp:247",
-   "src/wid/misc.cpp:235"
+   "src/wid/misc.cpp:236"
   ]
  },
  "Still free": {
@@ -7191,7 +7202,7 @@
   "where": [
    "src/app_markets.cpp:23",
    "src/wid/market.cpp:209",
-   "src/wid.cpp:65",
+   "src/wid.cpp:66",
    "src/widopts.cpp:144"
   ],
   "notes": [
@@ -7207,7 +7218,7 @@
  "Stop": {
   "kind": "text",
   "where": [
-   "src/app_clock.cpp:355"
+   "src/app_clock.cpp:361"
   ]
  },
  "stopped": {
@@ -7215,20 +7226,20 @@
   "where": [
    "src/pkg/source.cpp:59",
    "src/pkg/source.cpp:176",
-   "src/pkg/store.cpp:390"
+   "src/pkg/store.cpp:393"
   ]
  },
  "Stopwatch": {
   "kind": "text",
   "where": [
-   "src/app_clock.cpp:463"
+   "src/app_clock.cpp:469"
   ]
  },
  "Storage": {
   "kind": "text",
   "where": [
    "src/app_more.cpp:690",
-   "src/app_settings.cpp:1244",
+   "src/app_settings.cpp:1251",
    "src/pkg/storage_ui.cpp:444",
    "src/search.cpp:81"
   ]
@@ -7251,7 +7262,7 @@
  "Stories per section": {
   "kind": "text",
   "where": [
-   "src/app_news.cpp:267"
+   "src/app_news.cpp:268"
   ]
  },
  "Streak": {
@@ -7278,14 +7289,14 @@
   "kind": "text",
   "where": [
    "src/app_settings.cpp:477",
-   "src/saveredit.cpp:443",
+   "src/saveredit.cpp:446",
    "src/widopts.cpp:460"
   ]
  },
  "Suggested": {
   "kind": "text",
   "where": [
-   "src/home.cpp:1357"
+   "src/home.cpp:1362"
   ]
  },
  "Suggestions": {
@@ -7298,26 +7309,26 @@
   "kind": "text",
   "where": [
    "src/app_weather.cpp:360",
-   "src/wid/weather.cpp:16",
-   "src/wid/weather.cpp:327"
+   "src/wid/weather.cpp:17",
+   "src/wid/weather.cpp:328"
   ]
  },
  "sun\u0004Sunrise": {
   "kind": "text",
   "where": [
-   "src/wid/weather.cpp:344"
+   "src/wid/weather.cpp:345"
   ]
  },
  "sun\u0004Sunset": {
   "kind": "text",
   "where": [
-   "src/wid/weather.cpp:346"
+   "src/wid/weather.cpp:347"
   ]
  },
  "Sunrise in {0}": {
   "kind": "text",
   "where": [
-   "src/wid/weather.cpp:330"
+   "src/wid/weather.cpp:331"
   ]
  },
  "Sunset": {
@@ -7329,19 +7340,19 @@
  "Sunset in {0}": {
   "kind": "text",
   "where": [
-   "src/wid/weather.cpp:331"
+   "src/wid/weather.cpp:332"
   ]
  },
  "Sweetie, our free talks are all used up. Scan this code so we can keep talking!": {
   "kind": "text",
   "where": [
-   "src/pet/talk.cpp:929"
+   "src/pet/talk.cpp:993"
   ]
  },
  "Sweetie, talking isn't open yet. Scan this code so we can chat!": {
   "kind": "text",
   "where": [
-   "src/pet/talk.cpp:942"
+   "src/pet/talk.cpp:1006"
   ]
  },
  "Switched off: the calendar is kept but not fetched. Tap a calendar to see or remove it. At most 5 are shown.": {
@@ -7353,14 +7364,14 @@
  "Sydney": {
   "kind": "text",
   "where": [
-   "src/app_clock.cpp:374",
+   "src/app_clock.cpp:380",
    "src/wid/clock.cpp:664"
   ]
  },
  "Sync": {
   "kind": "text",
   "where": [
-   "src/wid/misc.cpp:341"
+   "src/wid/misc.cpp:342"
   ]
  },
  "Sync now": {
@@ -7372,7 +7383,7 @@
  "Synced {0}": {
   "kind": "text",
   "where": [
-   "src/wid/misc.cpp:322",
+   "src/wid/misc.cpp:323",
    "src/wid/read.cpp:605"
   ],
   "notes": [
@@ -7382,7 +7393,7 @@
  "Syncing": {
   "kind": "text",
   "where": [
-   "src/os.cpp:512"
+   "src/os.cpp:513"
   ]
  },
  "syncing": {
@@ -7394,25 +7405,25 @@
  "Talking class hasn't started yet, team! Scan this code and the coach comes in! Go!": {
   "kind": "text",
   "where": [
-   "src/pet/talk.cpp:948"
+   "src/pet/talk.cpp:1012"
   ]
  },
  "Talking isn't on for this device yet. Scan the code to turn it on.": {
   "kind": "text",
   "where": [
-   "src/pet/talk.cpp:949"
+   "src/pet/talk.cpp:1013"
   ]
  },
  "Talking isn't on. Scan the code. I'll wait.": {
   "kind": "text",
   "where": [
-   "src/pet/talk.cpp:945"
+   "src/pet/talk.cpp:1009"
   ]
  },
  "Talking isn't open on this device, kid. Scan the code below. I'll wait.": {
   "kind": "text",
   "where": [
-   "src/pet/talk.cpp:939"
+   "src/pet/talk.cpp:1003"
   ],
   "notes": [
    "the dog's own words when talking is not on for this device's account: scan the QR code to turn it on"
@@ -7421,7 +7432,7 @@
  "Talking isn't open yet, man. Scan this code and we'll chat. No rush.": {
   "kind": "text",
   "where": [
-   "src/pet/talk.cpp:940"
+   "src/pet/talk.cpp:1004"
   ]
  },
  "Tap a network to type its password on the screen keyboard.": {
@@ -7440,7 +7451,7 @@
   "kind": "text",
   "where": [
    "src/app_calendar.cpp:318",
-   "src/home.cpp:1675",
+   "src/home.cpp:1680",
    "src/pkg/storage_ui.cpp:381"
   ]
  },
@@ -7453,7 +7464,7 @@
  "Tap opens": {
   "kind": "text",
   "where": [
-   "src/home.cpp:1618"
+   "src/home.cpp:1623"
   ]
  },
  "Tap to choose": {
@@ -7465,7 +7476,7 @@
  "Tap when done": {
   "kind": "text",
   "where": [
-   "src/pet/summon.cpp:713"
+   "src/pet/summon.cpp:729"
   ],
   "notes": [
    "under the round mic button: held / called by \"Gâu\" (a tap ends it) / ready"
@@ -7483,32 +7494,32 @@
  "tear-off sheet, lunar date": {
   "kind": "text",
   "where": [
-   "src/wid.cpp:36"
+   "src/wid.cpp:37"
   ]
  },
  "Tell me when {0} needs care": {
   "kind": "text",
   "where": [
-   "src/pet/book.cpp:389"
+   "src/pet/book.cpp:390"
   ]
  },
  "Tells the weather": {
   "kind": "text",
   "where": [
-   "src/pet/book.cpp:442"
+   "src/pet/book.cpp:443"
   ]
  },
  "Temperature": {
   "kind": "text",
   "where": [
-   "src/home.cpp:1366",
-   "src/saveredit.cpp:423"
+   "src/home.cpp:1371",
+   "src/saveredit.cpp:426"
   ]
  },
  "Templates": {
   "kind": "text",
   "where": [
-   "src/saveredit.cpp:1319"
+   "src/saveredit.cpp:1321"
   ]
  },
  "term\u0004{0}": {
@@ -7524,13 +7535,13 @@
  "Test the alarm sound": {
   "kind": "text",
   "where": [
-   "src/app_settings.cpp:711"
+   "src/app_settings.cpp:715"
   ]
  },
  "Test the speaker": {
   "kind": "text",
   "where": [
-   "src/app_settings.cpp:710"
+   "src/app_settings.cpp:714"
   ]
  },
  "tet\u0004{0} year": {
@@ -7545,19 +7556,19 @@
  "Text": {
   "kind": "text",
   "where": [
-   "src/saveredit.cpp:582"
+   "src/saveredit.cpp:585"
   ]
  },
  "text and colour": {
   "kind": "text",
   "where": [
-   "src/home.cpp:1459"
+   "src/home.cpp:1464"
   ]
  },
  "Text on photo": {
   "kind": "text",
   "where": [
-   "src/home.cpp:1369"
+   "src/home.cpp:1374"
   ]
  },
  "Text only": {
@@ -7570,7 +7581,7 @@
   "kind": "text",
   "where": [
    "src/mywid.cpp:268",
-   "src/saveredit.cpp:583"
+   "src/saveredit.cpp:586"
   ]
  },
  "The AI assistant": {
@@ -7594,32 +7605,32 @@
  "the app is gone": {
   "kind": "text",
   "where": [
-   "src/pkg/store.cpp:554"
+   "src/pkg/store.cpp:557"
   ]
  },
  "The app is not installed": {
   "kind": "text",
   "where": [
-   "src/pkg/store.cpp:1233",
-   "src/pkg/store.cpp:1244"
+   "src/pkg/store.cpp:1266",
+   "src/pkg/store.cpp:1277"
   ]
  },
  "The App Library uses the theme's wallpaper": {
   "kind": "text",
   "where": [
-   "src/home.cpp:1276"
+   "src/home.cpp:1281"
   ]
  },
  "the book on your e-reader": {
   "kind": "text",
   "where": [
-   "src/wid.cpp:70"
+   "src/wid.cpp:71"
   ]
  },
  "The clock is not set yet.": {
   "kind": "text",
   "where": [
-   "src/pet/summon.cpp:137"
+   "src/pet/summon.cpp:152"
   ]
  },
  "The code is also printed on the box label. The device opens by itself once you enter it.": {
@@ -7631,7 +7642,7 @@
  "The coins you collect go to {0}'s purse": {
   "kind": "text",
   "where": [
-   "src/run/run.cpp:399"
+   "src/run/run.cpp:400"
   ]
  },
  "the connection broke off during the download": {
@@ -7643,13 +7654,13 @@
  "The curtain isn't up yet, audience! Scan this code to put me on air!": {
   "kind": "text",
   "where": [
-   "src/pet/talk.cpp:943"
+   "src/pet/talk.cpp:1007"
   ]
  },
  "The device checks at every sync.": {
   "kind": "text",
   "where": [
-   "src/app_settings.cpp:780"
+   "src/app_settings.cpp:784"
   ]
  },
  "the device could not connect to WiFi": {
@@ -7661,7 +7672,7 @@
  "The device has the latest version": {
   "kind": "text",
   "where": [
-   "src/app_settings.cpp:779"
+   "src/app_settings.cpp:783"
   ]
  },
  "The device is busy. Open it again in a moment.": {
@@ -7673,7 +7684,7 @@
  "The device restarts and downloads at once, showing only the update screen until it is done. If the new version fails, the device goes back to the one it has.": {
   "kind": "text",
   "where": [
-   "src/app_settings.cpp:773"
+   "src/app_settings.cpp:777"
   ]
  },
  "The device would restart now (simulator)": {
@@ -7685,19 +7696,19 @@
  "The device's clock, the lunar calendar and the hourly weather follow this time zone.": {
   "kind": "text",
   "where": [
-   "src/app_settings.cpp:1007"
+   "src/app_settings.cpp:1011"
   ]
  },
  "The dog says its own line, then the hour or the temperature. Never in Do Not Disturb or quiet hours, except alarms.": {
   "kind": "text",
   "where": [
-   "src/pet/book.cpp:447"
+   "src/pet/book.cpp:448"
   ]
  },
  "The dog will hear its name in a moment.": {
   "kind": "text",
   "where": [
-   "src/wake/wake.cpp:307"
+   "src/wake/wake.cpp:333"
   ]
  },
  "The download failed.": {
@@ -7721,13 +7732,13 @@
  "The free preview is over, audience! Scan this code to see the rest of my show!": {
   "kind": "text",
   "where": [
-   "src/pet/talk.cpp:930"
+   "src/pet/talk.cpp:994"
   ]
  },
  "The free talks are over, man. Scan this code and we keep chatting. No rush.": {
   "kind": "text",
   "where": [
-   "src/pet/talk.cpp:927"
+   "src/pet/talk.cpp:991"
   ]
  },
  "The game has no MIDlet-1 in MANIFEST.MF": {
@@ -7760,7 +7771,7 @@
  "The light shows": {
   "kind": "text",
   "where": [
-   "src/pet/book.cpp:151"
+   "src/pet/book.cpp:152"
   ]
  },
  "The link must start with https:// or webcal:// and have no spaces.": {
@@ -7778,7 +7789,7 @@
  "The microphone isn't working": {
   "kind": "text",
   "where": [
-   "src/pet/talk.cpp:1019"
+   "src/pet/talk.cpp:1083"
   ]
  },
  "the network dropped midway": {
@@ -7786,7 +7797,7 @@
   "where": [
    "src/pkg/source.cpp:175",
    "src/pkg/source.cpp:177",
-   "src/pkg/store.cpp:398"
+   "src/pkg/store.cpp:401"
   ]
  },
  "the network is too slow": {
@@ -7816,13 +7827,13 @@
  "The night page becomes the template \"{0}\". Not happy with it? Tap Cancel at the top.": {
   "kind": "text",
   "where": [
-   "src/saveredit.cpp:998"
+   "src/saveredit.cpp:1001"
   ]
  },
  "the original file is damaged": {
   "kind": "text",
   "where": [
-   "src/pkg/store.cpp:542"
+   "src/pkg/store.cpp:545"
   ]
  },
  "the package cannot be used": {
@@ -7846,7 +7857,7 @@
  "the package is broken (manifest)": {
   "kind": "text",
   "where": [
-   "src/pkg/store.cpp:251"
+   "src/pkg/store.cpp:254"
   ]
  },
  "the package is cut short": {
@@ -7859,7 +7870,7 @@
  "the package is for another app": {
   "kind": "text",
   "where": [
-   "src/pkg/store.cpp:252"
+   "src/pkg/store.cpp:255"
   ]
  },
  "the package's file table is broken": {
@@ -7884,31 +7895,31 @@
  "The server has not saved this article.": {
   "kind": "text",
   "where": [
-   "src/app_news.cpp:147"
+   "src/app_news.cpp:148"
   ]
  },
  "The server sent no text for this story.": {
   "kind": "text",
   "where": [
-   "src/app_news.cpp:200"
+   "src/app_news.cpp:201"
   ]
  },
  "The star didn't catch that. Say it again, clearly.": {
   "kind": "text",
   "where": [
-   "src/pet/talk.cpp:993"
+   "src/pet/talk.cpp:1057"
   ]
  },
  "the storage is full": {
   "kind": "text",
   "where": [
-   "src/pkg/store.cpp:285"
+   "src/pkg/store.cpp:288"
   ]
  },
  "The sun has set": {
   "kind": "text",
   "where": [
-   "src/wid/weather.cpp:332"
+   "src/wid/weather.cpp:333"
   ]
  },
  "The trial's turns with the assistant are almost used up.": {
@@ -7935,23 +7946,23 @@
    "src/app_more.cpp:1015"
   ]
  },
- "There is no tilt sensor: the screen turns when you pick a way up here, with Rotate in the Control Center, or on the EspOS web.": {
+ "There is no tilt sensor: the screen turns when you pick a way up here, with Rotate in the Control Center (touch and hold it to flip the screen over), or on the EspOS web.": {
   "kind": "text",
   "where": [
-   "src/app_settings.cpp:625"
+   "src/app_settings.cpp:629"
   ]
  },
  "Thin": {
   "kind": "text",
   "where": [
-   "src/saveredit.cpp:610"
+   "src/saveredit.cpp:613"
   ]
  },
  "Thinking": {
   "kind": "text",
   "where": [
-   "src/pet/talk.cpp:633",
-   "src/pet/talk.cpp:1088"
+   "src/pet/talk.cpp:651",
+   "src/pet/talk.cpp:1153"
   ]
  },
  "This app is being installed or moved": {
@@ -7963,7 +7974,7 @@
  "This app is being installed, removed or moved. Please wait until that is done.": {
   "kind": "text",
   "where": [
-   "src/home.cpp:1731"
+   "src/home.cpp:1736"
   ]
  },
  "This app is being installed, removed or moved. Please wait.": {
@@ -8029,7 +8040,7 @@
  "This name shows on the EspOS website too.": {
   "kind": "text",
   "where": [
-   "src/app_settings.cpp:837"
+   "src/app_settings.cpp:841"
   ],
   "notes": [
    "Vietnamese adds how Telex typing works (the keyboard types Telex only in Vietnamese)"
@@ -8050,14 +8061,14 @@
  "This page becomes the template \"{0}\". Not happy with it? Tap Cancel at the top.": {
   "kind": "text",
   "where": [
-   "src/saveredit.cpp:999"
+   "src/saveredit.cpp:1002"
   ]
  },
  "This page's background": {
   "kind": "text",
   "where": [
-   "src/saveredit.cpp:1088",
-   "src/saveredit.cpp:1093"
+   "src/saveredit.cpp:1091",
+   "src/saveredit.cpp:1096"
   ]
  },
  "This place is not in the device's list. The EspOS web can find any place.": {
@@ -8089,34 +8100,34 @@
  "This widget was deleted": {
   "kind": "text",
   "where": [
-   "src/wid/misc.cpp:174"
+   "src/wid/misc.cpp:175"
   ]
  },
  "Tidying the storage": {
   "kind": "text",
   "where": [
-   "src/pkg/store.cpp:1313"
+   "src/pkg/store.cpp:1346"
   ]
  },
  "Time": {
   "kind": "text",
   "where": [
-   "src/home.cpp:1360",
-   "src/saveredit.cpp:421"
+   "src/home.cpp:1365",
+   "src/saveredit.cpp:424"
   ]
  },
  "Time and data": {
   "kind": "text",
   "where": [
-   "src/app_settings.cpp:1080",
-   "src/app_settings.cpp:1233",
+   "src/app_settings.cpp:1084",
+   "src/app_settings.cpp:1240",
    "src/search.cpp:85"
   ]
  },
  "time and date": {
   "kind": "text",
   "where": [
-   "src/wid.cpp:35"
+   "src/wid.cpp:36"
   ]
  },
  "time in words\u0004{0} {1}": {
@@ -8131,8 +8142,8 @@
  "Time zone": {
   "kind": "text",
   "where": [
-   "src/app_settings.cpp:978",
-   "src/app_settings.cpp:1063"
+   "src/app_settings.cpp:982",
+   "src/app_settings.cpp:1067"
   ]
  },
  "time zone night quiet hours data refresh": {
@@ -8144,7 +8155,7 @@
  "Time zone {0}": {
   "kind": "text",
   "where": [
-   "src/app_settings.cpp:1002"
+   "src/app_settings.cpp:1006"
   ]
  },
  "Time's up": {
@@ -8156,20 +8167,20 @@
  "time, date, weather, calendar": {
   "kind": "text",
   "where": [
-   "src/wid.cpp:76"
+   "src/wid.cpp:77"
   ]
  },
  "time, weather, calendar": {
   "kind": "text",
   "where": [
-   "src/desksaver.cpp:600"
+   "src/desksaver.cpp:599"
   ]
  },
  "Timer": {
   "kind": "text",
   "where": [
-   "src/app_clock.cpp:463",
-   "src/os.cpp:582"
+   "src/app_clock.cpp:469",
+   "src/os.cpp:586"
   ]
  },
  "Title": {
@@ -8190,19 +8201,19 @@
  "To hear it, the microphone listens all the time while this is on. What it hears stays on the device: it is checked here for \"Gâu\" and forgotten after 2 seconds.": {
   "kind": "text",
   "where": [
-   "src/pet/book.cpp:56"
+   "src/pet/book.cpp:57"
   ]
  },
  "to-dos": {
   "kind": "text",
   "where": [
-   "src/wid.cpp:52"
+   "src/wid.cpp:53"
   ]
  },
  "to-dos, shopping": {
   "kind": "text",
   "where": [
-   "src/home.cpp:1462"
+   "src/home.cpp:1467"
   ]
  },
  "Today": {
@@ -8212,7 +8223,7 @@
    "src/app_more.cpp:223",
    "src/data.cpp:84",
    "src/data.cpp:145",
-   "src/home.cpp:817",
+   "src/home.cpp:821",
    "src/wid/cal.cpp:15",
    "src/wid/cal.cpp:105",
    "src/wid/cal.cpp:246",
@@ -8229,8 +8240,8 @@
   "kind": "text",
   "where": [
    "src/app_weather.cpp:361",
-   "src/wid/weather.cpp:120",
-   "src/wid/weather.cpp:306"
+   "src/wid/weather.cpp:121",
+   "src/wid/weather.cpp:307"
   ]
  },
  "Today %d/%d min": {
@@ -8248,7 +8259,7 @@
  "Today's news": {
   "kind": "text",
   "where": [
-   "src/pet/summon.cpp:554"
+   "src/pet/summon.cpp:570"
   ],
   "notes": [
    "a short button on the dog's pop-up: the dog sums up today's news (vi \"Tin hôm nay\")"
@@ -8257,7 +8268,7 @@
  "Tokyo": {
   "kind": "text",
   "where": [
-   "src/app_clock.cpp:371",
+   "src/app_clock.cpp:377",
    "src/wid/clock.cpp:662"
   ]
  },
@@ -8282,7 +8293,7 @@
  "Too much on the screen saver: remove something to save": {
   "kind": "text",
   "where": [
-   "src/desksaver.cpp:710"
+   "src/desksaver.cpp:709"
   ]
  },
  "Tools": {
@@ -8290,44 +8301,44 @@
   "where": [
    "src/app_more.cpp:422",
    "src/pkg/storage_ui.cpp:80",
-   "src/wid.cpp:59",
-   "src/wid.cpp:61"
+   "src/wid.cpp:60",
+   "src/wid.cpp:62"
   ]
  },
  "Top stories": {
   "kind": "text",
   "where": [
-   "src/app_news.cpp:211"
+   "src/app_news.cpp:212"
   ]
  },
  "Touch and hold a vowel to pick an accented letter.": {
   "kind": "text",
   "where": [
-   "src/app_settings.cpp:838"
+   "src/app_settings.cpp:842"
   ]
  },
  "Touch and hold an empty spot on the Home Screen to edit it: drag to move, tap − to remove, + Widget to add. You can edit it on the web too.": {
   "kind": "text",
   "where": [
-   "src/app_settings.cpp:913"
+   "src/app_settings.cpp:917"
   ]
  },
  "Touch sounds": {
   "kind": "text",
   "where": [
-   "src/app_settings.cpp:700"
+   "src/app_settings.cpp:704"
   ]
  },
  "Travel": {
   "kind": "text",
   "where": [
-   "src/app_news.cpp:214"
+   "src/app_news.cpp:215"
   ]
  },
  "Trial class is over, team! Scan this code and the coach keeps teaching! Go!": {
   "kind": "text",
   "where": [
-   "src/pet/talk.cpp:935"
+   "src/pet/talk.cpp:999"
   ]
  },
  "Trial · ends today": {
@@ -8352,7 +8363,7 @@
  "Try again": {
   "kind": "text",
   "where": [
-   "src/app_settings.cpp:767",
+   "src/app_settings.cpp:771",
    "src/langui.cpp:115"
   ]
  },
@@ -8365,7 +8376,7 @@
  "Tue, Nov 17": {
   "kind": "text",
   "where": [
-   "src/home.cpp:1361"
+   "src/home.cpp:1366"
   ],
   "notes": [
    "a sample date"
@@ -8380,19 +8391,19 @@
  "Turn on": {
   "kind": "text",
   "where": [
-   "src/pet/book.cpp:67"
+   "src/pet/book.cpp:68"
   ]
  },
  "two parts have files with the same name": {
   "kind": "text",
   "where": [
-   "src/pkg/store.cpp:263"
+   "src/pkg/store.cpp:266"
   ]
  },
  "Type a name first": {
   "kind": "text",
   "where": [
-   "src/app_settings.cpp:843"
+   "src/app_settings.cpp:847"
   ]
  },
  "type its name": {
@@ -8422,20 +8433,20 @@
  "Type your text": {
   "kind": "text",
   "where": [
-   "src/saveredit.cpp:1196"
+   "src/saveredit.cpp:1199"
   ]
  },
  "UK, Portugal (winter)": {
   "kind": "text",
   "where": [
-   "src/app_settings.cpp:948"
+   "src/app_settings.cpp:952"
   ]
  },
  "Unhealthy": {
   "kind": "text",
   "where": [
    "src/app_weather.cpp:169",
-   "src/wid/weather.cpp:25"
+   "src/wid/weather.cpp:26"
   ]
  },
  "Unknown language": {
@@ -8453,7 +8464,7 @@
  "Until": {
   "kind": "text",
   "where": [
-   "src/app_settings.cpp:1075"
+   "src/app_settings.cpp:1079"
   ]
  },
  "Up next": {
@@ -8473,14 +8484,14 @@
   "where": [
    "src/app_more.cpp:615",
    "src/app_more.cpp:1253",
-   "src/app_settings.cpp:796",
-   "src/app_settings.cpp:1245"
+   "src/app_settings.cpp:800",
+   "src/app_settings.cpp:1252"
   ]
  },
  "Update by itself while charging": {
   "kind": "text",
   "where": [
-   "src/app_settings.cpp:811"
+   "src/app_settings.cpp:815"
   ]
  },
  "Update the device's software first (Settings, Software update)": {
@@ -8492,7 +8503,7 @@
  "Uptime": {
   "kind": "text",
   "where": [
-   "src/app_settings.cpp:864"
+   "src/app_settings.cpp:868"
   ]
  },
  "US dollars, and in dong": {
@@ -8510,20 +8521,20 @@
  "Use this wallpaper on the {n} page|Use this wallpaper on all {n} pages": {
   "kind": "plural",
   "where": [
-   "src/home.cpp:1939"
+   "src/home.cpp:1944"
   ]
  },
  "Used on every page": {
   "kind": "text",
   "where": [
-   "src/home.cpp:1947"
+   "src/home.cpp:1952"
   ]
  },
  "UV index": {
   "kind": "text",
   "where": [
    "src/app_weather.cpp:354",
-   "src/wid/weather.cpp:117"
+   "src/wid/weather.cpp:118"
   ]
  },
  "Valentine's Day": {
@@ -8536,7 +8547,7 @@
   "kind": "text",
   "where": [
    "src/app_more.cpp:1273",
-   "src/wid/misc.cpp:343"
+   "src/wid/misc.cpp:344"
   ]
  },
  "version firmware": {
@@ -8555,20 +8566,20 @@
   "kind": "text",
   "where": [
    "src/app_weather.cpp:355",
-   "src/wid/weather.cpp:29"
+   "src/wid/weather.cpp:30"
   ]
  },
  "Very unhealthy": {
   "kind": "text",
   "where": [
    "src/app_weather.cpp:170",
-   "src/wid/weather.cpp:26"
+   "src/wid/weather.cpp:27"
   ]
  },
  "Vietcombank currencies": {
   "kind": "text",
   "where": [
-   "src/wid.cpp:67"
+   "src/wid.cpp:68"
   ]
  },
  "Vietcombank rates · selling": {
@@ -8580,13 +8591,13 @@
  "Vietnam": {
   "kind": "text",
   "where": [
-   "src/app_settings.cpp:1062"
+   "src/app_settings.cpp:1066"
   ]
  },
  "Vietnam, Thailand, Laos, Cambodia, Jakarta": {
   "kind": "text",
   "where": [
-   "src/app_settings.cpp:938"
+   "src/app_settings.cpp:942"
   ],
   "notes": [
    "places in a time zone"
@@ -8595,7 +8606,7 @@
  "Vietnamese": {
   "kind": "text",
   "where": [
-   "src/app_settings.cpp:1249",
+   "src/app_settings.cpp:1256",
    "src/i18n.cpp:35"
   ]
  },
@@ -8620,7 +8631,7 @@
  "Volume": {
   "kind": "text",
   "where": [
-   "src/app_settings.cpp:684"
+   "src/app_settings.cpp:688"
   ]
  },
  "volume speaker sound": {
@@ -8641,14 +8652,15 @@
  "Wait a moment, then ask again": {
   "kind": "text",
   "where": [
-   "src/pet/talk.cpp:698"
+   "src/pet/talk.cpp:716",
+   "src/pet/talk.cpp:742"
   ]
  },
  "Waiting": {
   "kind": "text",
   "where": [
    "src/app_more.cpp:607",
-   "src/pkg/store.cpp:1308"
+   "src/pkg/store.cpp:1341"
   ]
  },
  "Waiting for the job before it": {
@@ -8660,7 +8672,7 @@
  "waiting for the network": {
   "kind": "text",
   "where": [
-   "src/app_settings.cpp:888"
+   "src/app_settings.cpp:892"
   ]
  },
  "Waiting for the next sync": {
@@ -8679,7 +8691,7 @@
   "kind": "text",
   "where": [
    "src/app_settings.cpp:506",
-   "src/home.cpp:1273"
+   "src/home.cpp:1278"
   ]
  },
  "Wallpaper changed": {
@@ -8712,12 +8724,12 @@
  "Weather": {
   "kind": "text",
   "where": [
-   "src/app_settings.cpp:1234",
+   "src/app_settings.cpp:1241",
    "src/app_weather.cpp:234",
    "src/apps.cpp:35",
-   "src/home.cpp:1357",
-   "src/wid/weather.cpp:167",
-   "src/wid.cpp:44"
+   "src/home.cpp:1362",
+   "src/wid/weather.cpp:168",
+   "src/wid.cpp:45"
   ]
  },
  "Weather city": {
@@ -8735,19 +8747,19 @@
  "Weather only": {
   "kind": "text",
   "where": [
-   "src/saveredit.cpp:440"
+   "src/saveredit.cpp:443"
   ]
  },
  "Weather, calendar, prices, news.": {
   "kind": "text",
   "where": [
-   "src/app_settings.cpp:1072"
+   "src/app_settings.cpp:1076"
   ]
  },
  "Weather?": {
   "kind": "text",
   "where": [
-   "src/pet/summon.cpp:554"
+   "src/pet/summon.cpp:570"
   ],
   "notes": [
    "a short button on the dog's pop-up: the dog sums up today's news (vi \"Tin hôm nay\")"
@@ -8762,25 +8774,25 @@
  "week, month": {
   "kind": "text",
   "where": [
-   "src/wid.cpp:38"
+   "src/wid.cpp:39"
   ]
  },
  "WEEKDAY": {
   "kind": "text",
   "where": [
-   "src/saveredit.cpp:437"
+   "src/saveredit.cpp:440"
   ]
  },
  "Weekday": {
   "kind": "text",
   "where": [
-   "src/saveredit.cpp:437"
+   "src/saveredit.cpp:440"
   ]
  },
  "Weekday, date": {
   "kind": "text",
   "where": [
-   "src/saveredit.cpp:435"
+   "src/saveredit.cpp:438"
   ]
  },
  "Weekdays": {
@@ -8801,13 +8813,13 @@
  "Weight and alignment": {
   "kind": "text",
   "where": [
-   "src/saveredit.cpp:608"
+   "src/saveredit.cpp:611"
   ]
  },
  "What time is it?": {
   "kind": "text",
   "where": [
-   "src/pet/summon.cpp:554"
+   "src/pet/summon.cpp:570"
   ],
   "notes": [
    "a short button on the dog's pop-up: the dog sums up today's news (vi \"Tin hôm nay\")"
@@ -8816,13 +8828,13 @@
  "What you just changed will not be saved.": {
   "kind": "text",
   "where": [
-   "src/saveredit.cpp:1282"
+   "src/saveredit.cpp:1284"
   ]
  },
  "What's in today's news?": {
   "kind": "text",
   "where": [
-   "src/pet/talk.cpp:1107"
+   "src/pet/talk.cpp:1172"
   ],
   "notes": [
    "what the \"Today's news\" chip asks the dog: sent to the AI, and shown in the bubble under its answer"
@@ -8831,7 +8843,7 @@
  "When it hears you": {
   "kind": "text",
   "where": [
-   "src/pet/book.cpp:115"
+   "src/pet/book.cpp:116"
   ],
   "notes": [
    "what the dog does at once when it hears \"gâu gâu\" (so you know from afar)"
@@ -8840,13 +8852,13 @@
  "Widget": {
   "kind": "text",
   "where": [
-   "src/saveredit.cpp:427"
+   "src/saveredit.cpp:430"
   ]
  },
  "Widget added": {
   "kind": "text",
   "where": [
-   "src/home.cpp:2152"
+   "src/home.cpp:2159"
   ]
  },
  "Widget not found": {
@@ -8866,7 +8878,7 @@
   "kind": "text",
   "where": [
    "src/app_settings.cpp:211",
-   "src/app_settings.cpp:1209"
+   "src/app_settings.cpp:1216"
   ]
  },
  "wifi\u0004open": {
@@ -8894,7 +8906,7 @@
   "kind": "text",
   "where": [
    "src/app_weather.cpp:358",
-   "src/wid/weather.cpp:116"
+   "src/wid/weather.cpp:117"
   ]
  },
  "With Do Not Disturb on and in the quiet hours ({0} - {1}): no banners, no sound; notifications still go to the Notification Center.": {
@@ -8906,7 +8918,7 @@
  "With lunar": {
   "kind": "text",
   "where": [
-   "src/saveredit.cpp:435"
+   "src/saveredit.cpp:438"
   ]
  },
  "With lunar date": {
@@ -8918,7 +8930,7 @@
  "With photos": {
   "kind": "text",
   "where": [
-   "src/wid/news.cpp:15"
+   "src/wid/news.cpp:16"
   ]
  },
  "With weather": {
@@ -8930,7 +8942,7 @@
  "With year": {
   "kind": "text",
   "where": [
-   "src/saveredit.cpp:435"
+   "src/saveredit.cpp:438"
   ]
  },
  "Women's Day": {
@@ -8954,16 +8966,16 @@
  "World": {
   "kind": "text",
   "where": [
-   "src/app_news.cpp:212",
+   "src/app_news.cpp:213",
    "src/app_weather.cpp:31"
   ]
  },
  "World clock": {
   "kind": "text",
   "where": [
-   "src/app_clock.cpp:463",
+   "src/app_clock.cpp:469",
    "src/wid/clock.cpp:677",
-   "src/wid.cpp:51"
+   "src/wid.cpp:52"
   ]
  },
  "Worth a try": {
@@ -8975,7 +8987,7 @@
  "Write a few sayings, one per line": {
   "kind": "text",
   "where": [
-   "src/wid/misc.cpp:216"
+   "src/wid/misc.cpp:217"
   ]
  },
  "Write a note": {
@@ -8994,7 +9006,7 @@
   "kind": "text",
   "where": [
    "src/ota.cpp:310",
-   "src/pkg/store.cpp:1310"
+   "src/pkg/store.cpp:1343"
   ]
  },
  "Writing %d%%": {
@@ -9012,8 +9024,8 @@
  "writing to the flash failed": {
   "kind": "text",
   "where": [
-   "src/pkg/store.cpp:329",
-   "src/pkg/store.cpp:630"
+   "src/pkg/store.cpp:332",
+   "src/pkg/store.cpp:633"
   ]
  },
  "Wrong password, please type it again.": {
@@ -9061,10 +9073,10 @@
   "where": [
    "src/desk.cpp:790",
    "src/lock.cpp:645",
-   "src/pet/talk.cpp:692",
-   "src/pet/talk.cpp:884",
-   "src/pet/talk.cpp:1017",
-   "src/pet/talk.cpp:1103"
+   "src/pet/talk.cpp:710",
+   "src/pet/talk.cpp:911",
+   "src/pet/talk.cpp:1081",
+   "src/pet/talk.cpp:1168"
   ],
   "notes": [
    "the dog's pop-up when the person's EspOS account is blocked or being deleted (calm, not an error)"
@@ -9091,13 +9103,13 @@
  "Your free talks are used up, kid. Scan the code below to keep going. I'll wait.": {
   "kind": "text",
   "where": [
-   "src/pet/talk.cpp:926"
+   "src/pet/talk.cpp:990"
   ]
  },
  "Your free trial of talking is over. Scan the code to keep chatting.": {
   "kind": "text",
   "where": [
-   "src/pet/talk.cpp:936"
+   "src/pet/talk.cpp:1000"
   ]
  },
  "Your photo": {
@@ -9109,13 +9121,13 @@
  "your photos": {
   "kind": "text",
   "where": [
-   "src/wid.cpp:54"
+   "src/wid.cpp:55"
   ]
  },
  "your photos, the time in a corner": {
   "kind": "text",
   "where": [
-   "src/desksaver.cpp:602"
+   "src/desksaver.cpp:601"
   ]
  },
  "Your subscription has ended": {
@@ -9127,8 +9139,8 @@
  "Your text": {
   "kind": "text",
   "where": [
-   "src/home.cpp:1363",
-   "src/saveredit.cpp:422"
+   "src/home.cpp:1368",
+   "src/saveredit.cpp:425"
   ]
  },
  "Your trial ends today": {
@@ -9152,7 +9164,7 @@
  "Zodiac": {
   "kind": "text",
   "where": [
-   "src/saveredit.cpp:439",
+   "src/saveredit.cpp:442",
    "src/wid/cal.cpp:17"
   ],
   "notes": [
@@ -9163,7 +9175,7 @@
  "zodiac days, Lunar New Year": {
   "kind": "text",
   "where": [
-   "src/wid.cpp:39"
+   "src/wid.cpp:40"
   ]
  },
  "{0} (lunar)": {
@@ -9242,20 +9254,20 @@
  "{0} free": {
   "kind": "text",
   "where": [
-   "src/app_settings.cpp:1202"
+   "src/app_settings.cpp:1209"
   ]
  },
  "{0} free, card {1}": {
   "kind": "text",
   "where": [
-   "src/app_settings.cpp:1201"
+   "src/app_settings.cpp:1208"
   ]
  },
  "{0} h": {
   "kind": "text",
   "where": [
    "src/wid/clock.cpp:694",
-   "src/wid/weather.cpp:37"
+   "src/wid/weather.cpp:38"
   ],
   "notes": [
    "the difference with Vietnam's time in hours, e.g. \"+2 h\" (vi \"{0} giờ\")"
@@ -9264,7 +9276,7 @@
  "{0} h {1} min": {
   "kind": "text",
   "where": [
-   "src/wid/weather.cpp:36"
+   "src/wid/weather.cpp:37"
   ]
  },
  "{0} has only {1} for apps; this one needs {2}.": {
@@ -9303,13 +9315,13 @@
  "{0} is bored, wants to play": {
   "kind": "text",
   "where": [
-   "src/pet/pet.cpp:48"
+   "src/pet/pet.cpp:49"
   ]
  },
  "{0} is hungry": {
   "kind": "text",
   "where": [
-   "src/pet/pet.cpp:48"
+   "src/pet/pet.cpp:49"
   ]
  },
  "{0} is in the full version. Nothing you made is lost: buy it and everything comes back just as it was.": {
@@ -9327,7 +9339,7 @@
  "{0} is sleepy": {
   "kind": "text",
   "where": [
-   "src/pet/pet.cpp:48"
+   "src/pet/pet.cpp:49"
   ]
  },
  "{0} is waking up": {
@@ -9342,14 +9354,14 @@
  "{0} is your assistant": {
   "kind": "text",
   "where": [
-   "src/pet/book.cpp:438"
+   "src/pet/book.cpp:439"
   ]
  },
  "{0} is {1} short": {
   "kind": "text",
   "where": [
-   "src/pkg/store.cpp:1190",
-   "src/pkg/store.cpp:1248"
+   "src/pkg/store.cpp:1223",
+   "src/pkg/store.cpp:1281"
   ]
  },
  "{0} is {1} short.": {
@@ -9361,7 +9373,7 @@
  "{0} min": {
   "kind": "text",
   "where": [
-   "src/app_settings.cpp:1228"
+   "src/app_settings.cpp:1235"
   ]
  },
  "{0} mn": {
@@ -9412,7 +9424,7 @@
  "{0} on the device · {1} on the card": {
   "kind": "text",
   "where": [
-   "src/home.cpp:1724"
+   "src/home.cpp:1729"
   ]
  },
  "{0} uses nearly all of the device's room.": {
@@ -9424,7 +9436,7 @@
  "{0} widget": {
   "kind": "text",
   "where": [
-   "src/home.cpp:1573"
+   "src/home.cpp:1578"
   ]
  },
  "{0} year": {
@@ -9447,19 +9459,19 @@
  "{0} · Level {1}": {
   "kind": "text",
   "where": [
-   "src/pet/book.cpp:271"
+   "src/pet/book.cpp:272"
   ]
  },
  "{0} · on the device": {
   "kind": "text",
   "where": [
-   "src/home.cpp:1726"
+   "src/home.cpp:1731"
   ]
  },
  "{0} · on the memory card": {
   "kind": "text",
   "where": [
-   "src/home.cpp:1726"
+   "src/home.cpp:1731"
   ]
  },
  "{0} · on {1}": {
@@ -9477,19 +9489,19 @@
  "{0}'s book": {
   "kind": "text",
   "where": [
-   "src/pet/book.cpp:252"
+   "src/pet/book.cpp:253"
   ]
  },
  "{0}'s firsts are kept here: a new level, the first bath, a favourite food.": {
   "kind": "text",
   "where": [
-   "src/pet/book.cpp:337"
+   "src/pet/book.cpp:338"
   ]
  },
  "{0}'s voice": {
   "kind": "text",
   "where": [
-   "src/pet/book.cpp:388"
+   "src/pet/book.cpp:389"
   ]
  },
  "{0}. The device restarts with the version it has.": {
@@ -9501,7 +9513,7 @@
  "{0}. The device still runs {1}.": {
   "kind": "text",
   "where": [
-   "src/app_settings.cpp:752"
+   "src/app_settings.cpp:756"
   ]
  },
  "{0}/{1} picked, shown in this order": {
@@ -9578,7 +9590,7 @@
  "{n} day ago|{n} days ago": {
   "kind": "plural",
   "where": [
-   "src/uikit.cpp:400"
+   "src/uikit.cpp:404"
   ]
  },
  "{n} day to Lunar New Year|{n} days to Lunar New Year": {
@@ -9591,7 +9603,7 @@
   "kind": "plural",
   "where": [
    "src/app_more.cpp:246",
-   "src/pet/book.cpp:319",
+   "src/pet/book.cpp:320",
    "src/wid/read.cpp:357"
   ]
  },
@@ -9604,25 +9616,25 @@
  "{n} hour ago|{n} hours ago": {
   "kind": "plural",
   "where": [
-   "src/uikit.cpp:399"
+   "src/uikit.cpp:403"
   ]
  },
  "{n} hour ahead|{n} hours ahead": {
   "kind": "plural",
   "where": [
-   "src/app_clock.cpp:405"
+   "src/app_clock.cpp:411"
   ]
  },
  "{n} hour behind|{n} hours behind": {
   "kind": "plural",
   "where": [
-   "src/app_clock.cpp:406"
+   "src/app_clock.cpp:412"
   ]
  },
  "{n} landscape page|{n} landscape pages": {
   "kind": "plural",
   "where": [
-   "src/app_settings.cpp:647"
+   "src/app_settings.cpp:651"
   ]
  },
  "{n} map|{n} maps": {
@@ -9635,7 +9647,7 @@
   "kind": "plural",
   "where": [
    "src/notif.cpp:327",
-   "src/uikit.cpp:398"
+   "src/uikit.cpp:402"
   ]
  },
  "{n} more dog|{n} more dogs": {
@@ -9660,31 +9672,31 @@
   "kind": "plural",
   "where": [
    "src/notif.cpp:1122",
-   "src/os.cpp:653"
+   "src/os.cpp:657"
   ]
  },
  "{n} photo|{n} photos": {
   "kind": "plural",
   "where": [
-   "src/app_settings.cpp:1242"
+   "src/app_settings.cpp:1249"
   ]
  },
  "{n} portrait page|{n} portrait pages": {
   "kind": "plural",
   "where": [
-   "src/app_settings.cpp:648"
+   "src/app_settings.cpp:652"
   ]
  },
  "{n} section|{n} sections": {
   "kind": "plural",
   "where": [
-   "src/app_settings.cpp:1237"
+   "src/app_settings.cpp:1244"
   ]
  },
  "{n} talk left|{n} talks left": {
   "kind": "plural",
   "where": [
-   "src/pet/summon.cpp:413"
+   "src/pet/summon.cpp:428"
   ],
   "notes": [
    "a small chip on the dog's pop-up near the end of the free trial: the talks left (vi \"Còn {n} lượt\")"
@@ -9712,7 +9724,7 @@
  "{w}, {M} {d}": {
   "kind": "text",
   "where": [
-   "src/home.cpp:823",
+   "src/home.cpp:827",
    "src/wid/cal.cpp:107",
    "src/wid/cal.cpp:413",
    "src/wid/cal.cpp:435",

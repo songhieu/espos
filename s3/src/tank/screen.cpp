@@ -79,7 +79,9 @@ struct SaverBg {
 };
 SaverBg* sv = nullptr;
 
-int users = 0, fps = 30, saverFps = 12;
+// saverFps: 5, not 12 (2026-11-20 on a test board: a saver picture costs ~150 ms with LVGL's page on top, so 12
+// asked for meant 6 a second at 98 % CPU, and the wake word's pop-up and touches waited behind it).
+int users = 0, fps = 30, saverFps = 5;
 bool tear = false, freeWhenIdle = false;
 uint16_t* nat = nullptr;  // the picture at the panel's size, for the LVGL path on a scaled panel
 lv_timer_t* freeTimer = nullptr;

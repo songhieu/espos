@@ -48,6 +48,7 @@ void applySettings() {
   ui::setLang(store::setting("sys.lang") == "en" ? ui::Lang::EN : ui::Lang::VI);
   ui::setScreens(logic::screensOf(store::setting("bot.screens")));
   bright = logic::intOf(store::setting("bot.bright"), 60, 5, 100);
+  oled::flip(store::setting("bot.flip") == "1");  // turned 180° (the case's way up)
   night = logic::nightOf(store::setting("bot.night"));
   alarms = logic::alarmsOf(store::setting("bot.alarms"));
   ear::setWake(logic::intOf(store::setting("bot.wake"), 2, 0, 3));

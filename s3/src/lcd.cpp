@@ -7,7 +7,11 @@
 namespace lcd {
 namespace {
 inline const hal::Display& drv() { return *hal::bsp().display; }
+bool flip_ = false;
 }  // namespace
+
+bool flipped() { return flip_; }
+void setFlipped(bool on) { flip_ = on; }
 
 lv_display_t* begin() { return drv().begin(); }
 void setRotation(lv_display_rotation_t r) { drv().setRotation(r); }

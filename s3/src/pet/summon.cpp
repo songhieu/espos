@@ -24,6 +24,7 @@
 #include "uikit.h"
 #include "view.h"
 #include "voice.h"
+#include "theme.h"
 
 namespace pet {
 void ensureTicker();
@@ -34,6 +35,20 @@ using namespace kit;
 
 constexpr int CW = 304, VIEW_H = 196, CHIP_H = 38;
 constexpr uint32_t INK = 0x2b2f3a, SOFT = 0x8a90a0, PANEL = 0xf3f4f7, WARM = 0xffcf5c, KIT = 0xffb347;
+// The card's colours follow the OS theme (owner, 2026-11-20: the white card looked "trắng bóc" on the color S3):
+// Light keeps the white card; Color, Dark and Photo get a warm cream one (below).
+uint32_t cCard = 0xffffff, cName = INK, cPanel = PANEL, cChip = INK, cBubble = INK;
+void pickColors() {
+  // A dark card was tried first: the dog's pictures are drawn for a light ground (their soft edges are light), so on
+  // navy they showed a pale halo. So the colour themes get a warm cream card (the dog's edges blend into it) with
+  // peach chips; Light keeps white.
+  const bool warm = strcmp(theme::kindId(), "light") != 0;
+  cCard = warm ? 0xfff4e6 : 0xffffff;
+  cName = INK;
+  cPanel = warm ? 0xffe3c7 : PANEL;
+  cChip = warm ? 0x5a3517 : INK;
+  cBubble = warm ? 0x3b2a20 : INK;
+}
 
 lv_obj_t *layer, *card, *bubble, *words_, *said, *answer, *micBtn, *micHint, *micHalo;  // words_: scrolls in the bubble
 int haloStep = -1;  // the halo's last level (0..4): it is redrawn only when that changes
@@ -206,11 +221,11 @@ void onChip(lv_event_t* e) {
 }
 
 lv_obj_t* chip(lv_obj_t* parent, const char* text, int k, int w) {
-  lv_obj_t* b = box(parent, k == 2 ? WARM : PANEL, 18);
+  lv_obj_t* b = box(parent, k == 2 ? WARM : cPanel, 18);
   lv_obj_set_size(b, w, CHIP_H);
   lv_obj_add_flag(b, LV_OBJ_FLAG_CLICKABLE);
   lv_obj_set_style_bg_opa(b, LV_OPA_70, LV_STATE_PRESSED);
-  lv_obj_t* l = label(b, "", 14, true, k == 2 ? 0x5a3a00 : INK);
+  lv_obj_t* l = label(b, "", 14, true, k == 2 ? 0x5a3a00 : cChip);
   lv_obj_set_style_text_align(l, LV_TEXT_ALIGN_CENTER, 0);
   fitText(l, text, w - 12, CHIP_H - 4, 14, 11, true, 0);  // one bold line, or two smaller ones
   lv_obj_center(l);
@@ -446,7 +461,8 @@ void build() {
   const int stageW = land ? 200 : CW;
   const int cardW = land ? os::W() - 16 : CW, colX = stageW + 8, colW = cardW - colX - 12;
   textW_ = land ? colW - 24 : CW - 48;
-  keep(&card, box(layer, 0xffffff, 26));
+  pickColors();
+  keep(&card, box(layer, cCard, 26));
   lv_obj_set_width(card, cardW);
   lv_obj_set_height(card, land ? os::H() - 12 : LV_SIZE_CONTENT);
   lv_obj_set_style_pad_all(card, 0, 0);
@@ -474,12 +490,12 @@ void build() {
   lv_obj_t* paw = img(card, pk::crop("screen", 8, 6, 28, 28));  // the game's own paw badge
   lv_obj_add_flag(paw, LV_OBJ_FLAG_IGNORE_LAYOUT);
   lv_obj_set_pos(paw, 13, 11);
-  lv_obj_t* name = label(card, dogs::name(), 16, true, INK);
+  lv_obj_t* name = label(card, dogs::name(), 16, true, cName);
   lv_obj_add_flag(name, LV_OBJ_FLAG_IGNORE_LAYOUT);
   lv_obj_set_pos(name, 48, 15);
 
   // What it says.
-  keep(&bubble, box(col, INK, 16));
+  keep(&bubble, box(col, cBubble, 16));
   lv_obj_set_size(bubble, land ? colW : CW - 24, LV_SIZE_CONTENT);
   lv_obj_set_style_min_height(bubble, land ? 110 : 64, 0);
   lv_obj_set_style_pad_left(bubble, 12, 0);  // the right: the words' own 12 px (their scroll bar lives there)
@@ -509,7 +525,7 @@ void build() {
   lv_obj_t* stage = clear(land ? card : col);
   lv_obj_set_size(stage, stageW, VIEW_H);
   if (land) lv_obj_set_pos(stage, 0, 46);
-  view = View::create(stage, stageW, VIEW_H, 0, 0xffffff, (320 - stageW) / 2, 62);
+  view = View::create(stage, stageW, VIEW_H, 0, cCard, (320 - stageW) / 2, 62);
   lv_obj_set_pos(view->obj(), 0, 0);
   if (!land) {
     lv_obj_t* tail = img(stage, pk::image(pk::piece("tail_down")));  // the game's bubble point, towards the dog
@@ -540,7 +556,7 @@ void build() {
     keep(&micHint, label(stage, "", 12, true, SOFT));
     lv_obj_set_style_text_align(micHint, LV_TEXT_ALIGN_CENTER, 0);
     // A long hint reaches over the dog's picture: a white backing keeps it readable there.
-    lv_obj_set_style_bg_color(micHint, C(0xffffff), 0);
+    lv_obj_set_style_bg_color(micHint, C(cCard), 0);
     lv_obj_set_style_bg_opa(micHint, LV_OPA_80, 0);
     lv_obj_set_style_radius(micHint, 6, 0);
     lv_obj_set_style_pad_hor(micHint, 3, 0);
