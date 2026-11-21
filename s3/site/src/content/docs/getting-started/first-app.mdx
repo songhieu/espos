@@ -504,12 +504,9 @@ The [packaging guide](/guides/packaging/) covers icons, parts and add-ons.
 
 ## 10. Install it on a device
 
-<Aside type="caution" title="Your own package reaches a board only by the memory card today">
-A package that is not published in the store gets onto a board **only by copying it to the memory card**. Developer mode, which installs from your computer over the local network with live reload, is <Status s="planned" />.
-</Aside>
+The three ways in:
 
-The two ways in:
-
+- **Your espos.dev account.** `espos login` once with a developer key from the web (Account › Developer keys), then `espos upload` in the app's folder: every EspOS S3 of your account installs it within about a minute, and a higher `code` updates it. Only your devices get it. Step by step: [Put your app on your own device](/guides/my-apps/).
 - **The memory card.** Unpack the package into the card's `espos/pkgs/` folder, put the card in, and the app appears on Home. `tools/espk.py --install-sim DIR out/com.example.teatimer-1.0.0-core.espk` writes the right layout into `DIR/sd/espos/pkgs/com.example.teatimer/`; copy that folder to the card. This is also how `espos qemu --install` puts packages into QEMU.
 - **The store.** Once a package is published, a device installs it over WiFi from the store, or from the web desk's list. Publishing is done by the store's owner today; see step 11.
 
@@ -517,7 +514,7 @@ Installing from your computer over the local network, with live reload (`espos r
 
 ## 11. Publish
 
-Publishing to the official store is done by the store's owner today. The steps and what is coming are in [Publish to the store](/guides/publishing/).
+To run the app on your own devices, upload it privately (step 10). Publishing to the official store, for everyone, is done by the store's owner today. The steps and what is coming are in [Publish to the store](/guides/publishing/).
 
 ## Next steps
 

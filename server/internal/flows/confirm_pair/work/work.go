@@ -299,8 +299,9 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 		name = "Xteink X4"
 	}
 	kind := wm.Str(pr["kind"])
-	if kind != "s3" && kind != "bot" {
-		kind = "x4" // the EspOS Bot (kind "bot", 2026-11-20) and the S3 say so; anything else is an X4
+	if kind != "s3" && kind != "bot" && kind != "desktop" {
+		kind = "x4" // the EspOS Bot (kind "bot", 2026-11-20), the S3 and the EspOS Desktop Mac app (kind "desktop",
+		// 2026-11-21) say so; anything else is an X4
 	}
 	dev, err := wm.Insert("devices", map[string]any{
 		"user_id": uid, "user_email": email, "name": name, "token_hash": wm.Str(pr["token_hash"]), "revoked": false,
@@ -311,6 +312,9 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 	}
 	id := wm.Int(dev["id"])
 	for k, v := range deviceDefaults {
+		if kind == "desktop" {
+			break // a desktop has no device settings (s3desk/docs/desktop-protocol.md §1): only its place, below
+		}
 		if perr := putSetting(id, uid, k, v, now); perr != nil {
 			return wm.Fail(perr)
 		}
@@ -322,6 +326,9 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 	for k, v := range webDefaults {
 		if p, ok := place[k]; ok && p != "" {
 			v = p
+		}
+		if kind == "desktop" && k != "dash.city" && k != "dash.lat" && k != "dash.lon" && k != "sys.tz_min" {
+			continue
 		}
 		if perr := putSetting(id, uid, k, v, now); perr != nil {
 			return wm.Fail(perr)
@@ -339,5 +346,5 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 		city = place["dash.city"]
 	}
 	// city: where its weather (and the dog assistant's) is for, taken from the person's other device when there is one.
-	return map[string]any{"status": 201, "body": map[string]any{"device": map[string]any{"id": id, "name": name, "city": city}}}
+	return map[string]any{"status": 201, "body": map[string]any{"device": map[string]any{"id": id, "name": name, "city": city, "kind": kind}}}
 }

@@ -640,6 +640,7 @@ bool dev(const char* cmd) {
     ui::layersOff = false;
   } else if (k == "keep" || k == "restore") return game::debugKeep(k == "restore");
   else if (k == "layers") ui::layersOff = v.toInt() == 0;  // layers 0: the bar, dock and card drawn straight (timing)
+  else if (k == "drop" && sc) sc->dropFood(sc->VW * 0.5f, std::max(1, (int)v.substring(2).toInt()), v.toInt() % F_N, 1);  // drop K N (shots)
   else if (k == "plaincmp") {  // the same picture with the fish by columns and the sway table (PATH.ppm) and without
     savePpm((v + ".ppm").c_str());
     qaPlain = true;

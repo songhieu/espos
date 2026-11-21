@@ -1,3 +1,192 @@
+// ESPOS_ONBOARD (off by default until the owner approves the first-boot setup, onboard.h): with it, the file below;
+// without it, the file as it was before the setup (the #else part; drop it once the setup ships).
+#if ESPOS_ONBOARD
+#include "claim.h"
+#if !ESPOS_NO_CLAIM
+
+#include <Preferences.h>
+
+#include "board.h"
+#include "desk.h"
+#include "onboard.h"
+#include "i18n.h"
+#include "os.h"
+#include "pkg/pkg.h"
+#include "trace.h"
+#include "uikit.h"
+#ifndef ESPOS_ATTEST  // eFuse v2's device attestation (below): left out until the owner approves the one-board test
+#define ESPOS_ATTEST 0
+#endif
+#ifndef SIM
+#include <LittleFS.h>
+#if ESPOS_ATTEST
+#include "esp_hmac.h"
+#endif
+#endif
+
+#pragma GCC optimize("Os")  // screens made once: size over speed
+
+namespace claim {
+namespace {
+
+using namespace kit;
+
+String code_, url_;
+bool loaded = false;
+bool welcomeDue = false;  // claimed: "Hello!" (the setup's step 7 takes it: onboard.cpp)
+
+void load() {
+  if (loaded) return;
+  loaded = true;
+  Preferences p;
+  if (!p.begin("claim", true)) return;
+  code_ = p.getString("code", ""), url_ = p.getString("url", "");
+  p.end();
+}
+void save() {
+  Preferences p;
+  if (!p.begin("claim", false)) return;
+  p.putString("code", code_);
+  p.putString("url", url_);
+  p.end();
+}
+
+// ---------------------------------------------------------------- Kho máy's checks and resets
+void info() {  // (written by hand: every value is a plain word, no JSON library needed)
+  String m4;
+  const String id = desk::hwid(&m4);
+  const pkg::VolInfo v = pkg::volume(pkg::SD);
+  Serial.printf("ESPOS:INFO {\"fw\":\"%s\",\"board\":\"%s\",\"mac4\":\"%s\",\"hwid\":\"%s\",\"token_sha8\":\"%s\","
+                "\"claim_tail\":\"%s\",\"onb\":%d,\"sd\":{\"present\":%s,\"free\":%llu},\"pkgs\":[",
+                FW_VERSION, board::name(), m4.c_str(), id.c_str(), desk::tokenSha8().c_str(),
+                code_.length() >= 4 ? code_.c_str() + code_.length() - 4 : "", onboard::state(), v.present ? "true" : "false",
+                (unsigned long long)v.freeKB * 1024);
+  bool first = true;
+  for (const pkg::Package& p : pkg::list()) Serial.printf("%s\"%s\"", first ? "" : ",", p.id.c_str()), first = false;
+  Serial.println("]}");
+}
+
+// The string value of "key" in a one-level JSON object ("" when absent): ESPOS:CLAIM's two plain words.
+String field(const char* j, const char* key) {
+  const String k = String("\"") + key + "\"";
+  const char* p = strstr(j, k.c_str());
+  if (!p || !(p = strchr(p + k.length(), '"'))) return String();
+  const char* e = strchr(p + 1, '"');
+  return e ? String(p + 1).substring(0, e - p - 1) : String();
+}
+
+// The person's data and WiFi go; the packages and the identity (token, claim code: "link", "claim", the package
+// index) stay. A returned unit: ESPOS:FACTORY_RESET, then ESPOS:CLAIM with a new code. Restarts.
+void factoryReset() {
+#ifndef SIM
+  for (const char* ns : {"desk", "wifi", "pet", "run", "lock", "lic", "news", "remote", "wake", "onb"}) {
+    Preferences p;
+    if (p.begin(ns, false)) p.clear(), p.end();
+  }
+  for (const char* f : {"/settings.json", "/dash.json", "/sys/notif.json", "/tank.sav"}) LittleFS.remove(f);
+  if (fs::File dir = LittleFS.open("/ph")) {  // the photos' copies
+    std::vector<String> all;
+    for (fs::File f = dir.openNextFile(); f; f = dir.openNextFile()) all.push_back(String("/ph/") + f.name());
+    dir.close();
+    for (const String& f : all) LittleFS.remove(f);
+  }
+  // The next boot starts the first-boot setup again (NVS "onb" and /settings.json are gone: onboard.cpp).
+  Serial.println("ESPOS:OK");
+  Serial.flush();
+  delay(300);
+  ESP.restart();
+#else
+  Serial.println("ESPOS:OK (simulator: nothing erased)");
+#endif
+}
+
+// Device attestation (eFuse v2, OFF): HMAC-SHA256 of the challenge with the key in eFuse BLOCK_KEY5 (purpose HMAC_UP).
+// Answers only when NVS "claim/attest" is 1, which nothing writes yet; this firmware has no code that burns an eFuse.
+// Built only with -DESPOS_ATTEST=1 (about 1 KB with Espressif's HMAC driver); otherwise ESPOS:ATTEST says it is off.
+#if ESPOS_ATTEST
+void attest(const char* hexChallenge) {
+  Preferences p;
+  const bool on = p.begin("claim", true) && p.getInt("attest", 0) == 1;
+  p.end();
+  if (!on) return (void)Serial.println("ESPOS:ERR attestation off");
+#ifndef SIM
+  uint8_t msg[64], mac[32];
+  size_t n = 0;
+  for (const char* h = hexChallenge; h[0] && h[1] && n < sizeof msg; h += 2) {
+    char b[3] = {h[0], h[1], 0};
+    msg[n++] = strtoul(b, nullptr, 16);
+  }
+  if (esp_hmac_calculate(HMAC_KEY5, msg, n, mac) != ESP_OK) return (void)Serial.println("ESPOS:ERR no key");
+  String s;
+  for (uint8_t b : mac) s += "0123456789abcdef"[b >> 4], s += "0123456789abcdef"[b & 15];
+  Serial.printf("ESPOS:ATTEST {\"hmac\":\"%s\"}\n", s.c_str());
+#endif
+}
+#endif  // ESPOS_ATTEST
+
+}  // namespace
+
+bool pending() {
+  load();
+  return code_.length() > 0;
+}
+const String& code() { return load(), code_; }
+const String& url() { return load(), url_; }
+bool welcomeWaits() { return welcomeDue; }
+bool takeWelcome() {
+  const bool w = welcomeDue;
+  welcomeDue = false;
+  return w;
+}
+
+void set(const char* code, const char* url) {
+  load();
+  String c = code ? code : "";
+  c.replace("-", "");
+  c.toUpperCase();
+  if (c.length() != 8) return;
+  code_ = c;
+  url_ = url && *url ? String(url) : String(ESPOS_WEB "/app#claim=") + c;
+  save();  // (a new label mid-way: the setup's step shows the new code; a reset or a fresh unit starts at step 1)
+  trace::add("claim: code set (..%s)", c.substring(4).c_str());
+}
+
+void claimed() {
+  load();
+  if (!code_.length()) return;
+  code_ = url_ = "";
+  Preferences p;
+  if (p.begin("claim", false)) p.remove("code"), p.remove("url"), p.remove("step"), p.end();
+  trace::add("claim: claimed");
+  welcomeDue = true;
+}
+
+
+bool usb(const char* line) {
+  load();
+  if (!strcmp(line, "ESPOS:INFO")) return info(), true;
+  if (!strcmp(line, "ESPOS:FACTORY_RESET")) return factoryReset(), true;
+#if ESPOS_ATTEST
+  if (!strncmp(line, "ESPOS:ATTEST ", 13)) return attest(line + 13), true;
+#else
+  if (!strncmp(line, "ESPOS:ATTEST ", 13)) return Serial.println("ESPOS:ERR attestation off"), true;
+#endif
+  if (!strncmp(line, "ESPOS:CLAIM ", 12)) {
+    String c = field(line + 12, "claim");
+    set(c.c_str(), field(line + 12, "claim_url").c_str());
+    c.replace("-", "");
+    c.toUpperCase();
+    Serial.println(c.length() == 8 && code_ == c ? "ESPOS:OK" : "ESPOS:ERR bad claim");
+    return true;
+  }
+  if (!strncmp(line, "ESPOS:FACTORY ", 14))  // the optional network install: this firmware takes a pre-imaged card
+    return Serial.println("ESPOS:ERR unsupported"), true;
+  return false;
+}
+
+}  // namespace claim
+#endif  // !ESPOS_NO_CLAIM
+#else  // !ESPOS_ONBOARD: as before the setup
 #include "claim.h"
 #if !ESPOS_NO_CLAIM
 
@@ -300,3 +489,4 @@ bool usb(const char* line) {
 
 }  // namespace claim
 #endif  // !ESPOS_NO_CLAIM
+#endif  // ESPOS_ONBOARD

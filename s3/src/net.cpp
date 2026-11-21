@@ -161,6 +161,23 @@ const char* reasonText(int reason, int rssi) {
   }
 }
 
+// The network's security as the last scan saw it: 0 open, 1 secured, -1 not seen.
+int secureOf(const String& ssid) {
+  for (const Ap& a : found)
+    if (a.ssid == ssid) return a.secure ? 1 : 0;
+  return -1;
+}
+
+// Join with the security the network has (2026-11-21, a café's WiFi: reason 211 "no AP in the authmode
+// threshold" over and over with the right password): Arduino's default refuses anything under WPA2-PSK, so an
+// older WPA/WPA2-mixed router or an open network never joined. WPA-PSK and up is allowed; an open network (as
+// scanned) joins without a password, whatever was typed.
+void beginJoin(const String& ssid, const String& pass) {
+  const bool open = secureOf(ssid) == 0;
+  WiFi.setMinSecurity(open ? WIFI_AUTH_OPEN : WIFI_AUTH_WPA_PSK);
+  WiFi.begin(ssid.c_str(), !open && pass.length() ? pass.c_str() : nullptr);
+}
+
 int rssiOf(const String& ssid) {
   for (const Ap& a : found)
     if (a.ssid == ssid) return a.rssi;
@@ -188,7 +205,7 @@ void startConnect(const String& ssid, const String& pass, bool user) {
   st = State::Connecting;
   trace::add("wifi connect \"%s\" (%s)", ssid.c_str(), user ? "user" : "auto");
   if (WiFi.isConnected()) WiFi.disconnect(false, false);
-  WiFi.begin(ssid.c_str(), pass.length() ? pass.c_str() : nullptr);
+  beginJoin(ssid, pass);
   changed();
 }
 
@@ -287,12 +304,21 @@ void poll() {
                           reason == WIFI_REASON_ASSOC_FAIL || reason == WIFI_REASON_CONNECTION_FAIL;
     // A join of our own (not the user's typing) is tried 3 times, 1, 2 and 3 s apart: on 2026-11-18 the board's
     // retry at once was refused again within 0.1 s and WiFi came 12 s later, after two scans (0.5.7).
-    if (st == State::Connecting && authLike && attempt < (userConnect ? 1 : 3)) {
+    const bool weakAp = reason == WIFI_REASON_NO_AP_FOUND_W_COMPATIBLE_SECURITY ||
+                        reason == WIFI_REASON_NO_AP_FOUND_IN_AUTHMODE_THRESHOLD;
+    if (st == State::Connecting && weakAp && attempt < 1) {  // still under the bar: once more with no floor at all
+      attempt++;
+      trace::add("wifi retry \"%s\" after reason %d with any security", target.c_str(), reason);
+      WiFi.disconnect(false, false);
+      WiFi.setMinSecurity(WIFI_AUTH_OPEN);
+      WiFi.begin(target.c_str(), targetPass.length() ? targetPass.c_str() : nullptr);
+      connectStart = millis();
+    } else if (st == State::Connecting && authLike && attempt < (userConnect ? 1 : 3)) {
       attempt++;
       trace::add("wifi retry \"%s\" after reason %d (%d)", target.c_str(), reason, attempt);
       WiFi.disconnect(false, false);
       retryAt = userConnect ? 0 : (now + 1000u * attempt) | 1;
-      if (!retryAt) WiFi.begin(target.c_str(), targetPass.length() ? targetPass.c_str() : nullptr);
+      if (!retryAt) beginJoin(target, targetPass);
       connectStart = millis();
     } else if (st == State::Connecting) {
       const char* why = reasonText(reason, rssiOf(target));
@@ -309,7 +335,7 @@ void poll() {
   }
   if (retryAt && st == State::Connecting && (int32_t)(now - retryAt) >= 0) {
     retryAt = 0;
-    WiFi.begin(target.c_str(), targetPass.length() ? targetPass.c_str() : nullptr);
+    beginJoin(target, targetPass);
     connectStart = millis();
   }
   if (st == State::Connecting && millis() - connectStart > CONNECT_TIMEOUT_MS) fail(T_("The network took too long to answer."));

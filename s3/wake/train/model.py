@@ -190,15 +190,33 @@ def write_ewm(Q, path, fe=(400.0, 19.0, 9.5), thr=(0.5, 0.5), names=("gau", "gau
     layer(*Q["out"])
     pad()
     dil = list(c["dil"]) + [0] * (8 - len(c["dil"]))
-    thr = list(thr) + [1.0] * (4 - len(thr))
-    nm = b"".join(n.encode()[:11].ljust(12, b"\0") for n in names) + b"\0" * 12 * (4 - len(names))
-    hsize = struct.calcsize(HDR_FMT)
+    names = list(names)[: c["nout"]]
+    names += [f"out{i}" for i in range(len(names), c["nout"])]
+    thr = list(thr)[: c["nout"]] + [1.0] * (c["nout"] - len(thr))
+    assert c["nout"] <= 8, "the board reads up to 8 outputs"
+
+    def table(ns, ts, n):
+        ts = list(ts) + [1.0] * (n - len(ts))
+        return struct.pack(f"<{n}f", *ts), b"".join(x.encode()[:11].ljust(12, b"\0") for x in ns) + b"\0" * 12 * (n - len(ns))
+
+    t4, n4 = table(names[:4], thr[:4], 4)
+    # Version 1: up to 4 outputs (the header's own tables). Version 2 (2026-11-21, the calls after "gâu"): outputs
+    # 5-8 have their thresholds and names in an extension right after the header (hdr_size covers it); firmware from
+    # before refuses it (version), so it keeps the model it has.
+    ext = b""
+    if c["nout"] > 4:
+        t8, n8 = table(names[4:], thr[4:], 4)
+        ext = t8 + n8
+    ver = 2 if ext else 1
+    hsize = struct.calcsize(HDR_FMT) + len(ext)
     total = hsize + len(body)
     crc = zlib.crc32(bytes(body)) & 0xFFFFFFFF
-    hdr = struct.pack(HDR_FMT, 0x314D5745, 1, hsize, fe[0], fe[1], fe[2], 40, c["k0"], c["stride"], len(c["dil"]),
-                      c["k"], c["hc"], c["nout"], smooth, c["ch"], refractory, *dil, *thr, nm, total, crc)
+    hdr = struct.pack(HDR_FMT, 0x314D5745, ver, hsize, fe[0], fe[1], fe[2], 40, c["k0"], c["stride"], len(c["dil"]),
+                      c["k"], c["hc"], c["nout"], smooth, c["ch"], refractory, *dil, *struct.unpack("<4f", t4), n4,
+                      total, crc)
     with open(path, "wb") as f:
         f.write(hdr)
+        f.write(ext)
         f.write(body)
     return total
 

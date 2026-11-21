@@ -25,7 +25,9 @@
 #include "uikit.h"
 #include "voice.h"
 #include "book.h"
+#if !ESPOS_ONBOARD
 #include "pet_icon.h"
+#endif
 #include "text.h"
 #include "apps.h"
 #include "home.h"
@@ -897,7 +899,11 @@ void message(const char* title, const char* text, const char* small) {
   lv_obj_t* body;
   lv_obj_t* s = os::screen("PawBoop", &body, os::NOSCROLL);
   lv_obj_set_flex_align(body, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+#if ESPOS_ONBOARD
+  lv_obj_t* ic = apps::packageIcon(body, "vn.pawboop.pet", 52);
+#else
   lv_obj_t* ic = img(body, &ic_pet_52);
+#endif
   lv_obj_set_style_pad_top(ic, 40, 0);
   lv_obj_t* t = label(body, "", 22, true, pal().fg);
   lv_obj_set_style_text_align(t, LV_TEXT_ALIGN_CENTER, 0);

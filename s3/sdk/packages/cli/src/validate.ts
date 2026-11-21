@@ -2,7 +2,8 @@
 // differ it takes the strictest:
 //   tools/espk.py (build/--check), scripts/publish_pkg.py (the store upload), the web admin (web/app/src/n2/
 //   AdminPage.tsx + admin/espk.ts) and the device itself (src/pkg/espk.cpp safeName, limits; src/js/jsapp.cpp).
-// Each rule has a code (M = manifest, F = files, C = code, P = .espk structure, in espk.ts) listed by
+// Each rule has a code (M = manifest, F = files, C = code, P = .espk structure, in espk.ts; U = what a private upload
+// to your own devices may be, checkPrivate) listed by
 // `espos check --rules`.
 // Declarative packages (type face, widget or theme, "runtime": "decl", docs/profiles.md §3-4) follow espk.py's
 // check_decl_manifest and check_decl_file (M040-M047, F020-F030) instead of the app rules.
@@ -30,6 +31,10 @@ export const ICON_MAX = 200_000; // apps.cpp jpgIcon ignores bigger icons
 export const FW_PACKAGES = 300; // 0.3.0: the first firmware with packages
 export const FW_J2ME = 400; // 0.4.0: the first with the j2me engine
 export const FW_LANG = 500; // 0.5.0: the first with languages (engines lang and font) and .espk files
+/** A private upload's limits (web/backend confirm_user_pkg parse.go, the same numbers). */
+export const PRIVATE_MAX_BYTES = 4_194_304;
+export const PRIVATE_MAX_JAR = 2_097_152;
+export const PRIVATE_MAX_PKGS = 30;
 /** The languages the S3 shows (src/i18n.cpp LANGS, tools/espk.py LANG_TAGS): the "i18n" keys the device reads. */
 export const LANG_TAGS = ["en", "vi", "zh-Hans", "es", "fr", "de", "ja", "ko", "pt-BR", "ru", "id"];
 /** Each language's font pack (src/i18n.cpp LANGS); the others draw with the built-in fonts. */
@@ -151,7 +156,40 @@ export const RULES: RuleDoc[] = [
   { code: "C007", level: "warning", text: "async/await or .then(): API level 1 never runs Promise jobs, so the callbacks never run", from: "src/js/jsapp.cpp" },
   { code: "C008", level: "warning", text: 'a "…" in main.js (screens show text in full: shrink or wrap)', from: "docs" },
   { code: "C009", level: "warning", text: "main.js is not valid UTF-8", from: "-" },
+  { code: "U001", level: "error", text: `espos upload (your own devices): a package is at most ${PRIVATE_MAX_BYTES} bytes (4 MB), a Java game's game.jar at most 2 MB`, from: "web/backend confirm_user_pkg" },
+  { code: "U002", level: "error", text: 'espos upload (your own devices): a JavaScript app (kind js, engine js) or a Java game (kind native, engine j2me); one part (core); no pack, add-on, face, widget or theme; the id gets "u." in front, so at most 46 characters; a Java game asks only for "sound"', from: "web/backend confirm_user_pkg" },
 ];
+
+// ---------------------------------------------------------------- private uploads (espos upload)
+
+
+/** The id a private upload installs as: "u." + the manifest's id (an id already starting with "u." stays). */
+export const privateId = (id: string) => (id.startsWith("u.") ? id : `u.${id}`);
+
+/**
+ * What the server refuses on top of the validator when a package goes to the developer's own devices (espos upload,
+ * the web's "My apps"): rules U001 and U002, worded as web/backend/workflows/confirm_user_pkg/nodes/parse.go says them.
+ */
+export function checkPrivate(p: ReadPkg): Problem[] {
+  const out: Problem[] = [];
+  const m = p.plain;
+  const E = (code: string, msg: string) => out.push({ level: "error", code, where: p.name, msg });
+  if (p.bytes.length > PRIVATE_MAX_BYTES) E("U001", `${p.bytes.length} bytes; a private upload is at most ${PRIVATE_MAX_BYTES} bytes (4 MB)`);
+  const js = m.kind === "js" && m.engine === "js";
+  const j2me = m.kind === "native" && m.engine === "j2me";
+  if (!js && !j2me && KINDS.includes(m.kind) && ENGINES.includes(m.engine) && (m.kind === "js") === (m.engine === "js"))
+    E("U002", `kind ${JSON.stringify(m.kind)}, engine ${JSON.stringify(m.engine)}: a private upload is a JavaScript app (kind js, engine js) or a Java game (kind native, engine j2me)`);
+  if (m.type !== undefined && m.type !== "app" && ["pack", "face", "widget", "theme"].includes(m.type))
+    E("U002", `type: ${m.type}; a private upload is an app (packs, faces, widgets and themes come from the store)`);
+  if (m.addon_of !== undefined) E("U002", "addon_of: add-ons come from the store with their app; a private upload is an app on its own");
+  if (m.part !== undefined && m.part !== "core" && isStr(m.part) && PART_RE.test(m.part)) E("U002", `part: ${m.part}; a private upload is one part, "core"`);
+  if (m.parts !== undefined) E("U002", "parts: a private upload is one part (core), with no choices");
+  if (isStr(m.id) && privateId(m.id).length > 48) E("U002", `id: ${m.id} is ${m.id.length} characters; a private upload adds "u.", so the id can have at most 46`);
+  if (j2me && Array.isArray(m.perms) && m.perms.some((x: unknown) => x !== "sound")) E("U002", 'perms: a Java game may ask only for "sound"');
+  const jar = p.files.find((f) => f.name === "game.jar");
+  if (j2me && jar && jar.size > PRIVATE_MAX_JAR) E("U001", `game.jar is ${jar.size} bytes; a private Java game is at most 2 MB`);
+  return out;
+}
 
 const len = (s: string) => [...s].length;
 const isStr = (v: unknown): v is string => typeof v === "string";

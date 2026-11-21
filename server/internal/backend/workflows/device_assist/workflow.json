@@ -1,0 +1,293 @@
+{
+  "code": "device_assist",
+  "draft": {
+    "edges": [
+      {
+        "from": "in",
+        "to": "take"
+      },
+      {
+        "from": "take",
+        "to": "okb"
+      },
+      {
+        "from": "take",
+        "port": "error",
+        "to": "fail"
+      },
+      {
+        "from": "okb",
+        "port": "true",
+        "to": "ask"
+      },
+      {
+        "from": "okb",
+        "port": "false",
+        "to": "bad"
+      },
+      {
+        "from": "ask",
+        "port": "error",
+        "to": "fail2"
+      },
+      {
+        "from": "ask",
+        "to": "act"
+      },
+      {
+        "from": "act",
+        "port": "error",
+        "to": "fail3"
+      },
+      {
+        "from": "act",
+        "to": "wants"
+      },
+      {
+        "from": "wants",
+        "port": "true",
+        "to": "prep"
+      },
+      {
+        "from": "wants",
+        "port": "false",
+        "to": "out"
+      },
+      {
+        "from": "prep",
+        "to": "pok"
+      },
+      {
+        "from": "prep",
+        "port": "error",
+        "to": "outj"
+      },
+      {
+        "from": "pok",
+        "port": "true",
+        "to": "say"
+      },
+      {
+        "from": "pok",
+        "port": "false",
+        "to": "outj"
+      },
+      {
+        "from": "say",
+        "to": "outs"
+      },
+      {
+        "from": "say",
+        "port": "error",
+        "to": "outj"
+      }
+    ],
+    "nodes": [
+      {
+        "id": "in",
+        "type": "http_in"
+      },
+      {
+        "config": {
+          "input": {
+            "body": "{{ input.body }}",
+            "files": "{{ input.files }}",
+            "headers": "{{ input.headers }}",
+            "query": "{{ input.query }}",
+            "raw": "{{ input.raw_body_base64 }}"
+          },
+          "memory_mb": 384,
+          "source": {
+            "$file": "nodes/take.go"
+          },
+          "timeout_ms": 10000
+        },
+        "id": "take",
+        "type": "code"
+      },
+      {
+        "config": {
+          "rules": [
+            {
+              "left": "{{ take.ok }}",
+              "op": "eq",
+              "right": true
+            }
+          ]
+        },
+        "id": "okb",
+        "type": "branch"
+      },
+      {
+        "config": {
+          "input": {
+            "audio": "{{ take.audio }}",
+            "cid": "{{ take.cid }}",
+            "device_id": "{{ input.guard.require_device.device_id }}",
+            "dog": "{{ take.dog }}",
+            "intent": "{{ take.intent }}",
+            "source": "device",
+            "text": "{{ take.text }}",
+            "user_id": "{{ input.guard.require_device.user_id }}",
+            "wake": "{{ take.wake }}"
+          },
+          "workflow": "assist_reply"
+        },
+        "id": "ask",
+        "type": "call_workflow"
+      },
+      {
+        "config": {
+          "input": {
+            "changes": "{{ ask.changes }}",
+            "device_id": "{{ input.guard.require_device.device_id }}",
+            "n_changes": "{{ ask.n_changes }}",
+            "oops": "{{ ask.oops }}",
+            "reply": "{{ ask.body }}",
+            "status": "{{ ask.status }}",
+            "uid": "{{ input.guard.require_device.user_id }}"
+          },
+          "workflow": "assist_apply"
+        },
+        "id": "act",
+        "type": "call_workflow"
+      },
+      {
+        "config": {
+          "body": "{{ act.body }}",
+          "headers": {
+            "Cache-Control": "no-store"
+          },
+          "status": "{{ act.status }}"
+        },
+        "id": "out",
+        "type": "respond"
+      },
+      {
+        "config": {
+          "body": {
+            "error": "{{ take.err }}"
+          },
+          "status": "{{ take.status }}"
+        },
+        "id": "bad",
+        "type": "respond"
+      },
+      {
+        "config": {
+          "body": {
+            "error": "{{ take.error }}"
+          },
+          "status": 500
+        },
+        "id": "fail",
+        "type": "respond"
+      },
+      {
+        "config": {
+          "body": {
+            "error": "{{ ask.error }}"
+          },
+          "status": 500
+        },
+        "id": "fail2",
+        "type": "respond"
+      },
+      {
+        "config": {
+          "body": {
+            "error": "{{ act.error }}"
+          },
+          "status": 500
+        },
+        "id": "fail3",
+        "type": "respond"
+      },
+      {
+        "config": {
+          "rules": [
+            {
+              "left": "{{ take.stream }}",
+              "op": "eq",
+              "right": true
+            },
+            {
+              "left": "{{ act.status }}",
+              "op": "eq",
+              "right": 200
+            },
+            {
+              "left": "{{ act.body.n }}",
+              "op": "gt",
+              "right": 0
+            }
+          ]
+        },
+        "id": "wants",
+        "type": "branch"
+      },
+      {
+        "config": {
+          "input": {
+            "answer": "{{ act.body }}",
+            "device_id": "{{ input.guard.require_device.device_id }}",
+            "rate": "{{ take.say_rate }}"
+          },
+          "source": {
+            "$file": "nodes/prep.go"
+          }
+        },
+        "id": "prep",
+        "type": "code"
+      },
+      {
+        "config": {
+          "rules": [
+            {
+              "left": "{{ prep.ok }}",
+              "op": "eq",
+              "right": true
+            }
+          ]
+        },
+        "id": "pok",
+        "type": "branch"
+      },
+      {
+        "config": {
+          "rate": "{{ prep.rate }}",
+          "text": "{{ prep.text }}",
+          "voice": "{{ prep.voice }}"
+        },
+        "id": "say",
+        "type": "tts"
+      },
+      {
+        "config": {
+          "headers": {
+            "Access-Control-Expose-Headers": "X-Sample-Rate, X-Assist",
+            "Cache-Control": "no-store",
+            "Content-Type": "audio/pcm",
+            "X-Assist": "{{ prep.meta }}",
+            "X-Sample-Rate": "{{ prep.rate }}"
+          },
+          "stream": true
+        },
+        "id": "outs",
+        "type": "respond"
+      },
+      {
+        "config": {
+          "body": "{{ act.body }}",
+          "headers": {
+            "Cache-Control": "no-store"
+          },
+          "status": "{{ act.status }}"
+        },
+        "id": "outj",
+        "type": "respond"
+      }
+    ]
+  },
+  "name": "Device: talk to the dog (push-to-talk audio or text in; the reply as JSON, or as its voice with the turn in X-Assist)"
+}

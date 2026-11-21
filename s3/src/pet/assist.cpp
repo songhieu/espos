@@ -249,6 +249,8 @@ Prefs prefs() {
     p.eyes = constrain(d["eyes"] | 60, 0, 600);
     p.wake = constrain(d["wake"] | 0, 0, 2), p.wakeWord = constrain(d["wake_word"] | 0, 0, 1);
     p.wakeSens = constrain(d["wake_sens"] | 2, 1, 3);
+    p.calls = (d["calls"] | 31) & 31;
+    if (!p.calls) p.calls = 1;
     p.led = constrain(d["led"] | 2, 0, 2), p.ledBright = constrain(d["led_bright"] | 2, 1, 3);
     p.follow = (d["follow"] | 1) != 0;
     p.ack = constrain(d["ack"] | 2, 0, 2);
@@ -263,6 +265,7 @@ void setPrefs(const Prefs& p) {
   if (p.wake || p.wakeWord || p.wakeSens != 2) {  // only when changed: a server from before them refuses the keys
     d["wake"] = p.wake, d["wake_word"] = p.wakeWord, d["wake_sens"] = p.wakeSens;
   }
+  if (p.calls != 31) d["calls"] = p.calls;  // only when changed (an older server refuses the key)
   if (p.led != 2 || p.ledBright != 2) d["led"] = p.led, d["led_bright"] = p.ledBright;
   if (!p.follow) d["follow"] = 0;  // only when off (the default is on; an older server refuses the key)
   if (p.ack != 2) d["ack"] = p.ack;

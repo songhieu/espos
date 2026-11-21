@@ -7,6 +7,10 @@ as the board keeps them; and the memory card as a FAT image (its sd/: build-qemu
   tools/qemu/mkimage.py OUT.bin --app-only     a new firmware into an existing image, its data kept (as flashing
                                                the board over USB: NVS 0x9000-0x10000, LittleFS, the packs and the
                                                card stay)
+  --table partitions_v2.csv                    partition table v2 (docs/partitions.md): written at 0x8000 over the
+                                               build's; no PawBoop packs (v2 has no pb_* partitions). To switch an
+                                               image that has data from v1 to v2, use tools/migrate_v2.py --image.
+  --build DIR                                  the firmware from DIR (default .pio/build/<env>)
 """
 import argparse
 import csv
@@ -35,17 +39,22 @@ def main():
     a.add_argument("--data", default=str(ROOT / "sim/data-live"))
     a.add_argument("--app-only", action="store_true")
     a.add_argument("--sd", help="the card image (default: sd.img next to OUT)")
+    a.add_argument("--table", default="partitions_pawboop.csv", help="the partition table (CSV in the project)")
+    a.add_argument("--build", help="the build folder (default .pio/build/<env>)")
     o = a.parse_args()
+    build = Path(o.build) if o.build else ROOT / ".pio/build" / o.env
+    table = ROOT / o.table
     if o.app_only and Path(o.out).exists():
         img = bytearray(Path(o.out).read_bytes())
-        fw = (ROOT / ".pio/build" / o.env / "firmware.factory.bin").read_bytes()
-        app0 = partitions(ROOT / "partitions_pawboop.csv")["app0"]
+        fw = (build / "firmware.factory.bin").read_bytes()
+        app0 = partitions(table)["app0"]
         if len(fw) > app0[0] + app0[1]:
             raise SystemExit("firmware larger than app0")
         # firmware.factory.bin runs from 0: bootloader, partition table, then (0xFF over nvs and otadata) the app.
         # Only the bootloader, the table and the app go in: nvs (the link token, WiFi, saves) and otadata stay.
-        nvs = partitions(ROOT / "partitions_pawboop.csv")["nvs"][0]
+        nvs = partitions(table)["nvs"][0]
         img[:nvs] = fw[:nvs]
+        tableBin(img, table)
         img[app0[0] : len(fw)] = fw[app0[0] :]
         img[len(fw) : app0[0] + app0[1]] = b"\xff" * (app0[0] + app0[1] - len(fw))
         Path(o.out).write_bytes(img)
@@ -53,10 +62,13 @@ def main():
         return
     o.packs = str(Path(o.data) / "pawboop")
     img = bytearray(b"\xff" * (16 << 20))
-    fw = (ROOT / ".pio/build" / o.env / "firmware.factory.bin").read_bytes()
+    fw = (build / "firmware.factory.bin").read_bytes()
     img[: len(fw)] = fw
-    parts = partitions(ROOT / "partitions_pawboop.csv")
+    tableBin(img, table)
+    parts = partitions(table)
     for name, fname in PACKS.items():
+        if name not in parts:
+            continue
         f = Path(o.packs) / fname
         off, size = parts[name]
         if not f.exists():
@@ -72,6 +84,17 @@ def main():
     Path(o.out).write_bytes(img)
     print(f"{o.out}: firmware {len(fw)} bytes")
     card(Path(o.data) / "sd", Path(o.sd) if o.sd else Path(o.out).parent / "sd.img")
+
+
+def tableBin(img, table):
+    """The binary of `table` at 0x8000 (the factory image carries the table the build was made with)."""
+    gen = Path.home() / ".platformio/packages/framework-arduinoespressif32/tools/gen_esp32part.py"
+    with tempfile.TemporaryDirectory() as t:
+        out = Path(t) / "p.bin"
+        subprocess.run(["python3", str(gen), "-q", str(table), str(out)], check=True)
+        b = out.read_bytes()
+    img[0x8000 : 0x8000 + len(b)] = b
+    img[0x8000 + len(b) : 0x9000] = b"\xff" * (0x1000 - len(b))
 
 
 def littlefs(data, size):

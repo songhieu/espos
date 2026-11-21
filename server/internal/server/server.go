@@ -6,6 +6,7 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"crypto/subtle"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -216,21 +217,32 @@ func (s *Server) requestInput(w http.ResponseWriter, r *http.Request, rt Route) 
 	// Nodes build links back to this server from the host: give them the scheme too.
 	headers["host"] = s.base(r)
 	var body any
+	raw64 := ""
 	if r.Body != nil {
 		raw, err := io.ReadAll(http.MaxBytesReader(w, r.Body, 8<<20))
 		if err != nil {
 			return nil, err
 		}
-		if len(strings.TrimSpace(string(raw))) > 0 {
+		ctype := strings.ToLower(r.Header.Get("Content-Type"))
+		textual := ctype == "" || strings.Contains(ctype, "json") || strings.HasPrefix(ctype, "text/") || strings.Contains(ctype, "form")
+		switch {
+		case len(raw) > 0 && !textual:
+			// A binary body (the dog assistant's recording, audio/wav): as the hosted platform hands it, base64
+			raw64 = base64.StdEncoding.EncodeToString(raw)
+		case len(strings.TrimSpace(string(raw))) > 0:
 			if err := json.Unmarshal(raw, &body); err != nil {
 				body = string(raw)
 			}
 		}
 	}
-	return map[string]any{
+	in := map[string]any{
 		"method": r.Method, "path": r.URL.Path, "params": params, "query": query,
 		"headers": headers, "body": body, "ip": clientIP(r),
-	}, nil
+	}
+	if raw64 != "" {
+		in["raw_body_base64"] = raw64
+	}
+	return in, nil
 }
 
 func writeResult(w http.ResponseWriter, res *engine.Result) {
@@ -240,6 +252,26 @@ func writeResult(w http.ResponseWriter, res *engine.Result) {
 	}
 	for k, v := range res.Headers {
 		w.Header().Set(k, v)
+	}
+	if res.Stream != nil { // a streamed answer (the dog's voice): sent as it comes, flushed piece by piece
+		defer res.Stream.Close()
+		w.WriteHeader(status)
+		fl, _ := w.(http.Flusher)
+		buf := make([]byte, 8192)
+		for {
+			n, err := res.Stream.Read(buf)
+			if n > 0 {
+				if _, werr := w.Write(buf[:n]); werr != nil {
+					return
+				}
+				if fl != nil {
+					fl.Flush()
+				}
+			}
+			if err != nil {
+				return
+			}
+		}
 	}
 	switch b := res.Body.(type) {
 	case nil:

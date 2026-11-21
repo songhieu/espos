@@ -14,17 +14,18 @@ import Status from '../../../components/Status.astro';
 
 ## Get your package onto the board
 
-<Aside type="caution" title="Unpublished packages: the memory card only">
-Today a developer's own, unpublished package reaches a board **only by the memory card**. Developer mode, with installs over the local network and live reload, is <Status s="planned" />.
+<Aside type="tip" title="Your own package, over WiFi">
+Upload your package to your espos.dev account (`espos upload`, or the web desk's **My apps** tab) and every EspOS S3 of your account installs it within about a minute. See [Put your app on your own device](/guides/my-apps/). Developer mode, with installs over the local network and live reload, is <Status s="planned" />.
 </Aside>
 
-Devices install published packages from the store over HTTPS, and from the `s3.pkgs` list that the web desk edits. Today there are three ways in:
+Devices install packages over HTTPS from the store, and from the `s3.pkgs` list that the web desk (or the server, for your own uploads) edits. Today there are four ways in:
 
 | Way | For |
 |---|---|
+| **Your own upload** | Your JavaScript apps and Java games, private to your account: `espos upload` or **My apps** on the web desk. A higher `code` updates every device that has it. See [Put your app on your own device](/guides/my-apps/). |
 | **The official store** | Published packages. Publishing is done by the store's owner today; see [Publish to the store](/guides/publishing/). |
-| **A Java game upload** on the web desk | Your own `.jar` games, private to your account. See [Java games](/guides/java-games/#upload-your-own-game). |
-| **A memory card** | Copy an unpacked package to `/espos/pkgs/<id>/` on the card. The device reads card packages as they are: each folder holds the files and a `manifest.json`. |
+| **A Java game upload** on the web desk | Your own `.jar` games, in the same **My apps** tab. See [Java games](/guides/java-games/#upload-your-own-game). |
+| **A memory card** | Copy an unpacked package to `/espos/pkgs/<id>/` on the card. The device reads card packages as they are: each folder holds the files and a `manifest.json`. No account needed. |
 
 For the card, `tools/espk.py --install-sim DIR your.espk` writes exactly this layout into `DIR/sd/espos/pkgs/<id>/`. Copy that folder to the card's `espos/pkgs/`, put the card in, and the app appears on Home within a few seconds. QEMU's card image is built the same way (`espos qemu --install`), which is how the Java games were tested on the real firmware.
 

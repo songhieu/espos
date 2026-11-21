@@ -21,6 +21,7 @@
 #include "mbedtls/sha256.h"
 #include "net.h"
 #include "os.h"
+#include "ota.h"
 #include "photo.h"
 #include "pkg/store.h"
 #include "power.h"
@@ -32,6 +33,9 @@
 #include "lic.h"
 #include "lock.h"
 #include "claim.h"
+#if ESPOS_ONBOARD
+#include "onboard.h"
+#endif
 
 // The IDF's built-in root certificates (CONFIG_MBEDTLS_CERTIFICATE_BUNDLE): the server's
 // certificate is checked, never skipped.
@@ -441,9 +445,16 @@ void saveSettings() {
   savedRev = settingsRev;
 }
 
+#if ESPOS_ONBOARD
+bool hadFile = false;  // hadSettings()
+#endif
+
 void loadSettings() {
   File f = LittleFS.open(SETTINGS_FILE, "r");
   if (!f) return;
+#if ESPOS_ONBOARD
+  hadFile = true;
+#endif
   JsonDocument d(&psram);
   if (deserializeJson(d, f) == DeserializationError::Ok) {
     settingsRev = savedRev = d["rev"] | (int64_t)0;
@@ -568,6 +579,8 @@ String buildSyncBody() {
     diag::fill(dg);
     dg["board"] = board::name();  // the web shows which screen this is (board.h: found at boot)
     dg["ping"] = PING_MS / 1000;  // how often this firmware asks (45 s): the web says a change arrives within that
+    dg["slot"] = ota::slotBytes();  // the app slot: the server offers only an image that fits (docs/partitions.md)
+    dg["ptab"] = ota::table();
     // Remote control (remote.h): where the web EspOS opens the device's page, and its PIN (only while it is on).
     if (remote::enabled()) dg["rc_on"] = 1;
     const String rc = remote::url();
@@ -670,7 +683,10 @@ void applySync(JsonDocument& doc) {
   otaSent = 0;
   JsonObjectConst fw = doc["fw_update"];
   const char* v = fw["version"] | "";
-  if (*v && versionCode(v) > versionCode(FW_VERSION)) {  // one S3 image for both boards (board.h)
+  offer = FwOffer();
+  if (*v && versionCode(v) > versionCode(FW_VERSION) && (fw["size"] | 0u) > ota::slotBytes()) {
+    offer.usb = v;  // a server that does not know the tracks: never an OTA that cannot fit
+  } else if (*v && versionCode(v) > versionCode(FW_VERSION)) {  // one S3 image for both boards (board.h)
     offer.version = v;
     offer.url = fw["url"] | "";
     offer.sha256 = fw["sha256"] | "";
@@ -678,9 +694,10 @@ void applySync(JsonDocument& doc) {
     offer.date = fw["date"] | "";
     offer.size = fw["size"] | 0u;
     offer.install = fw["install"] | false;
-  } else {
-    offer = FwOffer();
   }
+  // The newest version for the next partition table (docs/partitions.md): installed over USB only.
+  const char* u = doc["fw_usb"]["version"] | "";
+  if (*u && versionCode(u) > versionCode(FW_VERSION) && versionCode(u) > versionCode(offer.usb.c_str())) offer.usb = u;
   lastSync = doc["now_ms"] | nowMs();
 }
 
@@ -847,6 +864,9 @@ String hwid(String* mac4) {
   return id;
 }
 String tokenSha8() { return token.length() ? sha256hex(token).substring(0, 8) : String(); }
+#if ESPOS_ONBOARD
+bool hadSettings() { return hadFile; }
+#endif
 
 void releaseConnection() {
   dropKeep = true;
@@ -858,6 +878,9 @@ void begin() {
   mbedtls_platform_set_calloc_free(tlsCalloc, tlsFree);
   if (!LittleFS.begin(true)) trace::add("LittleFS mount failed");
   loadLink();
+#if ESPOS_ONBOARD
+  onboard::early();  // a store demo unit: its settings as they were when the demo began (onboard.h)
+#endif
   loadSettings();
   // The time zone the device last had (sys.tz_min), so a device outside GMT+7 has its own time from boot.
   if (vals.count("sys.tz_min") && vals["sys.tz_min"].length()) setTz(vals["sys.tz_min"].toInt());
@@ -1026,8 +1049,19 @@ bool provision(const char* json, String& err) {
   }
   if (!d["settings"].isNull()) {
     settingsRev = d["settings_rev"] | (int64_t)0;
+#if ESPOS_ONBOARD
+    // What was chosen on the device before this link (the setup's language, its rotate button, ROT from the installer)
+    // stays and goes up with the first sync. A unit for sale keeps Kho máy's settings the same way: the server has none
+    // for it yet, so they win over its defaults (onboard.h).
+    for (auto& kv : dirty) kv.second |= 1;
+    applySettings(d["settings"], 0);
+    if (d["claim"].is<const char*>())
+      for (JsonPairConst kv : d["settings"].as<JsonObjectConst>()) dirty[kv.key().c_str()] = 1;
+    saveSettings();
+#else
     dirty.clear();
     applySettings(d["settings"], 0);
+#endif
     settingsVer++;
   }
   becomeLinked(tok, d["device"]);

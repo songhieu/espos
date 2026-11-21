@@ -47,6 +47,11 @@ func Fetch(method, url string, opts map[string]any) (map[string]any, error) {
 
 // FetchWith is Fetch with the body and headers as their own arguments.
 func FetchWith(method, url string, body any, headers map[string]any) (map[string]any, error) {
+	return fetchWithClient(client, method, url, body, headers)
+}
+
+// fetchWithClient is FetchWith on a client of the caller's (the AI model's has its own timeout: ai.go).
+func fetchWithClient(c *http.Client, method, url string, body any, headers map[string]any) (map[string]any, error) {
 	var rd io.Reader
 	isJSON := false
 	switch b := body.(type) {
@@ -72,9 +77,9 @@ func FetchWith(method, url string, body any, headers map[string]any) (map[string
 		req.Header.Set("Content-Type", "application/json")
 	}
 	for k, v := range headers {
-		req.Header.Set(k, Str(v))
+		req.Header.Set(k, FillSecrets(Str(v))) // a hosted {{ secret.name }} marker: its value from the environment
 	}
-	res, err := client.Do(req)
+	res, err := c.Do(req)
 	if err != nil {
 		return nil, err
 	}

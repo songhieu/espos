@@ -4,7 +4,8 @@ the request after, room, noise, level), run the C front end, save int8 features 
     .venv/bin/python train/build_sets.py [--variants 6] [--workers 6]
 
 Writes DATA/sets/{train,val,test}_{pos,neg}.npz: X (N, 300, 40) int8; lab (N, 4) int32 = kind (0 neg, 1 w1,
-2 w2, 3 w3, 4 tone), on, off (samples, -1 for negatives), cond (test: 0 clean, 1 noisy 10 dB, 2 noisy 5 dB,
+2 w2, 3 w3, 4 tone, 5 "ki ki", 6 "lu lu", 7 "cún ơi", 8 "milu"; --words2 writes the last four and their confusables
+to *_pos2 / *_neg2), on, off (samples, -1 for negatives), cond (test: 0 clean, 1 noisy 10 dB, 2 noisy 5 dB,
 3 noisy 0 dB, 4 far: reverb + 10 dB); meta.json lists the voices of each split.
 """
 import argparse
@@ -25,7 +26,8 @@ TTS = os.path.join(DATA, "tts")
 SR = 16000
 T = 300                      # frames per example (3.0 s)
 NS = T * 160
-KIND = {"w1": 1, "w2": 2, "w3": 3, "tone": 4, "conf": 0, "neg": 0}
+KIND = {"w1": 1, "w2": 2, "w3": 3, "tone": 4, "conf": 0, "neg": 0, "k2": 5, "l2": 6, "c2": 7, "m2": 8}
+CALLS2 = ("k2", "l2", "c2", "m2")  # the second round's calls (texts.WAKE2): --words2 builds their sets apart
 
 # Voices kept out of training. test: never seen; val: for picking the checkpoint and thresholds.
 TEST = {"turbo:Ngọc Trân", "turbo:Thái Sơn", "turbo:Quỳnh Anh", "turbo:Quốc Tuấn", "nano:Ái Hân", "nano:Adam",
@@ -179,7 +181,7 @@ def build(recs, jobs, out, workers):
     vlist = sorted({r["voice"] for r in recs})
     voice = np.array([vlist.index(recs[j[0]]["voice"]) for j in jobs], dtype=np.int16)
     np.savez(out, X=X, lab=lab, fam=fam, voice=voice)
-    print(f"{out}: {X.shape}, kinds {np.bincount(lab[:, 0], minlength=5).tolist()}", flush=True)
+    print(f"{out}: {X.shape}, kinds {np.bincount(lab[:, 0], minlength=9).tolist()}", flush=True)
 
 
 def main():
@@ -188,18 +190,28 @@ def main():
     ap.add_argument("--neg_variants", type=int, default=2)
     ap.add_argument("--workers", type=int, default=6)
     ap.add_argument("--only", default="")
+    ap.add_argument("--words2", action="store_true",
+                    help="only the second round (calls k2 l2 c2 m2 and texts.CONF2) -> {split}_pos2 / _neg2")
     a = ap.parse_args()
+    import texts
+    conf2 = set(texts.CONF2)
     recs = load_manifest()
     os.makedirs(os.path.join(DATA, "sets"), exist_ok=True)
     voices = {s: sorted({r["voice"] for r in recs if r["split"] == s}) for s in ("train", "val", "test")}
-    json.dump(voices, open(os.path.join(DATA, "sets", "meta.json"), "w"), ensure_ascii=False, indent=1)
+    if not a.words2:
+        json.dump(voices, open(os.path.join(DATA, "sets", "meta.json"), "w"), ensure_ascii=False, indent=1)
     print({s: len(v) for s, v in voices.items()})
     rng = np.random.default_rng(7)
     for split in ("train", "val", "test"):
         if a.only and split != a.only:
             continue
-        pos = [i for i, r in enumerate(recs) if r["split"] == split and r["kind"] in ("w1", "w2", "w3")]
-        neg = [i for i, r in enumerate(recs) if r["split"] == split and r["kind"] in ("conf", "neg", "tone")]
+        if a.words2:
+            pos = [i for i, r in enumerate(recs) if r["split"] == split and r["kind"] in CALLS2]
+            neg = [i for i, r in enumerate(recs) if r["split"] == split and r["kind"] == "conf" and r["text"] in conf2]
+        else:
+            pos = [i for i, r in enumerate(recs) if r["split"] == split and r["kind"] in ("w1", "w2", "w3")]
+            neg = [i for i, r in enumerate(recs) if r["split"] == split and r["kind"] in ("conf", "neg", "tone")
+                   and r["text"] not in conf2]
         if split == "train":
             neg = [i for i in neg if recs[i]["kind"] != "tone"]  # an emphatic bark can sound like these
             # vivos (64 low-quality speakers) would drown the rest: fewer copies of it, more of the others
@@ -209,11 +221,12 @@ def main():
         else:
             pj = [(i, int(rng.integers(1 << 31)), c) for i in pos for c in range(5)]
             nj = [(i, int(rng.integers(1 << 31)), c) for i in neg for c in (0, 4)]
-        build(recs, pj, os.path.join(DATA, "sets", f"{split}_pos.npz"), a.workers)
-        build(recs, nj, os.path.join(DATA, "sets", f"{split}_neg.npz"), a.workers)
-        json.dump([recs[i]["text"] for i, _, _ in nj], open(os.path.join(DATA, "sets", f"{split}_neg_texts.json"), "w"),
+        sfx = "2" if a.words2 else ""
+        build(recs, pj, os.path.join(DATA, "sets", f"{split}_pos{sfx}.npz"), a.workers)
+        build(recs, nj, os.path.join(DATA, "sets", f"{split}_neg{sfx}.npz"), a.workers)
+        json.dump([recs[i]["text"] for i, _, _ in nj], open(os.path.join(DATA, "sets", f"{split}_neg{sfx}_texts.json"), "w"),
                   ensure_ascii=False)
-        json.dump([recs[i]["text"] for i, _, _ in pj], open(os.path.join(DATA, "sets", f"{split}_pos_texts.json"), "w"),
+        json.dump([recs[i]["text"] for i, _, _ in pj], open(os.path.join(DATA, "sets", f"{split}_pos{sfx}_texts.json"), "w"),
                   ensure_ascii=False)
 
 

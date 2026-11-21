@@ -65,13 +65,17 @@ func main() {
 			skipped++
 			continue
 		}
-		copyFile(wf, filepath.Join(backend, "workflows", code, "workflow.json"))
+		raw, err := os.ReadFile(wf)
+		must(err)
+		dst := filepath.Join(backend, "workflows", code, "workflow.json")
+		must(os.MkdirAll(filepath.Dir(dst), 0o755))
+		must(os.WriteFile(dst, []byte(scrub(string(portSpeech(code, raw)))), 0o644))
 		nodes, _ := filepath.Glob(filepath.Join(filepath.Dir(wf), "nodes", "*.go"))
 		for _, n := range nodes {
 			stem := strings.TrimSuffix(filepath.Base(n), ".go")
 			src, err := os.ReadFile(n)
 			must(err)
-			out := portNode(code, stem, string(src))
+			out := portAssistant(code, stem, portNode(code, stem, string(src)))
 			dst := filepath.Join(flows, code, stem, stem+".go")
 			writeGo(dst, out)
 			regs = append(regs, reg{code + "/" + stem, code + "_" + stem, "espos/internal/flows/" + code + "/" + stem})
@@ -141,8 +145,8 @@ var accountEvents = map[string]bool{
 //   - it mails on one of the account events above;
 //   - it answers HTTP (http_in) but no route in routes.json runs it: a draft or a temporary
 //     probe on the hosted site, which may call services this server knows nothing about;
-//   - it reads a hosted secret ({{ secret.* }}: the dog assistant's AI model and speech service),
-//     or it is one of the assistant's own workflows (assistantOnly).
+//   - it reads a hosted secret this server cannot fill ({{ secret.* }} other than the dog assistant's AI model
+//     and speech service, which come from the environment here: assistant.go).
 //
 // A workflow on another event stops the import: the engine runs no event_trigger yet.
 func skipReason(wf, code string, routed map[string]bool) string {
@@ -174,11 +178,11 @@ func skipReason(wf, code string, routed map[string]bool) string {
 			}
 		}
 	}
-	if bytes.Contains(raw, []byte("{{ secret.")) || nodesNeedSecret(filepath.Dir(wf)) {
-		return "needs a secret of the hosted service (its AI model or speech service); this server has none"
+	if name := hostedSecret(raw); name != "" {
+		return "needs the hosted service's secret " + name + "; this server has none"
 	}
-	if assistantOnly[code] {
-		return "the dog assistant's own workflow; the assistant needs the hosted AI model and speech service"
+	if name := nodesNeedSecret(filepath.Dir(wf)); name != "" {
+		return "a code node needs the hosted service's secret " + name + "; this server has none"
 	}
 	return ""
 }
@@ -188,20 +192,17 @@ func skipReason(wf, code string, routed map[string]bool) string {
 // routes, so here nothing is blocked or licensed (the device then locks nothing, docs: s3/docs/lock.md).
 var keptAdmin = map[string]bool{"admin_me": true, "admin_sign": true}
 
-// The dog assistant's workflows that need no secret themselves but exist only for it (its actions, its memories).
-var assistantOnly = map[string]bool{"assist_apply": true, "assist_sweep": true, "list_assist_memories": true, "delete_assist_memory": true}
-
-// nodesNeedSecret: a code node of the workflow reads a hosted secret ({{ secret.name }} in its source).
-func nodesNeedSecret(dir string) bool {
+// nodesNeedSecret: the first hosted secret a code node of the workflow reads that this server cannot fill, or "".
+func nodesNeedSecret(dir string) string {
 	nodes, _ := filepath.Glob(filepath.Join(dir, "nodes", "*.go"))
 	for _, n := range nodes {
 		b, err := os.ReadFile(n)
 		must(err)
-		if bytes.Contains(b, []byte("{{ secret.")) {
-			return true
+		if name := hostedSecret(b); name != "" {
+			return name
 		}
 	}
-	return false
+	return ""
 }
 
 // skipSet is every workflow left out, with the reason: skipReason's, then (until nothing changes) every
@@ -272,7 +273,7 @@ func routedWorkflows(path string) map[string]bool {
 // paths and platform, local folders and e-mail addresses. The names are spelled in pieces so
 // this file passes the same check.
 var private = regexp.MustCompile(`(?i)` + strings.Join([]string{
-	`3s` + `web`, `web` + `mati`, `/Us` + `ers/`, `\bHi` + `ếu\b`, `api\.esp` + `os\.dev`, `/storage/bb/`,
+	`3s` + `web`, `web` + `mati`, `/Us` + `ers/`, `~/pro` + `jects/`, `\bHi` + `ếu\b`, `api\.esp` + `os\.dev`, `/storage/bb/`,
 	`[a-z0-9._%+-]+@[a-z0-9-]+(\.[a-z0-9-]+)*\.[a-z]{2,}`,
 }, "|"))
 
@@ -422,8 +423,10 @@ func portNode(code, stem, src string) string {
 	s = importOne.ReplaceAllString(s, `import "espos/internal/wm"`)
 	s = importIn.ReplaceAllString(s, `$1"espos/internal/wm"`)
 	s = runSig.ReplaceAllString(s, "func Run(wmIn, wmCtx map[string]any) map[string]any {")
-	s = strings.ReplaceAll(s, "wm.Input()", "wmIn")
-	s = strings.ReplaceAll(s, "wm.Context()", "wmCtx")
+	s = inRun(s, func(body string) string {
+		body = strings.ReplaceAll(body, "wm.Input()", "wmIn")
+		return strings.ReplaceAll(body, "wm.Context()", "wmCtx")
+	})
 	// Links back to this server: its own scheme and host, not the hosted API's.
 	s = strings.ReplaceAll(s, `host := wm.Str(in["host"])`, `host := wm.PublicBase(wm.Str(in["host"]))`)
 	s = hostedHost.ReplaceAllString(s, `host = wm.PublicBase("")`)
@@ -437,10 +440,25 @@ func portNode(code, stem, src string) string {
 		s = regexp.MustCompile(`(?m)^\s*"espos/internal/wm"\n`).ReplaceAllString(s, "")
 		s = strings.Replace(s, `import "espos/internal/wm"`, "", 1)
 	}
-	if strings.Contains(s, "wm.Input") || strings.Contains(s, "wm.Context") {
-		log.Fatalf("%s/%s: wm.Input/wm.Context outside Run", code, stem)
+	// Outside Run, wm.Context() is this server's stand-in (a fresh run id); the input is only Run's.
+	if strings.Contains(s, "wm.Input") {
+		log.Fatalf("%s/%s: wm.Input outside Run", code, stem)
 	}
 	return s
+}
+
+// inRun applies f to the body of func Run only (from its signature to the first closing brace at column 0).
+func inRun(s string, f func(string) string) string {
+	i := strings.Index(s, "func Run(")
+	if i < 0 {
+		return s
+	}
+	j := strings.Index(s[i:], "\n}\n")
+	if j < 0 {
+		return s[:i] + f(s[i:])
+	}
+	j += i
+	return s[:i] + f(s[i:j]) + s[j:]
 }
 
 func importWorker(src, dst string) {

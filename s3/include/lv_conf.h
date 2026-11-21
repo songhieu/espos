@@ -306,7 +306,7 @@
 
     /*1: Print file and line number of the log;
      *0: Do not print file and line number of the log*/
-    #define LV_LOG_USE_FILE_LINE 1
+    #define LV_LOG_USE_FILE_LINE 0
 
 
     /*Enable/disable LV_LOG_TRACE in modules that produces a huge number of logs*/
@@ -712,7 +712,7 @@
 #define LV_USE_FLEX 1
 
 /*A layout similar to Grid in CSS.*/
-#define LV_USE_GRID 1
+#define LV_USE_GRID 0
 
 /*====================
  * 3RD PARTS LIBRARIES

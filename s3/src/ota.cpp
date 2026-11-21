@@ -562,6 +562,43 @@ void start() {
   esp_restart();
 }
 
+uint32_t slotBytes() {
+  const esp_partition_t* p = esp_ota_get_running_partition();
+  return p ? p->size : 0;
+}
+int table() { return esp_partition_find_first(ESP_PARTITION_TYPE_DATA, ESP_PARTITION_SUBTYPE_ANY, "apps") ? 2 : 1; }
+
+#if ESPOS_QA
+// QA (QEMU's OTA test, docs/partitions.md): the install's write steps on a file instead of a download, streamed
+// (a 4.75 MiB image does not fit the PSRAM left beside Home).
+bool installFile(const char* path) {
+  FILE* f = fopen(path, "rb");
+  if (!f) return false;
+  fseek(f, 0, SEEK_END);
+  const size_t n = ftell(f);
+  fseek(f, 0, SEEK_SET);
+  const esp_partition_t* part = esp_ota_get_next_update_partition(nullptr);
+  uint8_t* buf = (uint8_t*)heap_caps_malloc(16384, MALLOC_CAP_SPIRAM);
+  trace::add("ota qa: %s %u bytes -> %s at 0x%x (%u bytes)", path, (unsigned)n, part ? part->label : "?",
+             part ? (unsigned)part->address : 0, part ? (unsigned)part->size : 0);
+  esp_ota_handle_t h = 0;
+  bool ok = part && buf && n <= part->size && esp_ota_begin(part, n, &h) == ESP_OK;
+  for (size_t at = 0; ok && at < n; at += 16384) {
+    const size_t k = min<size_t>(16384, n - at);
+    ok = fread(buf, 1, k, f) == k && esp_ota_write(h, buf, k) == ESP_OK;
+  }
+  fclose(f);
+  heap_caps_free(buf);
+  ok = ok && esp_ota_end(h) == ESP_OK && esp_ota_set_boot_partition(part) == ESP_OK;
+  trace::add("ota qa: %s", ok ? "written, restarting" : "failed");
+  if (ok) {
+    delay(300);
+    esp_restart();
+  }
+  return ok;
+}
+#endif
+
 bool running() { return busy; }
 const char* status() { return msg; }
 Progress progress() { return Progress{stage, pDone, pTotal, pBps, pStreams}; }

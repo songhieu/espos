@@ -1,0 +1,282 @@
+---
+title: Put your app on your own device
+description: "From nothing to your own app on your EspOS device: install the tools, make and test an app, get a developer key on espos.dev, upload it from the terminal or the web, update it with a higher code, remove it."
+---
+
+import { Aside, Steps, Tabs, TabItem } from '@astrojs/starlight/components';
+import DeviceShots from '../../../components/DeviceShots.astro';
+import Shot from '../../../components/Shot.astro';
+import keysShot from '../../../assets/shots/web-developer-keys.png';
+import myAppsShot from '../../../assets/shots/web-my-apps.png';
+import v1 from '../../../assets/shots/my-app-v1.png';
+import v2 from '../../../assets/shots/my-app-v2.png';
+
+You can put an app you made on your own EspOS devices without the store. You upload it to your espos.dev account, and every EspOS S3 linked to that account installs it over WiFi. Nobody else sees it, nobody reviews it, and it is not in the store.
+
+This page goes from nothing to your app running on your device, then shows how to update and remove it. It takes about 20 minutes, most of it installing the tools.
+
+| You get | Details |
+|---|---|
+| Private apps | Only the devices of your own account install them. |
+| JavaScript apps and Java games | `kind: "js"` apps, and J2ME games (`engine: "j2me"`). |
+| Updates | Upload again with a higher `code`: every device that has the app updates at its next sync. |
+| Two ways to upload | `espos upload` in the terminal, or **My apps** on the web desk. |
+
+## What you need
+
+- A computer with **Node.js 20** or newer, **git** and **Python 3** (macOS for the simulator).
+- An **EspOS S3** (the 3.5" ES3C35P or the 2.8" ES3C28P), linked to your espos.dev account in its **Settings › EspOS account**, and online. JavaScript apps need firmware **0.3.0** or newer, Java games **0.4.0**; use **0.5.0** or newer for everything on this page.
+- An account on [espos.dev](https://espos.dev/app).
+
+## From zero to your app on the device
+
+<Steps>
+
+1. **Install the tools.** The `espos` command comes with the firmware repository. Full details, and what `espos doctor` checks, are in [Set up your tools](/getting-started/install/).
+
+   ```sh
+   git clone https://github.com/songhieu/espos
+   cd espos/s3
+   pio pkg install -e s3desk
+   mkdir -p sim/data sim/data-live
+   cd sdk && npm install && npm link -w @espos/cli && cd ..
+   espos doctor
+   ```
+
+2. **Make an app.** Pick an id that is yours, in reverse-domain form. It never changes once you upload.
+
+   ```sh
+   espos create tea-timer --id vn.you.teatimer --name "Tea timer"
+   cd tea-timer
+   ```
+
+   ```txt title="Output"
+   created tea-timer (js-app): vn.you.teatimer "Tea timer"
+     cd tea-timer && espos build && espos sim --live
+   ```
+
+   The folder holds `manifest.json` (what the app is), `main.js` (the app), `icon.jpg` and `espos.json`. [Your first app](/getting-started/first-app/) explains each one.
+
+3. **Try it in the simulator.** A window opens with your app on a simulated 3.5" screen; the mouse is your finger.
+
+   ```sh
+   espos sim --live
+   ```
+
+   For a run without a window (scripts, CI), use `espos sim --headless`: it saves screenshots and exits with 1 when the app throws. See [Test in the simulator](/guides/simulator/).
+
+4. **Check and build.** `espos check` runs every rule the device and the server apply. `espos build` writes the package.
+
+   ```sh
+   espos check
+   espos build
+   ```
+
+   ```txt title="Output"
+   OK    . (vn.you.teatimer): 0 errors, 0 warnings
+   dist/vn.you.teatimer-1.0.0-core.espk: vn.you.teatimer 1.0.0 part core, 2 files, 4324 bytes
+       icon.jpg                                      3017 bytes
+       main.js                                        900 bytes
+     sha256 a7f1e9a258ef16b7dfe8839dab98732e0a6c7765f1a99712f43fe0b6bb920354
+   ```
+
+5. **Make a developer key on the web.** Open [espos.dev/app](https://espos.dev/app), sign in, and open **Account** (your initial, top right). Under **Developer keys**, type a name for the key (for example the computer's name) and press **Create key**.
+
+   <Shot src={keysShot} alt="Account, Developer keys: a name field and a Create key button; a new key shown once in a box as espos login, Developer key: espos_dev_ and 64 hex digits; Copy key and Saved, hide it buttons; two keys listed with Revoke buttons" caption="Account › Developer keys, right after Create key" />
+
+   The key starts with `espos_dev_`. It is shown **only once**: press **Copy key** now. The server keeps only a fingerprint of it (its SHA-256), so nobody can show it to you again; if you lose it, make a new one. You can have 5 keys, and **Revoke** stops one at once.
+
+6. **Sign in from the terminal.** Run `espos login` and paste the key when it asks. Nothing shows while you paste.
+
+   ```sh
+   espos login
+   ```
+
+   ```txt title="Output"
+   Make a key on espos.dev: Account › Developer keys › New key. It is shown once.
+   Developer key:
+   signed in to https://api.espos.dev as you@example.com with the key "Laptop"
+     saved in ~/.config/espos/credentials.json (only you can read it); espos logout forgets it
+     S3 devices: Desk (#13, 0.5.7)
+   ```
+
+   The CLI never asks for your password. `espos whoami` shows the account, its devices and your upload limits at any time.
+
+7. **Upload the app.** Use the terminal or the web; both do the same.
+
+   <Tabs syncKey="upload">
+   <TabItem label="Terminal">
+   In the app's folder:
+
+   ```sh
+   espos upload
+   ```
+
+   ```txt title="Output"
+   u.vn.you.teatimer 1.0.0 (code 10000): JavaScript app, 4.2 KB, permissions: sound
+     your devices install it as u.vn.you.teatimer (private: "u." is added to vn.you.teatimer)
+   uploading 4.2 KB to https://api.espos.dev
+   uploaded u.vn.you.teatimer 1.0.0 (code 10000)
+     install  Desk (#13): at its next sync (about a minute when it is on)
+   ```
+
+   `espos upload` builds the folder, runs the checks, and refuses before sending anything if a check fails. A new app goes to **all** your S3 devices. To pick devices, pass `--device` with the numbers `espos whoami` shows (repeat it for more); `--no-install` only keeps the app in your account.
+
+   ```sh
+   espos upload --device 13
+   espos upload dist/vn.you.teatimer-1.0.0-core.espk --no-install
+   ```
+   </TabItem>
+   <TabItem label="Web">
+   Open **Devices**, pick your S3, and open the **My apps** tab. Drop `dist/vn.you.teatimer-1.0.0-core.espk` on the box, or click it and choose the file. The same tab takes a Java game's `.jar` as it is.
+
+   <Shot src={myAppsShot} alt="The My apps tab of a device: a drop box for .espk or .jar files; three apps listed with their size, kind, version and permissions, and a state: Waiting for sync, Waiting to update, On device" caption="Devices › your S3 › My apps" />
+
+   Each app shows its size, kind, version and the **permissions** it asks for. The web asks for the app on the device you are looking at; **Install** sends it to that device again.
+   </TabItem>
+   </Tabs>
+
+   The server reads the package again and checks it with the same rules as `espos check`. Your devices install it as **`u.` plus its id** (`u.vn.you.teatimer`): the `u.` marks it as yours, so it can never stand in for a store app.
+
+8. **See it on the device.** Keep the device on and online. Within about a minute it gets the app: a short message says **Installed Tea timer**, and the app's icon is on Home and in the App Library. Open it like any app.
+
+   <DeviceShots shots={[{ src: v1, alt: 'Tea timer open on the device: Counted, 0, Minus 1, Plus 1 and Reset buttons', caption: 'Your app on the device' }]} />
+
+   On the web, the app's state changes from **Waiting for sync** to **On device**; `espos apps` shows the same.
+
+</Steps>
+
+## Update your app
+
+<Steps>
+
+1. Change the app, then raise `version` and **`code`** in `manifest.json`. The `code` is a whole number that must be higher for every upload; `1.0.1` is usually `10001`.
+
+   ```json title="manifest.json"
+   "version": "1.0.1",
+   "code": 10001,
+   ```
+
+2. Upload again:
+
+   ```sh
+   espos upload
+   ```
+
+   ```txt title="Output"
+   u.vn.you.teatimer 1.0.1 (code 10001): JavaScript app, 4.2 KB, permissions: sound
+     your devices install it as u.vn.you.teatimer (private: "u." is added to vn.you.teatimer)
+   uploading 4.2 KB to https://api.espos.dev
+   updated u.vn.you.teatimer 1.0.1 (code 10001), was 1.0.0
+     update   Desk (#13): at its next sync
+   ```
+
+3. Every device that has the app updates it at its next sync, with no tap on the device. The app keeps what it saved with `store`. A device where you removed the app is left alone.
+
+   <DeviceShots shots={[{ src: v2, alt: 'Tea timer after the update: the card now says Counted, version 2', caption: 'After the update' }]} />
+
+</Steps>
+
+The same `code` again is refused before anything is sent: `code 10000 is not higher than the uploaded version's (1.0.0, code 10000)`.
+
+## Remove your app
+
+- **Everywhere:** `espos apps rm u.vn.you.teatimer` (it asks to be sure; `--yes` skips the question), or the **×** next to the app in **My apps** on the web. The app leaves your account, and every device removes it at its next sync.
+- **From one device only:** on the device, touch and hold the app's icon to edit Home, tap **−** on it, then **Remove app**. The app stays in your account; `espos apps install u.vn.you.teatimer --device 13` puts it back.
+
+## Manage your apps from the terminal
+
+```sh
+espos apps                                   # your apps, and each device's copy of them
+espos apps install vn.you.teatimer           # ask all your S3 devices for it (or --device ID)
+espos apps rm u.vn.you.teatimer --yes        # delete it from the account and the devices
+espos whoami                                 # the account, its devices, your limits
+espos logout                                 # forget the key on this computer
+```
+
+```txt title="espos apps"
+ID                 VERSION          CODE      SIZE  KIND             PERMISSIONS
+u.vn.you.teatimer  1.0.1           10001    4.2 KB  JavaScript app   sound
+1 of 30
+
+Desk (#13, 0.5.7)
+  u.vn.you.teatimer  installed (code 10001)
+```
+
+Every command takes `--json` for scripts. A command accepts the id with or without `u.`.
+
+## Upload from CI
+
+Set the key in the environment instead of running `espos login`. `ESPOS_DEV_KEY` wins over a saved key and is never printed.
+
+```sh
+ESPOS_DEV_KEY="$ESPOS_DEV_KEY" espos upload --json
+```
+
+Give each CI system its own key, so you can revoke one without the others.
+
+## Limits
+
+| Limit | Value |
+|---|---|
+| Package size | 4 MB (`.espk`), rule U001 |
+| Java game | `game.jar` at most 2 MB, asks only for `sound` |
+| Apps per account | 30 |
+| Developer keys per account | 5 |
+| Id | at most 46 characters (the device adds `u.`), lowercase `a-z 0-9 . _ -` |
+| Kinds | JavaScript apps and Java games. Packs, add-ons, faces, widgets, themes and several parts come only from the store (rule U002). |
+| Uploads | 20 a minute |
+| Firmware | 0.3.0 for JavaScript apps, 0.4.0 for Java games. An older device keeps the app waiting and installs it after a firmware update. |
+
+## What the server checks
+
+The server reads the uploaded file itself; it never trusts what the browser or the CLI says about it. It checks:
+
+- the `.espk` structure: header, manifest, file table, every file's CRC-32 (rules P001 to P021);
+- the manifest: id, name, version, `code` as a whole number, kind and engine, `min_fw`, category, author and description lengths, permissions, icon colours, translations, no ellipsis character (M rules);
+- the files: `main.js` for an app and under 512 KB, `game.jar` for a game, a square baseline `icon.jpg` (F rules);
+- the private-upload rules U001 and U002;
+- that `code` is higher than the uploaded version's.
+
+It does not run the JavaScript checks (C rules): `espos check` does, and a broken `main.js` can only fail on your own device. Then it adds `u.` to the id, computes the SHA-256 the devices verify, and keeps the package in your private storage.
+
+## Keys and safety
+
+- A key is made in your browser, shown once and never sent to the server; only its SHA-256 is kept.
+- `espos login` keeps it in `~/.config/espos/credentials.json` (or `$ESPOS_CONFIG_DIR`), readable only by you. It is sent only over HTTPS, in the `Authorization` header.
+- A key can upload, list, install and remove **your own apps**, and list your devices' names. It cannot read your settings, change your account or reach anyone else's data.
+- **Revoke** a key in **Account › Developer keys** when a computer is lost or a CI secret leaked; the next call with it fails.
+
+## Common errors
+
+| Message | Cause | Fix |
+|---|---|---|
+| `not signed in to espos.dev` | No saved key and no `ESPOS_DEV_KEY`. | Make a key on the web, then `espos login`. |
+| `the developer key is wrong or was revoked` | The key was mistyped, revoked, or is for another server. | Make a new key, then `espos login` again. |
+| `that is not a developer key` | What you pasted is not `espos_dev_` and 64 hex digits. | Copy the whole key again. |
+| `code 10000 is not higher than the uploaded version's` | The same or a lower `code` than the last upload. | Raise `code` in `manifest.json`, then `espos build` (or `espos upload`). |
+| `U002 kind "native", engine "pet": a private upload is a JavaScript app or a Java game` | Only those two kinds go to your devices privately. | Publish other kinds through the store. |
+| `U002 id: vn.you.(a long name) is 47 characters; a private upload adds "u."` | The id is 47 or 48 characters. | Use a shorter id. |
+| `U001 5000000 bytes; a private upload is at most 4194304 bytes (4 MB)` | The package is too big. | Shrink pictures and data; for big content, use the store. |
+| `the server refused the package (F004): icon.jpg: not a baseline JPEG` | The server's own check found a problem (here a progressive icon). | Fix what it names; `espos check` shows the same rule. |
+| `too many requests` | More than 20 uploads in a minute. | Wait a minute. |
+| `this account is blocked or being deleted` | The account cannot upload. | Write to support@espos.dev. |
+| `this server has no developer routes` | `--api` or `ESPOS_API` points at a server without them. | Use `https://api.espos.dev`, or update your own server. |
+| `waiting  Desk (#15): runs 0.3.0; this package needs 0.4.0` | The device's firmware is too old. | Update the device's firmware; the app installs after that. |
+| `skipped  Desk (#13): its package list is full` | The device already tracks 64 packages. | Remove some apps on the web, then `espos apps install`. |
+| **Needs a software update** on the device | The device's firmware lacks the app's engine or `min_fw`. | Update the firmware. |
+| **Waiting for sync** stays on the web | The device is off, asleep or offline. | Wake it; check its WiFi. |
+
+## A server of your own
+
+Everything here works against a self-hosted EspOS server with the developer routes. Point the CLI at it with `--api` or `ESPOS_API` (HTTPS, or HTTP to `localhost`):
+
+```sh
+ESPOS_API=https://espos.example.com espos login
+```
+
+## Next
+
+- [Publish to the store](/guides/publishing/): put an app in the public store for everyone.
+- [Work with a real device](/guides/device/): the dev console, screenshots and logs over USB.
+- [CLI reference](/reference/cli/): every option of `espos upload`, `espos login` and `espos apps`.

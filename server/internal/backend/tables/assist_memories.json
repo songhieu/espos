@@ -1,0 +1,89 @@
+{
+  "code": "assist_memories",
+  "label": "Assistant memories",
+  "singular": "Assistant memory",
+  "unique_together": [],
+  "columns": [
+    {
+      "code": "user_id",
+      "default": null,
+      "help": null,
+      "indexed": true,
+      "label": "User",
+      "options": [],
+      "position": 1,
+      "read_only": false,
+      "ref_table": null,
+      "required": true,
+      "type": "integer",
+      "unique": false
+    },
+    {
+      "code": "fact",
+      "default": null,
+      "help": "One short fact about the person, in the third person (at most 160 characters); never a secret",
+      "indexed": false,
+      "label": "Fact",
+      "options": [],
+      "position": 2,
+      "read_only": false,
+      "ref_table": null,
+      "required": true,
+      "type": "text",
+      "unique": false
+    },
+    {
+      "code": "kind",
+      "default": "other",
+      "help": null,
+      "indexed": false,
+      "label": "Kind",
+      "options": [
+        "name",
+        "call",
+        "date",
+        "pref",
+        "family",
+        "work",
+        "other"
+      ],
+      "position": 3,
+      "read_only": false,
+      "ref_table": null,
+      "required": false,
+      "type": "enum",
+      "unique": false
+    },
+    {
+      "code": "dog",
+      "default": null,
+      "help": "The dog key that heard it",
+      "indexed": false,
+      "label": "Learned by",
+      "options": [],
+      "position": 4,
+      "read_only": false,
+      "ref_table": null,
+      "required": false,
+      "type": "text",
+      "unique": false
+    },
+    {
+      "code": "source",
+      "default": "device",
+      "help": null,
+      "indexed": false,
+      "label": "Where",
+      "options": [
+        "device",
+        "web"
+      ],
+      "position": 5,
+      "read_only": false,
+      "ref_table": null,
+      "required": false,
+      "type": "enum",
+      "unique": false
+    }
+  ]
+}

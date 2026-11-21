@@ -61,7 +61,12 @@ namespace app_photos { void open(const char* arg); }
 namespace app_clock { void open(const char* arg); }
 namespace app_notes { void open(const char* arg); }
 namespace app_markets { void open(const char* arg); }
-namespace app_settings { void open(const char* arg); }
+namespace app_settings {
+void open(const char* arg);
+void wifiList(lv_obj_t* parent);  // the networks around (scan, rows, "Other network"), kept fresh while parent lives
+void setZone(int minutes);        // sys.tz_min and the clock's time zone (+420 = GMT+7)
+lv_obj_t* field(lv_obj_t* body, const char* text, bool password);  // a one-line text field, Settings' look
+}
 namespace app_store {
 void open(const char* arg);
 // A catalog package's picture (its icon_url, fetched once and kept) at `size` px; nullptr while it is coming.

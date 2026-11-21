@@ -1,7 +1,7 @@
 {
   "name": "espos",
   "version": "0.1.0",
-  "summary": "EspOS developer tools: make, check and run packages (.espk) in the simulator, QEMU or on a board.",
+  "summary": "EspOS developer tools: make, check and run packages (.espk) in the simulator, QEMU or on a board, and upload them to your own devices.",
   "usage": "espos <command> [arguments] [options]",
   "exit_codes": {
     "0": "success",
@@ -21,7 +21,9 @@
     "ESPOS_SIM_BUILD": "the simulator's build folder name under sim/ (default build, build-live for --live)",
     "ESPOS_BBK": "the store upload key, read only by scripts/publish_pkg.py (store publish --yes)",
     "ESPOS_PUBLISH_SCRIPT": "scripts/publish_pkg.py if it is not next to s3desk",
-    "ESPOS_CONFIG_DIR": "where remembered devices are kept (default ~/.config/espos)",
+    "ESPOS_CONFIG_DIR": "where remembered devices and the developer key (credentials.json) are kept (default ~/.config/espos)",
+    "ESPOS_DEV_KEY": "a developer key from espos.dev, used instead of the saved one (CI); never printed",
+    "ESPOS_API": "the server for login, upload and apps (default https://api.espos.dev)",
     "NO_COLOR": "no colours"
   },
   "global_options": [
@@ -93,7 +95,7 @@
           "name": "--name",
           "type": "string",
           "placeholder": "TEXT",
-          "description": "display name (at most 40 characters, no \"…\")"
+          "description": "display name (at most 40 characters, no ellipsis character U+2026)"
         },
         {
           "name": "--desc",
@@ -527,6 +529,215 @@
           "examples": [
             "espos store publish dist/*.espk --catalog catalog.json",
             "ESPOS_BBK=bbk_... espos store publish dist/*.espk --yes"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "login",
+      "path": "login",
+      "usage": "espos login [options]",
+      "summary": "Save a developer key from espos.dev, for espos upload and espos apps (your own devices).",
+      "description": "Make the key on the web (Account › Developer keys › New key; it is shown once) and paste it when asked; nothing is shown while you paste. The key is checked with the server, then kept in credentials.json in the config folder (ESPOS_CONFIG_DIR, default ~/.config/espos), readable only by you. ESPOS_DEV_KEY in the environment is used instead when it is set (CI). Never your password.",
+      "json": true,
+      "args": [],
+      "options": [
+        {
+          "name": "--key-stdin",
+          "type": "bool",
+          "description": "read the key from stdin (a pipe) instead of asking"
+        },
+        {
+          "name": "--api",
+          "type": "string",
+          "placeholder": "URL",
+          "description": "the server (default https://api.espos.dev, or the one saved by espos login)",
+          "env": "ESPOS_API"
+        }
+      ],
+      "examples": [
+        "espos login",
+        "pbpaste | espos login --key-stdin",
+        "espos login --api http://localhost:8787"
+      ]
+    },
+    {
+      "name": "logout",
+      "path": "logout",
+      "usage": "espos logout",
+      "summary": "Forget the saved developer key (revoke it on espos.dev to stop it working).",
+      "json": true,
+      "args": [],
+      "options": []
+    },
+    {
+      "name": "whoami",
+      "path": "whoami",
+      "usage": "espos whoami [options]",
+      "summary": "The account the developer key belongs to, its S3 devices and the upload limits.",
+      "json": true,
+      "args": [],
+      "options": [
+        {
+          "name": "--api",
+          "type": "string",
+          "placeholder": "URL",
+          "description": "the server (default https://api.espos.dev, or the one saved by espos login)",
+          "env": "ESPOS_API"
+        }
+      ]
+    },
+    {
+      "name": "upload",
+      "path": "upload",
+      "usage": "espos upload [TARGET] [options]",
+      "summary": "Check a package and upload it to your espos.dev account: private, it installs only on your own devices.",
+      "description": "Builds a project folder (or takes an .espk), runs the validator plus the private-upload rules (U001, U002), and uploads it with the developer key. The server checks the package again. Your devices install it as \"u.\" + its id. A new package goes to all your S3 devices unless --device or --no-install says otherwise; an update (a higher \"code\") goes to every device that has it, at its next sync. Nobody else sees it, and it is not in the store.",
+      "json": true,
+      "args": [
+        {
+          "name": "target",
+          "description": "the project folder or .espk (default .)",
+          "required": false,
+          "variadic": false
+        }
+      ],
+      "options": [
+        {
+          "name": "--device",
+          "type": "string",
+          "placeholder": "ID",
+          "description": "a device number from espos whoami (repeat for more)",
+          "repeatable": true
+        },
+        {
+          "name": "--install",
+          "type": "bool",
+          "description": "ask the devices to install a new package (--no-install: only keep it in the account)",
+          "default": true
+        },
+        {
+          "name": "--dry-run",
+          "type": "bool",
+          "description": "check and print what would be uploaded; no key needed, nothing sent"
+        },
+        {
+          "name": "--api",
+          "type": "string",
+          "placeholder": "URL",
+          "description": "the server (default https://api.espos.dev, or the one saved by espos login)",
+          "env": "ESPOS_API"
+        }
+      ],
+      "notes": [
+        "Limits: 4 MB a package, 2 MB for a Java game's jar, 30 packages an account. Raise \"code\" for every new version."
+      ],
+      "examples": [
+        "espos upload",
+        "espos upload dist/vn.you.timer-1.0.1-core.espk --device 13",
+        "espos upload --dry-run"
+      ]
+    },
+    {
+      "name": "apps",
+      "path": "apps",
+      "usage": "espos apps <command> [options]",
+      "summary": "Your uploaded packages and where they are installed; install or remove them.",
+      "json": true,
+      "args": [],
+      "options": [
+        {
+          "name": "--api",
+          "type": "string",
+          "placeholder": "URL",
+          "description": "the server (default https://api.espos.dev, or the one saved by espos login)",
+          "env": "ESPOS_API"
+        }
+      ],
+      "commands": [
+        {
+          "name": "list",
+          "path": "apps list",
+          "usage": "espos apps list [options]",
+          "summary": "List your uploaded packages, and each S3 device's copy of them.",
+          "json": true,
+          "args": [],
+          "options": [
+            {
+              "name": "--api",
+              "type": "string",
+              "placeholder": "URL",
+              "description": "the server (default https://api.espos.dev, or the one saved by espos login)",
+              "env": "ESPOS_API"
+            }
+          ]
+        },
+        {
+          "name": "install",
+          "path": "apps install",
+          "usage": "espos apps install ID [options]",
+          "summary": "Ask your devices for one of your packages (all S3 devices, or --device).",
+          "json": true,
+          "args": [
+            {
+              "name": "id",
+              "description": "the package id (u.vn.you.timer, or vn.you.timer)",
+              "required": true,
+              "variadic": false
+            }
+          ],
+          "options": [
+            {
+              "name": "--device",
+              "type": "string",
+              "placeholder": "ID",
+              "description": "a device number from espos whoami (repeat for more)",
+              "repeatable": true
+            },
+            {
+              "name": "--api",
+              "type": "string",
+              "placeholder": "URL",
+              "description": "the server (default https://api.espos.dev, or the one saved by espos login)",
+              "env": "ESPOS_API"
+            }
+          ],
+          "examples": [
+            "espos apps install u.vn.you.timer",
+            "espos apps install vn.you.timer --device 13"
+          ]
+        },
+        {
+          "name": "rm",
+          "path": "apps rm",
+          "usage": "espos apps rm ID [options]",
+          "summary": "Delete one of your packages from the account; your devices remove it at their next sync.",
+          "json": true,
+          "args": [
+            {
+              "name": "id",
+              "description": "the package id (u.vn.you.timer, or vn.you.timer)",
+              "required": true,
+              "variadic": false
+            }
+          ],
+          "options": [
+            {
+              "name": "--yes",
+              "type": "bool",
+              "description": "do not ask (needed when not in a terminal)"
+            },
+            {
+              "name": "--api",
+              "type": "string",
+              "placeholder": "URL",
+              "description": "the server (default https://api.espos.dev, or the one saved by espos login)",
+              "env": "ESPOS_API"
+            }
+          ],
+          "examples": [
+            "espos apps rm u.vn.you.timer",
+            "espos apps rm vn.you.timer --yes"
           ]
         }
       ]

@@ -353,6 +353,10 @@ void freeScene();
 // A picture at frame pixels (x, y) = its top left, scaled hs x vs, between pixels (water.cpp's plant blit, no sway);
 // alpha 0..256; mode 0 as it is, 1 mirrored, 2 its dark shadow (the album's species not kept yet).
 void spriteBlit(const Tgt& t, const Spr* s, float x, float y, float hs, float vs, int alpha, int mode);
+// One piece of food at frame pixels (x, y), r = its scale in pixels (the water's, or bigger for the chooser), tm the
+// clock (the flake turning, the worm wriggling), s its seed, T the light's tint (plain: none), al 0..1.
+void foodPiece(const Tgt& t, int kind, float x, float y, float r, float tm, float s, const float* T, float al);
+extern const float plain[3];
 
 // ---------------------------------------------------------------- the screens' drawing (gfx.cpp)
 namespace gfx {

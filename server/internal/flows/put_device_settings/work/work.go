@@ -34,6 +34,7 @@ var deviceDefaults = map[string]string{
 	// App store (2026-11-16, s3desk/docs/ecosystem.md §6): the packages the user wants, notification switches.
 	"s3.pkgs": "", "s3.notif": "",
 	"s3.notif_preview": "1", // 0: banners show only the app's name, not the text
+	"s3.pkg_auto":      "1", // 0: installed apps no longer take a newer store version by themselves (s3desk/docs/ecosystem.md §6)
 	"s3.saver_pages":   "",  // the custom saver (s3desk/docs/saver.md); "" = the device's defaults
 	// The Markets app's codes ("gold:SJC,stocks:FPT,fx:USD,crypto:BTC", at most 20); "" = the built-in mix.
 	"s3.markets": "",
@@ -43,6 +44,9 @@ var deviceDefaults = map[string]string{
 	// PawBoop (2026-11-18, s3desk/docs/pawboop.md): the chosen dog (a key of petDogs; "" = the first installed) and the
 	// dog assistant's switches (checkAssist). The AI assistant (assist_reply) talks as s3.pet_dog when not told a dog.
 	"s3.pet_dog": "", "s3.assist": "",
+	// The first-boot setup (2026-11-21, s3desk/docs/onboarding-plan.md): what the device sends when it is done ("again"
+	// from the web runs it again; checkOnboard), and the name it asked for (checkCallName; copied into the account).
+	"s3.onboard": "", "s3.call_name": "",
 	// Lite packages on the X4 (s3desk/docs/profiles.md §9.1): [{"id", "code"}, {"id", "rm": true}]; X4 only.
 	"x4.pkgs": "",
 }
@@ -55,7 +59,7 @@ func isS3OSKey(k string) bool {
 	if _, ok := s3OSJSON[k]; ok {
 		return true
 	}
-	return k == "s3.theme" || k == "s3.theme_auto" || k == "s3.wall" || k == "s3.cities" || k == "s3.photos" || k == "s3.pkgs" || k == "s3.notif" || k == "s3.notif_preview" || k == "s3.saver_pages" || k == "s3.markets" || k == "s3.pet_dog" || k == "s3.assist"
+	return k == "s3.theme" || k == "s3.theme_auto" || k == "s3.wall" || k == "s3.cities" || k == "s3.photos" || k == "s3.pkgs" || k == "s3.notif" || k == "s3.notif_preview" || k == "s3.pkg_auto" || k == "s3.saver_pages" || k == "s3.markets" || k == "s3.pet_dog" || k == "s3.assist" || k == "s3.onboard" || k == "s3.call_name"
 }
 
 // checkMarkets: "" or up to 20 "kind:CODE" tokens (gold, stocks, fx, crypto), as a markets widget's option.
@@ -438,9 +442,9 @@ var allowed = map[string][]string{
 	"s3.rot":        {"0", "1", "2", "3"}, "s3.saver": {"0", "60", "120", "300", "600"},
 	"s3.click": {"0", "1"}, "s3.dnd": {"0", "1"}, "s3.saver_mode": {"clock", "desk", "photo"},
 	"s3.theme": {"", "color", "light", "dark", "photo"}, "s3.theme_auto": {"", "0", "1"},
-	"s3.notif_preview": {"", "0", "1"},
-	"s3.pet_dog":       {"", "bao", "momo", "boop", "leaf", "volt", "byte", "shiba", "corgi", "husky", "golden"},
-	"sys.tz_min":       {"-600", "-480", "-420", "-360", "-300", "-240", "-180", "0", "60", "120", "180", "240", "330", "420", "480", "540", "600", "720"},
+	"s3.notif_preview": {"", "0", "1"}, "s3.pkg_auto": {"", "0", "1"},
+	"s3.pet_dog": {"", "bao", "momo", "boop", "leaf", "volt", "byte", "shiba", "corgi", "husky", "golden"},
+	"sys.tz_min": {"-600", "-480", "-420", "-360", "-300", "-240", "-180", "0", "60", "120", "180", "240", "330", "420", "480", "540", "600", "720"},
 }
 
 var widgetKinds = map[string]bool{"clock": true, "date": true, "month": true, "events": true, "countdown": true, "weather": true,
@@ -919,6 +923,16 @@ func checkValue(k, v string) string {
 			return k + ": " + why
 		}
 		return ""
+	case "s3.onboard":
+		if why := checkOnboard(v); why != "" {
+			return k + ": " + why
+		}
+		return ""
+	case "s3.call_name":
+		if why := checkCallName(v); why != "" {
+			return k + ": " + why
+		}
+		return ""
 	case "s3.markets":
 		if checkMarkets(v) {
 			return ""
@@ -1069,9 +1083,55 @@ func coord(v string, max float64) (string, bool) {
 	return strconv.FormatFloat(f, 'f', 4, 64), true
 }
 
+// checkOnboard: s3.onboard, the first-boot setup (s3desk/src/onboard.cpp, docs/onboarding-plan.md): "" (never ran),
+// "again" (the web asks the device to run it again), or what the device sends when it is done:
+// {"v":1,"done":<unix s>,"dog":"<key>","skip":["wifi","pair",...]} within 300 bytes. "" when good, else the reason.
+// The same function is in device_sync and put_device_settings: keep the two copies identical.
+func checkOnboard(v string) string {
+	if v == "" || v == "again" {
+		return ""
+	}
+	if len(v) > 300 {
+		return "quá dài (tối đa 300 byte)"
+	}
+	var d struct {
+		V    int      `json:"v"`
+		Done int64    `json:"done"`
+		Dog  string   `json:"dog"`
+		Skip []string `json:"skip"`
+	}
+	if json.Unmarshal([]byte(v), &d) != nil || d.V < 1 || d.V > 99 || d.Done < 0 {
+		return "cần \"again\" hoặc {\"v\",\"done\",\"dog\",\"skip\"}"
+	}
+	if d.Dog != "" && !onboardDogs[d.Dog] {
+		return "dog: không có chó " + d.Dog
+	}
+	steps := map[string]bool{"lang": true, "wifi": true, "dog": true, "name": true, "call": true, "city": true, "pair": true, "tips": true}
+	for _, s := range d.Skip {
+		if !steps[s] {
+			return "skip: không có bước " + s
+		}
+	}
+	return ""
+}
+
+// onboardDogs: the PawBoop dogs (s3desk/src/pet/dogs.cpp ALL).
+var onboardDogs = map[string]bool{"bao": true, "momo": true, "boop": true, "leaf": true, "volt": true, "byte": true, "shiba": true,
+	"corgi": true, "husky": true, "golden": true}
+
+// checkCallName: s3.call_name, the name the first-boot setup asked for (how the dogs call the person; the first sync
+// after it copies it into user_profiles.call_name when the account has none). At most 40 letters, one line.
+// The same function is in device_sync and put_device_settings: keep the two copies identical.
+func checkCallName(v string) string {
+	if len([]rune(v)) > 40 || strings.ContainsAny(v, "\r\n\t") {
+		return "tối đa 40 ký tự, một dòng"
+	}
+	return ""
+}
+
 // checkAssist: s3.assist, the dog assistant's switches (s3desk/src/pet/assist.cpp prefs/setPrefs): "" or a JSON
 // object of at most these keys: on, greet, weather, alarm, meal (0 or 1), water, move, eyes (minutes between
-// habit reminders, 0 to 600; 0 = off), the wake word's wake (0-2), wake_word (0-1), wake_sens (1-3) and the RGB LED's
+// habit reminders, 0 to 600; 0 = off), the wake word's wake (0-2), wake_word (0-1), wake_sens (1-3), calls (1-31) and the RGB LED's
 // led (0-2), led_bright (1-3), follow (0-1: the dog listens on after an answer) and ack (0-2: what it does when it
 // hears its name: nothing, a beep, a word in its voice). "" when good, else the reason.
 // The same function is in device_sync and put_device_settings: keep the two copies identical.
@@ -1111,6 +1171,10 @@ func checkAssist(v string) string {
 		case "wake_sens": // 1 low, 2 normal, 3 high
 			if n < 1 || n > 3 {
 				return k + ": 1 đến 3"
+			}
+		case "calls": // which calls wake the dog, bits: 1 "gâu gâu", 2 "ki ki", 4 "lu lu", 8 "cún ơi", 16 "milu"
+			if n < 1 || n > 31 {
+				return k + ": 1 đến 31"
 			}
 		case "led": // the board's RGB LED (s3desk/src/led.h): 0 off, 1 only with the dog, 2 the dog and arrivals
 			if n < 0 || n > 2 {

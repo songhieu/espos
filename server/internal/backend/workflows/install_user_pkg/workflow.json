@@ -1,0 +1,27 @@
+{
+  "code": "install_user_pkg",
+  "name": "Web and CLI: ask the user's S3 devices for one of their own packages (install it, or update it to the kept version)",
+  "draft": {
+    "nodes": [
+      { "id": "in", "type": "http_in" },
+      { "id": "chk", "type": "code", "config": { "source": { "$file": "nodes/chk.go" }, "timeout_ms": 10000,
+          "input": { "body": "{{ input.body }}", "uid": "{{ input.user.id }}", "auth": "{{ input.headers.authorization }}" } } },
+      { "id": "isok", "type": "branch", "config": { "rules": [ { "left": "{{ chk.ok }}", "op": "eq", "right": true } ] } },
+      { "id": "push", "type": "call_workflow", "config": { "workflow": "push_user_pkg",
+          "input": { "uid": "{{ chk.uid }}", "pkg_id": "{{ chk.pkg_id }}", "code": "{{ chk.code }}", "min_fw": "{{ chk.min_fw }}", "devices": "{{ chk.devices }}" } } },
+      { "id": "out", "type": "respond", "config": { "status": 200, "body": { "ok": "{{ push.ok }}", "pkg_id": "{{ chk.pkg_id }}", "code": "{{ chk.code }}", "min_fw": "{{ chk.min_fw }}", "devices": "{{ push.devices }}" } } },
+      { "id": "bad", "type": "respond", "config": { "status": "{{ chk.status }}", "body": { "error": "{{ chk.why }}", "code": "{{ chk.code_err }}" } } },
+      { "id": "fail", "type": "respond", "config": { "status": 500, "body": { "error": "{{ chk.error }}" } } },
+      { "id": "fail2", "type": "respond", "config": { "status": 500, "body": { "error": "{{ push.error }}" } } }
+    ],
+    "edges": [
+      { "from": "in", "to": "chk" },
+      { "from": "chk", "to": "isok" },
+      { "from": "chk", "to": "fail", "port": "error" },
+      { "from": "isok", "to": "push", "port": "true" },
+      { "from": "isok", "to": "bad", "port": "false" },
+      { "from": "push", "to": "out" },
+      { "from": "push", "to": "fail2", "port": "error" }
+    ]
+  }
+}

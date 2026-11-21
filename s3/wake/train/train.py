@@ -65,20 +65,34 @@ def step_times(steps, stride):
     return (np.arange(steps) * stride + 1) * 160  # samples heard by each step
 
 
-def targets(lab, steps, stride):
-    """-> pos window mask (N, S, 2), neg mask (N, S, 2), has_pos (N, 2)."""
+# Outputs: 0 "gau", 1 "gau2" (the first round), then one per call of the second round (2026-11-21), each with the
+# set kind of its positives (build_sets.KIND).
+NAMES = ["gau", "gau2", "kiki", "lulu", "cun", "milu"]
+CALL_KIND = {2: 5, 3: 6, 4: 7, 5: 8}
+
+
+def targets(lab, steps, stride, nout=2):
+    """-> pos window mask (N, S, nout), neg mask (N, S, nout), has_pos (N, nout).
+
+    A call of the second round: max over [off - 0.1 s, off + 0.35 s] -> 1 on its own output, steps before on + 0.3 s
+    -> 0; every other output stays quiet on it (and on every "gâu"), as on all negatives."""
     t = step_times(steps, stride)[None, :]
     kind, on, off = lab[:, 0:1], lab[:, 1:2], lab[:, 2:3]
     N = len(lab)
-    pw = np.zeros((N, steps, 2), bool)
-    ng = np.zeros((N, steps, 2), bool)
+    pw = np.zeros((N, steps, nout), bool)
+    ng = np.zeros((N, steps, nout), bool)
     isw = (kind >= 1) & (kind <= 3)
-    neg = ~isw & (kind != 4)
+    neg = ~isw & (kind != 4)  # also every call of the second round, for the two "gâu" outputs
     pw[:, :, 0] = isw & (t >= on + 0.25 * SR) & (t <= off + 0.35 * SR)
     ng[:, :, 0] = (isw & (t < on + 0.05 * SR)) | neg
     w23 = (kind == 2) | (kind == 3)
     pw[:, :, 1] = w23 & (t >= off - 0.1 * SR) & (t <= off + 0.35 * SR)
     ng[:, :, 1] = (w23 & (t < on + 0.3 * SR)) | ((kind == 1) & (t < off + 1.0 * SR)) | neg
+    for o in range(2, nout):
+        mine = kind == CALL_KIND[o]
+        pw[:, :, o] = mine & (t >= off - 0.1 * SR) & (t <= off + 0.35 * SR)
+        # quiet: before the call is half said, and on everything else (the tone clips "gấu" too)
+        ng[:, :, o] = (mine & (t < on + 0.3 * SR)) | ~mine
     return pw, ng, pw.any(1)
 
 
@@ -97,11 +111,18 @@ def loss_fn(model, x, pw, ng, hp, w_hard):
     return lpos + lneg * 4.0 + w_hard * lhard
 
 
-def load_set(name, fam=False):
-    z = np.load(os.path.join(DATA, "sets", name + ".npz"))
+def load_set(name, fam=False, second=True):
+    """A set, with the second round's part ({name}2.npz, the calls "ki ki" ... "milu") appended when there is one."""
+    parts = [os.path.join(DATA, "sets", name + ".npz")]
+    p2 = os.path.join(DATA, "sets", name.replace("_pos", "_pos2").replace("_neg", "_neg2") + ".npz")
+    if second and p2 != parts[0] and os.path.exists(p2):
+        parts.append(p2)
+    zs = [np.load(p) for p in parts]
+    X = np.concatenate([z["X"] for z in zs])
+    lab = np.concatenate([z["lab"] for z in zs])
     if fam:
-        return z["X"], z["lab"], (z["fam"], z["voice"])
-    return z["X"], z["lab"]
+        return X, lab, (np.concatenate([z["fam"] for z in zs]), np.concatenate([z["voice"] for z in zs]))
+    return X, lab
 
 
 def family_weights(fv):
@@ -116,17 +137,18 @@ def family_weights(fv):
 
 
 def evaluate(model, X, lab, stride, bs=512):
-    """Max probability inside the positive window (or over all steps for negatives), per output."""
+    """Max probability inside the positive window (columns 0..nout-1), and where it must stay quiet (nout..2 nout-1),
+    per output."""
     model.eval()
     res = []
     for i in range(0, len(X), bs):
         lg = model(mx.array(X[i:i + bs].astype(np.float32) * M.IN_SCALE))
         p = np.array(mx.sigmoid(lg))
-        steps = p.shape[1]
-        pw, ng, hp = targets(lab[i:i + bs], steps, stride)
-        r = np.zeros((len(p), 4), np.float32)
-        r[:, 0:2] = np.where(pw, p, 0).max(1)       # best inside the window
-        r[:, 2:4] = np.where(ng, p, 0).max(1)       # worst where it must stay quiet
+        steps, no = p.shape[1], p.shape[2]
+        pw, ng, hp = targets(lab[i:i + bs], steps, stride, no)
+        r = np.zeros((len(p), 2 * no), np.float32)
+        r[:, 0:no] = np.where(pw, p, 0).max(1)       # best inside the window
+        r[:, no:] = np.where(ng, p, 0).max(1)        # worst where it must stay quiet
         res.append(r)
     model.train()
     return np.concatenate(res)
@@ -149,6 +171,7 @@ def main():
     ap.add_argument("--warmup", type=int, default=500)
     ap.add_argument("--speaker", type=float, default=0.0, help="share of the positives from sets/speaker_train.npz")
     ap.add_argument("--spkneg", type=float, default=0.0, help="share of each batch from sets/speaker_neg.npz")
+    ap.add_argument("--nout", type=int, default=2, help="2: gâu only; 6: also ki ki, lu lu, cún ơi, milu")
     a = ap.parse_args()
     rng = np.random.default_rng(a.seed)
     mx.random.seed(a.seed)
@@ -168,12 +191,30 @@ def main():
     vneg_c = vcorp.sample(np.random.default_rng(1), 3000)
     vneg_lab = np.zeros((len(vneg_c), 4), np.int32)
     vneg_lab[:, 1:] = -1
+    if a.nout <= 2:  # the first round's model: none of the second round's clips
+        Xp, Lp, Fp = load_set("train_pos", fam=True, second=False)
+        Xn, Ln, Fn = load_set("train_neg", fam=True, second=False)
+        wp, wn = family_weights(Fp), family_weights(Fn)
+        Vp, VLp = load_set("val_pos", second=False)
+        Vn, VLn = load_set("val_neg", second=False)
 
     if a.init:
         model = M.load(os.path.join(out_dir, a.init))
+        if model.cfg["nout"] != a.nout:  # more calls: the trunk and the first outputs as they were, new rows at random
+            new = M.KWS(**dict(model.cfg, nout=a.nout))
+            wts = mx.load(os.path.join(out_dir, a.init + ".safetensors"))
+            new.load_weights([(k, v) for k, v in wts.items() if not k.startswith("out.")], strict=False)
+            w = np.array(new.out.weight)
+            b = np.array(new.out.bias)
+            k = min(model.cfg["nout"], a.nout)
+            w[:k] = np.array(model.out.weight)[:k]
+            b[:k] = np.array(model.out.bias)[:k]
+            b[k:] = -4.0  # new outputs start quiet
+            new.out.weight, new.out.bias = mx.array(w), mx.array(b)
+            model = new
         model.train()
     else:
-        model = M.KWS(ch=a.ch, hc=a.hc, k=a.k, dil=tuple(int(v) for v in a.dil.split(",")))
+        model = M.KWS(ch=a.ch, hc=a.hc, k=a.k, dil=tuple(int(v) for v in a.dil.split(",")), nout=a.nout)
     Xm = np.load(os.path.join(DATA, "sets", "mined.npz"))["X"] if a.mined > 0 else None
     Xo = Lo = None
     if a.speaker > 0:
@@ -224,7 +265,7 @@ def main():
             for i in rng.integers(0, len(X), len(X) // 4):
                 b0 = rng.integers(0, 37)
                 X[i, :, b0:b0 + rng.integers(1, 4)] = X[i].min()
-        pw, ng, hp = targets(lab, steps_per, stride)
+        pw, ng, hp = targets(lab, steps_per, stride, a.nout)
         loss, grads = lg_fn(model, mx.array(X.astype(np.float32) * M.IN_SCALE), mx.array(pw), mx.array(ng),
                             mx.array(hp.astype(np.float32)), a.hard)
         opt.update(model, grads)
@@ -236,17 +277,28 @@ def main():
             rn = evaluate(model, Vn, VLn, stride)
             rc = evaluate(model, vneg_c, vneg_lab, stride)
             k = VLp[:, 0]
+            no = a.nout
             msg = []
             score = 0
             for thr in (0.5, 0.8, 0.9):
-                r0 = (rp[:, 0] >= thr).mean()
-                r1 = (rp[k >= 2, 1] >= thr).mean()
-                fa_t = (rn[VLn[:, 0] == 0, 2] >= thr).mean()
-                fa_c = (rc[:, 2] >= thr).mean()
-                fa_c1 = (rc[:, 3] >= thr).mean()
-                msg.append(f"thr {thr}: rec gau {r0:.3f} gau2 {r1:.3f} | fa conf {fa_t:.4f} corpus {fa_c:.4f}/{fa_c1:.4f}")
+                r0 = (rp[(k >= 1) & (k <= 3), 0] >= thr).mean()
+                r1 = (rp[(k == 2) | (k == 3), 1] >= thr).mean()
+                fa_t = (rn[VLn[:, 0] == 0, no] >= thr).mean()
+                fa_c = (rc[:, no] >= thr).mean()
+                fa_c1 = (rc[:, no + 1] >= thr).mean()
+                rec = [r0, r1]
+                fa_more = 0.0
+                line = f"thr {thr}: rec gau {r0:.3f} gau2 {r1:.3f}"
+                for o in range(2, no):
+                    ro = (rp[k == CALL_KIND[o], o] >= thr).mean() if (k == CALL_KIND[o]).any() else 0.0
+                    fo = (rc[:, no + o] >= thr).mean() + (rn[VLn[:, 0] == 0, no + o] >= thr).mean()
+                    cross = (rp[k != CALL_KIND[o], no + o] >= thr).mean()  # fired on another call
+                    rec.append(ro)
+                    fa_more += fo + cross
+                    line += f" {NAMES[o]} {ro:.3f}/fa {fo:.4f}/x {cross:.4f}"
+                msg.append(line + f" | fa conf {fa_t:.4f} corpus {fa_c:.4f}/{fa_c1:.4f}")
                 if thr == 0.8:
-                    score = r0 + r1 - 5 * (fa_t + fa_c + fa_c1)
+                    score = sum(rec) - 5 * (fa_t + fa_c + fa_c1 + fa_more)
             print(f"== val it {it}: " + " || ".join(msg), flush=True)
             if score > best[0]:
                 best = (score, it)

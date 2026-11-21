@@ -41,9 +41,11 @@ var syncKeys = []string{
 	"s3.photos",
 	"s3.pkgs", "s3.notif",
 	"s3.notif_preview",
+	"s3.pkg_auto",
 	"s3.saver_pages",
 	"s3.markets",
 	"s3.pet_dog", "s3.assist",
+	"s3.onboard", "s3.call_name",
 	"s3.home_l",
 	"x4.pkgs",
 }
@@ -136,6 +138,7 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 		{"table": "device_settings", "filters": []map[string]any{{"column": "device_id", "op": "eq", "value": deviceID}}, "limit": 200, "with_total": false},
 		{"table": "news_prefs", "filters": []map[string]any{{"column": "user_id", "op": "eq", "value": userID}}, "limit": 1, "with_total": false},
 		{"table": "firmware", "order_by": "code", "desc": true, "limit": 50, "with_total": false},
+		{"table": "notifications", "filters": []map[string]any{{"column": "user_id", "op": "eq", "value": userID}}, "order_by": "created_at", "desc": true, "limit": 1, "with_total": false},
 	})
 	if err != nil {
 		return wm.Fail(err)
@@ -185,6 +188,12 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 		}
 		take(int64(wm.Num(row["name_ms"])))
 		take(int64(wm.Num(row["fw_auto_ms"])))
+		// Notes raise the rev (2026-11-21, EspOS Desktop protocol §5): the person's newest notifications row, so an
+		// alert from the Mac, an espos-notify or a command waiting for a yes reaches the dashboard within a minute.
+		// device_sync folds in the same; scripts/check-ping-keys.py checks both do.
+		if nr := rowsOf(res, 4); len(nr) == 1 {
+			take(ms(nr[0]["created_at"]))
+		}
 	}
 
 	// The licence's newest change (hosted only: the guard admin_lic; device_sync raises settings_rev the same way).

@@ -21,6 +21,9 @@
 #include "game.h"
 #include "i18n.h"
 #include "notif.h"
+#if ESPOS_ONBOARD
+#include "onboard.h"
+#endif
 #include "os.h"
 #include "packs.h"
 #include "trace.h"
@@ -132,7 +135,12 @@ void switchDog(const char* key, bool open) {
   if (key && *key) dogs::choose(key);
   dismiss();
   app::stop();  // the game draws no more pictures of the old dog
+#if ESPOS_ONBOARD
+  // (The first-boot setup's dog pages stay: they let their picture go before they switch, onboard.cpp.)
+  if (app::isOpen() || book::isOpen() || (!os::atHome() && !onboard::running())) os::closeApps();
+#else
   if (app::isOpen() || book::isOpen() || !os::atHome()) os::closeApps();
+#endif
   reopen = open;
   if (reloading) return;
   reloading = true;

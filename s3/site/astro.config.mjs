@@ -95,6 +95,7 @@ export default defineConfig({
             { label: 'Test in the simulator', slug: 'guides/simulator' },
             { label: 'Test in QEMU', slug: 'guides/qemu' },
             { label: 'Work with a real device', slug: 'guides/device' },
+            { label: 'Your app on your own device', slug: 'guides/my-apps' },
             { label: 'Publish to the store', slug: 'guides/publishing' },
             { label: 'Inside the Java VM', slug: 'guides/java-vm' },
           ],

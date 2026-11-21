@@ -51,6 +51,9 @@ func eval(v any, vars map[string]any) any {
 }
 
 func lookup(p string, vars map[string]any) any {
+	if name, ok := strings.CutPrefix(strings.TrimSpace(p), "secret."); ok {
+		return wm.Secret(name) // a hosted secret: its value from the environment here (wm/secret.go)
+	}
 	var cur any = vars
 	for _, seg := range strings.Split(strings.TrimSpace(p), ".") {
 		switch c := cur.(type) {

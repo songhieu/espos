@@ -66,3 +66,32 @@ NEG = [
     "Con mèo đang ngủ trên ghế sofa.", "Ngày mai tôi phải dậy sớm để đi họp.", "Bạn đã xem phim đó chưa?",
     "Ông ấy là một người rất tốt bụng.", "Chúng ta cần mua thêm rau và trứng.", "Điện thoại của ai đang reo vậy?",
 ]
+
+# ---- More calls (2026-11-21, the owner: "ki ki", "lu lu", "cún ơi", "milu / milu ơi"): one output each in the same
+# model. Kinds k2 (ki ki), l2 (lu lu), c2 (cún ơi), m2 (milu). Generated with gen_tts.py --words2, which makes only
+# these and CONF2, so the clips of the first round are kept as they are.
+WAKE2 = {
+    "k2": ["Ki ki.", "Ki ki!", "Kí kí!", "Ki, ki!", "ki ki", "Ki ki ki!", "Ki ki ơi!"],
+    "l2": ["Lu lu.", "Lu lu!", "Lu, lu!", "lu lu", "Lu lu lu!", "Lu lu ơi!"],
+    "c2": ["Cún ơi!", "Cún ơi.", "Cún ơi?", "cún ơi", "Cún ơi, cún!", "Ê cún ơi!"],
+    "m2": ["Milu!", "Milu ơi!", "Milu ơi.", "Mi lu ơi!", "milu ơi", "Mi lu!"],
+}
+
+# Hard negatives for the new calls: syllables one sound away, laughs and cries, and the "<name> ơi" pattern, which
+# Vietnamese uses all day ("Mẹ ơi!", "Trời ơi!").
+CONF2 = [
+    # near "ki ki"
+    "Hi hi!", "Hì hì.", "Hí hí!", "Khì khì.", "Kì kì.", "Kỳ kỳ.", "Kia kìa!", "Chi chi.", "Ti ti.", "Bi bi.", "Mi mi.",
+    "Kít kít.", "Khi khi.", "Ghi ghi.", "Kỹ kỹ.", "Kì cục quá.", "hai ki lô gam", "Nhìn kìa!", "Kỳ lạ thật.",
+    "Khi nào đi?", "Hihi, vui quá.", "Kê kê.", "Gì gì?",
+    # near "lu lu"
+    "Lù lù.", "Lũ lụt.", "Lu bu quá.", "Hu hu!", "Tu tu!", "Bu bu.", "Ru ru.", "Su su.", "Nu nu.", "Du du.",
+    "Lủ khủ.", "Lù đù.", "Lu mờ.", "cái lu nước", "lũ trẻ con", "U u.", "Lo lo.", "Lú lẫn.",
+    # near "cún ơi", and other calls with "ơi"
+    "Cúc ơi!", "Bún ơi.", "Tuấn ơi!", "Hùng ơi!", "Cường ơi!", "Mẹ ơi!", "Anh ơi!", "Em ơi!", "Ông ơi!", "Út ơi!",
+    "Cưng ơi!", "Cũng được.", "Cun cút.", "Cùn quá.", "Con cún nhà tôi rất ngoan.", "Cô ơi!", "Chú ơi!", "Trời ơi!",
+    "Ơi!", "Cụ ơi!", "Bố ơi!", "Con ơi!", "Gấu ơi!", "Củ ơi.",
+    # near "milu"
+    "Miu ơi!", "Mi ơi!", "Lu ơi!", "Milo.", "Uống Milo không?", "Minh ơi!", "My ơi!", "Mít ơi.", "Mì lúa mạch.",
+    "Bi lu.", "Mi-lan.", "Ly ơi!", "Lụa ơi.", "Miu miu.", "Mi nu.", "Ni lông.",
+]

@@ -1,0 +1,18 @@
+{
+  "code": "list_dev_keys",
+  "name": "Web: list my developer keys (name, last 4 characters, created, last used; never the hash)",
+  "draft": {
+    "nodes": [
+      { "id": "in", "type": "http_in" },
+      { "id": "work", "type": "code", "config": { "source": { "$file": "nodes/work.go" }, "timeout_ms": 10000,
+          "input": { "uid": "{{ input.user.id }}" } } },
+      { "id": "out", "type": "respond", "config": { "status": "{{ work.status }}", "body": "{{ work.body }}" } },
+      { "id": "fail", "type": "respond", "config": { "status": 500, "body": { "error": "{{ work.error }}" } } }
+    ],
+    "edges": [
+      { "from": "in", "to": "work" },
+      { "from": "work", "to": "out" },
+      { "from": "work", "to": "fail", "port": "error" }
+    ]
+  }
+}

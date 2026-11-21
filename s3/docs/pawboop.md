@@ -158,7 +158,7 @@ the packages (`tools/pawboop/sounds.py`), played by `src/pet/sfx.cpp`:
 | `src/pet/summon.cpp` | the assistant mockup overlay (no AI) |
 | `src/pet/widget.cpp`, `book.cpp` | home widget; her book (needs, streak, moments album, switches) |
 | `src/pet/packs.cpp` | finds and memory-maps the packs (`pb_dog`, `pb_ui`, `pb_voice` partitions); simulator: `sim/data/pawboop/` |
-| `src/pet/pet_icon.c` | app icon (`tools/pawboop/make_icon.py`, from a picture of the pack) |
+| (icon) | the package's own `icon.jpg` since 2026-11-21 (the firmware's 18 KB copies, `src/pet/pet_icon.c` from `tools/pawboop/make_icon.py`, went to make room for the first-boot setup) |
 | `lib/opus/` | libopus 1.4 decoder files, fixed point, unchanged (BSD). Decodes the voice pack bit for bit like the Mac's libopus |
 | `src/sound.cpp/.h` | + `sound::stream(pull, ctx)`, `stopStream()`, `streaming()` (clicks mix in, chime/test/alarm stop it) |
 | `partitions_pawboop.csv` | the table with room for the packs (not in use yet, see below) |

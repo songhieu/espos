@@ -1,0 +1,163 @@
+{
+  "code": "device_assist_say",
+  "draft": {
+    "edges": [
+      {
+        "from": "in",
+        "to": "prep"
+      },
+      {
+        "from": "prep",
+        "to": "okb"
+      },
+      {
+        "from": "prep",
+        "port": "error",
+        "to": "fail"
+      },
+      {
+        "from": "okb",
+        "port": "false",
+        "to": "none"
+      },
+      {
+        "from": "say",
+        "to": "out"
+      },
+      {
+        "from": "okb",
+        "port": "true",
+        "to": "isj"
+      },
+      {
+        "from": "isj",
+        "port": "true",
+        "to": "outj"
+      },
+      {
+        "from": "isj",
+        "port": "false",
+        "to": "say"
+      },
+      {
+        "from": "say",
+        "port": "error",
+        "to": "say_none"
+      }
+    ],
+    "nodes": [
+      {
+        "id": "in",
+        "type": "http_in"
+      },
+      {
+        "config": {
+          "input": {
+            "device_id": "{{ input.guard.require_device.device_id }}",
+            "query": "{{ input.query }}"
+          },
+          "source": {
+            "$file": "nodes/prep.go"
+          }
+        },
+        "id": "prep",
+        "type": "code"
+      },
+      {
+        "config": {
+          "rules": [
+            {
+              "left": "{{ prep.ok }}",
+              "op": "eq",
+              "right": true
+            }
+          ]
+        },
+        "id": "okb",
+        "type": "branch"
+      },
+      {
+        "config": {
+          "rate": "{{ prep.rate }}",
+          "text": "{{ prep.text }}",
+          "voice": "{{ prep.voice }}"
+        },
+        "id": "say",
+        "type": "tts"
+      },
+      {
+        "config": {
+          "headers": {
+            "Access-Control-Expose-Headers": "X-Sample-Rate, X-Voice",
+            "Cache-Control": "no-store",
+            "Content-Type": "audio/pcm",
+            "X-Sample-Rate": "{{ prep.rate }}",
+            "X-Voice": "{{ prep.voice }}"
+          },
+          "stream": true
+        },
+        "id": "out",
+        "type": "respond"
+      },
+      {
+        "config": {
+          "body": {
+            "error": "{{ prep.err }}"
+          },
+          "status": "{{ prep.status }}"
+        },
+        "id": "none",
+        "type": "respond"
+      },
+      {
+        "config": {
+          "body": {
+            "error": "{{ prep.error }}"
+          },
+          "status": 500
+        },
+        "id": "fail",
+        "type": "respond"
+      },
+      {
+        "config": {
+          "rules": [
+            {
+              "left": "{{ prep.json }}",
+              "op": "eq",
+              "right": true
+            }
+          ]
+        },
+        "id": "isj",
+        "type": "branch"
+      },
+      {
+        "config": {
+          "body": "{{ prep.turn }}",
+          "headers": {
+            "Cache-Control": "no-store"
+          },
+          "status": 200
+        },
+        "id": "outj",
+        "type": "respond"
+      },
+      {
+        "config": {
+          "body": {
+            "detail": "{{ say.error }}",
+            "error": "no_voice"
+          },
+          "headers": {
+            "Cache-Control": "no-store"
+          },
+          "status": 503
+        },
+        "id": "say_none",
+        "type": "respond"
+      }
+    ]
+  },
+  "name": "Device: the dog's reply as speech (PCM 16-bit mono, streamed from the TTS)"
+}

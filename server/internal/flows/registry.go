@@ -6,18 +6,35 @@ package flows
 import (
 	"espos/internal/engine"
 	admin_sign_check "espos/internal/flows/admin_sign/check"
+	assist_apply_dfix "espos/internal/flows/assist_apply/dfix"
+	assist_apply_fix "espos/internal/flows/assist_apply/fix"
+	assist_apply_pre "espos/internal/flows/assist_apply/pre"
+	assist_apply_qerr "espos/internal/flows/assist_apply/qerr"
+	assist_reply_talk "espos/internal/flows/assist_reply/talk"
+	assist_sweep_work "espos/internal/flows/assist_sweep/work"
 	build_dashboard_dash "espos/internal/flows/build_dashboard/dash"
+	chat_device_dog_own "espos/internal/flows/chat_device_dog/own"
 	confirm_book_work "espos/internal/flows/confirm_book/work"
 	confirm_pair_work "espos/internal/flows/confirm_pair/work"
 	confirm_photo_work "espos/internal/flows/confirm_photo/work"
 	confirm_user_pkg_chk "espos/internal/flows/confirm_user_pkg/chk"
-	confirm_user_pkg_save "espos/internal/flows/confirm_user_pkg/save"
+	confirm_user_pkg_keep "espos/internal/flows/confirm_user_pkg/keep"
+	confirm_user_pkg_parse "espos/internal/flows/confirm_user_pkg/parse"
 	confirm_wallpaper_work "espos/internal/flows/confirm_wallpaper/work"
+	create_dev_key_work "espos/internal/flows/create_dev_key/work"
 	create_device_work "espos/internal/flows/create_device/work"
+	delete_assist_memory_work "espos/internal/flows/delete_assist_memory/work"
 	delete_book_work "espos/internal/flows/delete_book/work"
+	delete_dev_key_work "espos/internal/flows/delete_dev_key/work"
 	delete_photo_work "espos/internal/flows/delete_photo/work"
 	delete_user_pkg_work "espos/internal/flows/delete_user_pkg/work"
 	delete_wallpaper_work "espos/internal/flows/delete_wallpaper/work"
+	desk_queue_hold "espos/internal/flows/desk_queue/hold"
+	desk_queue_work "espos/internal/flows/desk_queue/work"
+	dev_me_work "espos/internal/flows/dev_me/work"
+	device_assist_prep "espos/internal/flows/device_assist/prep"
+	device_assist_take "espos/internal/flows/device_assist/take"
+	device_assist_say_prep "espos/internal/flows/device_assist_say/prep"
 	device_book_find "espos/internal/flows/device_book/find"
 	device_firmware_work "espos/internal/flows/device_firmware/work"
 	device_news_list "espos/internal/flows/device_news/list"
@@ -43,7 +60,10 @@ import (
 	get_news_work "espos/internal/flows/get_news/work"
 	get_profile_work "espos/internal/flows/get_profile/work"
 	get_stats_work "espos/internal/flows/get_stats/work"
+	install_user_pkg_chk "espos/internal/flows/install_user_pkg/chk"
+	list_assist_memories_work "espos/internal/flows/list_assist_memories/work"
 	list_books_work "espos/internal/flows/list_books/work"
+	list_dev_keys_work "espos/internal/flows/list_dev_keys/work"
 	list_devices_work "espos/internal/flows/list_devices/work"
 	list_photos_work "espos/internal/flows/list_photos/work"
 	list_user_pkgs_work "espos/internal/flows/list_user_pkgs/work"
@@ -52,15 +72,18 @@ import (
 	market_tick_work "espos/internal/flows/market_tick/work"
 	photo_source_find "espos/internal/flows/photo_source/find"
 	post_notification_work "espos/internal/flows/post_notification/work"
+	push_user_pkg_work "espos/internal/flows/push_user_pkg/work"
 	put_device_settings_work "espos/internal/flows/put_device_settings/work"
 	remote_input_work "espos/internal/flows/remote_input/work"
 	remote_view_work "espos/internal/flows/remote_view/work"
 	require_admin_chk "espos/internal/flows/require_admin/chk"
+	require_dev_key_chk "espos/internal/flows/require_dev_key/chk"
 	require_device_chk "espos/internal/flows/require_device/chk"
 	save_news_work "espos/internal/flows/save_news/work"
 	save_notify_key_work "espos/internal/flows/save_notify_key/work"
 	save_profile_work "espos/internal/flows/save_profile/work"
 	save_wifi_work "espos/internal/flows/save_wifi/work"
+	say_device_dog_prep "espos/internal/flows/say_device_dog/prep"
 	sign_pkg_upload_check "espos/internal/flows/sign_pkg_upload/check"
 	start_book_upload_prep "espos/internal/flows/start_book_upload/prep"
 	start_pair_work "espos/internal/flows/start_pair/work"
@@ -74,18 +97,35 @@ import (
 // Nodes is every code node, by "<workflow>/<node>".
 var Nodes = map[string]engine.NodeFunc{
 	"admin_sign/check":            admin_sign_check.Run,
+	"assist_apply/dfix":           assist_apply_dfix.Run,
+	"assist_apply/fix":            assist_apply_fix.Run,
+	"assist_apply/pre":            assist_apply_pre.Run,
+	"assist_apply/qerr":           assist_apply_qerr.Run,
+	"assist_reply/talk":           assist_reply_talk.Run,
+	"assist_sweep/work":           assist_sweep_work.Run,
 	"build_dashboard/dash":        build_dashboard_dash.Run,
+	"chat_device_dog/own":         chat_device_dog_own.Run,
 	"confirm_book/work":           confirm_book_work.Run,
 	"confirm_pair/work":           confirm_pair_work.Run,
 	"confirm_photo/work":          confirm_photo_work.Run,
 	"confirm_user_pkg/chk":        confirm_user_pkg_chk.Run,
-	"confirm_user_pkg/save":       confirm_user_pkg_save.Run,
+	"confirm_user_pkg/keep":       confirm_user_pkg_keep.Run,
+	"confirm_user_pkg/parse":      confirm_user_pkg_parse.Run,
 	"confirm_wallpaper/work":      confirm_wallpaper_work.Run,
+	"create_dev_key/work":         create_dev_key_work.Run,
 	"create_device/work":          create_device_work.Run,
+	"delete_assist_memory/work":   delete_assist_memory_work.Run,
 	"delete_book/work":            delete_book_work.Run,
+	"delete_dev_key/work":         delete_dev_key_work.Run,
 	"delete_photo/work":           delete_photo_work.Run,
 	"delete_user_pkg/work":        delete_user_pkg_work.Run,
 	"delete_wallpaper/work":       delete_wallpaper_work.Run,
+	"desk_queue/hold":             desk_queue_hold.Run,
+	"desk_queue/work":             desk_queue_work.Run,
+	"dev_me/work":                 dev_me_work.Run,
+	"device_assist/prep":          device_assist_prep.Run,
+	"device_assist/take":          device_assist_take.Run,
+	"device_assist_say/prep":      device_assist_say_prep.Run,
 	"device_book/find":            device_book_find.Run,
 	"device_firmware/work":        device_firmware_work.Run,
 	"device_news/list":            device_news_list.Run,
@@ -111,7 +151,10 @@ var Nodes = map[string]engine.NodeFunc{
 	"get_news/work":               get_news_work.Run,
 	"get_profile/work":            get_profile_work.Run,
 	"get_stats/work":              get_stats_work.Run,
+	"install_user_pkg/chk":        install_user_pkg_chk.Run,
+	"list_assist_memories/work":   list_assist_memories_work.Run,
 	"list_books/work":             list_books_work.Run,
+	"list_dev_keys/work":          list_dev_keys_work.Run,
 	"list_devices/work":           list_devices_work.Run,
 	"list_photos/work":            list_photos_work.Run,
 	"list_user_pkgs/work":         list_user_pkgs_work.Run,
@@ -120,15 +163,18 @@ var Nodes = map[string]engine.NodeFunc{
 	"market_tick/work":            market_tick_work.Run,
 	"photo_source/find":           photo_source_find.Run,
 	"post_notification/work":      post_notification_work.Run,
+	"push_user_pkg/work":          push_user_pkg_work.Run,
 	"put_device_settings/work":    put_device_settings_work.Run,
 	"remote_input/work":           remote_input_work.Run,
 	"remote_view/work":            remote_view_work.Run,
 	"require_admin/chk":           require_admin_chk.Run,
+	"require_dev_key/chk":         require_dev_key_chk.Run,
 	"require_device/chk":          require_device_chk.Run,
 	"save_news/work":              save_news_work.Run,
 	"save_notify_key/work":        save_notify_key_work.Run,
 	"save_profile/work":           save_profile_work.Run,
 	"save_wifi/work":              save_wifi_work.Run,
+	"say_device_dog/prep":         say_device_dog_prep.Run,
 	"sign_pkg_upload/check":       sign_pkg_upload_check.Run,
 	"start_book_upload/prep":      start_book_upload_prep.Run,
 	"start_pair/work":             start_pair_work.Run,

@@ -14,7 +14,12 @@
 #include "i18n.h"
 #include "internal.h"
 #include "../lock.h"
+#include "apps.h"
+#include "notif.h"
 #include "os.h"
+#ifndef NO_PET
+#include "pet/pet.h"
+#endif
 #include "sound.h"
 #include "trace.h"
 
@@ -30,7 +35,7 @@ namespace store {
 
 using namespace in;
 
-bool installAs(const Entry& e, const std::vector<String>& parts, Vol v, String& why, bool user);
+bool installAs(const Entry& e, const std::vector<String>& parts, Vol v, String& why, bool user, bool quiet = false);
 
 namespace {
 
@@ -137,6 +142,7 @@ struct Job {
   std::vector<Part> parts;
   Vol vol = FLASH;
   bool js = false, user = true;
+  bool quiet = false;  // an update the device chose by itself: no toast, a note in the Notification Center when done
   String mainOf, mainName;  // an add-on: its main package must be installed by the time it runs
 };
 struct Finished {
@@ -854,6 +860,73 @@ bool isQueued(const String& id) {
   return false;
 }
 
+// An update's parts: the installed ones the catalog still has, and any part that became required.
+std::vector<String> keptParts(const Package& p, const Entry& e) {
+  std::vector<String> parts;
+  for (const String& x : p.parts)
+    for (const Part& q : e.parts)
+      if (q.id == x) parts.push_back(x);
+  for (const Part& q : e.parts)
+    if (q.req && std::find(parts.begin(), parts.end(), q.id) == parts.end()) parts.push_back(q.id);
+  return parts;
+}
+
+// How long nobody must have touched the device before an app updates by itself (an install's flash erases stall the
+// screen a moment, and the app may be about to open).
+uint32_t idleNeed() {
+#ifdef SIM
+  if (const char* v = getenv("SIM_AUTO_IDLE")) return atoi(v);
+#endif
+  return 60000;
+}
+
+// In use: touched in the last minute, its app (or the app it is an add-on of) in front, the aquarium behind the
+// saver, or the dog called over a screen. Its update waits (autoWait).
+bool busyNow(const Package& p) {
+  if (os::idleMs() < idleNeed()) return true;
+  String id, arg;
+  apps::route(id, arg);
+  const apps::App* a = apps::find(id.c_str());
+  const Package* f = find(a && a->pkg ? a->pkg : id.c_str());
+  if (f && (f->addonOf.length() ? f->addonOf : f->id) == (p.addonOf.length() ? p.addonOf : p.id)) return true;
+#ifndef NO_PET
+  if (p.engine == "pet" && pet::summoned()) return true;
+#endif
+  return p.engine == "tank" && os::saverOn();
+}
+
+// Newer versions in the catalog that nobody asked for. Packs (data for an engine: languages, fonts, the Java runtime)
+// are not listed in the store, so nobody presses "Update": always installed by themselves. Apps too, as on a phone,
+// unless the person turned that off (setting s3.pkg_auto "0", docs/ecosystem.md §6): same place and parts as
+// "Update", never while in use (busyNow), room checked first (no failure to show), at most one failure a boot, no
+// toast (a note in the Notification Center once done, afterJob). The web's "code" in an entry is left alone: below
+// what is installed it asks for nothing, so no loop.
+bool autoWait = false;  // an app's update waits for the device to be left alone (tick)
+void autoUpdate() {
+  const bool appsToo = desk::settingInt("s3.pkg_auto", 1) != 0;
+  autoWait = false;
+  for (const Package& p : list()) {  // the UI's list: rebuilt only between ticks (pkg.cpp tickCb)
+    const Entry* c = entry(p.id.c_str());
+    const bool pack = p.type == "pack";
+    if (!c || c->code <= p.code || !c->supported() || !p.available || isQueued(p.id) || syncFails[p.id] >= (pack ? 3 : 1) ||
+        (!pack && (!appsToo || lock::locked(p.id.c_str()))))
+      continue;
+    const std::vector<String> parts = keptParts(p, *c);
+    if (!pack) {
+      if (busyNow(p)) {
+        autoWait = true;
+        continue;
+      }
+      const uint64_t n = partsBytes(*c, parts);
+      if (!room(n, p.vol, onLfs(c->kind, c->engine, n)).ok) continue;  // looked at again at the next sync
+    }
+    String why;
+    const bool ok = installAs(*c, parts, p.vol, why, pack, !pack);
+    if (!ok) syncFails[p.id]++;
+    trace::add("store: %s %u -> %u by itself: %s", p.id.c_str(), (unsigned)p.code, (unsigned)c->code, ok ? "queued" : why.c_str());
+  }
+}
+
 void reconcile() {
   JsonDocument d;
   loadPkgs(d);
@@ -909,36 +982,12 @@ void reconcile() {
       const Entry* c = entry(id.c_str());
       if (!c) {
         needCatalog = true;
-      } else if (c->code > p->code) {
-        std::vector<String> parts;
-        for (const String& x : p->parts)
-          for (const Part& q : c->parts)
-            if (q.id == x) parts.push_back(x);
-        for (const Part& q : c->parts)
-          if (q.req && std::find(parts.begin(), parts.end(), q.id) == parts.end()) parts.push_back(q.id);
-        if (!installAs(*c, parts, p->vol, why, false)) syncFails[id]++;
+      } else if (c->code > p->code && !installAs(*c, keptParts(*p, *c), p->vol, why, false)) {
+        syncFails[id]++;
       }
     }
   }
-  // Packs (data for an engine, e.g. the Java runtime) are not listed in the store, so nobody presses "Update":
-  // a newer one in the catalog is installed by itself.
-  {
-    std::vector<String> packs;
-    {
-      std::lock_guard<std::recursive_mutex> l(mu);
-      for (const Rec& r : recs)
-        if (r.p.type == "pack" && r.p.available) packs.push_back(r.p.id);
-    }
-    for (const String& id : packs) {
-      const Entry* c = entry(id.c_str());
-      Package live;
-      if (c && lookup(id, live) && c->code > live.code && c->supported() && !isQueued(id) && syncFails[id] < 3) {
-        String why;
-        if (!update(id.c_str(), why)) syncFails[id]++, trace::add("store: pack %s update refused: %s", id.c_str(), why.c_str());
-        else trace::add("store: pack %s %u -> %u", id.c_str(), (unsigned)live.code, (unsigned)c->code);
-      }
-    }
-  }
+  autoUpdate();
   // Installed here but not in the list: added (left alone otherwise).
   std::vector<Package> all;
   {
@@ -991,15 +1040,22 @@ void afterJob(const Finished& f) {
     if (!f.job.user) syncFails[f.job.id]++;
     static const char* const FAIL[] = {N_("Could not remove {0}: {1}"), N_("Could not move {0}: {1}"),
                                        N_("Could not install {0}: {1}")};
-    os::toast(i18n::fmt(FAIL[k], f.job.name, f.err).c_str());
+    if (!f.job.quiet) os::toast(i18n::fmt(FAIL[k], f.job.name, f.err).c_str());
     return;
   }
   static const char* const OK[] = {N_("Removed {0}"), N_("Moved {0}"), N_("Installed {0}")};
-  os::toast(i18n::fmt(OK[k], f.job.name).c_str());
-  syncFails.erase(f.job.id);  // it worked (from the device's Store too): the web's later asks count afresh
-  if (f.job.kind == Job::INSTALL) reconcileAt = millis() + 300;  // an add-on may have waited for this app
   Package live;
   const Package* p = f.job.kind != Job::REMOVE && lookup(f.job.id, live) ? &live : nullptr;
+  if (!f.job.quiet) {
+    os::toast(i18n::fmt(OK[k], f.job.name).c_str());
+  } else if (p) {  // updated by itself: a quiet note in the Center; a tap opens its page in the Store
+    notif::Opts o;
+    o.arg = o.tag = f.job.id.c_str();
+    o.sound = o.badge = false;
+    notif::post("store", i18n::fmt(N_("{0} updated to {1}"), f.job.name, p->version).c_str(), "", o);
+  }
+  syncFails.erase(f.job.id);  // it worked (from the device's Store too): the web's later asks count afresh
+  if (f.job.kind == Job::INSTALL) reconcileAt = millis() + 300;  // an add-on may have waited for this app
   bool found = false;
   for (size_t i = 0; i < a.size(); i++) {
     if (f.job.id != (a[i]["id"] | "")) continue;
@@ -1166,7 +1222,7 @@ bool inUse(const char* id) { return pinned(id); }
 
 bool install(const Entry& e, const std::vector<String>& parts, Vol v, String& why) { return installAs(e, parts, v, why, true); }
 
-bool installAs(const Entry& e, const std::vector<String>& asked, Vol v, String& why, bool user) {
+bool installAs(const Entry& e, const std::vector<String>& asked, Vol v, String& why, bool user, bool quiet) {
   if (!e.supported()) return why = T_("Needs a software update"), false;
   if (lock::locked(e.id.c_str())) return why = T_("Locked: buy it to download it"), false;  // the screens show the sheet
   std::vector<String> parts = asked;
@@ -1198,6 +1254,7 @@ bool installAs(const Entry& e, const std::vector<String>& asked, Vol v, String& 
   Job j;
   j.kind = Job::INSTALL;
   j.id = e.id, j.name = e.name, j.vol = v, j.js = onLfs(e.kind, e.engine, partsBytes(e, parts)), j.user = user;
+  j.quiet = quiet;
   if (e.addonOf.length()) {
     const Entry* m = entry(e.addonOf.c_str());
     const Package* mp = find(e.addonOf.c_str());
@@ -1248,17 +1305,7 @@ bool update(const char* id, String& why) {
   const Package* p = find(id);
   const Entry* e = entry(id);
   if (!p || !e) return why = T_("No new version"), false;
-  std::vector<String> parts;
-  for (const String& s : p->parts)
-    for (const Part& q : e->parts)
-      if (q.id == s) parts.push_back(s);
-  for (const Part& q : e->parts)  // a part that became required
-    if (q.req) {
-      bool have = false;
-      for (const String& s : parts) have |= s == q.id;
-      if (!have) parts.push_back(q.id);
-    }
-  return install(*e, parts, p->vol, why);
+  return install(*e, keptParts(*p, *e), p->vol, why);
 }
 
 bool remove(const char* id, String& why) {
@@ -1405,6 +1452,8 @@ void tick() {
     reconcileAt = 0;
     reconcile();
   }
+  static uint32_t autoAt = 0;  // an app's update that waited: looked at again once the device is left alone
+  if (autoWait && os::idleMs() >= idleNeed() && millis() - autoAt > 60000) autoAt = millis(), autoUpdate();
   startRunner();
 #ifdef SIM
   // What the next sync would report, for tests: $SIM_DATA/pkgs-report.json.
@@ -1421,7 +1470,11 @@ void tick() {
 #endif
 }
 
-void afterSync() { reconcileAt = millis(); }
+void afterSync() {
+  reconcileAt = millis();
+  // While apps update by themselves, new versions are looked for at the first sync after a start, then every 6 hours.
+  if (desk::settingInt("s3.pkg_auto", 1) && (!catLoaded || catFailed || millis() - catAt > 6 * 3600000UL)) refresh(true);
+}
 
 void report(JsonObject o) {
   JsonObject vols = o["vols"].to<JsonObject>();

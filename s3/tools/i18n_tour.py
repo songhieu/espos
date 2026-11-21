@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Screens of every app in one language, for docs/i18n.md's checks. Run from s3/:
 
-  python3 tools/i18n_tour.py TAG [OUTDIR] [--live] [--packs] [--rot N] [--sim PATH] [--data DIR]
+  python3 tools/i18n_tour.py TAG [OUTDIR] [--live] [--packs] [--rot N] [--sim PATH] [--data DIR] [--onboard]
 
 Writes a simulator script (every screen shot as NN-name, then `overflow NN-name`) and, unless --live, runs the
 headless simulator (sim/build-i18n, data sim/data-i18n with the language packs installed) and makes contact sheets
@@ -9,7 +9,9 @@ OUTDIR/sheet-N.png (8 screens each) and OUTDIR/overflow.txt (labels cut, outside
 --live prints the script's path for tools/sim-live.sh instead (the visible window). --packs builds the language
 packages again and installs them into sim/data-i18n first. --rot N: the whole tour turned that way (1 and 3:
 landscape, the gestures moved to the 480 x 320 screen); --sim another simulator build, --data another data folder
-(the tour writes sys.lang into it).
+(the tour writes sys.lang into it). --onboard: the first-boot setup's screens only (docs/onboarding-plan.md: every
+step, the wake test and its "not heard", the activation code, the welcome, the tips, "All set"; a claim code is set so
+the activation step shows).
 """
 import os
 import subprocess
@@ -48,6 +50,27 @@ STEPS += [
 ]
 
 
+# The first-boot setup (src/onboard.cpp): each step straight away (the simulator's "onb step N[.SUB]").
+ONBOARD = [
+    ("onb-lang", ["claim set 4AADHV8Q", "onb reset", "wait 1500"]),
+    ("onb-wifi", ["onb step 1", "wait 1200"]),
+    ("onb-wifi-sheet", ["tap 290 44", "wait 800"]),
+    ("onb-dog", ["onb step 2", "wait 2500"]),
+    ("onb-name", ["onb step 3", "wait 1000"]),
+    ("onb-call", ["onb step 4", "wait 1200"]),
+    ("onb-test", ["onb step 4.1", "wait 1500"]),
+    ("onb-notheard", ["wait 12500"]),
+    ("onb-city", ["onb step 5", "wait 1000"]),
+    ("onb-pair", ["onb step 6", "wait 1000"]),
+    ("onb-welcome", ["claim done", "wait 2500"]),
+    ("onb-tip0", ["onb step 7", "wait 1000"]),
+    ("onb-tip1", ["onb step 7.1", "wait 1000"]),
+    ("onb-tip2", ["onb step 7.2", "wait 1000"]),
+    ("onb-done", ["onb step 8", "wait 2000"]),
+    ("onb-settings-row", ["onb done", "wait 1500", "dismiss", "wait 300", "app settings", "wait 1500"]),
+    ("onb-about", ["home", "wait 600", "app settings about", "wait 1500", "drag 160 420 160 80 400", "wait 800"]),
+]
+
 # The portrait gestures and their landscape places (the 480 x 320 screen: pages swiped across the middle, lists
 # scrolled in the middle, the pulls from the status bar's two ends).
 LAND = {
@@ -60,14 +83,16 @@ LAND = {
 }
 
 
-def script(tag, rot=0):
+def script(tag, rot=0, onboard=False):
     lines = ["# tools/i18n_tour.py " + tag, "wait 1500", f"set sys.lang {tag}", "wait 4000", f"rot {rot}", "wait 800"]
-    for i, (name, steps) in enumerate(STEPS):
+    for i, (name, steps) in enumerate(ONBOARD if onboard else STEPS):
         if name == "land" and rot:  # already turned: only leave the saver editor
             lines += ["wake", "wait 800", "home", "wait 700"]
             continue
         if rot % 2:
             steps = [LAND.get(s, s) for s in steps]
+            if onboard:  # the setup's "Later" sits at the right of the 480-wide screen
+                steps = ["tap 450 44" if s == "tap 290 44" else s for s in steps]
         steps = [f"rot {rot}" if s == "rot 0" else s for s in steps]
         lines += steps
         shot = f"{i:02d}-{name}"
@@ -119,9 +144,10 @@ def option(argv, name, default):
 
 def main(argv):
     live = "--live" in argv
+    onboard = "--onboard" in argv
     if "--packs" in argv:
         refresh_packs()
-    argv = [a for a in argv if a not in ("--live", "--packs")]
+    argv = [a for a in argv if a not in ("--live", "--packs", "--onboard")]
     rot = int(option(argv, "--rot", "0"))
     sim = option(argv, "--sim", str(ROOT / "sim/build-i18n/espos-sim"))
     data = option(argv, "--data", "sim/data-i18n")
@@ -129,7 +155,7 @@ def main(argv):
     out = Path(argv[1]) if len(argv) > 1 else ROOT / "sim" / "shots" / (f"i18n-{tag}" + (f"-rot{rot}" if rot else ""))
     out.mkdir(parents=True, exist_ok=True)
     sc = out / "tour.txt"
-    sc.write_text(script(tag, rot))
+    sc.write_text(script(tag, rot, onboard))
     if live:
         print(sc)
         return

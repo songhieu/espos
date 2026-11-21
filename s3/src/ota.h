@@ -22,4 +22,11 @@ Progress progress();
 const String& lastError();         // why the last install failed ("" when none), kept across restarts
 const String& lastErrorVersion();  // the version it tried
 void clearError();
+// The partition table (docs/partitions.md): the app slot's size (the largest image an OTA can take) and the
+// table's version (1: pb_* packs, 3.75 MiB apps; 2: one "apps" area, 4.75 MiB apps). Sent in every sync (diag).
+uint32_t slotBytes();
+int table();
+#if ESPOS_QA
+bool installFile(const char* path);  // QA: an image file (e.g. on the card) written as an OTA would, then restart
+#endif
 }  // namespace ota

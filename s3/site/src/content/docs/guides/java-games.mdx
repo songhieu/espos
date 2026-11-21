@@ -130,14 +130,14 @@ A soft key shows the label of the game's `Command` when it has one. Without one 
 
 ## Upload your own game
 
-A user can add a game they own from the web desk, on the device's page:
+A user can add a game they own from the web desk: open the device, then its **My apps** tab, and drop the `.jar`.
 
 - The browser reads the jar and builds the package. Nothing is converted.
-- The jar can be at most **2 MB**, the package at most 2.2 MB, and the jar's icon at most 64 KB.
+- The jar can be at most **2 MB** and the jar's icon at most 64 KB.
 - The package id is `u.` plus a short name made from the game's name, for example `u.rung-pixel`.
-- The server returns the package to that user's devices in the sync answer (`user_pkgs`). The device lists it next to the store's catalog and installs it like any package.
+- The server checks the package again and returns it to that user's devices in the sync answer (`user_pkgs`). The device installs it like any package.
 
-User games are private to their owner. They are not listed in the store.
+A game packed with `espos jar` uploads the same way, from the terminal: `espos upload jar.megablock-1.0.0-core.espk` installs it as `u.jar.megablock`. User games are private to their owner and not listed in the store. See [Put your app on your own device](/guides/my-apps/).
 
 ## Licensing
 

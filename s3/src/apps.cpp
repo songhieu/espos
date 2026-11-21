@@ -10,7 +10,7 @@
 #include "lunar.h"
 #include "notif.h"
 #include "os.h"
-#ifndef NO_PET
+#if !defined(NO_PET) && !ESPOS_ONBOARD
 #include "pet/pet_icon.h"
 #endif
 #include "jpeg.h"
@@ -74,8 +74,15 @@ void rebuildList() {
     if (p.type == "pack") continue;    // data for an engine (e.g. the Java runtime): nothing to open
 #ifndef NO_PET
     if (p.id == PET_PKG) {
+#if ESPOS_ONBOARD
+      // PawBoop keeps its app id "pet" (widgets, notifications, Home); it sits before the store. Its icon is the
+      // package's icon.jpg (the firmware's own copies went, 18 KB, for the first-boot setup: docs/onboarding-plan.md).
+      App a = {"pet", "PawBoop", nullptr, nullptr, nullptr, nullptr, nullptr};
+      a.js = true, a.bg1 = 0xffcf7a, a.bg2 = 0xe8892c, a.glyph = "play";
+#else
       // PawBoop keeps its app id "pet" (widgets, notifications, Home) and its pictures; it sits before the store.
       App a = {"pet", "PawBoop", &ic_pet_52, &ic_pet_40, &ic_pet_28, nullptr, nullptr};
+#endif
       a.pkg = intern(p.id);
       a.off = !p.available && (p.vol != pkg::SD || pkg::cardChecked());
       size_t at = list.size();
@@ -302,6 +309,9 @@ lv_obj_t* drawnIcon(lv_obj_t* parent, uint32_t bg1, uint32_t bg2, const char* g,
 lv_obj_t* packageIcon(lv_obj_t* parent, const char* pkgId, int s) {
   const pkg::Package* p = pkg::find(pkgId);
 #ifndef NO_PET
+#if ESPOS_ONBOARD
+  if (!(p && p->icon) && pkgId && !strcmp(pkgId, PET_PKG)) return drawnIcon(parent, 0xffcf7a, 0xe8892c, "play", s);
+#else
   if ((p && p->id == PET_PKG && !p->icon) || (!p && pkgId && !strcmp(pkgId, PET_PKG))) {
     // PawBoop's own pictures (the 52 one has a shadow margin): scaled to the size asked.
     const lv_image_dsc_t* src = s > 40 ? &ic_pet_52 : s > 28 ? &ic_pet_40 : &ic_pet_28;
@@ -311,6 +321,7 @@ lv_obj_t* packageIcon(lv_obj_t* parent, const char* pkgId, int s) {
     if (s > 40) lv_obj_set_size(i, s, s), lv_image_set_inner_align(i, LV_IMAGE_ALIGN_CENTER);
     return i;
   }
+#endif
 #endif
   if (p && p->icon)
     if (const lv_image_dsc_t* d = jpgIcon(*p, s)) return img(parent, d);

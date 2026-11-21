@@ -32,23 +32,23 @@ What `FACTORY_RESET` clears and keeps:
 
 ## First boot of an unclaimed unit
 
-- **When it starts.** While NVS `claim/code` is set, `claim::tick()` (run from `lock::tick()`) opens the next step
-  whenever Home is in front and calm. The step is kept in NVS, so a restart goes on where it was.
-- **Step 1, the language.** A list of the installed languages, each in its own language; a name the shown fonts
-  can't draw (日本語 before its font) appears in English. A tap sets `sys.lang`, and "Next" closes the list, so the
-  screens rebuild in that language. The step is skipped when only English is installed.
-- **Step 2, the WiFi.** Settings' own WiFi page, with the scan and the on-screen keyboard. As soon as the WiFi works,
-  the code comes next.
-- **Step 3, the code.** "Activate this device", the code `XXXX-XXXX` (Crockford base32, the 8 characters kept
-  without the dash), and a QR of `claim_url` (`https://espos.dev/app#claim=<code>` when none was given). On its side,
-  the words go left and the QR right.
-- **Polling.** The sync asks every 5 s while the server answers `401 not_linked` (desk.cpp).
-- **Claimed.** The first 200 erases the code from NVS. The welcome then shows on Home ("Hello <name>!", or "Hello!"
-  when the account gives only an e-mail address), with "Done".
+Since 2026-11-21 the first boot is the setup of `src/onboard.cpp` (docs/onboarding-plan.md): language, WiFi, the dog,
+the person's name, the wake word, the city, then at step 7 "Activate this device" with the code `XXXX-XXXX` (Crockford
+base32, the 8 characters kept without the dash) and a QR of `claim_url` (`https://espos.dev/app#claim=<code>` when none
+was given), then tips and "All set". claim.cpp keeps the code (`claim::code()`, `claim::url()`), the USB lines and the
+reset; its own language list, step machine and Home welcome card are gone (NVS `claim/step` is no longer used).
+- **Polling.** The sync asks every 5 s while the server answers `401 not_linked` (desk.cpp), from the moment the
+  device has a network: a code entered early (from the box label) is seen during any step.
+- **Claimed.** The first 200 erases the code from NVS and makes the welcome due (`claim::takeWelcome`): step 7 shows
+  "Hello <name>!" (the name from step 4, else the account's name, never an e-mail address), "This device is yours
+  now." and the trial chip. Claimed after "Later": the same screen opens by itself at Home.
+- ESPOS:INFO also has `"onb"`: the setup version done (0 never), 100 + the step while it runs, -1 a demo unit.
+- `ESPOS:FACTORY_RESET` also clears NVS `onb`, so the setup starts again from step 1 (the account link stays).
 
 ## eFuse (v2): OFF
 
-- Only the read side of a device attestation is built: HMAC-SHA256 of a challenge with the key in eFuse BLOCK_KEY5
+- Only the read side of a device attestation exists, and since 2026-11-21 it is built only with `-DESPOS_ATTEST=1`
+  (about 1 KB; without it ESPOS:ATTEST answers "attestation off"): HMAC-SHA256 of a challenge with the key in eFuse BLOCK_KEY5
   (purpose HMAC_UP), through `esp_hmac_calculate`.
 - It answers only when NVS `claim/attest` is 1, and nothing writes that yet.
 - This firmware contains **no** code that burns an eFuse: no `esp_efuse_write_*` call. Burning, with the whitelist and
@@ -58,7 +58,8 @@ What `FACTORY_RESET` clears and keeps:
 
 - Simulator commands:
   - `claim set CODE [URL]` and `claim done` (stands in for the first 200);
-  - `claim step N`;
+  - `onb reset`, `onb step N[.SUB]`, `onb done`, `onb state`, `onb demo 1 PIN` (the setup, built with `-DESPOS_ONBOARD=1`:
+    docs/onboarding-plan.md; without the flag the old `claim step N` screens);
   - `claim ESPOS:…` (the USB lines).
 - `SIM_WIFI_OFF=1` starts the simulator without WiFi, and the WiFi page's connect turns it on.
 - QEMU: `ESPOS:` lines go through `tools/qemu/console.py`. See the gallery for a full run, including the restart after

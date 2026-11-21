@@ -1,19 +1,30 @@
 ---
 title: Publish to the store
-description: "Prepare a package for the store, how the store's owner publishes it today, and the developer portal, review and signing that are planned."
+description: "Where an app can go: your own devices (self-service, today) or the public store (published by the store's owner; a review queue for everyone's submissions is planned). How the store's catalog is published."
 ---
 
 import { Aside, Steps } from '@astrojs/starlight/components';
 import Status from '../../../components/Status.astro';
 
-<Aside type="caution" title="Publishing is owner-only today">
-The official store's catalog is published by the store's owner, with a temporary upload key that is revoked right after each upload. There is no self-service developer account yet. If you have an app for the store, prepare it as described below and contact the EspOS project.
+An app can go to two places.
+
+| Where | Who can put it there | How |
+|---|---|---|
+| **Your own devices** | You, today | Upload it to your espos.dev account with `espos upload` or the web's **My apps** tab. Only your devices install it. See [Put your app on your own device](/guides/my-apps/). |
+| **The public store** | The store's owner, today | The owner publishes the catalog with a temporary key (below). Submissions from everyone, with a review queue, are <Status s="planned" />. |
+
+<Aside type="note" title="Try it on your own devices first">
+You do not need the store to run your app on real hardware: a private upload installs it on every EspOS S3 of your account over WiFi, and a higher `code` updates it. Put it in the store when other people should get it.
+</Aside>
+
+<Aside type="caution" title="The public store is curated">
+Only the store's owner publishes to the official catalog, with a temporary upload key that is revoked right after each upload. If you have an app for the store, prepare it as described below and contact the EspOS project. Your private uploads never reach the store.
 </Aside>
 
 ## Before you submit
 
 - [ ] The `id` is final. It can never change after the first release.
-- [ ] `code` is higher than the last published one.
+- [ ] `code` is higher than the last published one. Devices compare codes, not versions: a new build with the same `code` never reaches anyone who has the package.
 - [ ] `name` (at most 40 characters), `desc` (one line, at most 300) and `author` (at most 40) are short and plain, with no ellipsis.
 - [ ] `perms` lists only what the app uses.
 - [ ] The icon is a square **baseline** JPEG, 120 × 120, under 200 KB, or a gradient and glyph in the manifest.
@@ -41,7 +52,7 @@ The official store's catalog is published by the store's owner, with a temporary
 
 3. **Merge.** The script merges one entry per package id into `apps-s3/catalog.json` and keeps everything else.
 
-4. **Devices see it** the next time their store loads the catalog. Installed copies are offered "Update" when the new `code` is higher.
+4. **Devices see it** the next time they load the catalog: when the store opens, and at least every 6 hours while automatic updates are on. When the new `code` is higher than the installed one, an installed copy updates by itself while it is not in use. Users who turned automatic updates off get "Update" in the store instead. See [Updates](/concepts/store/#updates).
 
 </Steps>
 
@@ -64,13 +75,33 @@ The upload key is read only from the `ESPOS_BBK` environment variable, by the pu
 
 The core part and every part without a `group` are required. A part with a `group` is a choice: an install takes exactly one per group, its `default` unless the user picks another, and the store shows its `label`. The script takes these from, in order: the part's own manifest, a build tool's catalog entry next to the files (`<id>-<version>-catalog.json`), and the core manifest's `parts` list, which wins. See [Store catalog](/reference/catalog/).
 
-## Planned<Status s="planned" />
+## Submit to the public store<Status s="planned" />
 
-- **A developer portal** with accounts, uploads and review.
-- **Automatic checks** on every upload: manifest schema, permissions against the APIs used, size, and a headless simulator run that captures screenshots and fails on exceptions.
+This is the design; none of it is live yet. Publishing the official catalog stays as it is above: a submission only ever reaches the catalog through the owner's approval and the same publish step.
+
+<Steps>
+
+1. **Upload privately first.** The app is an upload in your account, tested on your own devices (`espos upload`).
+
+2. **Submit it.** `espos submit u.vn.you.teatimer` (or **Submit to the store** next to the app in **My apps**) asks for review. The store id is the manifest's id without `u.`. An id belongs to the first account that publishes it; a taken id is refused at once.
+
+3. **Automatic checks.** The server runs the validator again, then the app in a headless simulator: it opens every screen the smoke script reaches, saves screenshots for the store page and fails on an exception.
+
+4. **Review.** The submission waits in a queue on the admin page. The store's owner (or an admin) reads the manifest, the permissions, the licence and the screenshots, and approves or rejects it with a reason you see in **My apps** and `espos apps`.
+
+5. **Publish.** An approved package goes through the owner's publish step above (`publish_pkg.py`): its file is copied to `apps-s3/`, the catalog is written last. Devices see it at their next catalog load.
+
+6. **Updates.** A higher `code` from the same account goes back into the queue. One that asks for no new permission is reviewed first.
+
+</Steps>
+
+Your private copy (`u.vn.you.teatimer`) keeps working next to the store version; they are two apps on the device, each with its own saved data.
+
+## Also planned<Status s="planned" />
+
+- **A developer page** on the web with your submissions, their review state and download counts.
 - **Human review** for `net`, `bg` and new authors.
 - **Signed packages and catalogs:** Ed25519 developer keys (updates need the same key) and store-signed catalogs with an expiry.
 - **Several catalog sources:** a self-hosted server can mirror the official store, and devices can add other catalogs.
-- **`espos publish`** to a test store, then to the official one.
 
 Store content belongs to its authors and stays exportable.

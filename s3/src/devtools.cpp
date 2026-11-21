@@ -3,6 +3,9 @@
 #include "tank/tank.h"
 #include "lock.h"
 #include "claim.h"
+#if ESPOS_ONBOARD
+#include "onboard.h"
+#endif
 
 #include <Arduino.h>
 #include "esp_memory_utils.h"
@@ -23,6 +26,8 @@ extern const uint8_t x509_bundle_end[] asm("_binary_x509_crt_bundle_end");
 #include "esp_heap_caps.h"
 #include "desk.h"
 #include "ota.h"
+#include "pkg/store.h"
+#include "esp_ota_ops.h"
 #include "sound.h"
 #include "net.h"
 #include "fonts.h"
@@ -150,6 +155,9 @@ void run(char* cmd) {
       Serial.println("WIFIADD_ERR");
     }
   } else if (claim::usb(cmd)) {  // ESPOS:INFO / CLAIM / FACTORY_RESET / ATTEST for Kho máy (claim.h)
+#if ESPOS_ONBOARD
+  } else if (onboard::usb(cmd)) {  // ESPOS:ONBOARD / ESPOS:DEMO: the first-boot setup, a store demo unit (onboard.h)
+#endif
   } else if (!strncmp(cmd, kProvision, sizeof(kProvision) - 1)) {
     String err;
     if (desk::provision(cmd + sizeof(kProvision) - 1, err)) Serial.println("ESPOS:OK");
@@ -450,6 +458,20 @@ void run(char* cmd) {
     const desk::FwOffer& o = desk::fwOffer();
     Serial.printf("OTA offer %s (%u bytes)\n", o.version.length() ? o.version.c_str() : "none", (unsigned)o.size);
     if (o.version.length()) ota::start();
+#if ESPOS_QA
+  } else if (!strncmp(cmd, "OTAFILE ", 8)) {  // QA: OTAFILE /sdcard/fw.bin: written to the other app slot, then boots it
+    if (!ota::installFile(cmd + 8)) Serial.println("OTAFILE failed");
+  } else if (!strncmp(cmd, "PKGMOVE ", 8)) {  // QA: PKGMOVE <id> flash|card, as the store page's Move
+    String id = cmd + 8, why;
+    const bool card = id.endsWith(" card");
+    id = id.substring(0, id.lastIndexOf(' '));
+    const bool ok = pkg::store::move(id.c_str(), card ? pkg::SD : pkg::FLASH, why);
+    trace::add("qa: PKGMOVE %s %s %s", id.c_str(), ok ? "ok" : "refused:", why.c_str());
+  } else if (!strcmp(cmd, "PART")) {  // QA: the partition table (docs/partitions.md)
+    const esp_partition_t* r = esp_ota_get_running_partition();
+    Serial.printf("PART table v%d, running %s at 0x%x, app slot %u bytes\n", ota::table(), r ? r->label : "?",
+                  r ? (unsigned)r->address : 0, (unsigned)ota::slotBytes());
+#endif
   } else if (!strcmp(cmd, "HEAPDIFF")) {  // internal RAM blocks in use that were not there at the last HEAPDIFF
     struct Blk {
       void* p;

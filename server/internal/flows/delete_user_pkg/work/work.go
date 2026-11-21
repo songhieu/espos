@@ -2,6 +2,8 @@
 package work
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"espos/internal/wm"
 	"fmt"
@@ -9,7 +11,9 @@ import (
 	"time"
 )
 
-// Deletes one of the caller's Java games: every file of it (all versions), its row, and on each of the caller's S3
+// Deletes one of the caller's own packages ({"id": row id} from the web, or {"pkg_id": "u.*"} from espos apps rm):
+// every file of it (all versions; any_owner, because CLI uploads are written as the website's and every key here is
+// built from the caller's row), its row, and on each of the caller's S3
 // devices it goes into s3.pkgs as {"id", "rm": true} (s3desk/docs/ecosystem.md §6) when that device has it or was
 // asked to install it, so the device removes it at its next sync and then drops the entry. Written as the web's
 // settings page writes a setting (source web, now), so it wins over an older copy on the device.
@@ -47,24 +51,59 @@ func hasIt(row map[string]any, id string) bool {
 	return wm.Str(job["id"]) == id
 }
 
+// devUser: the account of a developer key (espos CLI) in this route's own Authorization header: the /v1/dev/* routes
+// are public, with the guards require_dev_key (which refuses a wrong key first) and admin_dev_active. On the web's
+// end_user routes the platform keeps that header to itself, so this finds nothing there and the signed-in person
+// counts. Only the key's sha256 is stored (dev_keys.key_hash).
+func devUser(auth string) (int, error) {
+	const prefix = "Bearer espos_dev_"
+	auth = strings.TrimSpace(auth)
+	if len(auth) != len(prefix)+64 || !strings.HasPrefix(auth, prefix) || strings.ToLower(auth[7:]) != auth[7:] {
+		return 0, nil
+	}
+	if _, err := hex.DecodeString(auth[len(prefix):]); err != nil {
+		return 0, nil
+	}
+	sum := sha256.Sum256([]byte(auth[7:]))
+	rows, err := wm.QueryOpts("dev_keys", map[string]any{
+		"filters": []map[string]any{{"column": "key_hash", "op": "eq", "value": hex.EncodeToString(sum[:])}}, "limit": 1})
+	if err != nil || len(rows) != 1 {
+		return 0, err
+	}
+	return wm.Int(rows[0]["user_id"]), nil
+}
+
 func Run(wmIn, wmCtx map[string]any) map[string]any {
 	uid := wm.Int(wmCtx["end_user_id"])
 	if uid == 0 {
 		uid = wm.Int(wmIn["uid"])
 	}
 	if uid == 0 {
-		return map[string]any{"status": 401, "body": map[string]any{"error": "Cần đăng nhập"}}
+		dk, kerr := devUser(wm.Str(wmIn["auth"]))
+		if kerr != nil {
+			return wm.Fail(kerr)
+		}
+		uid = dk // a developer key's account (the CLI's /v1/dev/* routes)
+	}
+	if uid == 0 {
+		return map[string]any{"status": 401, "body": map[string]any{"error": "Cần đăng nhập", "code": "not_signed_in"}}
 	}
 	b, _ := wmIn["body"].(map[string]any)
 	id := wm.Int(b["id"])
+	filter := map[string]any{"column": "id", "op": "eq", "value": id}
+	if p := wm.Str(b["pkg_id"]); id <= 0 && strings.HasPrefix(p, "u.") && len(p) <= 48 {
+		filter = map[string]any{"column": "pkg_id", "op": "eq", "value": p}
+		id = 1
+	}
 	rows, err := wm.QueryOpts("user_pkgs", map[string]any{"filters": []map[string]any{
-		{"column": "id", "op": "eq", "value": id}, {"column": "user_id", "op": "eq", "value": uid}}, "limit": 1})
+		filter, {"column": "user_id", "op": "eq", "value": uid}}, "limit": 1})
 	if err != nil {
 		return wm.Fail(err)
 	}
 	if id <= 0 || len(rows) != 1 {
-		return map[string]any{"status": 404, "body": map[string]any{"error": "Không tìm thấy game này"}}
+		return map[string]any{"status": 404, "body": map[string]any{"error": "Không tìm thấy game này", "code": "pkg_not_found"}}
 	}
+	id = wm.Int(rows[0]["id"])
 	pkgID := wm.Str(rows[0]["pkg_id"])
 
 	// ---- the files: every upload of this id, under the caller's own folder ----
@@ -159,5 +198,5 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 		}
 		told++
 	}
-	return map[string]any{"status": 200, "body": map[string]any{"ok": true, "devices": told}}
+	return map[string]any{"status": 200, "body": map[string]any{"ok": true, "devices": told, "pkg_id": pkgID}}
 }

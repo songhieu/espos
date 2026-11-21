@@ -130,7 +130,9 @@ restart even if the package is removed while open, so mapped pointers never dang
 Installing: each part is downloaded (several byte ranges at once), its SHA-256 checked against the catalog and
 each file's CRC32 checked (the internal flash is read back), written to the chosen place, and the package is
 committed (NVS index, or a folder rename) only when every part is good; a failure frees everything. An update
-installs the new version next to the old one and then drops the old one. When the app area has room in total but
+installs the new version next to the old one and then drops the old one. Updates come when the catalog's `code` is
+above the installed one: from "Update" (device or web), and by themselves while the app is not in use unless the
+user turned that off (setting `s3.pkg_auto`, `docs/ecosystem.md` §6). So raise `code` with every release. When the app area has room in total but
 no gap big enough, files are slid down one at a time with a journal in NVS (a power cut resumes the move at boot).
 Not enough room: the store says how many MB are missing and lists the biggest apps there with Gỡ / Chuyển.
 
@@ -157,6 +159,9 @@ make -C sim -j10 BUILD=build-me
 - `app <id>` opens an installed package's app; `app store <id>` opens its page in the store.
 - What the next sync would report (`"pkgs"`) is written to `$SIM_DATA/pkgs-report.json` after every change;
   `set s3.pkgs [...]` plays the web asking for installs, moves (`"vol"`) and removals (`"rm": true`).
+- Updates by themselves: `sync` in a script plays a sync (reconcile, and the catalog read while `s3.pkg_auto` is on);
+  `SIM_AUTO_IDLE=2000` shortens the minute nobody must touch the device first. Test data: `sim/data-pkgauto` (Dice
+  1.0.0 and Focus 1.0.0 installed, the catalog in its `net/` offering 1.1.0 and 1.2.0).
 
 ## 8. Publishing
 

@@ -41,13 +41,18 @@ int ewm_init(ewm_t* m, const void* model, uint32_t size, void* mem) {
   const ewm_hdr_t* h = (const ewm_hdr_t*)model;
   const uint8_t* base = (const uint8_t*)model;
   memset(m, 0, sizeof(*m));
-  if (size < sizeof(ewm_hdr_t) || h->magic != EWM_MAGIC || h->version != 1 || h->hdr_size != sizeof(ewm_hdr_t)) return -1;
-  if (h->total_size != size) return -2;
+  if (size < sizeof(ewm_hdr_t) || h->magic != EWM_MAGIC) return -1;
+  if (h->version == 1 ? h->hdr_size != sizeof(ewm_hdr_t)
+                      : h->version != 2 || h->hdr_size != sizeof(ewm_hdr_t) + sizeof(ewm_ext_t))
+    return -1;
+  if (h->total_size != size || size < h->hdr_size) return -2;
   if (crc32_update(0, base + h->hdr_size, size - h->hdr_size) != h->crc32) return -3;
-  if (h->bands != 40 || h->blocks > EWM_MAX_BLOCKS || h->nout > EWM_MAX_OUT || h->nout == 0 || h->smooth > 8 ||
+  if (h->bands != 40 || h->blocks > EWM_MAX_BLOCKS || h->nout == 0 || h->smooth > 8 ||
+      h->nout > (h->version == 1 ? EWM_HDR_OUT : EWM_MAX_OUT) ||
       h->smooth == 0 || h->stride == 0 || h->k0 == 0 || h->k == 0 || h->ch == 0 || h->hc == 0)
     return -4;
   m->h = h;
+  m->ext = h->version == 2 ? (const ewm_ext_t*)(base + sizeof(ewm_hdr_t)) : NULL;
   uint32_t off = h->hdr_size;
   const uint32_t ch = h->ch;
   if (!(off = layer(base, off, size, ch * h->k0 * h->bands, ch, &m->stem))) return -2;
@@ -159,7 +164,7 @@ int ewm_push(ewm_t* m, const int8_t* frame, const float* thr) {
     float avg = 0;
     for (int i = 0; i < sm; i++) avg += m->hist[o][i];
     m->prob[o] = avg / (float)sm;
-    const float t = thr ? thr[o] : h->thr[o];
+    const float t = thr ? thr[o] : ewm_thr(m, o);
     if (m->prob[o] >= t) fired |= 1 << o;
   }
   m->hpos++;
@@ -169,4 +174,20 @@ int ewm_push(ewm_t* m, const int8_t* frame, const float* thr) {
   }
   if (fired) m->quiet = h->refractory;
   return fired;
+}
+
+float ewm_thr(const ewm_t* m, int o) {
+  if (o < 0 || o >= m->h->nout) return 2.0f;  // above any probability: never fires
+  return o < EWM_HDR_OUT ? m->h->thr[o] : m->ext->thr[o - EWM_HDR_OUT];
+}
+
+const char* ewm_name(const ewm_t* m, int o) {
+  if (o < 0 || o >= m->h->nout) return "";
+  return o < EWM_HDR_OUT ? m->h->names[o] : m->ext->names[o - EWM_HDR_OUT];
+}
+
+int ewm_find(const ewm_t* m, const char* name) {
+  for (int o = 0; o < m->h->nout; o++)
+    if (!strncmp(ewm_name(m, o), name, 12)) return o;
+  return -1;
 }

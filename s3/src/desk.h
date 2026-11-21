@@ -57,6 +57,9 @@ String setting(const char* key, const char* def = "");
 int settingInt(const char* key, int def);
 void setSetting(const char* key, const String& value);
 uint32_t settingsVersion();
+#if ESPOS_ONBOARD
+bool hadSettings();  // /settings.json was there at boot (a device in use; the first-boot setup's rule, onboard.h)
+#endif
 
 // USB provisioning (ESPOS:PROVISION <json>): false with a reason on bad input.
 bool provision(const char* json, String& err);
@@ -66,6 +69,7 @@ struct FwOffer {
   String version, url, sha256, notes, date;
   uint32_t size = 0;
   bool install = false;
+  String usb;  // a newer version too big for this partition table's app slot: USB only (docs/partitions.md)
 };
 const FwOffer& fwOffer();
 void reportOta(const String& version, bool ok, const String& why);

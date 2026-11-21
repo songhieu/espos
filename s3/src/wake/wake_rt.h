@@ -20,7 +20,8 @@ extern "C" {
 
 #define EWM_MAGIC 0x314D5745u  // "EWM1"
 #define EWM_MAX_BLOCKS 8
-#define EWM_MAX_OUT 4
+#define EWM_MAX_OUT 8  // outputs a model may have (version 2 files; version 1 has up to EWM_HDR_OUT)
+#define EWM_HDR_OUT 4  // outputs whose threshold and name are in the header itself
 
 typedef struct {
   uint32_t magic;
@@ -30,11 +31,18 @@ typedef struct {
   uint8_t k, hc, nout, smooth;       // smooth: steps averaged before the threshold
   uint16_t ch, refractory;           // refractory: steps ignored after a detection
   uint8_t dil[EWM_MAX_BLOCKS];
-  float thr[EWM_MAX_OUT];            // default thresholds per output
-  char names[EWM_MAX_OUT][12];
+  float thr[EWM_HDR_OUT];            // default thresholds per output (outputs 5-8: ewm_thr)
+  char names[EWM_HDR_OUT][12];       // (outputs 5-8: ewm_name)
   uint32_t total_size;               // whole file, for checking
   uint32_t crc32;                    // of the bytes after the header
 } ewm_hdr_t;
+
+// Version 2 (more than EWM_HDR_OUT outputs, 2026-11-21: the calls after "gâu"): right after the header, the
+// thresholds and names of outputs 5-8; hdr_size covers it. Version 1 files load as before.
+typedef struct {
+  float thr[EWM_MAX_OUT - EWM_HDR_OUT];
+  char names[EWM_MAX_OUT - EWM_HDR_OUT][12];
+} ewm_ext_t;
 
 typedef struct {
   const int8_t* w;
@@ -44,6 +52,7 @@ typedef struct {
 
 typedef struct {
   const ewm_hdr_t* h;
+  const ewm_ext_t* ext;  // version 2 only, else NULL
   ewm_layer_t stem, dw[EWM_MAX_BLOCKS], pw[EWM_MAX_BLOCKS], head, out;
   float r[EWM_MAX_BLOCKS];
   // state (in `mem`)
@@ -66,6 +75,10 @@ void ewm_reset(ewm_t* m);
 // Push one front-end frame. Returns -1 when no network step ran, otherwise a bit mask of the outputs whose
 // smoothed probability crossed thr[] (0 = a step ran, nothing fired). prob[] holds the smoothed values.
 int ewm_push(ewm_t* m, const int8_t* frame, const float* thr);
+// An output's default threshold and name (any output, either version); ewm_find: an output by name, or -1.
+float ewm_thr(const ewm_t* m, int o);
+const char* ewm_name(const ewm_t* m, int o);
+int ewm_find(const ewm_t* m, const char* name);
 // Raw logits of the last step (for tests).
 extern float ewm_last_logits[EWM_MAX_OUT];
 

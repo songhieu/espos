@@ -4,7 +4,7 @@
   "draft": {
     "nodes": [
       { "id": "in", "type": "http_in" },
-      { "id": "work", "type": "code", "config": { "source": { "$file": "nodes/work.go" }, "input": { "body": "{{ input.body }}" } } },
+      { "id": "work", "type": "code", "config": { "source": { "$file": "nodes/work.go" }, "input": { "body": "{{ input.body }}", "desktop_on": "{{ var.desktop_enabled }}" } } },
       { "id": "out", "type": "respond", "config": { "status": "{{ work.status }}", "body": "{{ work.body }}" } },
       { "id": "fail", "type": "respond", "config": { "status": 500, "body": { "error": "{{ work.error }}" } } }
     ],

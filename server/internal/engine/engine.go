@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"log"
 	"path"
@@ -52,6 +53,7 @@ type Result struct {
 	Body    any
 	Data    any
 	Deny    bool
+	Stream  io.ReadCloser // a respond node with stream: true: this body is sent as it comes (then closed)
 }
 
 // Enqueuer starts a background job.
@@ -290,7 +292,42 @@ func (e *Engine) step(f *Flow, n Node, vars, ctx map[string]any, base string) (s
 				res.Headers[k] = wm.Str(v)
 			}
 		}
+		if wm.Bool(cfg["stream"]) {
+			res.Stream, _ = vars[streamKey].(io.ReadCloser)
+			delete(vars, streamKey)
+		}
 		return "", false, res, nil
+
+	case "http_request":
+		out, stream, err := httpRequest(cfg, vars)
+		if out == nil {
+			out = map[string]any{}
+		}
+		if err != nil {
+			wm.Log(f.Code, "/", n.ID, ": ", err.Error())
+			out["error"] = err.Error()
+			vars[n.ID] = out
+			return "error", true, nil, nil
+		}
+		if stream != nil {
+			vars[streamKey] = stream
+		}
+		vars[n.ID] = out
+		return "", false, nil, nil
+
+	case "tts": // the hosted speech service's place (tools/importer): the voice from ESPOS_TTS_* (net.go)
+		text := wm.Str(eval(cfg["text"], vars))
+		voice := wm.Str(eval(cfg["voice"], vars))
+		rate := wm.Int(eval(cfg["rate"], vars))
+		stream, err := ttsStream(text, voice, rate)
+		if err != nil {
+			wm.Log(f.Code, "/", n.ID, ": ", err.Error())
+			vars[n.ID] = map[string]any{"error": err.Error()}
+			return "error", true, nil, nil
+		}
+		vars[streamKey] = stream
+		vars[n.ID] = map[string]any{"status": float64(200)}
+		return "", false, nil, nil
 
 	case "return":
 		res := &Result{Data: eval(cfg["data"], vars), Deny: wm.Bool(cfg["deny"]), Status: wm.Int(eval(cfg["status"], vars)), Body: eval(cfg["body"], vars)}
@@ -331,6 +368,35 @@ func (e *Engine) step(f *Flow, n Node, vars, ctx map[string]any, base string) (s
 			out["content"] = string(b)
 		}
 		vars[n.ID] = out
+		return "", false, nil, nil
+
+	case "storage_put":
+		// As the hosted node: {"key", "content_base64"} (or "content" as text) writes the file; {key, size} after.
+		key := wm.Str(eval(cfg["key"], vars))
+		var data []byte
+		var err error
+		if b64 := wm.Str(eval(cfg["content_base64"], vars)); b64 != "" {
+			data, err = base64.StdEncoding.DecodeString(b64)
+		} else {
+			data = []byte(wm.Str(eval(cfg["content"], vars)))
+		}
+		if key == "" || err == nil && len(data) == 0 {
+			err = errors.New("storage_put needs a key and content")
+		}
+		if err == nil {
+			err = wm.StoragePut(key, data)
+		}
+		if err != nil {
+			vars[n.ID] = map[string]any{"error": err.Error()}
+			return "", true, nil, nil
+		}
+		vars[n.ID] = map[string]any{"key": key, "size": len(data)}
+		return "", false, nil, nil
+
+	case "publish":
+		// Realtime channels (the hosted platform's push to a listening client) do not exist on this server: the
+		// message is dropped and the run goes on; clients find the change at their next sync or poll.
+		vars[n.ID] = map[string]any{"ok": true, "delivered": 0}
 		return "", false, nil, nil
 
 	case "call_workflow":

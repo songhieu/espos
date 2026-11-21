@@ -405,7 +405,9 @@ void catalog(JsonArrayConst packages) {
 }
 
 void tick() {
-  claim::tick();  // an unclaimed unit's first boot (claim.h)
+#if !ESPOS_ONBOARD
+  claim::tick();  // an unclaimed unit's first boot (claim.h; with the setup, onboard.cpp does it)
+#endif
   refresh();
   static uint32_t seenVer = 0, seenAi = 0;
   if (seenVer != ver) {

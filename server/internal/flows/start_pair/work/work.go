@@ -20,12 +20,21 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 	if !codeRe.MatchString(code) || !hashRe.MatchString(hash) {
 		return map[string]any{"status": 422, "body": map[string]any{"error": "invalid"}}
 	}
+	kind := wm.Str(body["kind"])
+	if kind == "desktop" {
+		// The EspOS Desktop Mac app (2026-11-21, s3desk/docs/desktop-protocol.md §1); refused while the kill switch
+		// (variable desktop_enabled) is off.
+		if wm.Str(in["desktop_on"]) != "1" {
+			return map[string]any{"status": 403, "body": map[string]any{"error": "desktop_disabled"}}
+		}
+		if name == "" || len([]rune(name)) > 40 {
+			name = "Máy tính"
+		}
+	} else if kind != "s3" && kind != "bot" {
+		kind = "x4" // the EspOS Bot (kind "bot", 2026-11-20) and the S3 say so; anything else is an X4
+	}
 	if name == "" || len([]rune(name)) > 40 {
 		name = "Xteink X4"
-	}
-	kind := wm.Str(body["kind"])
-	if kind != "s3" && kind != "bot" {
-		kind = "x4" // the EspOS Bot (kind "bot", 2026-11-20) and the S3 say so; anything else is an X4
 	}
 	now := time.Now().UnixMilli()
 	// Free a code (or token) left by an expired attempt.

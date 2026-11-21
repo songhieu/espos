@@ -1,0 +1,92 @@
+{
+  "code": "assist_reply",
+  "name": "Dog assistant: one turn (hear, answer in the dog's voice, remember)",
+  "draft": {
+    "nodes": [
+      {
+        "id": "in",
+        "type": "function_in",
+        "config": {
+          "inputs": [
+            "device_id",
+            "user_id",
+            "source"
+          ],
+          "optional": [
+            "text",
+            "audio",
+            "cid",
+            "dog",
+            "wake",
+            "intent"
+          ]
+        }
+      },
+      {
+        "id": "talk",
+        "type": "code",
+        "config": {
+          "source": {
+            "$file": "nodes/talk.go"
+          },
+          "timeout_ms": 50000,
+          "memory_mb": 384,
+          "input": {
+            "device_id": "{{ input.device_id }}",
+            "user_id": "{{ input.user_id }}",
+            "source": "{{ input.source }}",
+            "text": "{{ input.text }}",
+            "audio": "{{ input.audio }}",
+            "cid": "{{ input.cid }}",
+            "dog": "{{ input.dog }}",
+            "wake": "{{ input.wake }}",
+            "intent": "{{ input.intent }}",
+            "desk_on": "{{ var.desktop_enabled }}"
+          }
+        }
+      },
+      {
+        "id": "out",
+        "type": "return",
+        "config": {
+          "data": {
+            "status": "{{ talk.status }}",
+            "body": "{{ talk.body }}",
+            "changes": "{{ talk.changes }}",
+            "n_changes": "{{ talk.n_changes }}",
+            "oops": "{{ talk.oops }}",
+            "facts": "{{ talk.facts }}",
+            "unclear": "{{ talk.unclear }}"
+          }
+        }
+      },
+      {
+        "id": "boom",
+        "type": "return",
+        "config": {
+          "data": {
+            "status": 500,
+            "body": {
+              "error": "{{ talk.error }}"
+            }
+          }
+        }
+      }
+    ],
+    "edges": [
+      {
+        "from": "in",
+        "to": "talk"
+      },
+      {
+        "from": "talk",
+        "to": "out"
+      },
+      {
+        "from": "talk",
+        "to": "boom",
+        "port": "error"
+      }
+    ]
+  }
+}

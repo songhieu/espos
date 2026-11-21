@@ -33,6 +33,7 @@ var deviceDefaults = map[string]string{
 	// App store (2026-11-16, s3desk/docs/ecosystem.md §6): the packages the user wants, notification switches.
 	"s3.pkgs": "", "s3.notif": "",
 	"s3.notif_preview": "1", // 0: banners show only the app's name, not the text
+	"s3.pkg_auto":      "1", // 0: installed apps no longer take a newer store version by themselves (s3desk/docs/ecosystem.md §6)
 	"s3.saver_pages":   "",  // the custom saver (s3desk/docs/saver.md); "" = the device's defaults
 	// The Markets app's codes ("gold:SJC,stocks:FPT,fx:USD,crypto:BTC", at most 20); "" = the built-in mix.
 	"s3.markets": "",
@@ -42,6 +43,9 @@ var deviceDefaults = map[string]string{
 	// PawBoop (2026-11-18, s3desk/docs/pawboop.md): the chosen dog (a key of petDogs; "" = the first installed) and the
 	// dog assistant's switches (checkAssist). The AI assistant (assist_reply) talks as s3.pet_dog when not told a dog.
 	"s3.pet_dog": "", "s3.assist": "",
+	// The first-boot setup (2026-11-21, s3desk/docs/onboarding-plan.md): what the device sends when it is done ("again"
+	// from the web runs it again; checkOnboard), and the name it asked for (checkCallName; copied into the account).
+	"s3.onboard": "", "s3.call_name": "",
 	// Lite packages on the X4 (2026-11-17, s3desk/docs/profiles.md §9.1): what the user wants installed, a JSON
 	// list [{"id", "code"}, {"id", "rm": true}]. Sent to and taken from an X4 only.
 	"x4.pkgs": "",
@@ -143,7 +147,7 @@ func s3OSCheck(k, v string) (handled bool, good bool) {
 		return true, checkPkgsSetting(v) == ""
 	case "s3.notif":
 		return true, checkNotifSetting(v) == ""
-	case "s3.notif_preview":
+	case "s3.notif_preview", "s3.pkg_auto":
 		return true, v == "" || v == "0" || v == "1"
 	case "s3.saver_pages":
 		return true, checkSaverPages(v) == ""
@@ -163,6 +167,10 @@ func s3OSCheck(k, v string) (handled bool, good bool) {
 		return true, petDogs[v]
 	case "s3.assist":
 		return true, checkAssist(v) == ""
+	case "s3.onboard":
+		return true, checkOnboard(v) == ""
+	case "s3.call_name":
+		return true, checkCallName(v) == ""
 	}
 	return false, false
 }
@@ -1193,6 +1201,11 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 		}
 		cur[k] = cell{v, ts}
 		webSet[k] = false
+		if k == "s3.call_name" && strings.TrimSpace(v) != "" {
+			if perr := setupName(userID, strings.TrimSpace(v)); perr != nil {
+				return wm.Fail(perr)
+			}
+		}
 	}
 	// New calendar links from the device: today's cached events go, so the next dashboard reads them.
 	if icsChanged {
@@ -1629,6 +1642,19 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 				}
 			}
 		}
+		// Notes raise the rev (2026-11-21, EspOS Desktop protocol §5): the person's newest notifications row, as
+		// device_ping's rev, so a new dashboard note reaches the colour desk within a minute.
+		// scripts/check-ping-keys.py checks both do.
+		nr, nerr := wm.QueryOpts("notifications", map[string]any{"filters": []map[string]any{{"column": "user_id", "op": "eq", "value": userID}},
+			"order_by": "created_at", "desc": true, "limit": 1})
+		if nerr != nil {
+			return wm.Fail(nerr)
+		}
+		if len(nr) == 1 {
+			if t, perr := time.Parse(time.RFC3339Nano, strings.TrimSpace(wm.Str(nr[0]["created_at"]))); perr == nil && t.UnixMilli() > rev {
+				rev = t.UnixMilli()
+			}
+		}
 	}
 
 	// ---- answer: books ----
@@ -1756,9 +1782,73 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 var petDogs = map[string]bool{"": true, "bao": true, "momo": true, "boop": true, "leaf": true, "volt": true, "byte": true,
 	"shiba": true, "corgi": true, "husky": true, "golden": true}
 
+// checkOnboard: s3.onboard, the first-boot setup (s3desk/src/onboard.cpp, docs/onboarding-plan.md): "" (never ran),
+// "again" (the web asks the device to run it again), or what the device sends when it is done:
+// {"v":1,"done":<unix s>,"dog":"<key>","skip":["wifi","pair",...]} within 300 bytes. "" when good, else the reason.
+// The same function is in device_sync and put_device_settings: keep the two copies identical.
+func checkOnboard(v string) string {
+	if v == "" || v == "again" {
+		return ""
+	}
+	if len(v) > 300 {
+		return "quá dài (tối đa 300 byte)"
+	}
+	var d struct {
+		V    int      `json:"v"`
+		Done int64    `json:"done"`
+		Dog  string   `json:"dog"`
+		Skip []string `json:"skip"`
+	}
+	if json.Unmarshal([]byte(v), &d) != nil || d.V < 1 || d.V > 99 || d.Done < 0 {
+		return "cần \"again\" hoặc {\"v\",\"done\",\"dog\",\"skip\"}"
+	}
+	if d.Dog != "" && !onboardDogs[d.Dog] {
+		return "dog: không có chó " + d.Dog
+	}
+	steps := map[string]bool{"lang": true, "wifi": true, "dog": true, "name": true, "call": true, "city": true, "pair": true, "tips": true}
+	for _, s := range d.Skip {
+		if !steps[s] {
+			return "skip: không có bước " + s
+		}
+	}
+	return ""
+}
+
+// onboardDogs: the PawBoop dogs (s3desk/src/pet/dogs.cpp ALL).
+var onboardDogs = map[string]bool{"bao": true, "momo": true, "boop": true, "leaf": true, "volt": true, "byte": true, "shiba": true,
+	"corgi": true, "husky": true, "golden": true}
+
+// checkCallName: s3.call_name, the name the first-boot setup asked for (how the dogs call the person; the first sync
+// after it copies it into user_profiles.call_name when the account has none). At most 40 letters, one line.
+// The same function is in device_sync and put_device_settings: keep the two copies identical.
+func checkCallName(v string) string {
+	if len([]rune(v)) > 40 || strings.ContainsAny(v, "\r\n\t") {
+		return "tối đa 40 ký tự, một dòng"
+	}
+	return ""
+}
+
+// setupName: the name typed in the device's first-boot setup becomes the account's (user_profiles.call_name, the
+// web's Tài khoản › "Tên của bạn") when the account has none yet; a name set on the web or told to a dog stays.
+func setupName(userID int, name string) error {
+	rows, err := wm.QueryOpts("user_profiles", map[string]any{"filters": []map[string]any{{"column": "user_id", "op": "eq", "value": userID}}, "limit": 1})
+	if err != nil {
+		return err
+	}
+	if len(rows) == 0 {
+		_, err = wm.Insert("user_profiles", map[string]any{"user_id": userID, "call_name": name})
+		return err
+	}
+	if strings.TrimSpace(wm.Str(rows[0]["call_name"])) != "" {
+		return nil
+	}
+	_, err = wm.Update("user_profiles", wm.Int(rows[0]["id"]), map[string]any{"call_name": name})
+	return err
+}
+
 // checkAssist: s3.assist, the dog assistant's switches (s3desk/src/pet/assist.cpp prefs/setPrefs): "" or a JSON
 // object of at most these keys: on, greet, weather, alarm, meal (0 or 1), water, move, eyes (minutes between
-// habit reminders, 0 to 600; 0 = off), the wake word's wake (0-2), wake_word (0-1), wake_sens (1-3) and the RGB LED's
+// habit reminders, 0 to 600; 0 = off), the wake word's wake (0-2), wake_word (0-1), wake_sens (1-3), calls (1-31) and the RGB LED's
 // led (0-2), led_bright (1-3), follow (0-1: the dog listens on after an answer) and ack (0-2: what it does when it
 // hears its name: nothing, a beep, a word in its voice). "" when good, else the reason.
 // The same function is in device_sync and put_device_settings: keep the two copies identical.
@@ -1798,6 +1888,10 @@ func checkAssist(v string) string {
 		case "wake_sens": // 1 low, 2 normal, 3 high
 			if n < 1 || n > 3 {
 				return k + ": 1 đến 3"
+			}
+		case "calls": // which calls wake the dog, bits: 1 "gâu gâu", 2 "ki ki", 4 "lu lu", 8 "cún ơi", 16 "milu"
+			if n < 1 || n > 31 {
+				return k + ": 1 đến 31"
 			}
 		case "led": // the board's RGB LED (s3desk/src/led.h): 0 off, 1 only with the dog, 2 the dog and arrivals
 			if n < 0 || n > 2 {

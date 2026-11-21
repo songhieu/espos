@@ -79,6 +79,38 @@ void askWake(int mode) {
   os::open(scr);
 }
 
+// The calls row: several chips on at once (s3.assist "calls", bits in chip order; at least one stays on).
+lv_obj_t* callBar = nullptr;
+void paintCalls(uint8_t m) {
+  if (!callBar) return;
+  for (uint32_t i = 0; i < lv_obj_get_child_count(callBar); i++) {
+    lv_obj_t* c = lv_obj_get_child(callBar, i);
+    const bool on = (m >> i) & 1;
+    lv_obj_set_style_bg_color(c, C(on ? pal().chipOn : pal().chip), 0);
+    lv_obj_set_style_text_color(lv_obj_get_child(c, 0), C(on ? pal().chipOnFg : pal().chipFg), 0);
+  }
+}
+
+}  // namespace
+
+lv_obj_t* callChips(lv_obj_t* parent) {
+  static const char* const CALLS[] = {"Gâu gâu", "Ki ki", "Lu lu", "Cún ơi", "Milu"};  // what you say: not translated
+  callBar = chips(parent, CALLS, 5, -1, [](int i) {
+    assist::Prefs q = assist::prefs();
+    const uint8_t m = q.calls ^ (1 << i);
+    if (m) {
+      q.calls = m;
+      assist::setPrefs(q);
+    }
+    paintCalls(q.calls);
+  });
+  lv_obj_add_event_cb(callBar, [](lv_event_t*) { callBar = nullptr; }, LV_EVENT_DELETE, nullptr);
+  paintCalls(assist::prefs().calls);
+  return callBar;
+}
+
+namespace {
+
 void wakeRows(lv_obj_t* body) {
   caption(body, N_("CALL WITH \"GÂU\""));  // i18n: a heading in upper case; "GÂU" is the dog's call, as is
   lv_obj_t* c = cell(body);
@@ -99,6 +131,9 @@ void wakeRows(lv_obj_t* body) {
     if (i && !ok) return askWake(i);
     setWake(i);
   });
+  // i18n: which calls wake the dog (several can be on); the calls themselves are Vietnamese words, never translated
+  title(N_("It answers to"));
+  callChips(c);
   title(N_("Call it with"));
   static const char* const WORDS[] = {N_("Gâu gâu"), N_("\"Gâu\" too")};  // i18n: "Gâu gâu" is the call itself: keep it as is
   chips(c, WORDS, 2, p.wakeWord, [](int i) {
@@ -122,6 +157,9 @@ void wakeRows(lv_obj_t* body) {
     assist::setPrefs(q);
   });
   hint(body, N_("\"Gâu gâu\" alone is the safest. \"Gâu\" too wakes it more easily, also by mistake."));
+  // i18n: under the calls; "Gâu gâu" is a call itself (keep it as it is); the listener is the "Gâu" wake-word package
+  hint(body, N_("Every call you turn on is one more way to wake it by mistake. The calls after \"Gâu gâu\" need the "
+                "newest listener."));
   // After an answer: listen on for a close question, no call needed (s3.assist "follow", default on).
   lv_obj_t* fc = cell(body, 0);
   lv_obj_t* fr = clear(fc);

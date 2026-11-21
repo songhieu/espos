@@ -12,6 +12,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 )
 
@@ -124,4 +125,12 @@ func SafeKey(s string) string {
 		s = "file"
 	}
 	return s
+}
+
+var runSeq atomic.Int64
+
+// Context is the hosted runtime's run context for code outside a node's Run (which gets its own as an argument):
+// here only a fresh run id, which such code uses to make a value unique.
+func Context() map[string]any {
+	return map[string]any{"run_id": fmt.Sprintf("%d-%d", time.Now().UnixNano(), runSeq.Add(1)), "node_id": ""}
 }

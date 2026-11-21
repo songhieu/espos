@@ -1,0 +1,161 @@
+{
+  "code": "chat_device_dog",
+  "name": "Web: talk to a device's dog (typed question; the same turn as the device's)",
+  "draft": {
+    "nodes": [
+      {
+        "id": "in",
+        "type": "http_in"
+      },
+      {
+        "id": "own",
+        "type": "code",
+        "config": {
+          "source": {
+            "$file": "nodes/own.go"
+          },
+          "input": {
+            "uid": "{{ input.user.id }}",
+            "params": "{{ input.params }}",
+            "body": "{{ input.body }}"
+          }
+        }
+      },
+      {
+        "id": "okb",
+        "type": "branch",
+        "config": {
+          "rules": [
+            {
+              "left": "{{ own.ok }}",
+              "op": "eq",
+              "right": true
+            }
+          ]
+        }
+      },
+      {
+        "id": "ask",
+        "type": "call_workflow",
+        "config": {
+          "workflow": "assist_reply",
+          "input": {
+            "device_id": "{{ own.device_id }}",
+            "user_id": "{{ input.user.id }}",
+            "source": "web",
+            "text": "{{ own.text }}",
+            "cid": "{{ own.cid }}",
+            "dog": "{{ own.dog }}"
+          }
+        }
+      },
+      {
+        "id": "act",
+        "type": "call_workflow",
+        "config": {
+          "workflow": "assist_apply",
+          "input": {
+            "uid": "{{ input.user.id }}",
+            "device_id": "{{ own.device_id }}",
+            "status": "{{ ask.status }}",
+            "changes": "{{ ask.changes }}",
+            "n_changes": "{{ ask.n_changes }}",
+            "oops": "{{ ask.oops }}",
+            "reply": "{{ ask.body }}"
+          }
+        }
+      },
+      {
+        "id": "out",
+        "type": "respond",
+        "config": {
+          "status": "{{ act.status }}",
+          "body": "{{ act.body }}"
+        }
+      },
+      {
+        "id": "bad",
+        "type": "respond",
+        "config": {
+          "status": "{{ own.status }}",
+          "body": {
+            "error": "{{ own.err }}"
+          }
+        }
+      },
+      {
+        "id": "fail",
+        "type": "respond",
+        "config": {
+          "status": 500,
+          "body": {
+            "error": "{{ own.error }}"
+          }
+        }
+      },
+      {
+        "id": "fail2",
+        "type": "respond",
+        "config": {
+          "status": 500,
+          "body": {
+            "error": "{{ ask.error }}"
+          }
+        }
+      },
+      {
+        "id": "fail3",
+        "type": "respond",
+        "config": {
+          "status": 500,
+          "body": {
+            "error": "{{ act.error }}"
+          }
+        }
+      }
+    ],
+    "edges": [
+      {
+        "from": "in",
+        "to": "own"
+      },
+      {
+        "from": "own",
+        "to": "okb"
+      },
+      {
+        "from": "own",
+        "to": "fail",
+        "port": "error"
+      },
+      {
+        "from": "okb",
+        "to": "ask",
+        "port": "true"
+      },
+      {
+        "from": "okb",
+        "to": "bad",
+        "port": "false"
+      },
+      {
+        "from": "ask",
+        "to": "fail2",
+        "port": "error"
+      },
+      {
+        "from": "ask",
+        "to": "act"
+      },
+      {
+        "from": "act",
+        "to": "out"
+      },
+      {
+        "from": "act",
+        "to": "fail3",
+        "port": "error"
+      }
+    ]
+  }
+}

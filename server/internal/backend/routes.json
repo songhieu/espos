@@ -21,6 +21,20 @@
   },
   {
     "method": "POST",
+    "path": "/v1/assist/memories/delete",
+    "auth": "end_user",
+    "workflow": "delete_assist_memory",
+    "rate_limit_per_min": 30
+  },
+  {
+    "method": "GET",
+    "path": "/v1/assist/memories",
+    "auth": "end_user",
+    "workflow": "list_assist_memories",
+    "rate_limit_per_min": 60
+  },
+  {
+    "method": "POST",
     "path": "/v1/books/confirm",
     "auth": "end_user",
     "workflow": "confirm_book"
@@ -43,6 +57,107 @@
     "path": "/v1/books",
     "auth": "end_user",
     "workflow": "list_books"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/dev-keys/delete",
+    "auth": "end_user",
+    "workflow": "delete_dev_key",
+    "rate_limit_per_min": 30
+  },
+  {
+    "method": "GET",
+    "path": "/v1/dev-keys",
+    "auth": "end_user",
+    "workflow": "list_dev_keys",
+    "rate_limit_per_min": 60
+  },
+  {
+    "method": "POST",
+    "path": "/v1/dev-keys",
+    "auth": "end_user",
+    "workflow": "create_dev_key",
+    "rate_limit_per_min": 10
+  },
+  {
+    "method": "GET",
+    "path": "/v1/dev/me",
+    "auth": "public",
+    "guards": [
+      "require_dev_key"
+    ],
+    "workflow": "dev_me",
+    "rate_limit_per_min": 60
+  },
+  {
+    "method": "POST",
+    "path": "/v1/dev/pkgs/confirm",
+    "auth": "public",
+    "guards": [
+      "require_dev_key"
+    ],
+    "workflow": "confirm_user_pkg",
+    "rate_limit_per_min": 20
+  },
+  {
+    "method": "POST",
+    "path": "/v1/dev/pkgs/delete",
+    "auth": "public",
+    "guards": [
+      "require_dev_key"
+    ],
+    "workflow": "delete_user_pkg",
+    "rate_limit_per_min": 30
+  },
+  {
+    "method": "POST",
+    "path": "/v1/dev/pkgs/install",
+    "auth": "public",
+    "guards": [
+      "require_dev_key"
+    ],
+    "workflow": "install_user_pkg",
+    "rate_limit_per_min": 30
+  },
+  {
+    "method": "POST",
+    "path": "/v1/dev/pkgs/upload",
+    "auth": "public",
+    "guards": [
+      "require_dev_key"
+    ],
+    "workflow": "start_user_pkg_upload",
+    "rate_limit_per_min": 20
+  },
+  {
+    "method": "GET",
+    "path": "/v1/dev/pkgs",
+    "auth": "public",
+    "guards": [
+      "require_dev_key"
+    ],
+    "workflow": "list_user_pkgs",
+    "rate_limit_per_min": 60
+  },
+  {
+    "method": "GET",
+    "path": "/v1/device/assist/say",
+    "auth": "public",
+    "guards": [
+      "require_device"
+    ],
+    "workflow": "device_assist_say",
+    "rate_limit_per_min": 30
+  },
+  {
+    "method": "POST",
+    "path": "/v1/device/assist",
+    "auth": "public",
+    "guards": [
+      "require_device"
+    ],
+    "workflow": "device_assist",
+    "rate_limit_per_min": 20
   },
   {
     "method": "GET",
@@ -163,6 +278,20 @@
     ],
     "workflow": "device_whoami",
     "rate_limit_per_min": 30
+  },
+  {
+    "method": "GET",
+    "path": "/v1/devices/:id/assist/say",
+    "auth": "end_user",
+    "workflow": "say_device_dog",
+    "rate_limit_per_min": 30
+  },
+  {
+    "method": "POST",
+    "path": "/v1/devices/:id/assist",
+    "auth": "end_user",
+    "workflow": "chat_device_dog",
+    "rate_limit_per_min": 15
   },
   {
     "method": "GET",
@@ -363,6 +492,13 @@
     "path": "/v1/user-pkgs/delete",
     "auth": "end_user",
     "workflow": "delete_user_pkg",
+    "rate_limit_per_min": 30
+  },
+  {
+    "method": "POST",
+    "path": "/v1/user-pkgs/install",
+    "auth": "end_user",
+    "workflow": "install_user_pkg",
     "rate_limit_per_min": 30
   },
   {

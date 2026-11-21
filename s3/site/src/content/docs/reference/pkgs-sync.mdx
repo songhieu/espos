@@ -34,7 +34,7 @@ What the device does with the list:
 - **Installs** what is listed and not installed, one at a time, in list order.
 - **Moves** a package whose `vol` changed.
 - **Removes** entries with `"rm": true`, then drops those entries from the list.
-- **Updates** a listed package when the catalog has a higher `code`.
+- **Updates** a listed package when its entry's `code` is higher than the installed one (the web's "Update" writes the catalog's `code`). It also updates by itself to a higher catalog `code` while the setting `s3.pkg_auto` is not `"0"`; see [Updates](/concepts/store/#updates). An update the device made adds no `code` to the entry, and a `code` at or below the installed one asks for nothing.
 - **Leaves alone** a package that is installed but not listed, and adds it to the list.
 
 Installing or removing on the device updates `s3.pkgs` the same way, so the web desk sees the change at the next sync.

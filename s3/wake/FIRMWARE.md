@@ -45,6 +45,17 @@ shows the same rows. On the device they are in the dog's book (PawBoop › book 
 | `wake` | 0 off, 1 only on the charger, 2 always | 0 | "Gọi bằng 'Gâu'": Tắt / Khi cắm sạc / Luôn luôn |
 | `wake_word` | `gau2` ("Gâu gâu", fewer mistakes), `gau` ("Gâu" alone also works) | `gau2` | "Cách gọi" |
 | `wake_sens` | 1 low ("gâu gâu" >= 0.98), 2 normal, the easy mode (>= 0.8, or any "gâu" >= 0.95), 3 high (>= 0.6 or 0.85); overridable by the package's wake.json | 2 | "Độ nhạy" |
+| `calls` | which calls wake it, bits: 1 "Gâu gâu", 2 "Ki ki", 4 "Lu lu", 8 "Cún ơi", 16 "Milu" (or "Milu ơi"); never 0 | 31 (all five) | "Tiếng gọi" (several chips on at once) |
+
+**More calls (2026-11-21).** The owner asked for "ki ki" next to "gâu gâu", then "lu lu", "cún ơi" and "milu". They
+are more outputs of the same model (one network, the same CPU: only the last layer grows), named `kiki`, `lulu`,
+`cun`, `milu` in the `.ewm`. Their thresholds come only from the package's wake.json (`"thr": {"kiki": [low, normal,
+high], ...}`); a model without an output, or a wake.json without its thresholds, leaves that call off, so an older
+listener package keeps working with this firmware. A model with more than four outputs uses `.ewm` version 2 (the
+names and thresholds of outputs 5-8 right after the header); firmware from before refuses it and keeps the model it
+has, so the package's `min_fw` goes up with it. The EspOS Bot hears "Ki ki" too when its built-in model has it
+(`src/bot/ear.cpp` `THRK`). Training: `train/texts.py` WAKE2 / CONF2, `gen_tts.py --words2`, `build_sets.py
+--words2`, `train.py --nout 6 --init m64d`, `evaluate_calls.py` (README section 3).
 
 Turning it on the first time shows one screen: "Máy sẽ nghe liên tục để chờ tiếng 'Gâu'. Âm thanh chỉ xử lý trong
 máy; chỉ sau tiếng 'Gâu' máy mới gửi câu bạn nói để chú chó trả lời." with "Bật" / "Để sau". When the package is

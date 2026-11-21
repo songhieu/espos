@@ -7,7 +7,7 @@ description: 'Every espos command, argument and option, generated from the CLI (
 This reference is generated from `espos help --json` (espos 0.1.0) by `site/scripts/gen-cli.mjs`. To change it, change the CLI's command table and run `npm run gen:cli` in `site/`.
 :::
 
-EspOS developer tools: make, check and run packages (.espk) in the simulator, QEMU or on a board.
+EspOS developer tools: make, check and run packages (.espk) in the simulator, QEMU or on a board, and upload them to your own devices.
 
 ```sh
 espos <command> [arguments] [options]
@@ -28,6 +28,14 @@ The CLI is **Preview**: commands and options may still change before 1.0. It wor
 | [`espos store`](#espos-store) | Catalog entries and publishing to the store (wraps scripts/publish_pkg.py). |
 | [`espos store entry`](#espos-store-entry) | Print the catalog "packages" entry for the parts of a package (tools/espk.py --entry with publish_pkg.py's part rules). |
 | [`espos store publish`](#espos-store-publish) | Check, then publish packages with scripts/publish_pkg.py. Without --yes it is a dry run. |
+| [`espos login`](#espos-login) | Save a developer key from espos.dev, for espos upload and espos apps (your own devices). |
+| [`espos logout`](#espos-logout) | Forget the saved developer key (revoke it on espos.dev to stop it working). |
+| [`espos whoami`](#espos-whoami) | The account the developer key belongs to, its S3 devices and the upload limits. |
+| [`espos upload`](#espos-upload) | Check a package and upload it to your espos.dev account: private, it installs only on your own devices. |
+| [`espos apps`](#espos-apps) | Your uploaded packages and where they are installed; install or remove them. |
+| [`espos apps list`](#espos-apps-list) | List your uploaded packages, and each S3 device's copy of them. |
+| [`espos apps install`](#espos-apps-install) | Ask your devices for one of your packages (all S3 devices, or --device). |
+| [`espos apps rm`](#espos-apps-rm) | Delete one of your packages from the account; your devices remove it at their next sync. |
 | [`espos sim`](#espos-sim) | Run packages in the SDL simulator: install, build the simulator if needed, open the app. |
 | [`espos qemu`](#espos-qemu) | Run the real firmware in Espressif's QEMU (tools/qemu/run.sh), with packages put onto its card. |
 | [`espos device`](#espos-device) | Talk to an EspOS S3 over USB: list, info, shot, logs, app, tap, drag, home, trace, mem, js, send, console. |
@@ -90,7 +98,9 @@ Human text on stdout, warnings and progress on stderr; with --json (commands mar
 | `ESPOS_SIM_BUILD` | the simulator's build folder name under sim/ (default build, build-live for --live) |
 | `ESPOS_BBK` | the store upload key, read only by scripts/publish_pkg.py (store publish --yes) |
 | `ESPOS_PUBLISH_SCRIPT` | scripts/publish_pkg.py if it is not next to s3desk |
-| `ESPOS_CONFIG_DIR` | where remembered devices are kept (default ~/.config/espos) |
+| `ESPOS_CONFIG_DIR` | where remembered devices and the developer key (credentials.json) are kept (default ~/.config/espos) |
+| `ESPOS_DEV_KEY` | a developer key from espos.dev, used instead of the saved one (CI); never printed |
+| `ESPOS_API` | the server for login, upload and apps (default https://api.espos.dev) |
 | `NO_COLOR` | no colours |
 
 ## espos create
@@ -109,7 +119,7 @@ espos create DIR [options]
 |---|---|
 | `-t, --template NAME` | the kind of project One of `js-app`, `js-app-ts`, `j2me-game`. Default: `"js-app"`. |
 | `--id ID` | package id, reverse domain (default com.example.&lt;dir&gt;, jar.&lt;name&gt; for games); never changes once published |
-| `--name TEXT` | display name (at most 40 characters, no the ellipsis character) |
+| `--name TEXT` | display name (at most 40 characters, no ellipsis character U+2026) |
 | `--desc TEXT` | one line for the store (at most 300 characters) |
 | `--author TEXT` | author (at most 40 characters) |
 | `--category NAME` | store category One of `game`, `tool`, `study`, `health`, `widget`. |
@@ -320,6 +330,160 @@ espos store publish [FILES...] [options]
 ```sh
 espos store publish dist/*.espk --catalog catalog.json
 ESPOS_BBK=bbk_... espos store publish dist/*.espk --yes
+```
+
+## espos login
+
+Save a developer key from espos.dev, for espos upload and espos apps (your own devices).
+
+Make the key on the web (Account › Developer keys › New key; it is shown once) and paste it when asked; nothing is shown while you paste. The key is checked with the server, then kept in credentials.json in the config folder (ESPOS_CONFIG_DIR, default ~/.config/espos), readable only by you. ESPOS_DEV_KEY in the environment is used instead when it is set (CI). Never your password.
+
+```sh
+espos login [options]
+```
+
+| Option | Description |
+|---|---|
+| `--key-stdin` | read the key from stdin (a pipe) instead of asking |
+| `--api URL` | the server (default https://api.espos.dev, or the one saved by espos login) Environment: `ESPOS_API`. |
+
+Supports `--json`.
+
+```sh
+espos login
+pbpaste | espos login --key-stdin
+espos login --api http://localhost:8787
+```
+
+## espos logout
+
+Forget the saved developer key (revoke it on espos.dev to stop it working).
+
+```sh
+espos logout
+```
+
+Supports `--json`.
+
+## espos whoami
+
+The account the developer key belongs to, its S3 devices and the upload limits.
+
+```sh
+espos whoami [options]
+```
+
+| Option | Description |
+|---|---|
+| `--api URL` | the server (default https://api.espos.dev, or the one saved by espos login) Environment: `ESPOS_API`. |
+
+Supports `--json`.
+
+## espos upload
+
+Check a package and upload it to your espos.dev account: private, it installs only on your own devices.
+
+Builds a project folder (or takes an .espk), runs the validator plus the private-upload rules (U001, U002), and uploads it with the developer key. The server checks the package again. Your devices install it as "u." + its id. A new package goes to all your S3 devices unless --device or --no-install says otherwise; an update (a higher "code") goes to every device that has it, at its next sync. Nobody else sees it, and it is not in the store.
+
+```sh
+espos upload [TARGET] [options]
+```
+
+| Argument | Required | Description |
+|---|---|---|
+| `target` | no | the project folder or .espk (default .) |
+
+| Option | Description |
+|---|---|
+| `--device ID` | a device number from espos whoami (repeat for more) Can be repeated. |
+| `--install` | ask the devices to install a new package (--no-install: only keep it in the account) Default: `true`. |
+| `--dry-run` | check and print what would be uploaded; no key needed, nothing sent |
+| `--api URL` | the server (default https://api.espos.dev, or the one saved by espos login) Environment: `ESPOS_API`. |
+
+Supports `--json`.
+
+> Limits: 4 MB a package, 2 MB for a Java game's jar, 30 packages an account. Raise "code" for every new version.
+
+```sh
+espos upload
+espos upload dist/vn.you.timer-1.0.1-core.espk --device 13
+espos upload --dry-run
+```
+
+## espos apps
+
+Your uploaded packages and where they are installed; install or remove them.
+
+```sh
+espos apps <command> [options]
+```
+
+| Option | Description |
+|---|---|
+| `--api URL` | the server (default https://api.espos.dev, or the one saved by espos login) Environment: `ESPOS_API`. |
+
+Supports `--json`.
+
+### espos apps list
+
+List your uploaded packages, and each S3 device's copy of them.
+
+```sh
+espos apps list [options]
+```
+
+| Option | Description |
+|---|---|
+| `--api URL` | the server (default https://api.espos.dev, or the one saved by espos login) Environment: `ESPOS_API`. |
+
+Supports `--json`.
+
+### espos apps install
+
+Ask your devices for one of your packages (all S3 devices, or --device).
+
+```sh
+espos apps install ID [options]
+```
+
+| Argument | Required | Description |
+|---|---|---|
+| `id` | yes | the package id (u.vn.you.timer, or vn.you.timer) |
+
+| Option | Description |
+|---|---|
+| `--device ID` | a device number from espos whoami (repeat for more) Can be repeated. |
+| `--api URL` | the server (default https://api.espos.dev, or the one saved by espos login) Environment: `ESPOS_API`. |
+
+Supports `--json`.
+
+```sh
+espos apps install u.vn.you.timer
+espos apps install vn.you.timer --device 13
+```
+
+### espos apps rm
+
+Delete one of your packages from the account; your devices remove it at their next sync.
+
+```sh
+espos apps rm ID [options]
+```
+
+| Argument | Required | Description |
+|---|---|---|
+| `id` | yes | the package id (u.vn.you.timer, or vn.you.timer) |
+
+| Option | Description |
+|---|---|
+| `--yes` | do not ask (needed when not in a terminal) |
+| `--api URL` | the server (default https://api.espos.dev, or the one saved by espos login) Environment: `ESPOS_API`. |
+
+Supports `--json`.
+
+```sh
+espos apps rm u.vn.you.timer
+espos apps rm vn.you.timer --yes
 ```
 
 ## espos sim
@@ -859,3 +1023,5 @@ Supports `--json`.
 | `C007` | warning | async/await or .then(): API level 1 never runs Promise jobs, so the callbacks never run | src/js/jsapp.cpp |
 | `C008` | warning | a the ellipsis character in main.js (screens show text in full: shrink or wrap) | docs |
 | `C009` | warning | main.js is not valid UTF-8 | - |
+| `U001` | error | espos upload (your own devices): a package is at most 4194304 bytes (4 MB), a Java game's game.jar at most 2 MB | web/backend confirm_user_pkg |
+| `U002` | error | espos upload (your own devices): a JavaScript app (kind js, engine js) or a Java game (kind native, engine j2me); one part (core); no pack, add-on, face, widget or theme; the id gets "u." in front, so at most 46 characters; a Java game asks only for "sound" | web/backend confirm_user_pkg |

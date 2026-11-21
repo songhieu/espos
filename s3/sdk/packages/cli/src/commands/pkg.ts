@@ -418,7 +418,7 @@ export const pkgCommands: CmdSpec[] = [
     opts: [
       { name: "template", short: "t", type: "string", arg: "NAME", desc: "the kind of project", values: Object.keys(TEMPLATES), default: "js-app" },
       { name: "id", type: "string", arg: "ID", desc: "package id, reverse domain (default com.example.<dir>, jar.<name> for games); never changes once published" },
-      { name: "name", type: "string", arg: "TEXT", desc: "display name (at most 40 characters, no \"…\")" },
+      { name: "name", type: "string", arg: "TEXT", desc: "display name (at most 40 characters, no ellipsis character U+2026)" },
       { name: "desc", type: "string", arg: "TEXT", desc: "one line for the store (at most 300 characters)" },
       { name: "author", type: "string", arg: "TEXT", desc: "author (at most 40 characters)" },
       { name: "category", type: "string", arg: "NAME", desc: "store category", values: CATEGORIES },

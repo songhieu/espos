@@ -1,4 +1,5 @@
 #pragma GCC optimize("Os")  // the hot loops are in wake_fe.c / wake_rt.c; this is glue (the firmware must fit 3.75 MB)
+#include <algorithm>
 #include "wake.h"
 
 #include <Arduino.h>
@@ -36,7 +37,15 @@ constexpr uint32_t GATE_MS = 300;    // after the speaker stops, before listenin
 // THR2 on "gâu gâu"; THR1G on the any-"gâu" output in the "gâu gâu" setting (a quick "gâu gâu" the network
 // takes for one); THR1 on it when "gâu" alone is allowed.
 // A package's wake.json {"thr": {"gau2": [3], "gau": [3], "gau_in2": [3]}} replaces them.
+// (listener 1.1.0, model c6c, 2026-11-21: gau2 0.99 / 0.8 / 0.6, gau 0.995 / 0.9 / 0.8, gau_in2 off / 0.93 / 0.85 come
+// from its wake.json; these are the 1.0.x values, kept for an older listener.)
 float THR2[3] = {0.98f, 0.70f, 0.50f}, THR1[3] = {0.99f, 0.85f, 0.75f}, THR1G[3] = {2.0f, 0.90f, 0.80f};
+// The calls after "gâu" (2026-11-21): one output each in a model that has them (named in the .ewm), thresholds from
+// the package's wake.json {"thr": {"kiki": [3], ...}} only: a model without them, or no thresholds, leaves them off.
+constexpr const char* CALL_OUT[] = {"kiki", "lulu", "cun", "milu"};  // calls bits 2, 4, 8, 16
+constexpr int NCALL = sizeof(CALL_OUT) / sizeof(CALL_OUT[0]);
+float THRC[NCALL][3] = {{2, 2, 2}, {2, 2, 2}, {2, 2, 2}, {2, 2, 2}};
+int callOut[NCALL] = {-1, -1, -1, -1};  // the output of each call in the loaded model
 
 // ---- shared with the mic task
 int16_t* ring = nullptr;
@@ -47,6 +56,9 @@ volatile bool levelsReset = true;  // the mic (re)opened: the levels start afres
 // the loudest level in centi-dB.
 volatile float vadRel = 9, vadMin = -60;
 volatile uint32_t vadMuteUntil = 0;  // in mic samples (clock_)
+volatile uint32_t vadLoudAt = 0, vadNoisyAt = 0;  // mic clock of the last loud block, and of the last not silent one
+volatile float vadQPeak = -90;  // the question's loudest block so far (vadQuestion): the room's hum stays far under it
+volatile bool vadQOn = false;
 constexpr uint32_t VAD_ECHO_MS = 400;  // the speaker's sound and its echo in the room, after the last sample written
 std::atomic<uint32_t> vadLoudN{0}, vadN{0}, vadOursN{0};
 std::atomic<int32_t> vadPeakC{-9000};
@@ -66,13 +78,14 @@ ewm_t net;
 void* netMem = nullptr;
 const uint8_t* model = nullptr;
 uint8_t* modelCopy = nullptr;
-float thr[EWM_MAX_OUT] = {2, 2, 2, 2};
+float thr[EWM_MAX_OUT] = {2, 2, 2, 2, 2, 2, 2, 2};  // 2: above any probability (off)
 volatile bool reset = true, fired = false;
 volatile uint32_t firedAt = 0, fires = 0, frames = 0, usSum = 0, usMax = 0;
 int warm = 0;
 float lastP[2] = {0, 0}, peakP[2] = {0, 0};
-volatile float secP[2] = {0, 0};
+volatile float secP[2] = {0, 0}, secC = 0;  // secC: the best of the other calls this second
 volatile float firedP[2] = {0, 0};
+volatile int firedMask = 0;  // the outputs that fired (bit per output)
 volatile bool firedBed = false;  // it fired over a game's tune (the bar BED_UP higher)  // the best of the current second (logged when it came near: the near misses)
 // The capture: 0 idle, 1 wanted (the mic task copies the ring from capFrom, then records), 2 recording, 3 stopped.
 volatile int capState = 0;
@@ -83,7 +96,7 @@ uint32_t capCap = 0, capFrom = 0;
 
 // ---- UI loop only
 bool micWanted = false;
-uint8_t mode_ = OFF, word = 0, sens = 2;
+uint8_t mode_ = OFF, word = 0, sens = 2, calls = 31;
 uint32_t prefsVer = 0, lastCheck = 0;
 void (*cb)(uint32_t) = nullptr;
 bool modelTried = false;
@@ -126,6 +139,19 @@ void push(const int16_t* pcm, int n) {
   const bool loud = db > m + vadRel && db > vadMin && !ours;
   if (ours) vadOursN.fetch_add(1, std::memory_order_relaxed);
   if (loud) vadLoudN.fetch_add(1, std::memory_order_relaxed);
+  // The end of a question counts only clear speech: +9 dB over the rolling floor (the bot's bar) and within 18 dB of
+  // the question's own loudest moment (a fan or the TV 20-30 dB under the voice is not speech; on the board a steady
+  // -50 dBFS room ran a -21 dBFS question to the 8 s cap, 2026-11-21).
+  // ...and 6 dB over the room's usual level (the 30th percentile of the last 2 s; the minimum alone sits far under a
+  // rumbling room: a bus-like hum crossed the minimum + 9 all the time and ran a soft question to the 8 s cap).
+  if (vadQOn && !ours && db > vadQPeak) vadQPeak = db;
+  if (loud && db > m + 9) {
+    static float tmp[200];
+    memcpy(tmp, hist, sizeof tmp);
+    std::nth_element(tmp, tmp + 60, tmp + 200);
+    if (db > tmp[60] + 6 && (!vadQOn || db > vadQPeak - 18)) vadLoudAt = c;
+  }
+  if (!ours && db >= m + 3) vadNoisyAt = c;
   const uint32_t g = vadGen.load(std::memory_order_relaxed) & 0xffff;
   if (g != micGen) micGen = g, vadScore = vadMax = 0;
   const int32_t blockMs = n * 1000 / 16000;
@@ -193,12 +219,15 @@ void detect(const int16_t* pcm, int n) {
     if (net.prob[o] > peakP[o]) peakP[o] = net.prob[o];
     if (warm <= 0 && net.prob[o] > secP[o]) secP[o] = net.prob[o];
   }
+  for (int c = 0; c < NCALL; c++)
+    if (warm <= 0 && callOut[c] >= 0 && thr[callOut[c]] < 1 && net.prob[callOut[c]] > secC) secC = net.prob[callOut[c]];
   if (warm > 0) {
     warm -= net.h->stride;
     return;
   }
   if (r > 0 && !fired && capState == 0) {
     firedP[0] = net.prob[0], firedP[1] = net.h->nout > 1 ? net.prob[1] : 0;  // the scores that fired (for the log)
+    firedMask = r;
     firedBed = bed;
     firedAt = clock_;
     fires = fires + 1;
@@ -215,8 +244,18 @@ void sink(const int16_t* pcm, int n) {
 
 void applyThr() {
   const int k = constrain(sens, 1, 3) - 1;
-  thr[0] = word == 1 ? THR1[k] : THR1G[k];
-  thr[1] = THR2[k];
+  const bool gau = calls & 1;
+  thr[0] = !gau ? 2.0f : word == 1 ? THR1[k] : THR1G[k];
+  thr[1] = gau ? THR2[k] : 2.0f;
+  for (int c = 0; c < NCALL; c++)
+    if (callOut[c] >= 0) thr[callOut[c]] = (calls >> (c + 1)) & 1 ? THRC[c][k] : 2.0f;
+}
+
+// The output a fired mask names, for the log: "gau2", "kiki" ...
+const char* firedName(int mask) {
+  for (int o = 0; o < net.h->nout; o++)
+    if (mask & (1 << o)) return ewm_name(&net, o);
+  return "?";
 }
 
 bool loadModel() {
@@ -249,12 +288,15 @@ bool loadModel() {
         THR2[k] = d["thr"]["gau2"][k] | THR2[k];
         THR1[k] = d["thr"]["gau"][k] | THR1[k];
         THR1G[k] = d["thr"]["gau_in2"][k] | THR1G[k];
+        for (int c = 0; c < NCALL; c++) THRC[c][k] = d["thr"][CALL_OUT[c]][k] | THRC[c][k];
       }
     }
     heap_caps_free(b);
   }
+  for (int c = 0; c < NCALL; c++) callOut[c] = ewm_find(&net, CALL_OUT[c]);
   model = m;
-  trace::add("wake: model %u B, state %u B, %u channels", (unsigned)f.size(), (unsigned)st, (unsigned)net.h->ch);
+  trace::add("wake: model %u B, state %u B, %u channels, %u outputs", (unsigned)f.size(), (unsigned)st,
+             (unsigned)net.h->ch, (unsigned)net.h->nout);
   return true;
 }
 
@@ -262,7 +304,7 @@ void readPrefs() {
   if (prefsVer == desk::settingsVersion() && prefsVer) return;
   prefsVer = desk::settingsVersion();
   const pet::assist::Prefs p = pet::assist::prefs();
-  mode_ = p.wake, word = p.wakeWord, sens = p.wakeSens;
+  mode_ = p.wake, word = p.wakeWord, sens = p.wakeSens, calls = p.calls;
 }
 
 bool wantDetector() {
@@ -364,20 +406,20 @@ void tick() {
   static uint32_t lastSec = 0;
   if (det && ms - lastSec >= 1000) {  // the scores that came near in the last second (0.2 and up)
     lastSec = ms;
-    if (secP[0] >= 0.2f || secP[1] >= 0.2f) {
-      trace::add("wake: best gau %.3f gau2 %.3f", secP[0], secP[1]);
+    if (secP[0] >= 0.2f || secP[1] >= 0.2f || secC >= 0.2f) {
+      trace::add("wake: best gau %.3f gau2 %.3f calls %.3f", secP[0], secP[1], secC);
 #ifdef SIM
-      simWakeEvent("near", fmaxf(secP[0], secP[1]));
+      simWakeEvent("near", fmaxf(fmaxf(secP[0], secP[1]), secC));
 #endif
     }
-    secP[0] = secP[1] = 0;
+    secP[0] = secP[1] = 0, secC = 0;
   }
   if (fired) {
     fired = false;
-    trace::add("wake: heard (gau %.3f, gau2 %.3f; bars %.2f / %.2f%s)", firedP[0], firedP[1], thr[0], thr[1],
-               firedBed ? ", over a tune: +0.05" : "");
+    trace::add("wake: heard %s (gau %.3f, gau2 %.3f; bars %.2f / %.2f%s)", firedName(firedMask), firedP[0], firedP[1],
+               thr[0], thr[1], firedBed ? ", over a tune: +0.05" : "");
 #ifdef SIM
-    simWakeEvent("call", fmaxf(firedP[0], firedP[1]));
+    simWakeEvent("call", (firedMask & ~3) ? 0.99f : fmaxf(firedP[0], firedP[1]));
 #endif
     if (cb) cb(firedAt);
   }
@@ -466,6 +508,12 @@ float floorDb() { return flr; }
 void vadSet(float relDb, float minDb) { vadRel = relDb, vadMin = minDb; }
 void vadRestart() { vadGen.fetch_add(1); }
 void vadMute(uint32_t forMs) { vadMuteUntil = clock_ + forMs * (RATE / 1000); }
+uint32_t vadQuietMs() { return (clock_ - vadLoudAt) / (RATE / 1000); }
+void vadQuestion(bool on, float seedDb) {
+  vadQPeak = seedDb;
+  vadQOn = on;
+}
+uint32_t vadSilentMs() { return (clock_ - vadNoisyAt) / (RATE / 1000); }
 uint32_t vadSpeechMs() {
   const uint32_t b = vadBest.load(), g = vadGen.load() & 0xffff;
   return (b >> 16) == g ? (b & 0xffff) : 0;
@@ -515,8 +563,11 @@ bool console(const char* cmd) {
 #endif
   if (!strcmp(cmd, "WAKE")) {
     const mic::Stats m = mic::stats();
-    Serial.printf("WAKE mode %d word %s sens %d paused %d model %s listening %d thr %.3f/%.3f\n", mode_, word ? "gau" : "gau2",
-                  sens, paused_, model ? "loaded" : modelInstalled() ? "installed" : "missing", listening(), thr[0], thr[1]);
+    Serial.printf("WAKE mode %d word %s calls %d sens %d paused %d model %s listening %d thr %.3f/%.3f\n", mode_,
+                  word ? "gau" : "gau2", calls, sens, paused_, model ? "loaded" : modelInstalled() ? "installed" : "missing",
+                  listening(), thr[0], thr[1]);
+    for (int c = 0; c < NCALL; c++)
+      if (callOut[c] >= 0) Serial.printf("WAKE call %s output %d thr %.3f\n", CALL_OUT[c], callOut[c], thr[callOut[c]]);
     Serial.printf("WAKE fires %u frames %u avg %u us max %u us, last p %.3f/%.3f, peak p %.3f/%.3f, level %.1f floor %.1f dBFS\n",
                   (unsigned)fires, (unsigned)frames, frames ? (unsigned)(usSum / frames) : 0, (unsigned)usMax, lastP[0],
                   lastP[1], peakP[0], peakP[1], lvl, flr);

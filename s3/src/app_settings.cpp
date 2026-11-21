@@ -21,6 +21,9 @@
 #include "lcd.h"
 #include "net.h"
 #include "notif.h"
+#if ESPOS_ONBOARD
+#include "onboard.h"
+#endif
 #include "saveredit.h"
 #include "os.h"
 #include "pkg/pkg.h"
@@ -33,21 +36,9 @@
 #include "uikit.h"
 
 namespace app_settings {
-namespace {
-
-using namespace kit;
-
-Preferences prefs;
-
-String wifiSummary() {
-  switch (net::state()) {
-    case net::State::Connected: return net::ssid();
-    case net::State::Connecting: return T_("connecting");
-    default: return T_("not connected");
-  }
-}
-
+// A one-line text field in the look of Settings (focused, its cursor in the accent colour).
 lv_obj_t* field(lv_obj_t* body, const char* text, bool password) {
+  using namespace kit;
   lv_obj_t* ta = lv_textarea_create(body);
   lv_obj_set_width(ta, lv_pct(100));
   lv_textarea_set_one_line(ta, true);
@@ -65,6 +56,27 @@ lv_obj_t* field(lv_obj_t* body, const char* text, bool password) {
   lv_obj_add_state(ta, LV_STATE_FOCUSED);
   return ta;
 }
+
+namespace {
+
+using namespace kit;
+
+Preferences prefs;
+
+String wifiSummary() {
+  switch (net::state()) {
+    case net::State::Connected: return net::ssid();
+    case net::State::Connecting: return T_("connecting");
+    default: return T_("not connected");
+  }
+}
+
+// A row's switch for a "0" / "1" setting: toggle(row, on, onKey, (void*)"s3.click") (the user data: its key).
+void onKey(lv_event_t* e) {
+  desk::setSetting((const char*)lv_event_get_user_data(e),
+                   lv_obj_has_state((lv_obj_t*)lv_event_get_target(e), LV_STATE_CHECKED) ? "1" : "0");
+}
+
 
 // A row whose value is kept up to date by `refresh` while the screen is open.
 lv_obj_t* valueOf(lv_obj_t* row) { return lv_obj_get_child(row, 1); }
@@ -209,12 +221,20 @@ void fillWifiList(WifiList* w) {
 void openWifi() {
   lv_obj_t* body;
   lv_obj_t* s = os::screen(N_("WiFi"), &body);
+  wifiList(body);
+  os::open(s);
+}
+
+}  // namespace
+
+// The networks around, kept fresh while `parent` lives (Settings › WiFi, and the first-boot setup's step 2).
+void wifiList(lv_obj_t* parent) {
   static WifiList w;
-  lv_obj_t* list = stack(body, false, 8);
+  lv_obj_t* list = stack(parent, false, 8);
   w = {list, 0, millis(), false};
   net::scan();
   fillWifiList(&w);
-  every(s, 250, [](lv_timer_t* t) {
+  every(list, 250, [](lv_timer_t* t) {
     WifiList* w = (WifiList*)lv_timer_get_user_data(t);
     if (millis() - w->lastScan > 15000 && net::state() != net::State::Connecting) {
       w->lastScan = millis();
@@ -222,8 +242,9 @@ void openWifi() {
     }
     if (w->seen != net::changes() && !os::fingerDown()) fillWifiList(w);
   }, &w);
-  os::open(s);
 }
+
+namespace {
 
 struct PassScreen {
   lv_obj_t *scr, *ta, *status, *spin, *show, *hint;
@@ -542,11 +563,7 @@ void openLook() {
   }
   if (cur == "photo") hint(body, N_("The wallpaper is the first of the device's photos (add photos on the web)."));
   lv_obj_t* r = listRow(body, N_("Dark at night"), "", nullptr);
-  lv_obj_t* sw = toggle(r, desk::settingInt("s3.theme_auto", 1), [](lv_event_t* e) {
-    const bool on = lv_obj_has_state((lv_obj_t*)lv_event_get_target(e), LV_STATE_CHECKED);
-    desk::setSetting("s3.theme_auto", on ? "1" : "0");
-  });
-  lv_obj_align(sw, LV_ALIGN_RIGHT_MID, 0, 0);
+  lv_obj_align(toggle(r, desk::settingInt("s3.theme_auto", 1), onKey, (void*)"s3.theme_auto"), LV_ALIGN_RIGHT_MID, 0, 0);
   hint(body, N_("Apps are light by day and turn dark from 7 PM to 6 AM."));
   os::open(s);
 }
@@ -702,15 +719,9 @@ void openSound() {
     sound::click();
   }, LV_EVENT_RELEASED, nullptr);
   lv_obj_t* r = listRow(body, N_("Touch sounds"), "", nullptr);
-  lv_obj_t* sw = toggle(r, desk::settingInt("s3.click", 1), [](lv_event_t* e) {
-    desk::setSetting("s3.click", lv_obj_has_state((lv_obj_t*)lv_event_get_target(e), LV_STATE_CHECKED) ? "1" : "0");
-  });
-  lv_obj_align(sw, LV_ALIGN_RIGHT_MID, 0, 0);
+  lv_obj_align(toggle(r, desk::settingInt("s3.click", 1), onKey, (void*)"s3.click"), LV_ALIGN_RIGHT_MID, 0, 0);
   lv_obj_t* d = listRow(body, N_("Do Not Disturb"), "", nullptr);
-  lv_obj_t* sw2 = toggle(d, desk::settingInt("s3.dnd", 0), [](lv_event_t* e) {
-    desk::setSetting("s3.dnd", lv_obj_has_state((lv_obj_t*)lv_event_get_target(e), LV_STATE_CHECKED) ? "1" : "0");
-  });
-  lv_obj_align(sw2, LV_ALIGN_RIGHT_MID, 0, 0);
+  lv_obj_align(toggle(d, desk::settingInt("s3.dnd", 0), onKey, (void*)"s3.dnd"), LV_ALIGN_RIGHT_MID, 0, 0);
   listRow(body, N_("Test the speaker"), "", [](lv_event_t*) { sound::test(); });
   listRow(body, N_("Test the alarm sound"), "", [](lv_event_t*) { sound::alarmBeep(); });
   hint(body, N_("Do Not Disturb silences touch sounds and notifications; alarms still ring."));
@@ -745,7 +756,7 @@ void fill() {
   lv_obj_clean(box);
   const desk::FwOffer& o = desk::fwOffer();
   const String& err = ota::lastError();
-  shown = o.version + "|" + err;
+  shown = o.version + o.usb + "|" + err;
   if (err.length()) {
     lv_obj_t* c = cell(box, 14);
     lv_obj_set_flex_flow(c, LV_FLEX_FLOW_COLUMN);
@@ -776,7 +787,7 @@ void fill() {
     lv_obj_set_width(b, lv_pct(100));
     hint(box, N_("The device restarts and downloads at once, showing only the update screen until it is done. If the "
                  "new version fails, the device goes back to the one it has."));
-  } else if (desk::link() == desk::Link::Linked) {
+  } else if (desk::link() == desk::Link::Linked && !o.usb.length()) {
     lv_obj_t* c = cell(box, 14);
     lv_obj_set_flex_flow(c, LV_FLEX_FLOW_COLUMN);
     lv_obj_set_style_pad_row(c, 4, 0);
@@ -789,8 +800,17 @@ void fill() {
       desk::syncNow();
       os::toast(N_("Checking"));
     });
-  } else {
+  } else if (!o.usb.length()) {
     hint(box, N_("Link to EspOS to get updates over WiFi."));
+  }
+  if (o.usb.length()) {  // a version for the bigger partition table (docs/partitions.md): no OTA can bring it
+    lv_obj_t* c = cell(box, 14);
+    lv_obj_set_flex_flow(c, LV_FLEX_FLOW_COLUMN);
+    lv_obj_set_style_pad_row(c, 4, 0);
+    fitText(label(c, "", 15, true, pal().fg), N_("Update over USB to get new features"), os::W() - 52, 44, 15, 13, true, 0);
+    fitText(label(c, "", 13, false, pal().dim),
+            i18n::fmt(N_("Version {0} needs a one-time update over USB from espos.dev. Settings, WiFi and the link stay."),
+                      shortVer(o.usb)).c_str(), os::W() - 52, 120, 13, 12, false, 3);
   }
 }
 }  // namespace upd
@@ -812,16 +832,22 @@ void openUpdate() {
   keep(&upd::box, upd::box);
   upd::fill();
   if (desk::link() == desk::Link::Linked) {
-    lv_obj_t* r = listRow(body, N_("Update by itself while charging"), "", nullptr);
+    lv_obj_t* r = listRow(body, "", "", nullptr);  // the name fitted beside the switch (a longer language wraps)
+    fitText(lv_obj_get_child(r, 0), N_("Update by itself while charging"), os::W() - 104, 40, 15, 12);
     lv_obj_t* sw = toggle(r, desk::settingInt("dev.fw_auto", 0), [](lv_event_t* e) {
       desk::setSetting("dev.fw_auto", lv_obj_has_state((lv_obj_t*)lv_event_get_target(e), LV_STATE_CHECKED) ? "1" : "0");
       desk::syncNow();
     });
     lv_obj_align(sw, LV_ALIGN_RIGHT_MID, 0, 0);
   }
+  // The Store's apps take their new versions by themselves (pkg/store.cpp autoUpdate) unless this is off (s3.pkg_auto).
+  lv_obj_t* r = listRow(body, "", "", nullptr);
+  fitText(lv_obj_get_child(r, 0), N_("Update apps automatically"), os::W() - 104, 40, 15, 12);
+  lv_obj_align(toggle(r, desk::settingInt("s3.pkg_auto", 1), onKey, (void*)"s3.pkg_auto"), LV_ALIGN_RIGHT_MID, 0, 0);
+  hint(body, N_("New versions install while the device is not in use and the app is closed."));
   // A check that brought an offer (or an error) redraws the middle part.
   every(s, 700, [](lv_timer_t*) {
-    if (desk::fwOffer().version + "|" + ota::lastError() != upd::shown) upd::fill();
+    if (desk::fwOffer().version + desk::fwOffer().usb + "|" + ota::lastError() != upd::shown) upd::fill();
   });
   os::open(s);
 }
@@ -866,6 +892,9 @@ void openAbout() {
   listRow(body, "MAC", WiFi.macAddress().c_str(), nullptr);
   snprintf(buf, sizeof buf, T_("%lu min"), (unsigned long)(millis() / 60000));
   listRow(body, N_("Uptime"), buf, nullptr);
+#if ESPOS_ONBOARD
+  onboard::aboutRows(body);  // erase and set up again; a demo unit's switch
+#endif
   os::open(s);
 }
 
@@ -977,6 +1006,16 @@ void applyTz(int m) {
 lv_obj_t* tdBody = nullptr;
 void fillTimeData();
 
+}  // namespace
+
+void setZone(int m) {
+  desk::setSetting("sys.tz_min", String(m));
+  desk::syncNow();
+  applyTz(m);
+}
+
+namespace {
+
 void openTz() {
   lv_obj_t* body;
   lv_obj_t* s = os::screen(N_("Time zone"), &body);
@@ -1000,9 +1039,7 @@ void openTz() {
     lv_obj_set_pos(p, 0, 20);
     lv_obj_add_event_cb(r, [](lv_event_t* e) {
       const int m = (int)(intptr_t)lv_event_get_user_data(e);
-      desk::setSetting("sys.tz_min", String(m));
-      desk::syncNow();
-      applyTz(m);
+      setZone(m);
       os::toast(i18n::fmt(N_("Time zone {0}"), tzName(m)).c_str());
       os::back();
       lv_async_call([](void*) { fillTimeData(); }, nullptr);
@@ -1213,6 +1250,9 @@ void openMain() {
   lv_obj_t* body;
   lv_obj_t* s = os::screen(N_("Settings"), &body, os::ROOT | os::TWO);
   lv_obj_set_style_pad_row(body, 6, 0);
+#if ESPOS_ONBOARD
+  onboard::settingsRow(body);  // "Finish setting up" while first-boot steps wait
+#endif
   lv_obj_t* wifiRow_ = iconRow(body, 0x0a84ff, &gl_wifi3_16, N_("WiFi"), wifiSummary().c_str(), [](lv_event_t*) { openWifi(); });
   every(s, 1000, [](lv_timer_t* t) {
     lv_obj_t* r = (lv_obj_t*)lv_timer_get_user_data(t);

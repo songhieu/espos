@@ -79,6 +79,26 @@ it is `publish_pkg.py --dry-run`: the upload plan and the merged catalog, nothin
 local catalog for an offline check). `--yes` needs `ESPOS_BBK` in the environment; publish_pkg.py reads it there.
 `espos` never takes the key as an argument, never prints it and never stores it.
 
+### `espos login [--key-stdin]`, `espos logout`, `espos whoami`
+
+A developer key for your espos.dev account: made on the web (Account › Developer keys), shown there once, kept by the
+server only as its sha256. `login` checks it with `GET /v1/dev/me` and saves it in `credentials.json` in the config
+folder (mode 0600); `ESPOS_DEV_KEY` is used instead when set. The key is sent only over HTTPS (or HTTP to this
+machine, for a local server) and never printed. Never a password.
+
+### `espos upload [DIR|FILE.espk] [--device ID]... [--no-install] [--dry-run]`
+
+Builds and checks like `build`, adds the private-upload rules (`checkPrivate`: U001 sizes, U002 kinds, one part,
+id at most 46 characters, a Java game asks only for sound), then `POST /v1/dev/pkgs/upload` (a signed PUT URL), the
+PUT, and `POST /v1/dev/pkgs/confirm`. The server checks the package again (web/backend confirm_user_pkg, the same
+rules; `web/scripts/user-pkgs-check.mjs` keeps them in step) and installs it as `u.<id>`: a new package on all your
+S3 devices (or `--device`), an update (higher `code`, checked before anything is sent) on every device that has it.
+
+### `espos apps [list]`, `espos apps install ID [--device ID]...`, `espos apps rm ID [--yes]`
+
+`GET /v1/dev/pkgs?devices=1`, `POST /v1/dev/pkgs/install`, `POST /v1/dev/pkgs/delete`. An id works with or without
+`u.`. `rm` asks in a terminal and needs `--yes` otherwise.
+
 ## Running
 
 ### `espos sim [TARGETS...] [--headless] [--watch] [--script FILE] [...]`
@@ -160,7 +180,9 @@ There is no flash command: boards are flashed by their owner. `--dry-run` on the
 | `ESPOS_SIM_BUILD` | the simulator's build folder under `sim/` |
 | `ESPOS_BBK` | the store key, read by publish_pkg.py only (`store publish --yes`) |
 | `ESPOS_PUBLISH_SCRIPT` | `publish_pkg.py` elsewhere |
-| `ESPOS_CONFIG_DIR` | remembered boards and the deny list (default `~/.config/espos`) |
+| `ESPOS_CONFIG_DIR` | remembered boards, the deny list and the developer key (default `~/.config/espos`) |
+| `ESPOS_DEV_KEY` | a developer key used instead of the saved one (CI); never printed |
+| `ESPOS_API` | the server for `login`, `upload`, `apps` (default `https://api.espos.dev`) |
 
 ## Source
 

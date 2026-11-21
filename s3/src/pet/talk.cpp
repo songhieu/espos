@@ -49,6 +49,7 @@ St st = St::Idle;
 uint32_t stAt = 0;
 bool byWake = false, heard = false, typed = false;
 uint32_t lastLoud = 0, quietUntil = 0;  // quietUntil: our own "I'm here" sound, not the person speaking
+uint32_t ackFrom = 0;                    // when the dog began answering its name (0: no ack in this turn)
 uint32_t warmAskedAt = 0;  // when the warm-up was asked for (warmFn)
 uint32_t heardAt = 0;                    // when the question began (0.24 s of speech before it)
 uint16_t endWait = 2000;                 // the pause that ended the last question (the turn's log; 8000 = the cap)
@@ -582,7 +583,9 @@ bool startListening(uint32_t fromSample, int maxMs, bool wakeTurn) {
     wake::hold(false);
     return false;
   }
-  byWake = wakeTurn, heard = false, typed = false, lastLoud = millis(), fallback = 0, dryRun = false;
+  byWake = wakeTurn, heard = false, typed = false, lastLoud = millis(), fallback = 0, dryRun = false, ackFrom = 0;
+  winLoudMs = winOursMs = 0;  // never the last turn's count (it sent a call and the dog's "Dạ?" as a question, 2026-11-21)
+  wake::vadQuestion(false);
   noCall = false;  // (wakeBegan says otherwise for a call that waited for room)
   set(St::Listen);
   led::mode(led::Mode::Listen);
@@ -626,6 +629,7 @@ uint8_t* trimWav(uint8_t* w, uint32_t& bytes, int ms) {
 }
 
 void send() {
+  wake::vadQuestion(false);
   const bool capped = !wake::capturing();  // the capture filled up: the longest turn
   if (dryRun) {  // the turn is measured and logged, nothing goes to the server (no AI call)
     trace::add("talk: dry run: the question would go now (%d ms recorded, speech began %ld ms into the window, ended %u ms "
@@ -763,6 +767,16 @@ void step(lv_timer_t*) {
         // "Gâu gâu" and silence is never sent: 6 s after its ack the dog says it is here and the person can call again.
         const uint32_t now = millis(), dt = now - stepAt;
         stepAt = now;
+        // The dog's answer to its name may run past its measured length (a line of several clips, a slow start of
+        // the speaker): while its voice plays, nothing is the question, the window opens 250 ms after it, and the
+        // recording is cut to there (2026-11-21, the 2.8": "vừa gọi chưa kịp nói gì nó ... nghĩ luôn": the end of
+        // "Gì đó bây?" was taken for the question and sent with the call).
+        if (ackFrom && voice::busy()) {
+          quietUntil = max(quietUntil, now + 250);
+          wake::vadMute(300);
+          winFrom = max(winFrom, now + 250);
+          trimMs = max(trimMs, (int)(1100 + (now - ackFrom) + 350));
+        }
         const bool ours = now < quietUntil;  // our own sound (the ack, or the end of the answer)
         // What the mic heard since the last step, every 10 ms of it (wake::vadTake): a step can come late (a game
         // drawing at 6 pictures a second, a TLS handshake) and nothing said meanwhile is lost.
@@ -787,7 +801,8 @@ void step(lv_timer_t*) {
             uint32_t ackMs = 0;
             if (how == 2) {
               assist::Speech sp;
-              if (assist::line("ack", sp) && assist::play(sp)) ackMs = sp.items[0].clip->samples / (RATE / 1000);
+              if (assist::line("ack", sp) && assist::play(sp))
+                for (const voice::Item& it : sp.items) ackMs += (it.clip ? it.clip->samples / (RATE / 1000) : 0) + it.gapMs;
             }
             if (!ackMs && how) sound::blip(), ackMs = cues::length(cues::LISTEN, 1000);  // (its length in ms)
             quietUntil = millis() + ackMs + 250;
@@ -795,6 +810,7 @@ void step(lv_timer_t*) {
             trimMs += ackMs + 350;  // the call and the ack, to its very end
           }
           winFrom = max(millis(), quietUntil), winPeak = -90, winLoudMs = winOursMs = 0;
+          ackFrom = pausedAfterCall && !again && !followUp ? millis() : 0;
           trace::add("talk: %s (level %.0f, floor %.0f dBFS)", followUp ? "follow-up: listening" : again ? "listening again"
                      : pausedAfterCall ? "pause after the call: ack sound" : "speaking on", lv, fl);
         }
@@ -811,20 +827,24 @@ void step(lv_timer_t*) {
           wake::vadRestart();
           loudMs = 0;
         }
-        if (!heard && loudMs >= (followUp ? 280 : 240)) {
+        // Speech: 240 ms of it in order, or (a call's question, not a follow-up) 300 ms of loud blocks in the window
+        // however broken up: a soft voice far from the mic crosses the floor + 7 only on its louder syllables (the
+        // 2.8" on 2026-11-21: "gọi lên mà AI ko ăn", "no question ... loud 340 ms" twice).
+        if (!heard && (loudMs >= (followUp ? 280 : 240) || (decided && !decidedNow && !followUp && winLoudMs >= 300))) {
           heard = true, lastLoud = heardAt = millis();
           spPeak = max(lv, v.peakDb), turnFloor = fl, silentMs = 0;
+          wake::vadQuestion(true, spPeak);
           talkShow(nullptr, T_("Listening"), T_("Say what you need"));
         } else if (heard && !ours) {
-          // Speech = within 10 dB of this question's own peak (which forgets 2 dB a second) and over the floor + 9
-          // (was + 6: on the board, 2026-11-20, a room's hum kept "speech" alive to the 8 s cap; the OLED bot, which
-          // counts only clear speech, sends 2 s after the last word).
-          spPeak = v.peakDb > spPeak ? v.peakDb : spPeak - 0.002f * dt;
-          if (v.ms && v.peakDb > spPeak - 10 && v.peakDb > turnFloor + 9) lastLoud = millis();
-          silentMs = v.peakDb < turnFloor + 3 ? silentMs + (int)v.ms : 0;
+          spPeak = v.peakDb > spPeak ? v.peakDb : spPeak - 0.002f * dt;  // (for the turn's log)
         }
         if (heard) {
-          const uint32_t pause = millis() - lastLoud;
+          // The question ends 2 s after the last loud 10 ms block, as on the EspOS Bot (owner, 2026-11-21: "từ lúc tao
+          // ngừng nói 4-5s thì nó mới gửi"): counted block by block in the mic task against its rolling 2 s floor. It
+          // was the loudest block of each UI step over the floor taken when the question began: a fan or the TV
+          // peaked over that in most steps, so a quiet room's question often ran to the 8 s cap.
+          const uint32_t pause = min<uint32_t>(millis() - heardAt, wake::vadQuietMs());
+          silentMs = (int)wake::vadSilentMs();
           if (pause >= 2000 || (pause >= 1200 && silentMs >= 1200)) {
             endWait = pause >= 2000 ? 2000 : 1200;
             return send();
@@ -837,6 +857,11 @@ void step(lv_timer_t*) {
         // (signed: winFrom is the ack's end, later than `now` while the ack plays)
         if (!heard && (followUp && !asksFollow ? t > FOLLOW_MS
                                                : decided && (int32_t)(now - winFrom) > (int32_t)QUESTION_MS)) {
+          if (!followUp && winLoudMs >= 150) {  // something was said, softly or in pieces: the AI decides, not us
+            trace::add("talk: a soft question (loud %d ms, loudest %.0f, floor %.0f dBFS): sent", winLoudMs, winPeak, fl);
+            endWait = 0, heardAt = winFrom;
+            return send();
+          }
           trace::add("talk: no question after the %s (loudest %.0f, floor %.0f dBFS, loud %d ms, our sound %d ms)",
                      followUp ? "answer" : again ? "retry line" : "wake word", winPeak, fl, winLoudMs, winOursMs);
           wake::captureFree();
@@ -934,7 +959,7 @@ void onWake(uint32_t at) {
 
 void wakeBegan(bool waiting, bool callInside) {
   led::mode(led::Mode::Wake);
-  decided = false, again = false, followUp = false, trimMs = 0, quietUntil = 0;
+  decided = false, again = false, followUp = false, trimMs = 0, quietUntil = 0, ackFrom = 0, winLoudMs = winOursMs = 0;
   noCall = !callInside;
   trace::add("talk: called by the wake word%s", waiting ? " (again)" : !callInside ? " (after waiting for room to record)" : "");
 }
@@ -967,7 +992,7 @@ void listenFollowUp() {
   asksFollow = lastAsks;
   if (!startListening(wake::now(), asksFollow ? 15000 : 12000, true)) return set(St::After);
   talkShow(nullptr, lastReply.length() ? lastReply : String(T_("I'm listening")), T_("Listening"));  // its answer stays
-  decided = false, again = false, followUp = true, trimMs = 0, quietUntil = millis() + 400;
+  decided = false, again = false, followUp = true, trimMs = 0, quietUntil = millis() + 400, ackFrom = 0, winLoudMs = winOursMs = 0;
   wake::vadMute(400);
   if (asksFollow) trace::add("talk: follow-up: the dog asked, listening %lu ms for the answer", (unsigned long)QUESTION_MS);
   else trace::add("talk: follow-up: listening %lu ms for close speech, no call needed", (unsigned long)FOLLOW_MS);

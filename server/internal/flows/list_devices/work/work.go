@@ -152,16 +152,74 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 		sessBy[wm.Int(x["device_id"])] = x
 	}
 	now := time.Now().UnixMilli()
+	deskBy, derr := deskStates(rows, uid)
+	if derr != nil {
+		return wm.Fail(derr)
+	}
 	out := []any{}
 	for _, r := range rows {
-		out = append(out, map[string]any{
+		d := map[string]any{
 			"id": wm.Int(r["id"]), "name": wm.Str(r["name"]), "last_sync": wm.Str(r["last_sync"]),
 			"battery": r["battery"], "fw": wm.Str(r["fw"]), "fw_code": versionCode(wm.Str(r["fw"])),
 			"fw_req": wm.Int(r["fw_req"]), "fw_auto": r["fw_auto"] == true, "ota_state": r["ota_state"],
 			"created_at": wm.Str(r["created_at"]),
 			"kind":       devKind(r), "firmware": latestBy[devKind(r)], "remote": remoteOf(r, sessBy[wm.Int(r["id"])], now),
 			"board": boardOf(r), "ping": pingOf(r),
-		})
+		}
+		if devKind(r) == "desktop" {
+			d["desk"] = deskOf(deskBy[wm.Int(r["id"])], now)
+		}
+		out = append(out, d)
 	}
 	return map[string]any{"status": 200, "body": map[string]any{"devices": out, "firmware": latest}}
+}
+
+// deskStates: the desk_state rows of the person's desktops (EspOS Desktop, kind "desktop", 2026-11-21), read only
+// when there is one.
+func deskStates(rows []map[string]any, uid int) (map[int]map[string]any, error) {
+	out := map[int]map[string]any{}
+	has := false
+	for _, r := range rows {
+		if devKind(r) == "desktop" {
+			has = true
+		}
+	}
+	if !has {
+		return out, nil
+	}
+	st, err := wm.QueryOpts("desk_state", map[string]any{"filters": []map[string]any{{"column": "user_id", "op": "eq", "value": uid}}, "limit": 20})
+	if err != nil {
+		return nil, err
+	}
+	for _, s := range st {
+		out[wm.Int(s["device_id"])] = s
+	}
+	return out, nil
+}
+
+// deskOf: a desktop's small summary for the device list (s3desk/docs/desktop-protocol.md §6): online (synced in the
+// last 3 minutes), its mode, what it plays, how many Claude sessions wait for the person.
+func deskOf(s map[string]any, now int64) map[string]any {
+	seen := int64(wm.Num(s["seen_ms"]))
+	mode := wm.Str(s["mode"])
+	st, ok := s["state"].(map[string]any)
+	if !ok {
+		if t, isStr := s["state"].(string); isStr && t != "" {
+			_ = json.Unmarshal([]byte(t), &st)
+		}
+	}
+	playing := ""
+	if p, isMap := st["playing"].(map[string]any); isMap && wm.Str(p["state"]) != "stopped" {
+		playing = wm.Str(p["title"])
+	}
+	waiting := 0
+	if l, isList := st["sessions"].([]any); isList {
+		for _, x := range l {
+			if m, isMap := x.(map[string]any); isMap && (wm.Str(m["state"]) == "perm" || wm.Str(m["state"]) == "input") {
+				waiting++
+			}
+		}
+	}
+	return map[string]any{"online": seen > 0 && now-seen <= 180000 && mode != "off", "seen_ms": seen, "mode": mode,
+		"playing": playing, "waiting": waiting, "app": wm.Str(s["app"])}
 }

@@ -28,7 +28,9 @@ import texts  # noqa: E402
 
 SR = 16000
 PIPER_DIR = os.path.expanduser(os.environ.get("PIPER_DIR", "piper"))
-MAXDUR = {"w1": 1.3, "w2": 1.9, "w3": 2.6, "conf": 3.0, "tone": 2.0, "req": 5.0, "neg": 7.0}
+MAXDUR = {"w1": 1.3, "w2": 1.9, "w3": 2.6, "conf": 3.0, "tone": 2.0, "req": 5.0, "neg": 7.0,
+          "k2": 2.2, "l2": 2.2, "c2": 2.2, "m2": 2.0}
+WORDS2 = False  # --words2: only the second round's calls and confusables (texts.WAKE2, texts.CONF2)
 
 
 def to16k(x, sr):
@@ -100,8 +102,18 @@ class Out:
             print(f"[{self.engine}] {self.n} saved, {self.skipped} skipped, {self.bad} bad", flush=True)
 
 
+def words2_jobs(rng, wake_cfgs, other_cfg, conf_frac=1.0):
+    """The second round: the new calls (k2 l2 c2 m2) with the wake configs, and their confusables."""
+    out = [(kind, t, c) for kind, lst in texts.WAKE2.items() for t in lst for c in wake_cfgs]
+    conf = texts.CONF2 if conf_frac >= 1 else rng.sample(texts.CONF2, int(len(texts.CONF2) * conf_frac))
+    out += [("conf", t, other_cfg(rng)) for t in conf]
+    return out
+
+
 def jobs_for(voice, rng, wake_cfgs, other_cfg, n_req, n_neg, conf_frac=1.0):
     """(kind, text, cfg) list for one voice."""
+    if WORDS2:
+        return words2_jobs(rng, wake_cfgs, other_cfg, conf_frac)
     out = []
     for kind, lst in texts.WAKE.items():
         for t in lst:
@@ -198,6 +210,10 @@ def run_mix(out, threads, n_voices=150):
         jobs = [(k, t, {"t": round(rng.uniform(0.7, 1.2), 2)}) for k, lst in texts.WAKE.items() for t in lst]
         jobs += [("conf", t, {"t": 1.0}) for t in rng.sample(texts.CONF, 12)]
         jobs += [("req", t, {"t": 1.0}) for t in rng.sample(texts.REQ, 3)]
+        if WORDS2:  # the same voices as the first round (its draws above are kept), the new texts only
+            r2 = random.Random(600 + i)
+            jobs = [(k, t, {"t": round(r2.uniform(0.7, 1.2), 2)}) for k, lst in texts.WAKE2.items() for t in lst]
+            jobs += [("conf", t, {"t": 1.0}) for t in r2.sample(texts.CONF2, 16)]
         for kind, text, cfg in jobs:
             if out.exists(kind, vname, text, cfg):
                 continue
@@ -265,7 +281,11 @@ def main():
     ap.add_argument("--engine", required=True, choices=["turbo", "nano", "piper", "say", "clone", "mix"])
     ap.add_argument("--out", default=os.path.expanduser("wake-data/tts"))
     ap.add_argument("--threads", type=int, default=4)
+    ap.add_argument("--words2", action="store_true", help="only the second round's calls (texts.WAKE2, CONF2)")
+    ap.add_argument("--mix_voices", type=int, default=150)
     a = ap.parse_args()
+    global WORDS2
+    WORDS2 = a.words2
     out = Out(a.out, a.engine)
     if a.engine == "turbo":
         run_vieneu("v3turbo", out, a.threads)
@@ -276,7 +296,7 @@ def main():
     elif a.engine == "clone":
         run_clone(out, a.threads)
     elif a.engine == "mix":
-        run_mix(out, a.threads)
+        run_mix(out, a.threads, a.mix_voices)
     else:
         run_say(out)
     print(f"[{a.engine}] done: {out.n} saved, {out.skipped} skipped, {out.bad} bad", flush=True)

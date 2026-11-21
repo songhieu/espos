@@ -1,0 +1,19 @@
+{
+  "code": "push_user_pkg",
+  "name": "Function: ask the user's S3 devices for one of their own packages (install, or update to its new code) in s3.pkgs",
+  "draft": {
+    "nodes": [
+      { "id": "in", "type": "function_in", "config": { "inputs": ["uid", "pkg_id", "code", "min_fw", "devices"] } },
+      { "id": "work", "type": "code", "config": { "source": { "$file": "nodes/work.go" }, "timeout_ms": 15000,
+          "input": { "uid": "{{ input.uid }}", "pkg_id": "{{ input.pkg_id }}", "code": "{{ input.code }}",
+            "min_fw": "{{ input.min_fw }}", "devices": "{{ input.devices }}" } } },
+      { "id": "out", "type": "return", "config": { "data": { "ok": "{{ work.ok }}", "devices": "{{ work.devices }}", "error": "{{ work.why }}" } } },
+      { "id": "fail", "type": "return", "config": { "data": { "ok": false, "devices": [], "error": "{{ work.error }}" } } }
+    ],
+    "edges": [
+      { "from": "in", "to": "work" },
+      { "from": "work", "to": "out" },
+      { "from": "work", "to": "fail", "port": "error" }
+    ]
+  }
+}

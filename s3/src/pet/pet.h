@@ -4,7 +4,7 @@
 // Data: three packs in their own flash partitions (docs/pawboop.md); the game state in NVS namespace "pet".
 //
 // Hooks for the OS:
-//   apps.cpp list:  {"pet", "PawBoop", &ic_pet_52, &ic_pet_40, &ic_pet_28, app_pet::open, nullptr}
+//   apps.cpp list:  PawBoop is the "pet" entry of the vn.pawboop.pet package (its icon.jpg)
 //   wid.cpp:        kind "pet"; in wid::create: else if (k == "pet") pet::widget(c.o, w, h, it.size);
 //   OS loop:        pet::tick() every 500 ms (cheap; safe to call more often)
 //   Control Center tile / gesture:  pet::summon("cc") / pet::summon("gesture")

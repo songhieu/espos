@@ -17,7 +17,7 @@ Building an EspOS app follows the same loop as a phone app. This page maps each 
 | Package it | `tools/espk.py FOLDER OUT.espk` | `espos build` |
 | Run the real firmware | `tools/qemu/run.sh` | `espos qemu --install dist/*.espk` |
 | Look at a board | The USB dev console: `SHOT`, `TRACE`, `MEM` | `espos device shot`, `device logs`, `device mem` |
-| Run it on a board | Copy the unpacked package to the memory card; or the store, once published | `espos run --device IP` with live reload <Status s="planned" /> |
+| Run it on a board | `espos upload` (private, your account's devices); or copy the unpacked package to the memory card; or the store, once published | `espos run --device IP` with live reload <Status s="planned" /> |
 | Publish | The store's owner runs `publish_pkg.py` | `espos store publish` (owner only today) |
 
 The [CLI reference](/reference/cli/) lists the commands that exist now.
@@ -34,7 +34,7 @@ The [CLI reference](/reference/cli/) lists the commands that exist now.
 
 4. **Package.** `tools/espk.py` checks the manifest (id, version, code, kind, engine, category, permissions, icon) and every file name, then writes the `.espk`. Bump `code` for every release.
 
-5. **Install.** Your own, unpublished package reaches a board only by the memory card today: copy the unpacked package there, or run it in QEMU with `espos qemu --install`. Published packages install from the store over WiFi. Installing from your computer over the network is planned. See [Work with a real device](/guides/device/).
+5. **Install.** Upload your own package to your espos.dev account with `espos upload` (after `espos login` with a developer key): every EspOS S3 of your account installs it over WiFi, and a higher `code` updates it. See [Put your app on your own device](/guides/my-apps/). Without an account, copy the unpacked package to the memory card, or run it in QEMU with `espos qemu --install`. Published packages install from the store. Installing from your computer over the local network is planned. See [Work with a real device](/guides/device/).
 
 6. **Publish.** Send the package to the store. See [Publish to the store](/guides/publishing/).
 

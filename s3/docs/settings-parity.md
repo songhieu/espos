@@ -50,6 +50,7 @@ build_dashboard v16, market_tick v4; an X4 neither stores nor gets these keys).
 | `s3.photos` | the device's pictures | Ảnh | **new:** Cài đặt › Ảnh trên máy: see and remove. Adding stays on the web: the browser renders the screen-size copies before it saves the list |
 | `s3.pkgs` | apps wanted | Kho ứng dụng | Kho ứng dụng on the device |
 | `s3.notif`, `s3.notif_preview` | notification switches, preview | Kho ứng dụng › Thông báo | Cài đặt › Thông báo |
+| `s3.pkg_auto` | apps update by themselves (default on) | Kho ứng dụng › Trên máy | Cài đặt › Update |
 | `s3.p1`, `s3.p2`, `s3.l1`, `s3.l2` | old widget pages (before `s3.home`) | none (legacy) | read only (pictures for old layouts) |
 | `s3.apps` | old JS apps list | none | converted at boot (device only) |
 | X4 keys (`sys.lang`, `sys.sleep_min`, `read.*`, `sleep.*`, `dash.layout`, `dash.blocks`, …) | the reader | X4 pages | not for the S3 |

@@ -16,13 +16,19 @@ i2c_master_dev_handle_t ft;
 
 // FT6336G: register 0x02 = how many fingers (low 4 bits), then the first one's XH (the event in bits 6-7, x bits 8-11),
 // XL, YH, YL, in the panel's 240x320. The UI is the panel's 3/2: x = px * 3/2, y = py * 3/2.
+// The touch layer's short axis reaches only ~88 % of the glass (a test board, 2026-11-21: a finger run round the
+// edges gave UI x 24..297 for 24..335, so in landscape the aquarium's tabs at the top took taps ~30 px low: "ko bấm đc
+// vào các tab"); x is stretched to match (k 1.139 about x 24; the taps aimed at the tabs then land on them). The long
+// axis matched (y 28..436 for the finger's 28..451, within what a finger reaches), so it stays.
+constexpr int TOUCH_KX_1000 = 1139, TOUCH_X0 = 24;
 bool readFt(int16_t& x, int16_t& y) {
   uint8_t reg = 0x02, b[5];
   if (i2c_master_transmit_receive(ft, &reg, 1, b, 5, 20) != ESP_OK) return false;
   const int n = b[0] & 0x0F;
   if (n < 1 || n > 2) return false;
   const int px = ((b[1] & 0x0F) << 8) | b[2], py = ((b[3] & 0x0F) << 8) | b[4];
-  x = constrain((px - UI.x) * UI.den / UI.num, 0, LCD_W - 1);
+  const int ux = (px - UI.x) * UI.den / UI.num;
+  x = constrain(TOUCH_X0 + (ux - TOUCH_X0) * TOUCH_KX_1000 / 1000, 0, LCD_W - 1);
   y = constrain((py - UI.y) * UI.den / UI.num, 0, LCD_H - 1);
   return true;
 }

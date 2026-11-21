@@ -3,9 +3,13 @@
 // (docs/settings-parity.md, mockup mockups/s3-settings-parity.html). Each opens from its app
 // (a "Sửa"/"Đổi" button) and from Settings. Changes go up with desk::setSetting and a sync right away.
 #include <Arduino.h>
+#include <lvgl.h>
 
 namespace app_weather {
 void openCity();  // Thành phố: dash.city + dash.lat + dash.lon, from the web's list (places.ts) and world cities
+// That search field and list inside `body`; with `picked`, a tap stores the city and calls it with the city's time zone
+// in minutes (the first-boot setup), else it says so and closes the screen.
+void cityPicker(lv_obj_t* body, void (*picked)(int tzMin));
 String cityNow();  // the chosen city's name ("" when the server's default)
 }  // namespace app_weather
 

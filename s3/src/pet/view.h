@@ -37,6 +37,7 @@ class View {
   uint16_t bg_ = 0xFFFF;
   const void* clip_ = nullptr;  // pbs2_clip_t
   int i_ = 0, loops_ = 0, loopsLeft_ = 0, fade_ = 0;
+  bool shown_ = false;  // the last drawPicture had the dog's picture (it is decoded apart: the first may not be ready)
   lv_timer_t* timer_ = nullptr;
   uint32_t last_ = 0;
   float acc_ = 0;

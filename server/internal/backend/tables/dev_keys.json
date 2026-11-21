@@ -1,0 +1,77 @@
+{
+  "code": "dev_keys",
+  "label": "Developer keys",
+  "singular": "Developer key",
+  "columns": [
+    {
+      "code": "user_id",
+      "default": null,
+      "help": "the account the key uploads to (espos upload, espos apps)",
+      "indexed": true,
+      "label": "User",
+      "options": [],
+      "position": 1,
+      "read_only": false,
+      "ref_table": null,
+      "required": true,
+      "type": "integer",
+      "unique": false
+    },
+    {
+      "code": "key_hash",
+      "default": null,
+      "help": "sha256 (hex) of the key; the key itself is made in the browser, shown once and never sent to the server except by the CLI when it uploads",
+      "indexed": true,
+      "label": "Key hash",
+      "options": [],
+      "position": 2,
+      "read_only": false,
+      "ref_table": null,
+      "required": true,
+      "type": "text",
+      "unique": true
+    },
+    {
+      "code": "label",
+      "default": null,
+      "help": "what the person called it (\"Laptop\", \"CI\"), at most 40 characters",
+      "indexed": false,
+      "label": "Name",
+      "options": [],
+      "position": 3,
+      "read_only": false,
+      "ref_table": null,
+      "required": false,
+      "type": "text",
+      "unique": false
+    },
+    {
+      "code": "hint",
+      "default": null,
+      "help": "the key's last 4 characters, to tell keys apart on the web",
+      "indexed": false,
+      "label": "Ends with",
+      "options": [],
+      "position": 4,
+      "read_only": false,
+      "ref_table": null,
+      "required": false,
+      "type": "text",
+      "unique": false
+    },
+    {
+      "code": "last_used_ms",
+      "default": 0,
+      "help": "when the CLI last used it (epoch ms, written at most every 10 minutes); 0 = never",
+      "indexed": false,
+      "label": "Last used (epoch ms)",
+      "options": [],
+      "position": 5,
+      "read_only": false,
+      "ref_table": null,
+      "required": false,
+      "type": "integer",
+      "unique": false
+    }
+  ]
+}

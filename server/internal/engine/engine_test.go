@@ -1,9 +1,12 @@
 package engine
 
 import (
+	"encoding/base64"
 	"testing"
 	"testing/fstest"
 	"time"
+
+	"espos/internal/wm"
 )
 
 func TestCronMatch(t *testing.T) {
@@ -127,5 +130,41 @@ func TestRunForEach(t *testing.T) {
 	}
 	if b, _ := res.Body.(map[string]any); len(b["r"].([]any)) != 0 {
 		t.Fatalf("empty list: %#v", b)
+	}
+}
+
+// storage_put writes the decoded file (read back by storage_get), and publish lets the run go on: confirm_user_pkg and
+// desk_queue use them since the 0.5.9 import.
+func TestRunStoragePutAndPublish(t *testing.T) {
+	if err := wm.OpenStorage(t.TempDir(), []byte("0123456789abcdef0123456789abcdef")); err != nil {
+		t.Fatal(err)
+	}
+	fsys := fstest.MapFS{"workflows/put/workflow.json": {Data: []byte(`{"code":"put","draft":{
+		"nodes":[{"id":"in","type":"function_in"},
+			{"id":"put","type":"storage_put","config":{"key":"{{ input.key }}","content_base64":"{{ input.b64 }}"}},
+			{"id":"pub","type":"publish","config":{"channel":"rt:x","data":{"t":"sync"}}},
+			{"id":"get","type":"storage_get","config":{"key":"{{ put.key }}"}},
+			{"id":"out","type":"return","config":{"data":{"size":"{{ put.size }}","text":"{{ get.content }}","pub":"{{ pub.ok }}"}}},
+			{"id":"bad","type":"return","config":{"data":{"error":"{{ put.error }}"}}}],
+		"edges":[{"from":"in","to":"put"},{"from":"put","to":"pub"},{"from":"put","to":"bad","port":"error"},
+			{"from":"pub","to":"get"},{"from":"get","to":"out"}]}}`)}}
+	e, err := Load(fsys, "workflows", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	r, err := e.Run("put", map[string]any{"key": "u/1/a.txt", "b64": base64.StdEncoding.EncodeToString([]byte("hej"))}, nil, "http://x")
+	if err != nil {
+		t.Fatal(err)
+	}
+	d, _ := r.Data.(map[string]any)
+	if wm.Int(d["size"]) != 3 || d["text"] != "hej" || d["pub"] != true {
+		t.Fatalf("put + publish + get: %+v", d)
+	}
+	r, err = e.Run("put", map[string]any{"key": "u/1/b.txt", "b64": ""}, nil, "http://x")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if d, _ := r.Data.(map[string]any); wm.Str(d["error"]) == "" {
+		t.Fatalf("empty content should take the error edge: %+v", d)
 	}
 }

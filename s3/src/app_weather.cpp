@@ -61,17 +61,33 @@ const Place PLACES[] = {
     {"Los Angeles", "34.0522", "-118.2437", 3},
 };
 
+#if ESPOS_ONBOARD
+// The world cities' time zones in hours (the list's last 13, in its order), for the first-boot setup's city step.
+const int8_t WORLD_TZ[] = {9, 9, 8, 8, 7, 10, 4, 3, 1, 1, 0, -5, -8};
+#endif
+
 struct CityState {
-  lv_obj_t *scr, *list, *field;
+  lv_obj_t *list, *field;
+  void (*picked)(int tzMin);
 } CS;
 
+void fillCities();
+
 void pickCity(lv_event_t* e) {
-  const Place& p = PLACES[(int)(intptr_t)lv_event_get_user_data(e)];
+  const int i = (int)(intptr_t)lv_event_get_user_data(e);
+  const Place& p = PLACES[i];
   desk::setSetting("dash.city", p.name);
   desk::setSetting("dash.lat", p.lat);
   desk::setSetting("dash.lon", p.lon);
   desk::syncNow();
   kb::close();
+#if ESPOS_ONBOARD
+  if (CS.picked) {  // the setup's step: the city and its time zone, the list stays
+    const int n = sizeof PLACES / sizeof PLACES[0], w = i - (n - (int)sizeof WORLD_TZ);
+    CS.picked(p.region < 3 || w < 0 ? 420 : WORLD_TZ[w] * 60);
+    return fillCities();
+  }
+#endif
   os::toast(i18n::fmt(N_("Chose {0}"), p.name).c_str());
   os::back();
 }
@@ -113,9 +129,15 @@ String cityNow() {
 }
 
 void openCity() {
-  CS = {};
   lv_obj_t* body;
-  CS.scr = os::screen(N_("City"), &body);
+  lv_obj_t* s = os::screen(N_("City"), &body);
+  cityPicker(body, nullptr);
+  os::open(s);
+}
+
+void cityPicker(lv_obj_t* body, void (*picked)(int tzMin)) {
+  CS = {};
+  CS.picked = picked;
   CS.field = lv_textarea_create(body);
   lv_obj_set_width(CS.field, lv_pct(100));
   lv_textarea_set_one_line(CS.field, true);
@@ -136,11 +158,10 @@ void openCity() {
   lv_obj_add_event_cb(CS.field, [](lv_event_t*) { fillCities(); }, LV_EVENT_VALUE_CHANGED, nullptr);
   CS.list = stack(body, false, 6);
   lv_obj_set_width(CS.list, lv_pct(100));
-  lv_obj_add_event_cb(CS.scr, [](lv_event_t* e) {
-    if (lv_event_get_current_target(e) == CS.scr) CS = {};
+  lv_obj_add_event_cb(CS.list, [](lv_event_t* e) {
+    if (lv_event_get_current_target(e) == CS.list) CS = {};
   }, LV_EVENT_DELETE, nullptr);
   fillCities();
-  os::open(CS.scr);
 }
 
 namespace {

@@ -29,7 +29,17 @@ A failure at any step frees everything it took. One job runs at a time; others w
 
 ## Updates
 
-When the catalog's `code` for a package is higher than the installed one, the store offers "Update". An update installs the new version next to the old one and then drops the old one, in the same place, with the same parts.
+Updates follow the package's `code`, a whole number that grows with every release (see [version and code](/concepts/manifest/#version-and-code)). When the catalog's `code` for a package is higher than the installed one, and the firmware meets the new version's `min_fw`, that version is an update. An update installs the new version next to the old one and then drops the old one, in the same place, with the same parts.
+
+The device installs updates by itself, as a phone does:
+
+- **Packs** (languages, fonts, the Java runtime) always.
+- **Apps and add-ons** while **Update apps automatically** is on. It is on by default. The user turns it off in Settings › Update on the device, or in Apps › On device on the web desk (the setting `s3.pkg_auto`). Add-ons are updated on their own and are never dropped by their app's update.
+- Only while the package is not in use: nobody has touched the device for a minute and its app is closed. Otherwise the update waits until the app closes, or until the next sync or start.
+- Room is checked first. Without room nothing happens and nothing is shown; pressing "Update" in the store says how much room is missing.
+- When it is done, a quiet note goes to the Notification Center under Store, for example "Focus updated to 1.2.0". Tapping it opens the app's store page.
+
+With automatic updates off, the store on the device and the web desk offer "Update" instead.
 
 ## Installing from the web
 
@@ -50,7 +60,7 @@ The device installs what is listed and missing, moves a package whose `vol` chan
 
 ## User packages
 
-A user can upload their own Java game on the web desk, on the device's page. The browser builds the package, and the server returns it to that user's devices in the sync answer as `user_pkgs`, with an id that starts with `u.`. The device lists these next to the store's catalog and installs them through `s3.pkgs` like any other package. See [Java (J2ME) games](/guides/java-games/#upload-your-own-game).
+A user can upload their own packages: JavaScript apps they built (`espos upload`, or an `.espk` dropped on the web desk's **My apps** tab) and Java games (a `.jar` on the same tab). The server checks each one with the validator's rules and keeps it private to that account, with `u.` added to its id. It returns them to that user's devices in the sync answer as `user_pkgs`, and asks each device for them in `s3.pkgs`; a higher `code` makes every device that has one update it. A `u.` id is never a store package, and the store's catalog wins over a user package with the same id. See [Put your app on your own device](/guides/my-apps/).
 
 ## The catalog file
 

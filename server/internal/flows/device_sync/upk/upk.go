@@ -8,9 +8,9 @@ import (
 	"time"
 )
 
-// The owner's own Java games (user_pkgs, uploaded on the web's "Game Java" tab), for a colour desk only: the rows
-// for the answer's user_pkgs, and the ones whose signed download URLs are missing or end within 3 days (the next
-// nodes sign those again, for 7 days, and keep them on the row). An X4 gets nothing. A failed read leaves
+// The owner's own packages (user_pkgs: Java games and JavaScript apps uploaded on the web or with espos upload), for a
+// colour desk only: the rows for the answer's user_pkgs, and the ones whose signed download URLs are missing or end
+// within 3 days (the next nodes sign those again, for 7 days, and keep them on the row). An X4 gets nothing. A failed read leaves
 // "user_pkgs" out of this answer rather than failing the sync.
 const renewMs = 3 * 24 * 3600 * 1000
 
@@ -75,7 +75,7 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 		}
 		out = append(out, map[string]any{
 			"id": id, "pkg_id": wm.Str(r["pkg_id"]), "name": wm.Str(r["name"]), "version": wm.Str(r["version"]),
-			"code": wm.Int(r["code"]), "size": wm.Int(r["size"]), "sha256": wm.Str(r["sha256"]), "url": url,
+			"code": wm.Int(r["code"]), "engine": wm.Str(r["engine"]), "size": wm.Int(r["size"]), "sha256": wm.Str(r["sha256"]), "url": url,
 			"icon_url": wm.Str(r["icon_url"]), "has_icon": iconKey != "", "meta": meta,
 		})
 	}

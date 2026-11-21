@@ -1,0 +1,14 @@
+# EspOS S3 partition table v2 (docs/partitions.md). 16 MB flash. Written over USB only (tools/migrate_v2.py, or the
+# web installer with a v2 bundle): a partition table cannot change by OTA.
+# The same places as v1 for nvs (link token, WiFi, the package index, saves), otadata, LittleFS ("spiffs": settings,
+# dashboard, photos, small apps) and coredump, so the switch keeps them.
+# Apps: 4.75 MiB each (OTA images < 4,980,736 B; v1 had 3,932,160). The app area is one partition, "apps"
+# (src/pkg/area.cpp), 5,304 KB (v1: pb_dog + pb_ui + pb_voice, 7,352 KB): big packages (PawBoop) go on the card.
+# Name,   Type, SubType,   Offset,   Size,     Flags
+nvs,      data, nvs,       0x9000,   0x5000,
+otadata,  data, ota,       0xe000,   0x2000,
+app0,     app,  ota_0,     0x10000,  0x4C0000,
+app1,     app,  ota_1,     0x4D0000, 0x4C0000,
+apps,     data, undefined, 0x990000, 0x52E000,
+spiffs,   data, spiffs,    0xEBE000, 0x132000,
+coredump, data, coredump,  0xFF0000, 0x10000,

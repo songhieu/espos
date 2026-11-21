@@ -37,6 +37,27 @@ is the tank.
   so the sample between pixels has one bounds test, 16.16 steps (no seams between pieces), the beams' table and the
   body's powers worked out once, the background re-tinted only when the light or the dirt moved a visible step.
 
+### The food (2026-11-21)
+
+The owner found the old food fake: green tablets and plain dots. `foodPiece()` (water.cpp) now draws each piece, both
+in the water and, bigger and untinted, as the chooser's icons (`ui.cpp foodArt`):
+- Cám (flakes): thin chips with five uneven corners (four shapes), mostly warm colours with now and then a green
+  one. They turn over as they sink, narrower and darker when seen edge on, and lie flat on the sand.
+- Viên chìm (pellets): round brown or reddish-brown granules, dark underneath, with a light spot on top.
+- Mồi tươi (live bait): bloodworms, twelve overlapping beads in two reds along a wriggle, thinner at the ends.
+
+The package's `f_sink` / `f_live` pieces (tank_ui.pbu) and the hand-off's `f_food` can are no longer drawn; the dock
+keeps `i_food`. QA: `tank drop K N` drops N pieces of kind K (0 flakes, 1 pellets, 2 worms) for shots.
+
+### The blinking green and blue blocks (fixed 2026-11-21)
+
+The 2.8" board showed about 15 small saturated green or blue blocks that blinked. They were the 16 drifting specks:
+only their place was ever set, so their radius was 0. `disc()` then worked out every weight as NaN. The S3 turns a
+NaN into a huge integer, and the mix with that weight painted wild colours; the simulator (arm64) turns it into 0,
+so it never showed them. The specks now get their depth, sway and size as engine.js gives them (`setView`), and
+`disc()` draws nothing without a size and caps its weight at 32. QEMU (Xtensa) shows the blocks, so check tank
+drawing there, not only in the simulator.
+
 ## Packages
 
 `vn.pawboop.tank` 1.0.0, engine `tank`, min_fw 506: core (tank.json, fish/things/thumbs packs, tank_ui.pbu = the

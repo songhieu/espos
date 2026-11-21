@@ -124,13 +124,13 @@ float clampScroll(float v) {
 }
 struct TabR {
   float x, y, w, h;
-  String name;
+  const char* name;
 };
-std::vector<TabR> tabRects(const Lay& L) {
+void tabRects(const Lay& L, TabR* out) {  // the seven tabs' pills
   const bool marine = game::T().marine;
   float ws[7];
-  String names[7];
-  for (int i = 0; i < 7; i++) names[i] = i == 1 && marine ? "San hô" : TABS[i], ws[i] = textW(names[i].c_str(), 12, true);
+  const char* names[7];
+  for (int i = 0; i < 7; i++) names[i] = i == 1 && marine ? "San hô" : TABS[i], ws[i] = textW(names[i], 12, true);
   int pad = 7;
   const float gap = 4, room = L.shW - 12;
   auto need = [&]() {
@@ -140,9 +140,7 @@ std::vector<TabR> tabRects(const Lay& L) {
   };
   while (need() > room && pad > 3) pad--;
   float x = L.shX + std::max(6.0f, (L.shW - need()) / 2);
-  std::vector<TabR> out;
-  for (int i = 0; i < 7; i++) out.push_back({x, L.shY + 42, ws[i] + pad * 2, 26, names[i]}), x += ws[i] + pad * 2 + gap;
-  return out;
+  for (int i = 0; i < 7; i++) out[i] = {x, L.shY + 42, ws[i] + pad * 2, 26, names[i]}, x += ws[i] + pad * 2 + gap;
 }
 const FishRec* cardFish() { return card ? game::fishRec(cardUid) : nullptr; }
 void needs(const char** out, int& n) {
@@ -158,12 +156,16 @@ int hit(float x, float y, int& i, int& row, bool& btn) {
   const Lay L = lay();
   if (sheet) {
     if (x < L.shX || y < L.shY) return H_CLOSE;
-    if (y < L.shY + 38) return x > L.shX + L.shW - 42 ? H_CLOSE : H_NONE;
-    if (y < L.listY - 4) {
-      const std::vector<TabR> tr = tabRects(L);
+    if (y < L.shY + 38 && x > L.shX + L.shW - 42) return H_CLOSE;
+    // The tabs take taps from 14 px over their pills to 10 px into the first row (owner, 2026-11-21, the 2.8" in
+    // landscape: "điểm cảm ứng bé quá"): a finger a little high or low still picks the tab.
+    if (y < L.shY + 28) return H_NONE;
+    if (y < L.listY + 10) {
+      TabR tr[7];
+      tabRects(L, tr);
       for (int k = 0; k < 7; k++)
-        if (x >= tr[k].x - 2 && x < tr[k].x + tr[k].w + 2) return i = k, H_TAB;
-      return H_NONE;
+        if (x >= tr[k].x - 4 && x < tr[k].x + tr[k].w + 4) return i = k, H_TAB;
+      if (y < L.listY - 4) return H_NONE;
     }
     row = (int)floorf((y - L.listY + scroll) / ROW_H), btn = x > L.shX + L.shW - 94;
     return H_LIST;
@@ -417,7 +419,6 @@ void barFill(const Tgt& t, float x, float y, float w, float v, uint32_t col, int
   const float k = std::max(0.08f, std::min(1.0f, v / 100));
   rrect(t, x, y, w * k, 7, 3.5f, v < 30 ? (fsin(pulse * 6) > 0 ? H(0xe5484d) : H(0xf08a8d)) : H(col), a);
 }
-void bar(const Tgt& t, float x, float y, float w, float v, uint32_t col, int a) { barTrack(t, x, y, w, a), barFill(t, x, y, w, v, col, a); }
 void drawDock(const Tgt& t, const Lay& L, int a) {
   static const char* const ICON[5] = {"i_food", "i_sponge", "i_bucket", "i_lamp", "i_shop"};
   const TankRec& T = game::T();
@@ -458,15 +459,16 @@ void drawToasts(const Tgt& t, const Lay& L) {
     y += h + 4;
   }
 }
+// The chooser's icon: a few pieces of that food (water.cpp foodPiece), bigger, untinted: a heap of flakes, a heap of
+// granules, three bloodworms.
 void foodArt(const Tgt& t, int kind, float x, float y) {
-  if (kind == F_flake) return fit(t, thing("f_food"), x - 15, y - 15, 30, 30);
-  const Spr* s = sprNamed(P_UI, kind == F_sink ? "f_sink" : "f_live");
-  if (s) return fit(t, s, x - 15, y - 15, 30, 30);
-  static const float TAB[5][2] = {{-7, -3}, {6, -5}, {0, 6}, {-9, 8}, {9, 7}};
-  if (kind == F_sink)  // the page's five green tablets, when the package has no picture of them
-    for (const auto& p : TAB) rrect(t, x + p[0] - 5.2f, y + p[1] - 3.6f, 10.4f, 7.2f, 3.6f, H(0x4f6a2a), 256);
-  else
-    for (int k = 0; k < 3; k++) line(t, x - 12 + k * 5, y - 6 + k * 7, x - 2 + k * 5, y - 7 + k * 7, 2.6f, H(0xd23a33), 256);
+  static const int8_t AT[3][7][2] = {{{-7, -7}, {6, -8}, {-1, -1}, {-9, 5}, {8, 3}, {1, 9}, {-2, -9}},
+                                     {{-8, 6}, {0, 7}, {8, 6}, {-4, -1}, {4, -1}, {0, -8}, {0, 0}},
+                                     {{-1, -7}, {1, 0}, {-1, 7}}};
+  const float S = sc->SC;
+  for (int i = 0; i < (kind == F_live ? 3 : kind == F_sink ? 6 : 7); i++)  // (seeds: the worms lie across, the flakes mostly warm)
+    foodPiece(t, kind, (x + AT[kind][i][0]) * S, (y + AT[kind][i][1]) * S, (kind == F_live ? 2.0f : 2.3f) * S, 0.6f,
+              kind == F_live ? i * 1.5708f + 0.71f : kind == F_flake ? i * 0.56f + 0.01f : i * 1.37f + 0.41f, plain, 1);
 }
 void drawFoodPick(const Tgt& t, const Lay& L) {
   const TankRec& T = game::T();
@@ -481,7 +483,7 @@ void drawFoodPick(const Tgt& t, const Lay& L) {
     circle(t, x0 + 24, y, 20, H(0xe4f1f8), 256);
     foodArt(t, k, x0 + 24, y);
     text(t, (String(D.R.dietVi[k]) + (cost ? "  " + String(cost) + " xu" : "")).c_str(), x0 + 52, y - 7, 13, true, H(0x1c2a38));
-    bar(t, x0 + 52, y + 6, 88, T.fed[k], 0x4fb84a, 256);
+    barTrack(t, x0 + 52, y + 6, 88, 256), barFill(t, x0 + 52, y + 6, 88, T.fed[k], 0x4fb84a, 256);
   }
   text(t, "Mỗi loài ăn một loại", x0 + 77, L.foodY[n - 1] - 38, 12, true, 0xFFFF, 1);
 }
@@ -574,11 +576,12 @@ void drawSheetHead(const Tgt& t, const Lay& L) {
     String u = game::used(T) == (int)game::used(T) ? String((int)game::used(T)) : String(game::used(T), 1);
     text(t, ("Chỗ " + u + "/" + String(game::capacity(T))).c_str(), sx + sw - 76 - cw, sy + 20.5f, 12, false, H(0x566575), 2);
   }
-  const std::vector<TabR> tr = tabRects(L);
+  TabR tr[7];
+  tabRects(L, tr);
   for (int i = 0; i < 7; i++) {
     const bool on = i == tab;
     rrect(t, tr[i].x, tr[i].y, tr[i].w, tr[i].h, 13, on ? H(0x2f6fb5) : H(0xe3e9f0), 256);
-    text(t, tr[i].name.c_str(), tr[i].x + tr[i].w / 2, tr[i].y + 13.5f, 12, true, on ? 0xFFFF : H(0x3c4a5a), 1);
+    text(t, tr[i].name, tr[i].x + tr[i].w / 2, tr[i].y + 13.5f, 12, true, on ? 0xFFFF : H(0x3c4a5a), 1);
     if (i == 6 && !on && hud().tasks) circle(t, tr[i].x + tr[i].w - 3, tr[i].y + 3, 4, H(0x2fae5b), 256);
   }
 }

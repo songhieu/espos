@@ -501,3 +501,73 @@ func Delete(table string, id any) error {
 	_, err := db.Exec("DELETE FROM docs WHERE tbl = ? AND id = ?", table, int64(Num(id)))
 	return err
 }
+
+// Batch applies several writes as one: {"op": "insert"|"update"|"upsert"|"delete", "table", "id", "values", "on"},
+// in a single transaction under the write lock (the hosted runtime's wm.Batch; the dog assistant saves a turn this
+// way). The result is {"results": [row or nil, ...]}; the first error rolls everything back.
+func Batch(ops []map[string]any) (map[string]any, error) {
+	writeMu.Lock()
+	defer writeMu.Unlock()
+	if _, err := db.Exec("BEGIN"); err != nil {
+		return nil, err
+	}
+	results := make([]any, 0, len(ops))
+	fail := func(err error) (map[string]any, error) {
+		_, _ = db.Exec("ROLLBACK")
+		return nil, err
+	}
+	for i, op := range ops {
+		table := Str(op["table"])
+		if err := checkTable(table); err != nil {
+			return fail(fmt.Errorf("batch op %d: %w", i, err))
+		}
+		values, _ := op["values"].(map[string]any)
+		var row map[string]any
+		var err error
+		switch Str(op["op"]) {
+		case "insert":
+			row, err = insertLocked(table, values)
+		case "update":
+			row, err = updateLocked(table, op["id"], values)
+		case "upsert":
+			var on []string
+			switch o := op["on"].(type) {
+			case []string:
+				on = o
+			case []any:
+				for _, c := range o {
+					on = append(on, Str(c))
+				}
+			}
+			filters := make([]map[string]any, 0, len(on))
+			for _, c := range on {
+				filters = append(filters, map[string]any{"column": c, "op": "eq", "value": values[c]})
+			}
+			var rows []map[string]any
+			rows, _, err = QueryPage(table, map[string]any{"filters": filters, "limit": 1})
+			if err == nil {
+				if len(rows) == 1 {
+					row, err = updateLocked(table, rows[0]["id"], values)
+				} else {
+					row, err = insertLocked(table, values)
+				}
+			}
+		case "delete":
+			_, err = db.Exec("DELETE FROM docs WHERE tbl = ? AND id = ?", table, int64(Num(op["id"])))
+		default:
+			err = fmt.Errorf("unknown op %q", Str(op["op"]))
+		}
+		if err != nil {
+			return fail(fmt.Errorf("batch op %d (%s %s): %w", i, Str(op["op"]), table, err))
+		}
+		if row != nil {
+			results = append(results, row)
+		} else {
+			results = append(results, nil)
+		}
+	}
+	if _, err := db.Exec("COMMIT"); err != nil {
+		return fail(err)
+	}
+	return map[string]any{"results": results}, nil
+}

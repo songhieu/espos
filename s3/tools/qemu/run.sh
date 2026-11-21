@@ -12,6 +12,9 @@
 #   tools/qemu/run.sh --headless   no window, the dev console on port 5555
 #   tools/qemu/run.sh --board 28   the 2.8" board's firmware (env s3desk-28-qemu); its own image, card, sockets
 #                                  ("-28"), serial port 5556 and web page 8081, so it runs beside the 3.5" one
+#   tools/qemu/run.sh --v2         partition table v2 (docs/partitions.md): its own image build-qemu/flash[-28]-v2.bin;
+#                                  the same firmware (an image runs on both tables). To switch a v1 image with its data:
+#                                  tools/migrate_v2.py --image build-qemu/flash.bin --build .pio/build/s3desk-qemu
 # Remote control (Settings › Điều khiển từ xa): the device's page is at http://127.0.0.1:8080 (port 80 forwarded).
 # Screenshots: S in the viewer, or tools/qemu/console.py PORT shot:FILE.ppm (QEMU's monitor).
 # QEMU: ../tools-ext/qemu (esp-develop-9.2.2-20261109, aarch64 macOS, sha256 35d0b689...).
@@ -27,6 +30,7 @@ IMG=build-qemu/flash.bin
 VIEWARGS=""
 T=""      # "-28": the 2.8" board's files
 WEB=8080
+TABLE=""  # --v2: mkimage's --table
 while [ $# -gt 0 ]; do
   case "$1" in
     --keep) KEEP=1 ;;
@@ -35,18 +39,19 @@ while [ $# -gt 0 ]; do
     --tcp) MODE=tcp; PORT=$2; shift ;;
     --headless) MODE=headless ;;
     --board) [ "$2" = 28 ] && ENV=s3desk-28-qemu T=-28 PORT=5556 WEB=8081 VIEWARGS="--board 28"; shift ;;
+    --v2) TABLE="--table partitions_v2.csv" ;;
   esac
   shift
 done
 mkdir -p build-qemu
-IMG=build-qemu/flash$T.bin
+IMG=build-qemu/flash$T${TABLE:+-v2}.bin
 SD=build-qemu/sd$T.img
 if [ $KEEP = 0 ] || [ ! -f $IMG ]; then
   ~/.platformio/penv/bin/pio run -e $ENV | grep -E "error|SUCCESS|FAILED"
   if [ $FRESH = 1 ] || [ ! -f $IMG ]; then
-    python3 tools/qemu/mkimage.py $IMG --env $ENV --sd $SD
+    python3 tools/qemu/mkimage.py $IMG --env $ENV --sd $SD $TABLE
   else
-    python3 tools/qemu/mkimage.py $IMG --env $ENV --app-only
+    python3 tools/qemu/mkimage.py $IMG --env $ENV --app-only $TABLE
   fi
 fi
 # The prebuilt QEMU looks for Homebrew's sdl2-compat; plain SDL2 2.x is the same library.

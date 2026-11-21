@@ -1,11 +1,11 @@
 {
   "code": "list_user_pkgs",
-  "name": "Web: list the user's own Java games",
+  "name": "Web and CLI: list the user's own packages (and, with ?devices=1, what each of their S3 devices has of them)",
   "draft": {
     "nodes": [
       { "id": "in", "type": "http_in" },
       { "id": "work", "type": "code", "config": { "source": { "$file": "nodes/work.go" }, "timeout_ms": 10000,
-          "input": { "uid": "{{ input.user.id }}" } } },
+          "input": { "uid": "{{ input.user.id }}", "auth": "{{ input.headers.authorization }}", "query": "{{ input.query }}" } } },
       { "id": "out", "type": "respond", "config": { "status": "{{ work.status }}", "body": "{{ work.body }}" } },
       { "id": "fail", "type": "respond", "config": { "status": 500, "body": { "error": "{{ work.error }}" } } }
     ],

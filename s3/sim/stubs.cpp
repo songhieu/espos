@@ -271,13 +271,20 @@ void setSetting(const char* key, const String& value) {
   trace::add("setting %s = %s", key, value.length() > 120 ? (value.substring(0, 120) + "...").c_str() : value.c_str());
 }
 uint32_t settingsVersion() { return settingsVer; }
+#if ESPOS_ONBOARD
+bool hadSettings() { return !getenv("SIM_FRESH"); }  // SIM_FRESH=1: a device that never had settings (the first boot)
+#endif
 bool provision(const char*, String& err) { return err = "sim", false; }
 String hwid(String* mac4) {  // a fixed board in the simulator: "espos-hw:7cdfa1b2c3d4"
   if (mac4) *mac4 = "c3d4";
   return "5a8e0c3b1f2d4e6a7b9c0d1e2f3a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c";
 }
 String tokenSha8() { return "1a2b3c4d"; }
-static FwOffer offer;
+static FwOffer offer = [] {  // SIM_FW_USB=espos-s3-0.6.0: a newer version for table v2 only (docs/partitions.md)
+  FwOffer o;
+  if (getenv("SIM_FW_USB")) o.usb = getenv("SIM_FW_USB");
+  return o;
+}();
 const FwOffer& fwOffer() { return offer; }
 void reportOta(const String&, bool, const String&) {}
 int64_t nowMs() {

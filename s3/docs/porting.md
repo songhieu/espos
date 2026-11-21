@@ -237,7 +237,8 @@ Then add the board to `docs/boards.md`: its pins, what was checked and how.
 
 ## Size budget
 
-`firmware.bin` must stay under 3,932,160 bytes (the app slot, 0x3C0000): every board's drivers are in the one image.
+`firmware.bin` must stay under 3,932,160 bytes (the app slot of table v1, 0x3C0000; table v2 has 4,980,736, see
+docs/partitions.md for the tracks and `tools/fwsize.py`): every board's drivers are in the one image.
 On 2026-11-17 it was 3,876,112 bytes. A board costs about 3.5 KB for a panel driver, 0.5-0.7 KB for a touch driver and
 0.3 KB for its descriptor and probe. Check before and after:
 

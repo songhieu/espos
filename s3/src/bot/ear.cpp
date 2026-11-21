@@ -36,7 +36,13 @@ namespace {
 constexpr int RATE = 16000, HOP = WFE_HOP;  // 160 samples = 10 ms
 constexpr uint32_t RING = 2 * RATE;
 // The package's thresholds (wake.json, 2026-11-19: normal = the easy mode), per sensitivity low, normal, high.
-const float THR2[3] = {0.98f, 0.70f, 0.50f}, THR1G[3] = {2.0f, 0.90f, 0.80f};
+// Listener 1.1.0 (model c6c, wake/reports/c6c.md), the same as the S3 package's wake.json.
+const float THR2[3] = {0.99f, 0.80f, 0.60f}, THR1G[3] = {2.0f, 0.93f, 0.85f};
+// The other calls (2026-11-21, the owner: "mấy tiếng chó kia cũng nên có cho nó"): "Ki ki", "Lu lu", "Cún ơi", "Milu",
+// each an output of the built-in model (when it has it), with the package's thresholds; all on, as on the S3.
+constexpr const char* CALLS[] = {"kiki", "lulu", "cun", "milu"};
+const float THRC[4][3] = {{0.98f, 0.90f, 0.80f}, {0.97f, 0.85f, 0.75f}, {0.97f, 0.90f, 0.80f}, {0.97f, 0.90f, 0.80f}};
+int callOut[4] = {-1, -1, -1, -1};
 
 #ifndef BOT_SIM
 i2s_chan_handle_t rx = nullptr;
@@ -55,11 +61,12 @@ wfe_t* fe = nullptr;
 ewm_t net;
 void* netMem = nullptr;
 bool modelOk = false;
-float thr[EWM_MAX_OUT] = {2, 2, 2, 2};
+float thr[EWM_MAX_OUT] = {2, 2, 2, 2, 2, 2, 2, 2};  // 2: off
 volatile bool det = false, held = false, reset = true, fired = false;
 int warm = 0;
 volatile uint32_t frames = 0, usMax = 0, fires = 0;
 volatile float firedP[2] = {0, 0};
+volatile int firedMask = 0;  // the outputs that fired (bit per output), for the log
 
 uint8_t* fireWav = nullptr;  // the 2 s before the last "Gâu gâu" (44 bytes of WAV header room first)
 
@@ -150,6 +157,7 @@ void detect(const int16_t* pcm) {
     }
     firedP[0] = net.prob[0];
     firedP[1] = net.h->nout > 1 ? net.prob[1] : 0;
+    firedMask = r;
     fires = fires + 1;
     fired = true;
   }
@@ -230,7 +238,9 @@ bool begin() {
   if (!e) {
     wfe_init(fe, net.h->fe_floor, net.h->fe_off, net.h->fe_scale);
     modelOk = true;
-    trace::add("ear: model %u B, state %u B, %u channels", (unsigned)size, (unsigned)st, (unsigned)net.h->ch);
+    for (int c = 0; c < 4; c++) callOut[c] = ewm_find(&net, CALLS[c]);
+    trace::add("ear: model %u B, state %u B, %u channels, %u outputs", (unsigned)size, (unsigned)st, (unsigned)net.h->ch,
+               (unsigned)net.h->nout);
   } else {
     trace::add("ear: model refused (%d)", e);
   }
@@ -257,6 +267,8 @@ void setWake(int sens) {
   det = false;  // the task never sees half-written bars
   thr[0] = THR1G[k];
   thr[1] = THR2[k];
+  for (int c = 0; c < 4; c++)
+    if (callOut[c] >= 0) thr[callOut[c]] = THRC[c][k];
   reset = true;
   det = true;
 }
@@ -264,7 +276,13 @@ void setWake(int sens) {
 bool takeWake() {
   if (!fired) return false;
   fired = false;
-  trace::add("ear: Gâu gâu (%.2f %.2f)", firedP[0], firedP[1]);
+  const char* name = "?";
+  for (int o = 0; o < net.h->nout; o++)
+    if (firedMask & (1 << o)) {
+      name = ewm_name(&net, o);
+      break;
+    }
+  trace::add("ear: call %s (%.2f %.2f)", name, firedP[0], firedP[1]);
   return true;
 }
 

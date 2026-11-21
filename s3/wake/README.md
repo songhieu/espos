@@ -77,6 +77,21 @@ $PY train/gen_tts.py --engine turbo|nano|piper|say|clone|mix    # positives + ha
 host/wakecli models/m64.ewm some.wav                            # the board's code on a recording
 ```
 
+### More calls: "ki ki", "lu lu", "cún ơi", "milu" (2026-11-21)
+
+The same pipeline with a second round of texts (`texts.WAKE2`: kinds k2 l2 c2 m2, and `texts.CONF2`: laughs and cries
+like "hi hi" and "hu hu", one-sound neighbours, and the "<name> ơi" pattern Vietnamese uses all day). The first
+round's clips and sets are kept; the second round goes to `sets/*_pos2.npz` / `*_neg2.npz`, which train.py appends.
+One model, six outputs: `gau`, `gau2`, `kiki`, `lulu`, `cun`, `milu`; each call is a negative for every other output.
+
+```
+$PY train/gen_tts.py --engine turbo|nano|say|piper|clone --words2
+$PY train/gen_tts.py --engine mix --words2 --mix_voices 37     # the first round's 37 mixed voices
+.venv/bin/python train/build_sets.py --words2 --variants 4
+.venv/bin/python train/train.py --name c6a --nout 6 --init m64d --steps 16000 --mined 0.12
+.venv/bin/python train/evaluate_calls.py --name c6a            # -> reports/c6a.md, thresholds per sensitivity
+```
+
 ## 4. Results
 
 The package carries a model fine-tuned from m64d for the device (not in this repository). Below: m64d, the

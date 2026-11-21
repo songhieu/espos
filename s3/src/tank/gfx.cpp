@@ -75,28 +75,31 @@ struct GlassK {
 std::vector<GlassK> glasses;
 
 void blur(float* a, int w, int h, int rad) {  // three box blurs ~ a gaussian
-  std::vector<float> t(std::max(w, h));
+  float* t = (float*)heap_caps_malloc(std::max(w, h) * sizeof(float), MALLOC_CAP_SPIRAM);
+  if (!t) return;  // (the glass then has a hard shadow)
+  const float k = 1.0f / (2 * rad + 1);
   for (int pass = 0; pass < 3; pass++) {
     for (int y = 0; y < h; y++) {
       float* row = a + y * w;
       float s = 0;
       for (int x = -rad; x <= rad; x++) s += row[std::min(w - 1, std::max(0, x))];
       for (int x = 0; x < w; x++) {
-        t[x] = s / (2 * rad + 1);
+        t[x] = s * k;
         s += row[std::min(w - 1, x + rad + 1)] - row[std::max(0, x - rad)];
       }
-      memcpy(row, t.data(), w * sizeof(float));
+      memcpy(row, t, w * sizeof(float));
     }
     for (int x = 0; x < w; x++) {
       float s = 0;
       for (int y = -rad; y <= rad; y++) s += a[std::min(h - 1, std::max(0, y)) * w + x];
       for (int y = 0; y < h; y++) {
-        t[y] = s / (2 * rad + 1);
+        t[y] = s * k;
         s += a[std::min(h - 1, y + rad + 1) * w + x] - a[std::max(0, y - rad) * w + x];
       }
       for (int y = 0; y < h; y++) a[y * w + x] = t[y];
     }
   }
+  heap_caps_free(t);
 }
 
 // ui.js glass(): shadow rgba(0,20,30,.35) blur 8 down 2, fill rgba(250,252,255,fill), rim white .9
@@ -365,18 +368,9 @@ float text(const Tgt& t, const char* s, float x, float y, int px, bool bold, uin
 String fit1(const char* s, int px, bool bold, float w) {
   String t = s;
   if (textW(t.c_str(), px, bold) <= w) return t;
-  for (const char* sep : {" \xC2\xB7 ", ", "}) {
-    std::vector<String> parts;
-    int from = 0, k;
-    while ((k = t.indexOf(sep, from)) >= 0) parts.push_back(t.substring(from, k)), from = k + strlen(sep);
-    parts.push_back(t.substring(from));
-    auto join = [&]() {
-      String j;
-      for (size_t i = 0; i < parts.size(); i++) j += (i ? sep : "") + parts[i];
-      return j;
-    };
-    while (parts.size() > 1 && textW(join().c_str(), px, bold) > w) parts.pop_back();
-    t = join();
+  for (const char* sep : {" \xC2\xB7 ", ", "}) {  // whole items off the end
+    int k;
+    while (textW(t.c_str(), px, bold) > w && (k = t.lastIndexOf(sep)) > 0) t = t.substring(0, k);
   }
   while (textW(t.c_str(), px, bold) > w) {
     const int k = t.lastIndexOf(' ');

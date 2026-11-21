@@ -30,6 +30,8 @@ tools/sim-live.sh --reset         # a fresh sim/data-live (from sim/data-run + t
   bench, shot, window (the whole window as a PNG), mem, set, rot, saver, wake, wait, quit; `splash PCT` the boot
   screen with its bar at PCT (`splash end`: Home again), `cover PKG PCT` an app's opening cover (`cover end`).
   `SIM_NO_SYNC=1`: no sync yet since power-on (the widgets' skeletons when there is no dashboard, 0.5.7).
+  The first-boot setup (src/onboard.cpp, a sim built with `EXTRA=-DESPOS_ONBOARD=1`): `onb reset | step N[.SUB] | done | state | demo 1 PIN | demo 0`;
+  `SIM_FRESH=1` starts the simulator as a device that never had settings (the setup runs by itself).
 - **The board's speed** (default): the run game's decoders run in their own thread like the board's core 0 task and
   each job takes the board's time (src/run/media.cpp `pad`: a road picture 16.3 ms + 3.3 ms from the card, a
   sprite 1 ms + 0.36 us a pixel; ES3C35P, 2026-11-17). What a late wake-up of the computer's sleep costs comes off the
@@ -73,6 +75,7 @@ tools/qemu/run.sh --tcp 5555      # QEMU's own window, the console on a port: to
 tools/qemu/console.py 5555 shot:FILE.ppm   # a screenshot (QEMU's monitor, build-qemu/monitor.sock)
 tools/qemu/run.sh --board 28      # the 2.8" board (env s3desk-28-qemu): build-qemu/flash-28.bin, sd-28.img,
                                   # console 5556, web page 8081, sockets *-28.sock; runs beside the 3.5" one
+tools/qemu/run.sh --v2            # partition table v2 (docs/partitions.md): build-qemu/flash[-28]-v2.bin
 ```
 
 The viewer (tools/qemu/view.cpp, build-qemu/view): QEMU runs without a window; the viewer shows the frame the

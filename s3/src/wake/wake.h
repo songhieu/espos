@@ -53,6 +53,13 @@ Vad vadTake();
 void vadRestart();
 uint32_t vadSpeechMs();
 void vadMute(uint32_t forMs);  // the next forMs of the mic are our own sound (talk.cpp's ack): never speech
+// The end of a question, block by block in the mic task as the EspOS Bot does it (src/bot/ear.cpp): ms since the last
+// loud block (over the 2 s rolling floor + relDb), and since the last block that was not silent (floor + 3 dB).
+uint32_t vadQuietMs();
+uint32_t vadSilentMs();
+// A question began (its loudest level so far: seedDb) / ended: while on, only blocks within 18 dB of its loudest one
+// count as speech for vadQuietMs.
+void vadQuestion(bool on, float seedDb = -90);
 
 // Dev console: WAKE (state and timings), WAKEREC n (n s of the raw mic, sent back as "WAKEREC <bytes>" + PCM).
 bool console(const char* cmd);

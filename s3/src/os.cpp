@@ -24,6 +24,9 @@
 #include "lock.h"
 #include "net.h"
 #include "notif.h"
+#if ESPOS_ONBOARD
+#include "onboard.h"
+#endif
 #include "photo.h"
 #include "pkg/pkg.h"
 #include "js/jsapp.h"
@@ -197,7 +200,12 @@ void updateChrome() {
   auto it = barDarkOf.find(active);
   barDark(it != barDarkOf.end() ? it->second : (!app && theme::home().light));
   if (homeBar) {
+#if ESPOS_ONBOARD
+    app && !kb::isOpen() && !onboard::running() ? lv_obj_remove_flag(homeBar, LV_OBJ_FLAG_HIDDEN)
+                                                : lv_obj_add_flag(homeBar, LV_OBJ_FLAG_HIDDEN);
+#else
     app && !kb::isOpen() ? lv_obj_remove_flag(homeBar, LV_OBJ_FLAG_HIDDEN) : lv_obj_add_flag(homeBar, LV_OBJ_FLAG_HIDDEN);
+#endif
     lv_obj_set_style_bg_color(homeLine, C(sbDark ? 0x16181d : 0xffffff), 0);
   }
 }
@@ -232,6 +240,9 @@ bool watchTouch(bool down, int32_t x, int32_t y) {
     // Biscuit's pop-up has its own gestures (swipe down, tap outside): nothing underneath may take its touches.
     if (saverShown || ccOpen() || ::home::editing() || notif::centerShown() || pet::summoned()) gst.kind = G_NONE;
     else if (app && x < EDGE && y > SB_H && y < kbTop) gst.kind = G_BACK;
+#if ESPOS_ONBOARD
+    else if (onboard::running()) gst.kind = G_NONE;  // the first-boot setup: only back (one step back, onboard.h)
+#endif
     else if (app && y >= H() - BOTTOM) gst.kind = G_HOME;
     else if (!app && ::home::searchAt(x, y)) gst.kind = G_SEARCH;
     else gst.kind = G_NONE;
@@ -243,7 +254,13 @@ bool watchTouch(bool down, int32_t x, int32_t y) {
       if (dx > 36 && dx > 2 * abs(dy)) {
         gst.kind = G_NONE;
         trace::add("gesture: back");
+#if ESPOS_ONBOARD
+        fireLater([] {
+          if (!onboard::back()) back();
+        });
+#else
         fireLater(back);
+#endif
         return true;
       }
       if (abs(dy) > 36 || dx < -12) gst.kind = G_NONE;  // a scroll, not a back swipe
@@ -395,6 +412,9 @@ void animCc(bool open) {
 
 void onPull(lv_event_t* e) {
   if (sbHidden && lv_event_get_current_target(e) == sb) return;
+#if ESPOS_ONBOARD
+  if (onboard::running()) return;  // the first-boot setup: no Control Center or notifications under it
+#endif
   lv_point_t p;
   lv_indev_get_point(lv_indev_active(), &p);
   const lv_event_code_t code = lv_event_get_code(e);
@@ -1137,6 +1157,9 @@ void tick() {
     seenApps = apps::version();
     pending = true;
   }
+#if ESPOS_ONBOARD
+  onboard::tick();  // the first-boot setup, the claim's welcome, a store demo unit (onboard.h)
+#endif
   lock::tick();  // the trial's notices and end card (lock.h)
   if (seenLock != lock::version()) {  // a paid app locked or opened again: its icon's lock
     seenLock = lock::version();

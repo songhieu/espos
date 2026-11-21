@@ -89,6 +89,32 @@ temporary bbk_ key that is revoked right after.
   that stayed and loses `code`. It is not tried again until the web asks again: lists it (or, for an update, sends
   its `code`), which is what "Install" and "Update" on the web do. Installs the web asked for that fail are tried at
   most 3 times a boot.
+- **Updates** — an entry whose `code` is above the installed one is an update the web asked for ("Update" writes the
+  catalog's `code`). Besides that the device updates by itself (2026-11-21, src/pkg/store.cpp `autoUpdate`):
+  - packs (`type: pack`: languages, fonts, the Java runtime) always, as before;
+  - apps and add-ons while setting `s3.pkg_auto` is not `"0"` (default on; Settings › Update on the device,
+    Apps › On device on the web). Same volume and parts as "Update" (add-ons are updated as packages of their own
+    and stay), the newest catalog version whose `min_fw` the firmware meets, never a locked paid one.
+  - Only while the package is not in use: nobody touched the device for a minute, its app (or the app it is an
+    add-on of) is not in front, the aquarium is not behind the saver, the dog is not called up. Otherwise it waits
+    and is looked at again once a minute while the device is left alone, or at the next sync or start.
+  - Room is checked first (unlike installs from the web): without room nothing happens and nothing is shown. One
+    failure stops it for the rest of the boot; a cancel holds it as for any update.
+  - When it is done: a quiet note in the Notification Center under Store ("Focus updated to 1.2.0", a tap opens
+    its store page), no toast. `s3.pkgs` and the sync's `pkgs` report follow as after a manual update; the entry
+    gets no `code`, and an older `code` left in an entry asks for nothing, so the web and the device never loop.
+  - While on, the device also reads the catalog at the first sync after a start and then every 6 hours.
+- **The user's own packages** (2026-11-21; web/backend `*_user_pkg*`, guide site/guides/my-apps) — the sync answer's
+  `"user_pkgs"` (S3 only): catalog-shaped entries of the packages the user uploaded (the web's Ứng dụng của tôi tab or
+  `espos upload` with a developer key), JavaScript apps (kind js) and Java games (engine j2me) only, signed URLs that
+  last 7 days. The server checked each with the SDK validator's rules plus U001/U002 and gave it the id `u.` + its
+  manifest id (the bytes are rewritten when the id changes, since the device refuses a manifest naming another id).
+  The device takes only `u.` ids from that list (store.cpp setUserPkgs) and the store catalog wins on a clash
+  (`entry()`). Installs, updates and removals go through `s3.pkgs` as above, written by the server (push_user_pkg,
+  source web): a new upload adds an install entry on the devices asked for, a higher `code` raises `code` on every
+  device that has it or lists it, a delete writes `{"id","rm":true}`. Firmware before `autoUpdate` updates a user
+  package only on that `code`; with it, `entry()` also finds the newer `user_pkgs` entry, so the device may update by
+  itself first (s3.pkg_auto on, while idle). The server's `code` makes it happen either way, also with s3.pkg_auto "0".
 - **What the device has** — the sync body gets `"pkgs"`:
   `{"vols": {"flash": {"total": KB, "free": KB}, "sd": {"present": true, "total": KB, "free": KB}},
     "installed": [{"id", "version", "code", "vol", "parts": [...], "kb", "ok": true}],
@@ -97,7 +123,8 @@ temporary bbk_ key that is revoked right after.
   The web shows it.
 - **Notification switches** — setting `s3.notif`: `{"<app id>": false}` turns an app's notifications off (missing =
   on). Built-in ids: `news`, `weather`, `cal`, `clock`, `remind`, `pet`, `desk` (EspOS: the dashboard's notes from the
-  web), ... (as in `apps.cpp`). `s3.notif_preview` "0" hides the text in banners.
+  web), ... (as in `apps.cpp`). `s3.notif_preview` "0" hides the text in banners. `s3.pkg_auto` "0": no updates by
+  themselves (above).
 
 ## 7. Firmware version
 

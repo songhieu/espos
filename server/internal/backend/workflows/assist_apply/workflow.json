@@ -1,0 +1,268 @@
+{
+  "code": "assist_apply",
+  "name": "Dog assistant: do what the person asked through put_device_settings (the web's own settings save) and desk_queue (computer commands), then confirm or own up",
+  "draft": {
+    "nodes": [
+      {
+        "id": "in",
+        "type": "function_in",
+        "config": {
+          "inputs": [
+            "uid",
+            "device_id",
+            "status",
+            "reply"
+          ],
+          "optional": [
+            "changes",
+            "n_changes",
+            "oops"
+          ]
+        }
+      },
+      {
+        "id": "pre",
+        "type": "code",
+        "config": {
+          "source": {
+            "$file": "nodes/pre.go"
+          },
+          "input": {
+            "status": "{{ input.status }}",
+            "reply": "{{ input.reply }}"
+          }
+        }
+      },
+      {
+        "id": "each",
+        "type": "for_each",
+        "config": {
+          "items": "{{ pre.list }}"
+        }
+      },
+      {
+        "id": "q",
+        "type": "call_workflow",
+        "config": {
+          "workflow": "desk_queue",
+          "input": {
+            "uid": "{{ input.uid }}",
+            "cmd": "{{ each.item.cmd }}",
+            "args": "{{ each.item.args }}",
+            "from_device_id": "{{ input.device_id }}",
+            "from_name": "{{ each.item.from }}",
+            "via": "{{ each.item.via }}",
+            "heard": "{{ each.item.heard }}"
+          }
+        }
+      },
+      {
+        "id": "qerr",
+        "type": "code",
+        "config": {
+          "source": {
+            "$file": "nodes/qerr.go"
+          },
+          "input": {
+            "error": "{{ q.error }}"
+          }
+        }
+      },
+      {
+        "id": "dfix",
+        "type": "code",
+        "config": {
+          "source": {
+            "$file": "nodes/dfix.go"
+          },
+          "input": {
+            "status": "{{ input.status }}",
+            "body": "{{ input.reply }}",
+            "results": "{{ each.results }}",
+            "items": "{{ pre.list }}",
+            "lines": "{{ pre.lines }}",
+            "device_id": "{{ input.device_id }}"
+          }
+        }
+      },
+      {
+        "id": "boom2",
+        "type": "return",
+        "config": {
+          "data": {
+            "status": 500,
+            "body": {
+              "error": "{{ dfix.error }}"
+            }
+          }
+        }
+      },
+      {
+        "id": "boom3",
+        "type": "return",
+        "config": {
+          "data": {
+            "status": 500,
+            "body": {
+              "error": "{{ pre.error }}"
+            }
+          }
+        }
+      },
+      {
+        "id": "has",
+        "type": "branch",
+        "config": {
+          "rules": [
+            {
+              "left": "{{ input.n_changes }}",
+              "op": "gt",
+              "right": 0
+            },
+            {
+              "left": "{{ input.status }}",
+              "op": "eq",
+              "right": 200
+            }
+          ]
+        }
+      },
+      {
+        "id": "save",
+        "type": "call_workflow",
+        "config": {
+          "workflow": "put_device_settings",
+          "input": {
+            "uid": "{{ input.uid }}",
+            "device_id": "{{ input.device_id }}",
+            "changes": "{{ input.changes }}"
+          }
+        }
+      },
+      {
+        "id": "fix",
+        "type": "code",
+        "config": {
+          "source": {
+            "$file": "nodes/fix.go"
+          },
+          "input": {
+            "status": "{{ save.status }}",
+            "answer": "{{ save.body }}",
+            "error": "{{ save.error }}",
+            "body": "{{ dfix.body }}",
+            "device_id": "{{ input.device_id }}",
+            "oops": "{{ input.oops }}"
+          }
+        }
+      },
+      {
+        "id": "done",
+        "type": "return",
+        "config": {
+          "data": {
+            "status": "{{ fix.status }}",
+            "body": "{{ fix.body }}"
+          }
+        }
+      },
+      {
+        "id": "pass",
+        "type": "return",
+        "config": {
+          "data": {
+            "status": "{{ input.status }}",
+            "body": "{{ dfix.body }}"
+          }
+        }
+      },
+      {
+        "id": "boom",
+        "type": "return",
+        "config": {
+          "data": {
+            "status": 500,
+            "body": {
+              "error": "{{ fix.error }}"
+            }
+          }
+        }
+      }
+    ],
+    "edges": [
+      {
+        "from": "in",
+        "to": "pre"
+      },
+      {
+        "from": "pre",
+        "to": "each"
+      },
+      {
+        "from": "pre",
+        "to": "boom3",
+        "port": "error"
+      },
+      {
+        "from": "each",
+        "to": "q",
+        "port": "item"
+      },
+      {
+        "from": "q",
+        "to": "each"
+      },
+      {
+        "from": "q",
+        "to": "qerr",
+        "port": "error"
+      },
+      {
+        "from": "qerr",
+        "to": "each"
+      },
+      {
+        "from": "each",
+        "to": "dfix",
+        "port": "done"
+      },
+      {
+        "from": "dfix",
+        "to": "has"
+      },
+      {
+        "from": "dfix",
+        "to": "boom2",
+        "port": "error"
+      },
+      {
+        "from": "has",
+        "to": "save",
+        "port": "true"
+      },
+      {
+        "from": "has",
+        "to": "pass",
+        "port": "false"
+      },
+      {
+        "from": "save",
+        "to": "fix"
+      },
+      {
+        "from": "save",
+        "to": "fix",
+        "port": "error"
+      },
+      {
+        "from": "fix",
+        "to": "done"
+      },
+      {
+        "from": "fix",
+        "to": "boom",
+        "port": "error"
+      }
+    ]
+  }
+}

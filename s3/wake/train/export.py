@@ -22,7 +22,7 @@ def main():
     cal = np.concatenate([Xp[rng.integers(0, len(Xp), 600)], Xn[rng.integers(0, len(Xn), 400)], corp.sample(rng, 600)])
     Q = M.quantize(M.float_params(model), M.calibrate(model, cal))
     out = os.path.join(TR.DATA, "models", name + ".ewm")
-    print(out, M.write_ewm(Q, out, smooth=1), "bytes")
+    print(out, M.write_ewm(Q, out, names=TR.NAMES[: model.cfg["nout"]], thr=[0.5] * model.cfg["nout"], smooth=1), "bytes")
 
 
 if __name__ == "__main__":

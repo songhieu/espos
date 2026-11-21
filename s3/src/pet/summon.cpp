@@ -311,102 +311,38 @@ void onDrag(lv_event_t* e) {
 }
 
 // ---- the backdrop (board 0.5.6: ~200 ms UI loops while the pop-up was up). The pop-up lives on the top layer, and
-// LVGL draws the active screen under the top layer whatever covers it, so each of the dog's 10 pictures a second
-// also redrew Home's wallpaper and widgets under a 40 % dim. A moment after the pop-up opens, the screen and the top
-// layer below the pop-up are taken once as one picture (PSRAM, the dim baked in), shown as the pop-up's backdrop,
-// and the screen is hidden until the pop-up goes: then a dog picture costs only its own pixels. (s3-perf's way.)
-uint16_t* backPx = nullptr;  // w x h RGB565, PSRAM
-lv_image_dsc_t backDsc;
-lv_obj_t *backImg, *hiddenScr;
-lv_timer_t* backTimer = nullptr;
+// LVGL draws the active screen under the top layer whatever covers it, so each of the dog's pictures also redrew
+// Home's wallpaper and widgets under a 40 % dim. Over Home the screen is hidden while the pop-up is up and the layer
+// becomes a solid dark cover: then a dog picture costs only its own pixels. (2026-11-21, owner: "agent vẫn lag quá":
+// it was a snapshot of Home, dimmed, taken 0.9 s after opening: 172 ms of a frozen screen on the 2.8", up to 0.7 MB of
+// PSRAM, and that picture under every redraw.)
+constexpr uint32_t COVER = 0x1f1a17;  // the cover behind the pop-up: the warm card's own dark
+lv_obj_t* hiddenScr = nullptr;
 
 void unhideScreen() {
   if (hiddenScr && lv_obj_is_valid(hiddenScr)) lv_obj_remove_flag(hiddenScr, LV_OBJ_FLAG_HIDDEN);
   hiddenScr = nullptr;
 }
 
-void dropBackdrop() {
-  unhideScreen();
-  if (backTimer) lv_timer_delete(backTimer), backTimer = nullptr;
-  if (backPx) lv_image_cache_drop(&backDsc);
-  heap_caps_free(backPx);
-  backPx = nullptr;
-}
+void dropBackdrop() { unhideScreen(); }
 
-// Back to the plain 40 % dim layer over a visible screen (no backdrop).
+// Back to the plain 40 % dim layer over a visible screen (no cover).
 void plainDim() {
   unhideScreen();
-  if (backImg) lv_obj_add_flag(backImg, LV_OBJ_FLAG_HIDDEN);
-  if (layer) lv_obj_set_style_bg_opa(layer, LV_OPA_40, 0);
+  if (layer) lv_obj_set_style_bg_color(layer, C(0x000000), 0), lv_obj_set_style_bg_opa(layer, LV_OPA_40, 0);
 }
 
 void takeBackdrop() {
   if (!layer) return;
   lv_obj_t* scr = lv_screen_active();
-  // Only over Home: a game draws past LVGL (the run, the aquarium) and the apps change under it; there the plain dim
-  // stays. Never when PSRAM is short (a game may need it): 512 KB stay free whatever happens.
+  // Only over Home: a game draws past LVGL (the run, the aquarium) and the apps change under it; there the dim stays.
   if (scr != os::homeScreen()) return plainDim();
-  const int w = lv_display_get_horizontal_resolution(nullptr), h = lv_display_get_vertical_resolution(nullptr);
-  const size_t pxBytes = (size_t)w * h * 2, topBytes = (size_t)w * h * 4, keepFree = 512 * 1024;
-  uint16_t* px = backPx;
-  if (!px && heap_caps_get_largest_free_block(MALLOC_CAP_SPIRAM) >= pxBytes + keepFree)
-    px = (uint16_t*)heap_caps_malloc(pxBytes, MALLOC_CAP_SPIRAM);
-  if (!px) return plainDim();
-  backPx = px;
-  // The top layer (status bar, home bar) as ARGB for a moment, only when there is room; else the screen alone.
-  uint32_t* top = heap_caps_get_largest_free_block(MALLOC_CAP_SPIRAM) >= topBytes + keepFree
-                      ? (uint32_t*)heap_caps_malloc(topBytes, MALLOC_CAP_SPIRAM)
-                      : nullptr;
+  if (hiddenScr == scr) return;
   unhideScreen();
-  const uint32_t t0 = millis();
-  lv_draw_buf_t b, t;
-  lv_draw_buf_init(&b, w, h, LV_COLOR_FORMAT_RGB565, w * 2, px, (uint32_t)pxBytes);
-  const bool okScr = lv_snapshot_take_to_draw_buf(scr, LV_COLOR_FORMAT_RGB565, &b) == LV_RESULT_OK;
-  bool okTop = false;
-  if (top) {
-    lv_draw_buf_init(&t, w, h, LV_COLOR_FORMAT_ARGB8888, w * 4, top, (uint32_t)topBytes);
-    lv_obj_add_flag(layer, LV_OBJ_FLAG_HIDDEN);  // the top layer without the pop-up (the status bar, the home bar)
-    okTop = lv_snapshot_take_to_draw_buf(lv_layer_top(), LV_COLOR_FORMAT_ARGB8888, &t) == LV_RESULT_OK;
-    lv_obj_remove_flag(layer, LV_OBJ_FLAG_HIDDEN);
-  }
-  if (!okScr) {
-    heap_caps_free(top);
-    return plainDim();
-  }
-  for (int i = 0; i < w * h; i++) {  // the top layer over the screen, then 40 % black
-    const uint16_t v = px[i];
-    int r = (v >> 11) << 3, g = ((v >> 5) & 63) << 2, bl = (v & 31) << 3;
-    if (okTop) {
-      const uint32_t c = top[i];
-      const int a = c >> 24;
-      if (a) {
-        r = (((c >> 16) & 255) * a + r * (255 - a)) / 255;
-        g = (((c >> 8) & 255) * a + g * (255 - a)) / 255;
-        bl = ((c & 255) * a + bl * (255 - a)) / 255;
-      }
-    }
-    r = r * 3 / 5, g = g * 3 / 5, bl = bl * 3 / 5;
-    px[i] = (uint16_t)((r >> 3) << 11 | (g >> 2) << 5 | (bl >> 3));
-  }
-  heap_caps_free(top);
-  memset(&backDsc, 0, sizeof backDsc);
-  backDsc.header.magic = LV_IMAGE_HEADER_MAGIC;
-  backDsc.header.cf = LV_COLOR_FORMAT_RGB565;
-  backDsc.header.w = w, backDsc.header.h = h, backDsc.header.stride = w * 2;
-  backDsc.data = (const uint8_t*)px, backDsc.data_size = (uint32_t)w * h * 2;
-  if (!backImg) {
-    keep(&backImg, lv_image_create(layer));
-    lv_obj_add_flag(backImg, LV_OBJ_FLAG_IGNORE_LAYOUT);
-    lv_obj_move_background(backImg);
-    lv_obj_set_pos(backImg, 0, 0);
-  }
-  lv_obj_remove_flag(backImg, LV_OBJ_FLAG_HIDDEN);
-  lv_image_set_src(backImg, &backDsc);
-  lv_image_cache_drop(&backDsc);  // the same address holds a new picture
-  lv_obj_set_style_bg_opa(layer, LV_OPA_TRANSP, 0);
+  lv_obj_set_style_bg_color(layer, C(COVER), 0);
+  lv_obj_set_style_bg_opa(layer, LV_OPA_COVER, 0);
   lv_obj_add_flag(scr, LV_OBJ_FLAG_HIDDEN);
   hiddenScr = scr;
-  trace::add("pet: pop-up backdrop %dx%d%s in %lu ms", w, h, okTop ? "" : " (no top layer)", (unsigned long)(millis() - t0));
 }
 
 // The trial's last talks (lic.h: "trial", ai_left 10 or fewer): a small chip at the card's top right.
@@ -582,24 +518,8 @@ void build() {
 
   trialShow(lic::ai() == lic::Ai::Trial ? lic::aiLeft() : -1);
 
-  // The backdrop a moment later (after the slide and the dog's first sound: the picture takes the UI loop a while).
-  if (backTimer) lv_timer_delete(backTimer);
-  backTimer = lv_timer_create([](lv_timer_t*) {
-    lv_timer_delete(backTimer);
-    backTimer = nullptr;
-    takeBackdrop();
-  }, 900, nullptr);
-
-  // Slide up.
-  lv_obj_set_style_translate_y(card, 60, 0);
-  lv_anim_t a;
-  lv_anim_init(&a);
-  lv_anim_set_var(&a, card);
-  lv_anim_set_values(&a, 60, 0);
-  lv_anim_set_duration(&a, 220);
-  lv_anim_set_path_cb(&a, lv_anim_path_ease_out);
-  lv_anim_set_exec_cb(&a, [](void* o, int32_t v) { lv_obj_set_style_translate_y((lv_obj_t*)o, v, 0); });
-  lv_anim_start(&a);
+  // The cover at once, and no slide-up (owner, 2026-11-21: "nhẹ giao diện lại"): the card is simply there, drawn once.
+  takeBackdrop();
 }
 
 bool open_() {
@@ -640,7 +560,7 @@ bool summoned() { return layer != nullptr; }
 
 void summonTick() {  // from tick(): close after 20 s without a touch (the unlock QR: a minute)
   // Another screen came up under the pop-up (an app opened from a chip, Home after an app): a new backdrop.
-  if (layer && hiddenScr && lv_screen_active() != hiddenScr && !backTimer) takeBackdrop();  // (not Home: the dim)
+  if (layer && hiddenScr && lv_screen_active() != hiddenScr) takeBackdrop();  // (not Home: the dim)
   if (layer && millis() - touchedAt > 20000 && (int32_t)(millis() - holdUntil) > 0 && !voice::busy() && !talk::busy())
     dismiss();
 }

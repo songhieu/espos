@@ -1,5 +1,6 @@
 // espos: the EspOS developer CLI.
 import { GLOBAL_OPTS, helpText, parseArgs, setCmdPath, usageLine, type CmdSpec } from "./args.js";
+import { accountCommands } from "./commands/account.js";
 import { deviceCommand } from "./commands/device.js";
 import { pkgCommands } from "./commands/pkg.js";
 import { qemuCommand } from "./commands/qemu.js";
@@ -18,11 +19,11 @@ const helpCmd: CmdSpec = {
 
 const versionCmd: CmdSpec = { name: "version", summary: "Print the CLI's version.", json: true };
 
-export const COMMANDS: CmdSpec[] = [...pkgCommands, simCommand, qemuCommand, deviceCommand, firmwareCommand, j2meCommand, doctorCommand, helpCmd, versionCmd];
+export const COMMANDS: CmdSpec[] = [...pkgCommands, ...accountCommands, simCommand, qemuCommand, deviceCommand, firmwareCommand, j2meCommand, doctorCommand, helpCmd, versionCmd];
 
 const ROOT: CmdSpec = {
   name: "espos",
-  summary: "EspOS developer tools: make, check and run packages (.espk) in the simulator, QEMU or on a board.",
+  summary: "EspOS developer tools: make, check and run packages (.espk) in the simulator, QEMU or on a board, and upload them to your own devices.",
   sub: COMMANDS,
 };
 
@@ -64,7 +65,9 @@ export function reference(): unknown {
       ESPOS_SIM_BUILD: "the simulator's build folder name under sim/ (default build, build-live for --live)",
       ESPOS_BBK: "the store upload key, read only by scripts/publish_pkg.py (store publish --yes)",
       ESPOS_PUBLISH_SCRIPT: "scripts/publish_pkg.py if it is not next to s3desk",
-      ESPOS_CONFIG_DIR: "where remembered devices are kept (default ~/.config/espos)",
+      ESPOS_CONFIG_DIR: "where remembered devices and the developer key (credentials.json) are kept (default ~/.config/espos)",
+      ESPOS_DEV_KEY: "a developer key from espos.dev, used instead of the saved one (CI); never printed",
+      ESPOS_API: "the server for login, upload and apps (default https://api.espos.dev)",
       NO_COLOR: "no colours",
     },
     global_options: GLOBAL_OPTS.map((o) => ({ name: `--${o.name}`, ...(o.short ? { short: `-${o.short}` } : {}), type: o.type, description: o.desc, ...(o.env ? { env: o.env } : {}) })),

@@ -42,11 +42,11 @@ int main(int argc, char** argv) {
   const char* file = feats ? argv[3] : argv[2];
   const int ta = feats ? 4 : 3;
   float thr[EWM_MAX_OUT];
-  for (int i = 0; i < EWM_MAX_OUT; i++) thr[i] = argc > ta + i ? (float)atof(argv[ta + i]) : h->thr[i];
+  for (int i = 0; i < EWM_MAX_OUT; i++) thr[i] = argc > ta + i ? (float)atof(argv[ta + i]) : ewm_thr(&m, i);
   uint8_t* data = slurp(file, &n);
   if (!data) return 1;
   printf("model %ld B, state %u B, ch %d, blocks %d, outputs:", msize, ewm_state_size(model), h->ch, h->blocks);
-  for (int o = 0; o < h->nout; o++) printf(" %s>=%.2f", h->names[o], thr[o]);
+  for (int o = 0; o < h->nout; o++) printf(" %s>=%.2f", ewm_name(&m, o), thr[o]);
   printf("\n");
   clock_t t0 = clock();
   long frames = 0;
@@ -55,7 +55,7 @@ int main(int argc, char** argv) {
     for (long f = 0; f + 40 <= n; f += 40, frames++) {
       int r = ewm_push(&m, (const int8_t*)data + f, thr);
       for (int o = 0; r > 0 && o < h->nout; o++)
-        if (r & (1 << o)) printf("%8.2f s  %-6s %.3f\n", frames * 0.01, h->names[o], m.prob[o]);
+        if (r & (1 << o)) printf("%8.2f s  %-6s %.3f\n", frames * 0.01, ewm_name(&m, o), m.prob[o]);
     }
   } else {
     static wfe_t fe;
@@ -67,7 +67,7 @@ int main(int argc, char** argv) {
       wfe_frame(&fe, pcm + s, fr);
       int r = ewm_push(&m, fr, thr);
       for (int o = 0; r > 0 && o < h->nout; o++)
-        if (r & (1 << o)) printf("%8.2f s  %-6s %.3f\n", frames * 0.01, h->names[o], m.prob[o]);
+        if (r & (1 << o)) printf("%8.2f s  %-6s %.3f\n", frames * 0.01, ewm_name(&m, o), m.prob[o]);
     }
   }
   const double sec = (double)(clock() - t0) / CLOCKS_PER_SEC;

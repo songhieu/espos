@@ -1,7 +1,7 @@
 // Not speed-critical (big copies are memcpy, hashing is in hardware): built for size, the app slot is full.
 #pragma GCC optimize("Os")
-// The internal app area: the flash range of pb_dog + pb_ui + pb_voice (or one partition named "apps"),
-// memory-mapped for reading. Files are contiguous 4 KB extents; the index of what lies where is in NVS.
+// The internal app area: one partition named "apps" (table v2) or the flash range of pb_dog + pb_ui + pb_voice
+// (table v1; docs/partitions.md), memory-mapped for reading. Files are contiguous 4 KB extents; the index of what lies where is in NVS.
 // Simulator: the file $SIM_DATA/apparea.bin, mapped the same way.
 #include <algorithm>
 
@@ -159,6 +159,27 @@ void eraseTombstones() {
   idx::delRaw("tomb");
 }
 
+// The partition table changed under the index (docs/partitions.md: v1 pb_dog+pb_ui+pb_voice at 0x790000, 7352 KB;
+// v2 "apps", smaller and elsewhere): every area record, the move journal and the tombstones point at old places.
+// They go (the packages vanish and the store installs them again); NVS "pkgs/geo" holds the area's place since.
+// No key = v1, the only table before v2, so a v1 board never writes it.
+void checkGeometry(uint32_t start) {
+  char geo[20];
+  snprintf(geo, sizeof geo, "%lx:%lx", (unsigned long)start, (unsigned long)size_);
+  String was;
+  if (!idx::getRaw("geo", was)) was = "790000:72e000";
+  if (was == geo) return;
+  int n = 0;
+  for (const String& j : idx::all()) {
+    Rec r;
+    if (recFromJson(j, r) && idx::del(r.p.id)) n++;
+  }
+  idx::delRaw("jr");
+  idx::delRaw("tomb");
+  idx::putRaw("geo", geo);
+  trace::add("pkg: app area moved (%s -> %s): %d packages dropped", was.c_str(), geo, n);
+}
+
 bool movable(const Ext& e, Rec*& owner, FileRec*& file) {
   for (const Ext& z : zombies)
     if (z.off == e.off) return false;
@@ -211,6 +232,11 @@ bool begin() {
     return false;
   }
   base_ = (const uint8_t*)ptr;
+#endif
+#ifdef SIM
+  checkGeometry(0x790000);  // the simulator's area is v1's
+#else
+  checkGeometry(start_);
 #endif
   recover();
   eraseTombstones();

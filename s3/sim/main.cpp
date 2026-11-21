@@ -40,6 +40,7 @@
 #include "sound.h"
 #include "splash.h"
 #include "pkg/pkg.h"
+#include "pkg/store.h"
 #include "touch.h"
 #include "wid.h"
 #include "trace.h"
@@ -53,6 +54,7 @@
 #include "tank/tank.h"
 #include "lock.h"
 #include "claim.h"
+#include "onboard.h"
 #ifdef SIM_LIVE
 #include "live.h"
 #endif
@@ -436,6 +438,19 @@ void runLine(const std::string& line) {
       if (!v.empty() && v[0] == ' ') v = v.substr(1);
       desk::setSetting(k.c_str(), v.c_str());
       step(2000);
+    } else if (cmd == "sync") {  // as after a sync from the web: the store reconciles s3.pkgs, looks for new versions
+      pkg::store::afterSync();
+      step(2000);
+    } else if (cmd == "userpkgs") {  // userpkgs FILE: the sync answer's "user_pkgs" (the user's own packages) from a
+      std::string f;                 // JSON file, as desk.cpp hands it to the store after a real sync
+      ss >> f;
+      std::ifstream in(f);
+      std::stringstream buf;
+      buf << in.rdbuf();
+      JsonDocument d;
+      if (deserializeJson(d, buf.str()) || !d.is<JsonArray>()) fprintf(stderr, "userpkgs %s: not a JSON list\n", f.c_str());
+      else pkg::store::setUserPkgs(d.as<JsonArrayConst>());
+      step(2000);
     } else if (cmd == "app") {  // open an app directly: app ID [ARG]
       std::string id, arg;
       ss >> id >> arg;
@@ -757,9 +772,18 @@ void runLine(const std::string& line) {
         claim::set(rest.substr(4, sp == std::string::npos ? std::string::npos : sp - 4).c_str(),
                    sp == std::string::npos ? "" : rest.substr(sp + 1).c_str());
       } else if (rest == "done") claim::claimed();
+#if !ESPOS_ONBOARD
       else if (!rest.compare(0, 5, "step ")) claim::devStep(atoi(rest.c_str() + 5));
+#endif
       else if (!claim::usb(rest.c_str())) fprintf(stderr, "claim: ? %s\n", rest.c_str());
       step(300);
+    } else if (cmd == "onb") {  // the first-boot setup (EXTRA=-DESPOS_ONBOARD=1): onb reset | step N[.SUB] | done | state | demo 1 PIN | demo 0
+      std::string rest;
+      std::getline(ss, rest);
+      if (!rest.empty() && rest[0] == ' ') rest = rest.substr(1);
+      const std::string line = rest.compare(0, 5, "demo ") ? "ESPOS:ONBOARD " + rest : "ESPOS:DEMO " + rest.substr(5);
+      if (!onboard::usb(line.c_str())) fprintf(stderr, "onb: ? %s\n", rest.c_str());
+      step(400);
     } else if (cmd == "lock") {  // lock CMD: the trial and paid content (src/lock.h dev: lic {json} | marks {json} | card)
       std::string rest;
       std::getline(ss, rest);
@@ -810,7 +834,7 @@ void runLine(const std::string& line) {
     } else if (cmd == "help") {
       fprintf(stderr, "commands: tap X Y | long X Y | drag X0 Y0 X1 Y1 MS | swipe left|right|up|down | homeswipe | "
                       "backswipe | home | back | app ID [ARG] | pet | run [ARG] | dev auto|god|manual|stats | shot [NAME] | "
-                      "mem | set KEY VALUE | rot N | saver | wake | wait MS | quit\n"
+                      "mem | set KEY VALUE | sync | userpkgs FILE | rot N | saver | wake | wait MS | quit\n"
                       "keys: arrows = swipe, H = home, B = back, S = shot, M = memory, Q = quit; mouse = finger\n");
     } else if (wake::console(line.c_str()) || pet::talk::console(line.c_str())) {  // WAKE, WAKEREC n, ASK text, TALK
     } else {

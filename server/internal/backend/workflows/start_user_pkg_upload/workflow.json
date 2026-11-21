@@ -1,17 +1,17 @@
 {
   "code": "start_user_pkg_upload",
-  "name": "Web: start uploading the user's own Java game (signed PUT URLs for the .espk and its icon)",
+  "name": "Web and CLI: start uploading one of the user's own packages (a signed PUT URL for the .espk; the icon URL is for older web pages)",
   "draft": {
     "nodes": [
       { "id": "in", "type": "http_in" },
-      { "id": "prep", "type": "code", "config": { "source": { "$file": "nodes/prep.go" },
-          "input": { "body": "{{ input.body }}", "uid": "{{ input.user.id }}" } } },
+      { "id": "prep", "type": "code", "config": { "source": { "$file": "nodes/prep.go" }, "timeout_ms": 10000, "any_owner": true,
+          "input": { "body": "{{ input.body }}", "uid": "{{ input.user.id }}", "auth": "{{ input.headers.authorization }}" } } },
       { "id": "isok", "type": "branch", "config": { "rules": [ { "left": "{{ prep.ok }}", "op": "eq", "right": true } ] } },
-      { "id": "sign", "type": "storage_sign", "config": { "key": "{{ prep.key }}", "method": "PUT", "max_bytes": 2306867, "ttl_seconds": 900 } },
+      { "id": "sign", "type": "storage_sign", "config": { "key": "{{ prep.key }}", "method": "PUT", "max_bytes": 4194304, "ttl_seconds": 900 } },
       { "id": "signi", "type": "storage_sign", "config": { "key": "{{ prep.icon_key }}", "method": "PUT", "max_bytes": 65536, "ttl_seconds": 900 } },
       { "id": "out", "type": "respond", "config": { "status": 201, "body": {
-          "key": "{{ prep.key }}", "url": "{{ sign.url }}", "icon_key": "{{ prep.icon_key }}", "icon_url": "{{ signi.url }}" } } },
-      { "id": "bad", "type": "respond", "config": { "status": "{{ prep.status }}", "body": { "error": "{{ prep.why }}" } } },
+          "key": "{{ prep.key }}", "url": "{{ sign.url }}", "icon_key": "{{ prep.icon_key }}", "icon_url": "{{ signi.url }}", "max_bytes": "{{ prep.max }}" } } },
+      { "id": "bad", "type": "respond", "config": { "status": "{{ prep.status }}", "body": { "error": "{{ prep.why }}", "code": "{{ prep.code }}", "params": "{{ prep.params }}" } } },
       { "id": "fail", "type": "respond", "config": { "status": 500, "body": { "error": "{{ prep.error }}" } } },
       { "id": "fail2", "type": "respond", "config": { "status": 500, "body": { "error": "{{ sign.error }}" } } },
       { "id": "fail3", "type": "respond", "config": { "status": 500, "body": { "error": "{{ signi.error }}" } } }

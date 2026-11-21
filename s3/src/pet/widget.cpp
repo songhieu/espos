@@ -10,7 +10,9 @@
 #include "game.h"
 #include "packs.h"
 #include "pet.h"
+#if !ESPOS_ONBOARD
 #include "pet_icon.h"
+#endif
 #include "text.h"
 #include "uikit.h"
 #include "view.h"
@@ -116,7 +118,11 @@ lv_obj_t* gauge(lv_obj_t* p, int k, int x, int y, int barW) {
 }
 
 lv_obj_t* missingCard(lv_obj_t* root, int w, int h) {
+#if ESPOS_ONBOARD
+  lv_obj_t* i = apps::packageIcon(root, "vn.pawboop.pet", 52);
+#else
   lv_obj_t* i = img(root, &ic_pet_52);
+#endif
   lv_obj_align(i, LV_ALIGN_TOP_LEFT, 6, 6);
   lv_obj_t* t = label(root, "", 14, true, INK);
   fitText(t, N_("Open PawBoop and choose a dog"), w - 24, h - 80, 14, 12, true);

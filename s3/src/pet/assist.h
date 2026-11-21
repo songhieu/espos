@@ -10,7 +10,7 @@
 //   gaps:        260 ms after the dog's own line, 20 ms between the kit's clips
 // It speaks through the pop-up (summon.cpp) and on the alarm's screen (alarm.cpp's hook).
 // Settings: s3.assist (synced): {"on":1,"greet":1,"weather":1,"alarm":1,"water":120,"move":90,"eyes":60,"meal":1,
-// "wake":0,"wake_word":0,"wake_sens":2,"led":2,"led_bright":2,"follow":1,"ack":2}
+// "wake":0,"wake_word":0,"wake_sens":2,"calls":31,"led":2,"led_bright":2,"follow":1,"ack":2}
 // (minutes between habit reminders; 0 = off). Never in Do Not Disturb or quiet hours, except the alarm and a
 // late-night touch.
 #include <Arduino.h>
@@ -29,6 +29,9 @@ struct Prefs {
   // The wake word (src/wake/wake.h): wake 0 off, 1 only on the charger, 2 always; wake_word 0 "gâu gâu", 1 "gâu"
   // alone too; wake_sens 1 low, 2 normal, 3 high.
   uint8_t wake = 0, wakeWord = 0, wakeSens = 2;
+  // calls: which calls wake it, bits: 1 "gâu gâu", 2 "ki ki", 4 "lu lu", 8 "cún ơi", 16 "milu"; all five by default
+  // (2026-11-21, the owner tried "cún ơi" with only the first two on: "cún ơi ko nghe đc"). Never 0.
+  uint8_t calls = 31;
   // The RGB LED (src/led.h): led 0 off, 1 only with the dog, 2 the dog and arrivals; led_bright 1-3.
   uint8_t led = 2, ledBright = 2;
   // follow 1: after a spoken answer the dog listens on (no call needed) for speech that starts within ~2.5 s and is

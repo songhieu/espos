@@ -1,0 +1,18 @@
+{
+  "code": "delete_assist_memory",
+  "name": "Web: make the dogs forget (one memory, all of them, or the recent talks)",
+  "draft": {
+    "nodes": [
+      {"id": "in", "type": "http_in"},
+      {"id": "work", "type": "code", "config": {"source": {"$file": "nodes/work.go"}, "timeout_ms": 15000,
+        "input": {"uid": "{{ input.user.id }}", "body": "{{ input.body }}"}}},
+      {"id": "out", "type": "respond", "config": {"status": "{{ work.status }}", "body": "{{ work.body }}"}},
+      {"id": "fail", "type": "respond", "config": {"status": 500, "body": {"error": "{{ work.error }}"}}}
+    ],
+    "edges": [
+      {"from": "in", "to": "work"},
+      {"from": "work", "to": "out"},
+      {"from": "work", "to": "fail", "port": "error"}
+    ]
+  }
+}

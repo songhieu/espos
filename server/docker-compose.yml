@@ -8,5 +8,22 @@ services:
       ESPOS_USER: admin
       ESPOS_PASSWORD: ${ESPOS_PASSWORD:?set ESPOS_PASSWORD in .env}
       # ESPOS_PUBLIC_URL: https://espos.example.com
+      # The dog assistant (README "The dog assistant: AI and voice"): set these in .env
+      ESPOS_AI_KEY: ${ESPOS_AI_KEY:-}
+      ESPOS_AI_URL: ${ESPOS_AI_URL:-}
+      ESPOS_AI_MODEL: ${ESPOS_AI_MODEL:-}
+      ESPOS_AI_REASONING: ${ESPOS_AI_REASONING:-}
+      ESPOS_AI_JSON: ${ESPOS_AI_JSON:-}
+      ESPOS_STT_URL: ${ESPOS_STT_URL:-}
+      ESPOS_STT_KEY: ${ESPOS_STT_KEY:-}
+      ESPOS_STT_MODEL: ${ESPOS_STT_MODEL:-}
+      ESPOS_STT_LANG: ${ESPOS_STT_LANG:-}
+      ESPOS_TTS_URL: ${ESPOS_TTS_URL:-}
+      ESPOS_TTS_KEY: ${ESPOS_TTS_KEY:-}
+      ESPOS_TTS_API: ${ESPOS_TTS_API:-}
+      ESPOS_TTS_MODEL: ${ESPOS_TTS_MODEL:-}
+      ESPOS_TTS_VOICE: ${ESPOS_TTS_VOICE:-}
+      ESPOS_TTS_FORMAT: ${ESPOS_TTS_FORMAT:-}
+      ESPOS_TTS_RATE: ${ESPOS_TTS_RATE:-}
     volumes:
       - ./data:/data

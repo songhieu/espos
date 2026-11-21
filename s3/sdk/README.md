@@ -35,6 +35,8 @@ espos build                # type-checks, bundles src/ into main.js, checks, wri
 espos sim --watch          # the simulator in a window with the app open; a saved file rebuilds and restarts it
 espos sim --headless       # the same without a window: screenshots in .espos/shots, exit 1 if the app throws
 espos qemu --install dist/vn.you.timer-1.0.0-core.espk     # the real firmware in QEMU, the package on its card
+espos login                # once: paste a developer key from espos.dev (Account › Developer keys)
+espos upload               # private: every EspOS S3 of your account installs it; a higher "code" updates them
 espos store publish dist/*.espk --catalog catalog.json      # what the store upload would do (dry run)
 ```
 
@@ -59,6 +61,9 @@ docs/platform.md), which no firmware reads yet.
 | `device list\|info\|shot\|logs\|app\|tap\|drag\|home\|trace\|mem\|js\|send\|console` | the board's dev console over USB |
 | `firmware build\|size [--env ENV]` | PlatformIO build; `firmware.bin` against the 3,932,160-byte app slot (no flashing) |
 | `j2me runtime\|test\|vm-test` | the J2ME runtime package, the MIDP layer's tests, the VM tests |
+| `login`, `logout`, `whoami` | a developer key from espos.dev (shown once on the web, kept 0600 here; `ESPOS_DEV_KEY` in CI) |
+| `upload [DIR\|FILE.espk] [--device ID] [--no-install]` | check (plus the private rules U001, U002), then upload to your account: only your devices install it, as `u.<id>` |
+| `apps [list\|install\|rm]` | your uploaded packages and each device's copy; install on devices; delete everywhere |
 | `store entry\|publish` | a catalog entry; `scripts/publish_pkg.py` after the checks (dry run without `--yes`) |
 | `doctor` | the toolchain, with install hints for macOS and Linux |
 | `help [--json]` | help; `--json` prints every command, option and argument |
@@ -93,7 +98,7 @@ packages before, the strictest where they differed:
 plus checks no tool had: `main.js` parses (ES2023 classic script, no `import`), calls to `notify`/`app.badge`
 without the `notify` permission and to `sound.*` without `sound`, things API level 1 lacks (`console`, `setTimeout`,
 `fetch`, Promise callbacks), `main.js` under 512 KB, `icon.jpg` under 200,000 bytes, ids longer than the dev
-console's 23 characters (firmware before 0.4.0, packages with min_fw below 400), and "…" in the code. The other tools are left as they are and keep working.
+console's 23 characters (firmware before 0.4.0, packages with min_fw below 400), and the ellipsis character (U+2026) in the code. The other tools are left as they are and keep working.
 
 ## Projects
 

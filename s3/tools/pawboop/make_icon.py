@@ -1,6 +1,8 @@
 """PawBoop's app icon from a picture of Biscuit (the pack's own frame) on a warm squircle, in the look of
 tools/art/make_art.py: 52 px icon with a soft shadow in a 60 px image, plus 40 and 28 px, RGB565A8.
   python3 tools/pawboop/make_icon.py   (from s3/) -> src/pet/pet_icon.c / .h
+Not used by the firmware since 2026-11-21: the 18 KB of pictures went to make room for the first-boot setup, and
+PawBoop shows its package's icon.jpg like every other package (docs/onboarding-plan.md §7). Kept for reference.
 """
 from pathlib import Path
 

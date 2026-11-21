@@ -51,6 +51,7 @@ void View::drawPicture(bool fade) {
   dog::shadow(cv, f, -ox_, -oy_, shift_);
   const Pic* p = dog::get(f, shift_);
   if (p) dog::draw(cv, *p, -ox_, -oy_);
+  shown_ = p != nullptr;
   if (fade && fade_ > 0 && prev_) {
     const int a = 255 * fade_ / 3;
     for (int i = 0; i < w_ * h_; i++) buf_[i] = dog::blend(buf_[i], prev_[i], a);
@@ -91,11 +92,18 @@ void View::onTimer(lv_timer_t* t) {
   if (os::saverOn() || (s != lv_screen_active() && s != lv_layer_top())) return;  // not seen: no work
   // 10 pictures a second; 5 while the assistant's TLS connection is being made: each picture is ~55 ms of decoding
   // on core 0, the handshake's core (the board, 2026-11-20: 4.8 s for the handshake beside the dog at 10, 2.4 s alone).
-  // In a turn (owner, 2026-11-21: "giảm animation… lag quá"): the mic, the upload and the answer come first, so the
-  // dog moves at under 2 pictures a second while it listens and waits (each picture ~55 ms of decoding on the
-  // network's core), 5 while it speaks.
+  // In a turn (owner, 2026-11-21: "giảm animation, lag quá"): the mic, the upload and the answer come first (each
+  // picture is ~55 ms of decoding on the network's core).
   float every = talk::warming() ? 0.2f : 0.1f;
-  if (talk::busy()) every = voice::busy() ? 0.2f : 0.6f;
+  if (talk::busy()) {  // 2026-11-21 ("agent vẫn lag quá"): still while it listens and waits, 4 pictures a second as it speaks
+    if (!voice::busy()) {
+      // ...but never an empty pop-up: a call straight into the question (no "Dạ?") came before the first picture was
+      // decoded, and the dog stayed blank until it spoke (owner: "mất hình khi gọi agent", 2026-11-21)
+      if (!v->shown_) v->drawPicture(false);
+      return;
+    }
+    every = 0.25f;
+  }
   v->acc_ += dt;
   if (v->acc_ < every) return;
   v->acc_ = v->acc_ > 3 * every ? 0 : v->acc_ - every;

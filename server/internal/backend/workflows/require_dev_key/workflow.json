@@ -1,0 +1,25 @@
+{
+  "code": "require_dev_key",
+  "name": "Guard: developer key (espos CLI: Authorization: Bearer espos_dev_<64 hex>)",
+  "draft": {
+    "nodes": [
+      { "id": "in", "type": "function_in" },
+      { "id": "chk", "type": "code", "config": {
+          "source": { "$file": "nodes/chk.go" },
+          "input": { "headers": "{{ input.headers }}" } } },
+      { "id": "ok", "type": "branch", "config": { "rules": [ { "left": "{{ chk.ok }}", "op": "eq", "right": true } ] } },
+      { "id": "pass", "type": "return", "config": { "data": {
+          "user_id": "{{ chk.user_id }}", "key_id": "{{ chk.key_id }}", "label": "{{ chk.label }}" } } },
+      { "id": "deny", "type": "return", "config": { "deny": true, "status": 401, "body": {
+          "error": "Khoá nhà phát triển không đúng hoặc đã bị thu hồi", "code": "bad_key" } } },
+      { "id": "boom", "type": "return", "config": { "deny": true, "status": 500, "body": { "error": "{{ chk.error }}" } } }
+    ],
+    "edges": [
+      { "from": "in", "to": "chk" },
+      { "from": "chk", "to": "ok" },
+      { "from": "chk", "to": "boom", "port": "error" },
+      { "from": "ok", "to": "pass", "port": "true" },
+      { "from": "ok", "to": "deny", "port": "false" }
+    ]
+  }
+}

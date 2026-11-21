@@ -278,6 +278,9 @@ HOT void blitRows(const Tgt& t, const Spr* s, float x0, float ytop, float hs, fl
 
 // a soft disc (food, specks; shadows are squashed dark discs)
 HOT void disc(const Tgt& t, float cx, float cy, float rx, float ry, uint16_t col, float al, float e) {
+  // (no size: nothing. A zero radius made every weight NaN, which the S3 turns into a huge integer: the mix then
+  // painted saturated green and blue blocks; arm64, the simulator's, turns it into 0 and showed nothing)
+  if (!(rx > 0 && ry > 0)) return;
   int X0 = (int)floorf(cx - rx - e), X1 = (int)ceilf(cx + rx + e), Y0 = (int)floorf(cy - ry - e), Y1 = (int)ceilf(cy + ry + e);
   X0 = std::max(X0, t.x0), Y0 = std::max(Y0, t.y0), X1 = std::min(X1, t.x1 - 1), Y1 = std::min(Y1, t.y1 - 1);
   if (X1 < X0 || Y1 < Y0) return;
@@ -289,7 +292,7 @@ HOT void disc(const Tgt& t, float cx, float cy, float rx, float ry, uint16_t col
     for (int X = X0; X <= X1; X++, d += t.dx) {
       const float ux = (X + 0.5f - cx) * irx, a = clampf((1 - fsqrt(ux * ux + uy2)) * m + 0.5f, 0, 1) * al;
       const int w = (int)(a * 32.0f + 0.5f);
-      if (w) *d = pk(mix(ex(*d), c, w));
+      if (w > 0) *d = pk(mix(ex(*d), c, w > 32 ? 32 : w));
     }
   }
 }
@@ -318,6 +321,76 @@ HOT void bubble(const Tgt& t, float cx, float cy, float r, float al) {
 int fogOf(float z, float haze) { return (int)(clampf((1 - z / ZD) * 0.36f + haze * 0.25f, 0, 0.7f) * 32); }
 
 }  // namespace
+
+// ---------------------------------------------------------------- the food (the water's pieces and the chooser's icons)
+// The owner, 2026-11-21: the green squares did not look like fish food. Now flakes are thin uneven chips in warm
+// colours that turn over as they sink, pellets are round brown granules with a light on them, and the fresh bait
+// is a bloodworm: a short red worm of beads that wriggles. A few soft shapes each, a few hundred pixels at most.
+namespace {
+float hash(float s, int k) {  // 0..1 from a piece's seed (s >= 0)
+  const float v = s * (7.13f + k * 3.71f) + k * 0.37f;
+  return v - (int)v;
+}
+uint16_t tinted(int r, int g, int b, const float* T, float k) { return rgb565(r * T[0] * k, g * T[1] * k, b * T[2] * k); }
+// a soft convex pentagon, its corners going round as foodPiece makes them (a few dozen pixels: -Os is enough)
+void poly(const Tgt& t, const float* px, const float* py, uint16_t col, float al) {
+  constexpr int n = 5;
+  float x0 = px[0], x1 = px[0], y0 = py[0], y1 = py[0], ux[5], uy[5], uc[5];
+  for (int i = 0; i < n; i++) {  // its box; each edge: the pixel's distance inside it
+    const int j = (i + 1) % n;
+    x0 = std::min(x0, px[i]), x1 = std::max(x1, px[i]), y0 = std::min(y0, py[i]), y1 = std::max(y1, py[i]);
+    const float dx = px[j] - px[i], dy = py[j] - py[i], l = fsqrt(dx * dx + dy * dy) + 1e-4f;
+    ux[i] = -dy / l, uy[i] = dx / l, uc[i] = -(ux[i] * px[i] + uy[i] * py[i]);
+  }
+  const int X0 = std::max(t.x0, (int)floorf(x0)), X1 = std::min(t.x1 - 1, (int)ceilf(x1)), Y0 = std::max(t.y0, (int)floorf(y0)),
+            Y1 = std::min(t.y1 - 1, (int)ceilf(y1));
+  const uint32_t c = ex(col);
+  for (int Y = Y0; Y <= Y1; Y++) {
+    uint16_t* d = t.at(X0, Y);
+    for (int X = X0; X <= X1; X++, d += t.dx) {
+      float in = 1;
+      for (int i = 0; i < n; i++) in = std::min(in, ux[i] * (X + 0.5f) + uy[i] * (Y + 0.5f) + uc[i] + 0.5f);
+      const int w = (int)(in * al * 32 + 0.5f);
+      if (w > 0) *d = pk(mix(ex(*d), c, w > 32 ? 32 : w));
+    }
+  }
+}
+}  // namespace
+
+const float plain[3] = {1, 1, 1};
+// one piece at frame pixels (x, y): r = its scale in pixels, tm = the clock (the turning, the wriggle), s = its seed
+void foodPiece(const Tgt& t, int kind, float x, float y, float r, float tm, float s, const float* T, float al) {
+  if (kind == F_flake) {  // a thin chip of five corners (four uneven shapes), turning over: narrow edge on, and darker
+    static const int8_t SHAPE[4][5][2] = {{{16, 0}, {6, 14}, {-12, 11}, {-15, -4}, {3, -15}},
+                                         {{14, 4}, {-2, 16}, {-16, 6}, {-9, -13}, {10, -12}},
+                                         {{16, -3}, {9, 12}, {-10, 14}, {-16, -2}, {-1, -16}},
+                                         {{12, 8}, {-5, 15}, {-15, 0}, {-6, -14}, {13, -9}}};
+    // only warm colours: at the 2.8" board's size a yellow or green chip, dimmed by the lamp being off, read as a
+    // little green square on the green water (the owner, 2026-11-21)
+    static const uint8_t PAL[6][3] = {{240, 138, 40}, {232, 112, 36}, {212, 66, 44}, {246, 162, 70}, {200, 84, 40}, {222, 96, 52}};
+    const uint8_t* c = PAL[(int)(hash(s, 9) * 5.99f)];
+    const int8_t(*P)[2] = SHAPE[(int)(hash(s, 4) * 3.99f)];
+    const float turn = 0.25f + 0.75f * fabsf(fcos(tm * 2.3f + s * 3)), a = s * 5 + tm * 0.9f, k = std::max(2.7f * r, 2.2f) / 16,
+                cu = fcos(a) * k * turn, su = fsin(a) * k * turn, cv = fcos(a) * k * 0.7f, sv = fsin(a) * k * 0.7f;
+    float px[5], py[5];
+    for (int i = 0; i < 5; i++) px[i] = x + P[i][0] * cu - P[i][1] * sv, py[i] = y + P[i][0] * su + P[i][1] * cv;
+    poly(t, px, py, tinted(c[0], c[1], c[2], T, 0.8f + 0.2f * turn), al);
+  } else if (kind == F_sink) {  // a round granule (brown, or reddish brown): dark under, its body, a light on top
+    static const float B[3][5] = {{0, 0, 1, 1, 1}, {-0.18f, -0.2f, 0.74f, 0.8f, 1}, {-0.42f, -0.46f, 0.28f, 0.6f, 0.85f}};  // x, y, size, edge, alpha
+    static const uint8_t C[2][3][3] = {{{92, 54, 28}, {160, 100, 52}, {246, 214, 160}}, {{104, 44, 28}, {172, 82, 48}, {246, 214, 160}}};
+    const uint8_t(*c)[3] = C[hash(s, 3) > 0.6f];
+    const float R = std::max(1.9f * r, 1.7f);  // (at least a few pixels round on the 2.8")
+    for (int i = 0; i < 3; i++)
+      disc(t, x + B[i][0] * R, y + B[i][1] * R, B[i][2] * R, B[i][2] * R, tinted(c[i][0], c[i][1], c[i][2], T, 1), al * B[i][4], B[i][3]);
+  } else {  // a bloodworm: overlapping beads along a wriggle (its rings: two reds in turn), thinner at the ends
+    const uint16_t c0 = tinted(168, 24, 34, T, 1), c1 = tinted(222, 64, 56, T, 1);
+    const float a = s * 4 + tm * 0.5f, ca = fcos(a), sa = fsin(a), L = std::max(10 * r, 8.0f);
+    for (int j = 0; j < 12; j++) {
+      const float k = j / 11.0f, u = (k - 0.5f) * L, w = r * fsin(k * 5.2f + tm * 6 + s), rr = std::max(r * (0.68f - 0.28f * fabsf(k * 2 - 1)), 0.55f);
+      disc(t, x + u * ca - w * sa, y + u * sa + w * ca, rr, rr, j & 1 ? c1 : c0, al, 0.7f);
+    }
+  }
+}
 
 void spriteBlit(const Tgt& t, const Spr* s, float x, float y, float hs, float vs, int alpha, int mode) {
   if (!s || hs <= 0 || vs <= 0) return;
@@ -445,8 +518,11 @@ void Scene::setView(bool l, float s) {
     algF[X] = (uint8_t)((gx - (int)gx) * 256);
   }
   if (!fr) fr = (Frame*)heap_caps_calloc(1, sizeof(Frame), MALLOC_CAP_SPIRAM);
+  // the drifting specks: depth, sway and size as the hand-off's engine.js gives them (they were left 0: radius 0, the
+  // 2.8" board's blinking green and blue blocks, 2026-11-21), placed again when the view turns
+  for (auto& p : specks)
+    if (p.r <= 0 || turn) p.x = rnd(0, VW), p.y = rnd(TOPY, VH - 60), p.z = rnd(0, 1), p.s = rnd(0, 6), p.r = rnd(0.5f, 1.1f);
   if (!turn) return;
-  for (auto& p : specks) p.x = rnd(0, VW), p.y = rnd(TOPY, VH - 60);
   memset(algae, 0, sizeof algae), algaeOn = false, nbub = 0;
   for (int i = 0; i < nfish; i++) {
     Fish* f = &fish[i];
@@ -1213,14 +1289,8 @@ HOT void Scene::draw(const Tgt& t, bool withRays) {
                1.15f * S * ch.dsc, 0xFFFF, 0.92f, 1);
         }
     } else if (it.kind == 3) {
-      const FoodI& p = food[i];
-      const float r = S * dsc;
-      if (p.kind == F_sink) disc(t, p.x * S, p.y * S, 2.4f * r, 1.7f * r, rgb565(74 * tintNow[0], 92 * tintNow[1], 40 * tintNow[2]), 0.95f, 1);
-      else if (p.kind == F_live) {
-        const float a = Tm * 7 + p.s, wx = fcos(a) * 1.6f * r, wy = fsin(a * 1.3f) * 1.2f * r;
-        disc(t, p.x * S - wx, p.y * S - wy, 1.2f * r, 1.2f * r, rgb565(205 * tintNow[0], 48 * tintNow[1], 44 * tintNow[2]), 0.95f, 1);
-        disc(t, p.x * S + wx, p.y * S + wy, 1.2f * r, 1.2f * r, rgb565(225 * tintNow[0], 70 * tintNow[1], 60 * tintNow[2]), 0.95f, 1);
-      } else disc(t, p.x * S, p.y * S, 1.5f * r, 1.5f * r, rgb565(150 * tintNow[0], 96 * tintNow[1], 44 * tintNow[2]), 0.95f, 1);
+      const FoodI& p = food[i];  // (lying on the sand: a flake lies flat, a worm still wriggles)
+      foodPiece(t, p.kind, p.x * S, p.y * S, S * dsc, p.lying && p.kind == F_flake ? 0 : Tm, p.s, tintNow, 0.95f);
     } else {
       static const Spr* coin = nullptr;
       if (!coin) coin = sprNamed(P_THINGS, "coin");
@@ -1237,7 +1307,8 @@ HOT void Scene::draw(const Tgt& t, bool withRays) {
   for (const auto& p : specks)
     if (p.y * S + 4 >= t.y0 && p.y * S - 4 < t.y1) disc(t, p.x * S, p.y * S, p.r * S, p.r * S, speck, 0.16f + 0.1f * p.z, 1.2f);
   const float ba = 0.85f * std::max(tintNow[1], 0.45f);
-  for (int i = 0; i < nbub; i++) bubble(t, bub[i].x * S, bub[i].y * S, bub[i].r * S, ba);
+  // (at least 1.5 px round: on the 2.8" a smaller ring was a 3-pixel block, a little green square on the water)
+  for (int i = 0; i < nbub; i++) bubble(t, bub[i].x * S, bub[i].y * S, std::max(bub[i].r * S, 1.5f), ba);
   lap(4);
   // 4. the light: five slow beams over the top two thirds
   if (withRays && F.raysOn && F.nray) {
