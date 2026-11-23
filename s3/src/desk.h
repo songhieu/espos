@@ -6,6 +6,7 @@
 #include <ArduinoJson.h>
 
 class NetworkClientSecure;
+class HTTPClient;
 
 namespace desk {
 
@@ -41,6 +42,15 @@ using RawFn = bool (*)(void* ctx, NetworkClientSecure* tls, const char* host, co
 using RawDone = void (*)(void* ctx);
 bool rawSend(RawFn fn, RawDone done, void* ctx);
 
+// A JavaScript app's request (src/js/jsnet.cpp, app-platform-plan.md lane 1f): `run` executes on the network worker, in
+// turn with the sync, given the kept TLS connection and its HTTPClient (which switches to the app's host by itself);
+// nothing of the device's (token, hardware id) is added. `done` runs on the UI loop afterwards, also when the network
+// went away before it ran (`run` not called then). Works linked or not. An app request goes before the sync, but a sync
+// that is due takes its turn between two of them; the ping waits while an app talked to its server in the last 90 s
+// (each switch of host costs a TLS handshake, ~3 s on the board). false: one is waiting already, or no network.
+using AppRun = void (*)(void* ctx, NetworkClientSecure* tls, HTTPClient* http);
+bool appSend(AppRun run, RawDone done, void* ctx);
+
 // Sync.
 void syncNow();
 bool syncing();
@@ -56,6 +66,12 @@ uint32_t dashVersion();
 String setting(const char* key, const char* def = "");
 int settingInt(const char* key, int def);
 void setSetting(const char* key, const String& value);
+// Marks a setting changed here (it goes up with the next sync) without changing it: a preset's value that the
+// provisioning left in place (preset.h).
+void touchSetting(const char* key);
+// Forgets every setting whose key starts with `prefix` here only (not sent up): an uninstalled package's "app.<id>."
+// values, which the server drops itself at the next sync (appset.h).
+void dropSettings(const char* prefix);
 uint32_t settingsVersion();
 #if ESPOS_ONBOARD
 bool hadSettings();  // /settings.json was there at boot (a device in use; the first-boot setup's rule, onboard.h)
@@ -81,6 +97,11 @@ String tokenSha8();  // the first 8 hex digits of SHA-256 of the device token ("
 
 // Wall clock now (ms since epoch), 0 when not set yet.
 int64_t nowMs();
+// The EspOS server this device talks to ("https://api.espos.dev", or a self-hosted one): JS apps' {espos} (jsnet.cpp).
+const String& apiBase();
+// OS only (src/js/jsnet.cpp): the device's credential, for a JS app's requests to its own path on this server
+// ({espos}/v1/device/app/<its id>/*, manifest auth "espos"); "" when not linked. Never to JS, never traced.
+const String& deviceToken();
 
 // Apps: GETs on demand (news lists, articles, pictures), one at a time and ahead of the
 // periodic sync. `pathOrUrl` is an API path ("/v1/device/news?sec=") sent with the device

@@ -81,8 +81,10 @@ func runs(v any) []any {
 	if len(l) == 0 || len(l) > 24 {
 		return nil
 	}
-	out := []any{}
-	for _, x := range l {
+	// Filled by index, never append(out, ns): the platform's Go runs append(list, aList) as if it were aList... and
+	// flattened every run and line (2026-11-22).
+	out := make([]any, len(l))
+	for k, x := range l {
 		r, _ := x.([]any)
 		if len(r) != 5 {
 			return nil
@@ -95,9 +97,19 @@ func runs(v any) []any {
 			}
 			ns[i] = int64(f)
 		}
-		out = append(out, ns)
+		out[k] = ns
 	}
 	return out
+}
+
+// readAt: when the Mac read the frame's newest change (its clock, ms), for the S3's read-to-drawn age; missing, or a
+// clock more than a minute behind or 5 s ahead, counts as now.
+func readAt(v any, now int64) int64 {
+	at := int64(wm.Num(v))
+	if at < now-60000 || at > now+5000 {
+		return now
+	}
+	return at
 }
 
 func Run(wmIn, wmCtx map[string]any) map[string]any {
@@ -159,7 +171,9 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 	if !newEpoch {
 		for _, x := range listOf(row["lines"]) {
 			if a, _ := x.([]any); len(a) >= 4 {
-				byN[int64(wm.Num(a[0]))] = a
+				if _, isText := a[1].(string); isText { // not a stray run from the flattened copies
+					byN[int64(wm.Num(a[0]))] = a
+				}
 			}
 		}
 	}
@@ -194,17 +208,24 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 	if len(ns) > keep {
 		ns = ns[len(ns)-keep:]
 	}
-	lines := make([]any, 0, len(ns))
-	for _, n := range ns {
-		lines = append(lines, byN[n])
+	lines := make([]any, len(ns))
+	for i, n := range ns {
+		lines[i] = byN[n]
 	}
 	cur := listOf(f["cur"])
 	if len(cur) != 2 {
 		cur = []any{}
 	}
-	vals := map[string]any{"epoch": epoch, "mac_seq": macSeq, "seq": seq, "epoch_seq": epochSeq, "lines": lines,
+	// Stored as JSON text: the live store flattened a nested list ([[n,t,r,s],...] came back as [n,t,r,s,n,...], so no
+	// line was found and the S3 showed only stray numbers, 2026-11-22). listOf reads the text back.
+	linesText, jerr := json.Marshal(lines)
+	if jerr != nil {
+		return wm.Fail(jerr)
+	}
+	at := readAt(f["at"], now)
+	vals := map[string]any{"epoch": epoch, "mac_seq": macSeq, "seq": seq, "epoch_seq": epochSeq, "lines": string(linesText),
 		"top": int64(wm.Num(f["top"])), "cur": cur, "cols": wm.Int(f["cols"]), "rows": wm.Int(f["rows"]),
-		"up_ms": upMs, "up_n": upN + 1}
+		"up_ms": upMs, "up_n": upN + 1, "read_ms": at}
 	if _, uerr := wm.Update("desk_screens", wm.Int(row["id"]), vals); uerr != nil {
 		return wm.Fail(uerr)
 	}

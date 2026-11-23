@@ -9,6 +9,7 @@
 #include <ctime>
 
 #include "alarm.h"
+#include "../assistant.h"
 #include "app.h"
 #include "apps.h"
 #include "assist.h"
@@ -96,6 +97,8 @@ void watchDog() {
 
 bool reloading = false;
 bool reopen = false;
+const alarms::Hook HOOK = {assist::alarmEvent, assist::talking};
+bool hooked = false;
 
 // The game again with the new dog, once the old game screen is gone (the OS deletes closed screens a little later).
 void reopenGame(lv_timer_t* t) {
@@ -155,6 +158,20 @@ void ensureTicker() {
 }
 
 bool ready() { return pk::ready(); }
+
+void uninstalled() {
+  alarms::setHook(nullptr), hooked = false;  // the alarm rings with its own sound again
+  game::forget();
+  desk::setSetting("s3.pet_dog", "");
+  notif::clear("pet");
+  dismiss();
+  app::stop();
+  if (app::isOpen() || book::isOpen()) os::closeApps();
+  trace::add("pet: PawBoop removed, its data on the device gone");
+  if (reloading) return;  // a switch is on its way: it lets the packs go as well
+  reloading = true, reopen = false;
+  lv_async_call(finishSwitch, nullptr);  // pk::open() finds no PawBoop now: nothing of the dog runs any more
+}
 const char* name() { return dogs::name(); }
 
 void open(const char* arg) {
@@ -175,16 +192,16 @@ void tick() {
   if (lastTick && now - lastTick < 400) return;  // safe to call often
   const uint32_t dt = lastTick ? now - lastTick : 0;
   lastTick = now;
-  static const alarms::Hook HOOK = {assist::alarmEvent, assist::talking};  // the dog speaks at the alarm
-  static bool hooked = false;
-  if (!hooked) alarms::setHook(&HOOK), hooked = true;
   if (reloading) return;
   watchDog();
   if (!pk::ready()) return;
+  // The assistant's part (greetings, weather, habits, the alarm's words, a done reminder's cheer) only while the dog is
+  // the device's assistant (app-slots.md §16); the game's own needs and notifications stay the game's.
+  const bool asst = assistant::dog();
+  if (asst != hooked) alarms::setHook(asst ? &HOOK : nullptr), hooked = asst;
   if (!app::isOpen()) game::advance(dt, true);  // the game screen's own clock does it while it is open
   notify();
-  watchTodos();
-  assist::tick();
+  if (asst) watchTodos(), assist::tick();
   summonTick();
   if (now - lastWidgets > 30000) {
     lastWidgets = now;

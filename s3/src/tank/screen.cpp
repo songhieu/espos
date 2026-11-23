@@ -24,7 +24,7 @@
 #include "lcd.h"
 #include "os.h"
 #include "pkg/pkg.h"
-#include "pet/pet.h"
+#include "assistant.h"
 #include "tank_int.h"
 #include "trace.h"
 
@@ -99,8 +99,9 @@ void freeAll() {
   freeScene();
   heap_caps_free(nat), nat = nullptr;
   gfx::end();
-  sprTrim(false);
-  trace::add("tank: water freed");
+  const int n = sprTrim(false);
+  trace::add("tank: water and %d pictures freed (PSRAM %u KB free, largest %u KB)", n, (unsigned)(heap_caps_get_free_size(MALLOC_CAP_SPIRAM) / 1024),
+             (unsigned)(heap_caps_get_largest_free_block(MALLOC_CAP_SPIRAM) / 1024));
 }
 bool ensure(const char* id) {
   if (freeTimer) lv_timer_delete(freeTimer), freeTimer = nullptr;
@@ -243,10 +244,11 @@ bool overlays() {  // anything of the OS over the game: then LVGL draws the pict
   return false;
 }
 
-// The dog's pop-up pauses the tank as it does the other games (pet/app.cpp, run.cpp): game time and water stop, the
-// last picture stays in LVGL's buffer under the pop-up, and the next picture after it closes goes on from there.
+// The assistant's pop-up (the dog's, or the "No assistant installed" card) pauses the tank as it does the other games
+// (pet/app.cpp, run.cpp): game time and water stop, the last picture stays in LVGL's buffer under the pop-up, and the
+// next picture after it closes goes on from there.
 bool onScreen() {
-  return app && app->scr && lv_screen_active() == app->scr && !os::saverOn() && !pet::summoned();
+  return app && app->scr && lv_screen_active() == app->scr && !os::saverOn() && !assistant::open();
 }
 
 void addStats(Stats& s, uint32_t move, uint32_t prep, uint32_t total, bool lvgl) {
@@ -377,11 +379,24 @@ void benchStep() {
 void benchStep() {}
 #endif
 
+// Under the dog's pop-up the tank stands still (onScreen): its last picture stays in LVGL's image and everything big
+// it can make again goes, about 0.7 MB on the 2.8" (the board, 2026-11-21: a call over the aquarium found "no room to
+// record"). Made again by the first picture after the pop-up.
+void sleepAll() {
+  if (!sc || !sc->bgRaw) return;
+  sc->sleep();
+  heap_caps_free(nat), nat = nullptr;
+  ui::sleep();
+  trace::add("tank: pictures let go for the dog (PSRAM %u KB free, largest %u KB)", (unsigned)(heap_caps_get_free_size(MALLOC_CAP_SPIRAM) / 1024),
+             (unsigned)(heap_caps_get_largest_free_block(MALLOC_CAP_SPIRAM) / 1024));
+}
+
 void onTimer(lv_timer_t*) {
   if (!app || !sc) return;
   const uint32_t now = millis();
   if (!onScreen()) {
     if (app->wasOn && !os::saverOn()) intoBuffer(app->buf, os::W(), os::H()), lv_obj_invalidate(app->img);
+    if (assistant::open()) sleepAll();
     app->wasOn = false, app->last = now;
     return;
   }
@@ -431,8 +446,9 @@ void onDelete(lv_event_t* e) {
 void onSaver(lv_timer_t*) {
   if (!sv || !sc) return;
   const uint32_t now = millis();
-  if (pet::summoned()) {  // paused under the dog's pop-up, its clock held
+  if (assistant::open()) {  // paused under the assistant's pop-up, its clock held, its big pictures let go
     sv->last = now;
+    sleepAll();
     return;
   }
   if (now - sv->lastPic + 1 < 1000u / saverFps) return;

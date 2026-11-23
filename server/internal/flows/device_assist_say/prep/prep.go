@@ -19,6 +19,16 @@ var rates = map[int]bool{8000: true, 11025: true, 16000: true, 22050: true, 2400
 var names = map[string]string{"bao": "Bao", "momo": "Momo", "boop": "Boop", "leaf": "Leaf", "volt": "Volt", "byte": "Byte",
 	"shiba": "Rocket", "corgi": "Biscuit", "husky": "Frost", "golden": "Sunny"}
 
+// ttsOf: the TTS model and voice of a turn's voice ("v"): "piper:<voice>" is tts.espos.dev's piper model (a dog
+// speaking another language than Vietnamese, assist_reply's dogVoices); any other is a vieneu-turbo voice, as before.
+// The same in device_assist/prep, device_assist_say/prep and say_device_dog/prep: change all three.
+func ttsOf(v string) (string, string) {
+	if strings.HasPrefix(v, "piper:") {
+		return "piper", strings.TrimPrefix(v, "piper:")
+	}
+	return "vieneu-turbo", v
+}
+
 func Run(wmIn, wmCtx map[string]any) map[string]any {
 	in := wmIn
 	deviceID := wm.Int(in["device_id"])
@@ -31,7 +41,7 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 		rate = r
 	}
 	asJSON := wm.Str(q["format"]) == "json"
-	no := map[string]any{"ok": false, "status": 404, "err": "not_found", "text": "", "voice": "", "rate": rate, "json": false, "turn": nil}
+	no := map[string]any{"ok": false, "status": 404, "err": "not_found", "text": "", "voice": "", "model": "vieneu-turbo", "rate": rate, "json": false, "turn": nil}
 	if deviceID == 0 || (cid != "" && len(cid) != 16) || (cid == "" && !last) || (!last && (nerr != nil || n < 1)) {
 		no["status"] = 422
 		no["err"] = "bad_request"
@@ -74,7 +84,8 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 		}
 		turn := map[string]any{"heard": wm.Str(t["u"]), "reply": wm.Str(t["a"]), "mood": wm.Str(t["m"]), "cid": wm.Str(rows[0]["cid"]),
 			"n": n, "dog": wm.Str(t["d"]), "dog_name": names[wm.Str(t["d"])], "voice": voice}
-		return map[string]any{"ok": true, "status": 200, "err": "", "text": text, "voice": voice, "rate": rate, "json": asJSON, "turn": turn}
+		model, tv := ttsOf(voice)
+		return map[string]any{"ok": true, "status": 200, "err": "", "text": text, "voice": tv, "model": model, "rate": rate, "json": asJSON, "turn": turn}
 	}
 	return no
 }

@@ -20,6 +20,7 @@ struct Part {
   String board;  // made for that board only ("es3c35p", "es3c28p"; the catalog's "board"): "" = any (2026-11-19)
   uint32_t size = 0;
   bool req = false, def = false;
+  bool opt = false;  // downloaded with the core when a memory card is in and there is room (PawBoop's game parts)
 };
 struct Entry {
   String id, name, version, kind, engine, category, author, desc, glyph, iconUrl;
@@ -27,6 +28,8 @@ struct Entry {
   String type;     // "pack": data for an engine (e.g. the Java runtime), installed with what needs it, never listed
   String set;      // an add-on's shelf on its app's page: "dog", "map" (PawBoop's dogs and run maps), "" = Add-ons
   String needs;    // another package it is useless without (a run map needs the run game): installed first
+  bool assistant = false;  // an assistant app (manifest "provides": ["assistant"], or the dog's engine): the Store's Assistants
+  bool saver = false;      // replaces the screen saver ("provides": ["saver"], or the aquarium's engine): its Screen savers
   uint32_t code = 0, minFw = 0, bg1 = 0x64748b, bg2 = 0x334155;
   std::vector<String> perms;
   std::vector<Part> parts;

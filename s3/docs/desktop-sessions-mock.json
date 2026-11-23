@@ -1,0 +1,346 @@
+{
+ "about": "Example answers of the Sessions routes (desktop-protocol.md §9), for the S3 app's local mock. Shapes as the server (web/backend/workflows/sess_app) answers them; web/scripts/test-desktop.py §10c checks the server side.",
+ "GET sessions": {
+  "status": 200,
+  "body": {
+   "rev": 1795273500000,
+   "now_ms": 1795273512345,
+   "macs": [
+    {
+     "id": 900,
+     "name": "MacBook Pro",
+     "online": true,
+     "mode": "on",
+     "seen_ms": 1795273500000,
+     "stream": true,
+     "confirm_at": "either",
+     "cmds": {
+      "claude.approve": "confirm",
+      "claude.deny": "safe",
+      "claude.reply": "confirm",
+      "claude.key": "confirm",
+      "claude.focus": "safe"
+     }
+    }
+   ],
+   "sessions": [
+    {
+     "mac": 900,
+     "id": "s-1",
+     "name": "espos",
+     "state": "perm",
+     "since_ms": 1795273400000,
+     "tool": "Bash",
+     "term": "iterm",
+     "can_reply": true,
+     "req": {
+      "id": "r-1",
+      "kind": "perm",
+      "tool": "Bash",
+      "cmd": "git push --force",
+      "desc": "Push the fix",
+      "cwd": "~/code/espos",
+      "deadline_ms": 1795273800000,
+      "risky": true
+     }
+    },
+    {
+     "mac": 900,
+     "id": "s-2",
+     "name": "web",
+     "state": "input",
+     "since_ms": 1795273300000,
+     "term": "iterm",
+     "can_reply": true,
+     "last": "Done. Shall I run the tests too?"
+    },
+    {
+     "mac": 900,
+     "id": "s-3",
+     "name": "vscode",
+     "state": "run",
+     "since_ms": 1795273200000,
+     "tool": "Edit",
+     "term": "vscode"
+    }
+   ]
+  }
+ },
+ "GET sessions (share off on the Mac)": {
+  "status": 200,
+  "body": {
+   "rev": 1795273500000,
+   "now_ms": 1795273512345,
+   "macs": [
+    {
+     "id": 900,
+     "name": "MacBook Pro",
+     "online": true,
+     "mode": "on",
+     "seen_ms": 1795273500000,
+     "stream": false,
+     "stream_why": "off_on_mac",
+     "confirm_at": "either",
+     "cmds": {}
+    }
+   ],
+   "sessions": []
+  }
+ },
+ "GET screen (first watch)": {
+  "status": 200,
+  "body": {
+   "epoch": "",
+   "seq": 0,
+   "full": true,
+   "lines": [],
+   "starting": true
+  }
+ },
+ "GET screen since=0": {
+  "status": 200,
+  "body": {
+   "epoch": "a1b2c3d4",
+   "seq": 4,
+   "full": true,
+   "cols": 120,
+   "rows": 40,
+   "top": 1,
+   "cur": [
+    3,
+    6
+   ],
+   "lines": [
+    {
+     "n": 1,
+     "t": "> fix the build",
+     "r": [
+      [
+       0,
+       15,
+       0,
+       0,
+       1
+      ]
+     ]
+    },
+    {
+     "n": 2,
+     "t": "⏺ Bash(make)",
+     "r": [
+      [
+       0,
+       1,
+       31029079,
+       0,
+       0
+      ],
+      [
+       1,
+       11,
+       0,
+       0,
+       1
+      ]
+     ]
+    },
+    {
+     "n": 3,
+     "t": "  ⎿ ok, 2 tests",
+     "r": [
+      [
+       2,
+       1,
+       9,
+       0,
+       0
+      ],
+      [
+       3,
+       12,
+       0,
+       0,
+       2
+      ]
+     ]
+    }
+   ]
+  }
+ },
+ "GET screen since=3": {
+  "status": 200,
+  "body": {
+   "epoch": "a1b2c3d4",
+   "seq": 5,
+   "full": false,
+   "cols": 120,
+   "rows": 40,
+   "top": 1,
+   "cur": [
+    4,
+    0
+   ],
+   "lines": [
+    {
+     "n": 4,
+     "t": "export KEY=••••"
+    }
+   ]
+  }
+ },
+ "GET screen (not streaming)": {
+  "status": 409,
+  "body": {
+   "error": "not_streaming",
+   "why": "off_on_mac"
+  }
+ },
+ "POST send text": {
+  "status": 200,
+  "body": {
+   "id": "5d2c0d0e-8c1b-4f1a-9a3e-2b7f9c1d0e11",
+   "state": "sent"
+  }
+ },
+ "POST send (done within 2 s)": {
+  "status": 200,
+  "body": {
+   "id": "5d2c0d0e-8c1b-4f1a-9a3e-2b7f9c1d0e11",
+   "state": "done",
+   "text": "Đã gửi vào phiên web"
+  }
+ },
+ "POST send (the Mac takes a yes only on the Mac)": {
+  "status": 200,
+  "body": {
+   "id": "…",
+   "state": "confirm_mac"
+  }
+ },
+ "POST send risky": {
+  "status": 428,
+  "body": {
+   "error": "risky",
+   "why": "force"
+  }
+ },
+ "POST send refused": {
+  "status": 409,
+  "body": {
+   "state": "refused",
+   "err": "desktop_offline"
+  }
+ },
+ "POST suggest": {
+  "status": 200,
+  "body": {
+   "chips": [
+    "Yes, go ahead",
+    "Explain the force push first please",
+    "Use a normal push"
+   ],
+   "for_seq": 4
+  }
+ },
+ "POST suggest (nothing fits)": {
+  "status": 204,
+  "body": {}
+ },
+ "POST compose": {
+  "status": 200,
+  "body": {
+   "text": "Please use a normal push and open a pull request instead of forcing it."
+  }
+ },
+ "AI over the trial": {
+  "status": 402,
+  "body": {
+   "error": "trial_over",
+   "locked": "trial_over",
+   "buy_url": "https://espos.dev/buy"
+  }
+ },
+ "POST /v1/device/dictate": {
+  "status": 200,
+  "body": {
+   "text": "Thêm một bài kiểm thử nữa nhé",
+   "seconds": 1.0
+  }
+ },
+ "any route": {
+  "401": {
+   "error": "unauthorized"
+  },
+  "403": {
+   "error": "app_not_installed"
+  },
+  "503": {
+   "error": "desktop_disabled"
+  },
+  "429": {
+   "error": "rate",
+   "retry_s": 12
+  }
+ },
+ "dashboard notes (pop-up)": [
+  {
+   "title": "Claude (espos): Bash git push --force",
+   "time": "14:05",
+   "kind": "claude_perm",
+   "app": "dev.espos.sessions",
+   "arg": "900:s-1:r-1",
+   "exp_ms": 1795273800000,
+   "pop": {
+    "head": "espos",
+    "title": "Claude wants to run a command",
+    "mono": "git push --force",
+    "text": "Push the fix"
+   },
+   "acts": [
+    {
+     "id": "deny",
+     "post": "/send",
+     "body": {
+      "mac": 900,
+      "s": "s-1",
+      "kind": "deny",
+      "req": "r-1"
+     }
+    },
+    {
+     "id": "approve",
+     "post": "/send",
+     "body": {
+      "mac": 900,
+      "s": "s-1",
+      "kind": "approve",
+      "req": "r-1"
+     },
+     "risky": true
+    }
+   ]
+  },
+  {
+   "title": "Claude (web) đang chờ bạn",
+   "time": "14:03",
+   "kind": "claude_wait",
+   "app": "dev.espos.sessions",
+   "arg": "900:s-2",
+   "exp_ms": 1795275300000,
+   "pop": {
+    "head": "web",
+    "title": "Claude is waiting for you",
+    "text": "Done. Shall I run the tests too?"
+   },
+   "acts": []
+  }
+ ],
+ "GET /v1/device/ping while a session waits": {
+  "status": 200,
+  "body": {
+   "rev": 1795273500000,
+   "fw": false,
+   "ping_s": 10
+  }
+ }
+}

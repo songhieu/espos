@@ -11,7 +11,15 @@
 //   Reminders:      checked off on the device -> Biscuit celebrates by herself (tick() watches s3.todo)
 #include <lvgl.h>
 
+namespace assistant {
+struct Face;
+}
+
 namespace pet {
+
+// The dog as the assistant's face (assistant.h): its pop-up, clips and recorded words; the OS client (turn.h) uses it
+// while PawBoop is in the assistant slot.
+const assistant::Face& face();
 
 // The app: nullptr or "" opens the game; "book" her book; "summon" pops her up over the current screen.
 void open(const char* arg);
@@ -32,6 +40,10 @@ bool summoned();
 void celebrate(const char* what);  // = summon(what), e.g. "remind"
 
 bool ready();         // PawBoop and a dog are installed (false: the app shows what is missing)
+// PawBoop was removed (assistant::removed, from the store's job): its screens and pop-up close, the packs are let go
+// (nothing of the dog runs, speaks or posts any more), its device data goes (the game and moments in NVS "pet",
+// s3.pet_dog, its notifications). What the dogs remember stays on the account. Reinstalled: a new start on the device.
+void uninstalled();
 const char* name();   // the chosen dog's name ("Biscuit"; "PawBoop" when there is none)
 bool quietNow();      // Do Not Disturb, or the quiet hours (the dog does not speak up by itself)
 

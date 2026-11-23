@@ -4,7 +4,7 @@ import starlight from '@astrojs/starlight';
 
 // Where the docs are served. Placeholder until the owner picks a host.
 const SITE = process.env.ESPOS_DOCS_SITE ?? 'https://docs.espos.example';
-// The public monorepo: s3/ (the S3 firmware, the SDK and these docs), server/, firmware/ (the X4).
+// The public monorepo: s3/ (the ESP32-S3 firmware, the SDK and these docs) and server/.
 const REPO = 'https://github.com/songhieu/espos';
 
 const planned = { text: 'Planned', variant: 'note' };
@@ -91,6 +91,8 @@ export default defineConfig({
             { label: 'Languages and translation', slug: 'guides/languages' },
             { label: 'Landscape and screen size', slug: 'guides/landscape' },
             { label: 'Packaging, parts and add-ons', slug: 'guides/packaging' },
+            { label: 'A networked app: Claude sessions', slug: 'guides/sessions-app', badge: preview },
+            { label: 'Build your own assistant', slug: 'guides/assistant', badge: preview },
             { label: 'Java (J2ME) games', slug: 'guides/java-games', badge: preview },
             { label: 'Test in the simulator', slug: 'guides/simulator' },
             { label: 'Test in QEMU', slug: 'guides/qemu' },
@@ -115,9 +117,10 @@ export default defineConfig({
           label: 'Reference',
           items: [
             { label: 'JavaScript API (level 1)', slug: 'reference/js-api' },
+            { label: 'JavaScript API (level 2)', slug: 'reference/js-api-2', badge: preview },
             { label: 'Manifest fields', slug: 'reference/manifest' },
             { label: '.espk file format', slug: 'reference/espk' },
-            { label: 'Declarative faces and widgets', slug: 'reference/decl', badge: inProgress },
+            { label: 'Declarative faces and widgets', slug: 'reference/decl', badge: planned },
             { label: 'Store catalog', slug: 'reference/catalog' },
             { label: 'Package sync (s3.pkgs)', slug: 'reference/pkgs-sync' },
             { label: 'CLI', slug: 'reference/cli', badge: preview },

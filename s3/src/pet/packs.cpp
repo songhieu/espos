@@ -224,7 +224,8 @@ bool open() {
   } else if (d) {
     const String id = dogs::pkgId(d->key);
     if (!loadDog(id.c_str(), "pet.pbs", dp) || !dogOk(dp)) miss = "pet.pbs";
-    else if (!vp.load(id.c_str(), "voice.pba")) miss = "voice.pba";
+    // Every line with the dog's game part (a memory card), else the core's lite voice (2 lines a moment).
+    else if (!vp.load(id.c_str(), "voice_full.pba") && !vp.load(id.c_str(), "voice.pba")) miss = "voice.pba";
     else key = d->key;
   } else if (loadDog(PKG, "biscuit_M.pbs", dp) && dogOk(dp) && vp.load(PKG, "biscuit_voice_12k.pba")) {
     key = "corgi";  // PawBoop 1.0 (Biscuit's packs in its own package): she plays until a dog is installed

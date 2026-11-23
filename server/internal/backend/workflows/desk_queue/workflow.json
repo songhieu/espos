@@ -65,7 +65,8 @@
         "config": {
           "channel": "rt:desk:{{ work.chan }}",
           "data": {
-            "t": "sync"
+            "t": "sync",
+            "cmd": "{{ work.push }}"
           }
         }
       },

@@ -1483,7 +1483,7 @@ void fillGalleryGrid() {
   }
   // "Suggested" shows every kind once; other tabs their own.
   for (const wid::Kind& k : wid::kinds()) {
-    if (!strcmp(k.id, "my")) continue;
+    if (!strcmp(k.id, "my") || !wid::installed(k.id)) continue;
     if (cat != "Suggested" && cat != k.cat) continue;
     add(k.id, "", k.tint, k.name, k.desc);
   }
@@ -1645,7 +1645,7 @@ void openConfig(int pi, int idx) {
 
 // ---------------------------------------------------------------- "−" on an installed app (as on an iPhone)
 // Uninstall it (with its add-ons), uninstall one add-on, or only take it off this page (it stays in the library).
-// Uninstalling takes two taps on the same button; the app's data stays on the device.
+// Uninstalling takes two taps on the same button; the app's data on the device goes with it (app-slots.md §16).
 struct RmApp {
   int page = -1;               // its Home page, -1 in the App Library
   lv_obj_t* cell = nullptr;    // its icon, hidden once it is being uninstalled
@@ -1751,7 +1751,7 @@ void openAppSheet() {
   });
   lv_obj_set_width(off, lv_pct(100));
   lv_obj_t* hl = label(body, "", 12, false, 0x6b7280);
-  wrapText(hl, N_("Removing keeps the app's data (levels, coins, notes) on the device; reinstall it to carry on."), W, 12);
+  wrapText(hl, N_("Removing deletes the app's data on this device. Anything you bought stays yours: install it again from the Store."), W, 12);
 }
 
 void appSheetFor(int page, const String& app, lv_obj_t* cell) {
@@ -1763,13 +1763,12 @@ void appSheetFor(int page, const String& app, lv_obj_t* cell) {
 }
 
 // An app uninstalled while its icon is on a page, in the dock or the library: its place empties.
+// A widget of an app that went (PawBoop's "pet") leaves the page too (app-slots.md §16).
 void prune() {
+  auto goneE = [](const Entry& e) { return e.app ? !apps::find(e.id.c_str()) : !wid::installed(e.w.kind); };
   for (Page& p : portPages)  // landscape: the portrait pages too (s3.home is written again with a new dock)
-    p.erase(std::remove_if(p.begin(), p.end(), [](const Entry& e) { return e.app && !apps::find(e.id.c_str()); }),
-            p.end());
-  for (Page& p : model.pages)
-    p.erase(std::remove_if(p.begin(), p.end(), [](const Entry& e) { return e.app && !apps::find(e.id.c_str()); }),
-            p.end());
+    p.erase(std::remove_if(p.begin(), p.end(), goneE), p.end());
+  for (Page& p : model.pages) p.erase(std::remove_if(p.begin(), p.end(), goneE), p.end());
   auto gone = [](const String& s) { return !apps::find(s.c_str()); };
   model.dock.erase(std::remove_if(model.dock.begin(), model.dock.end(), gone), model.dock.end());
   model.lib.erase(std::remove_if(model.lib.begin(), model.lib.end(), gone), model.lib.end());

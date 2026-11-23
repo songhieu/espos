@@ -12,10 +12,12 @@ import (
 // turns; its summary stays, and a session never summarized keeps only what it was about, from its turns' topics);
 // one silent for 7 days is deleted. assist_reply does the same for the device it is talking to: this catches the
 // devices and accounts that stopped talking. Memories (assist_memories) stay until the person deletes them.
+// The assistant apps' call log (ai_calls: sizes, a hash, error codes, never words) is kept 7 days too (2026-11-22).
 // The purge must match purgeValues in assist_reply/nodes/talk.go.
 
 const rawMs = 24 * 3600e3
 const sessionMs = 7 * 86400e3
+const callsMs = 7 * 86400e3 // ai_calls
 
 var topicVN = map[string]string{"gold": "giá vàng", "crypto": "tiền số", "stock": "chứng khoán", "fx": "ngoại tệ", "news": "tin tức",
 	"weather": "thời tiết", "time": "ngày giờ", "calendar": "lịch", "alarm": "báo thức", "todo": "nhắc việc", "note": "ghi chú",
@@ -28,6 +30,8 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 			"order_by": "last_ms", "limit": 200, "with_total": false},
 		{"table": "assist_convos", "filters": []map[string]any{{"column": "last_ms", "op": "lt", "value": now - int64(rawMs)},
 			{"column": "purged_ms", "op": "is_null"}}, "order_by": "last_ms", "limit": 200, "with_total": false},
+		{"table": "ai_calls", "filters": []map[string]any{{"column": "at_ms", "op": "lt", "value": now - int64(callsMs)}},
+			"order_by": "at_ms", "limit": 500, "with_total": false},
 	})
 	if err != nil {
 		wm.Log("read: ", err.Error())
@@ -47,6 +51,11 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 		ops = append(ops, map[string]any{"op": "update", "table": "assist_convos", "id": wm.Int(r["id"]), "values": purgeValues(r, now)})
 		purged++
 	}
+	calls := 0
+	for _, r := range rowsOf(res, 2) {
+		ops = append(ops, map[string]any{"op": "delete", "table": "ai_calls", "id": wm.Int(r["id"])})
+		calls++
+	}
 	for i := 0; i < len(ops); i += 100 {
 		j := i + 100
 		if j > len(ops) {
@@ -57,7 +66,7 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 			return map[string]any{"error": "save"}
 		}
 	}
-	return map[string]any{"deleted": len(deleted), "purged": purged}
+	return map[string]any{"deleted": len(deleted), "purged": purged, "calls_deleted": calls}
 }
 
 func turnsOf(row map[string]any) []any {

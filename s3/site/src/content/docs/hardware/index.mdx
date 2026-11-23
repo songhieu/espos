@@ -9,7 +9,7 @@ import { Aside, CardGrid, LinkCard } from '@astrojs/starlight/components';
 
 EspOS is not tied to one board. The goal is an OS that runs on many chips and displays, and that the community can **rebuild for their own hardware** while keeping the same platform: the same API, the same packages, the same store and the same server protocol.
 
-Today it runs on two ESP32-S3 boards with colour touch screens. This section explains how the firmware is layered, what is board-specific today, and how a new board was added, so you can add yours.
+Today it runs on two ESP32-S3 boards with colour touch screens, the S3 desks; the EspOS Bot, an ESP32-S3 with a small OLED, has its own firmware. This section explains how the firmware is layered, what is board-specific today, and how a new board was added, so you can add yours.
 
 ## The layers
 
@@ -60,7 +60,7 @@ Each is described in [Board-specific code](/hardware/board-code/), and the whole
 <CardGrid>
   <LinkCard title="Board-specific code" description="Every file that knows about the board, and the display API a driver implements." href="/hardware/board-code/" />
   <LinkCard title="Port to a new board" description="Step by step, the way the 2.8-inch ES3C28P was added." href="/hardware/porting/" />
-  <LinkCard title="Hardware profiles" description="Full (ESP32-S3, PSRAM, colour touch) today; Lite (ESP32-C3, e-ink, buttons) planned." href="/hardware/profiles/" />
+  <LinkCard title="Hardware profiles" description="Capabilities and runtimes: the Full profile of the S3 desks today." href="/hardware/profiles/" />
   <LinkCard title="Board support packages" description="A folder per board with a board descriptor. In progress." href="/hardware/bsp/" />
 </CardGrid>
 

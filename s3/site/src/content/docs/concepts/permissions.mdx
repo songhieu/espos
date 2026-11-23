@@ -1,6 +1,6 @@
 ---
 title: Permissions
-description: 'How packages declare permissions, which ones the firmware enforces today (sound and notify), and the full permission model that is planned.'
+description: 'How packages declare permissions, which ones the firmware enforces today (sound, notify, and the network and file permissions of API level 2), and the full permission model that is planned.'
 ---
 
 import Status from '../../../components/Status.astro';
@@ -14,15 +14,21 @@ A package lists what it may do in the `perms` field of its manifest. The firmwar
 
 ## What is enforced today
 
-<Aside type="caution" title="Two permissions are enforced today">
-The firmware checks **`sound`** and **`notify`**. The package tool also accepts `net` and `bg`, but they grant nothing yet: there is no network or background API for apps. There is no consent screen at install and no per-app permission switch yet. Both are planned.
+<Aside type="caution" title="What the firmware checks">
+The firmware checks **`sound`** and **`notify`**, and from 0.6.0 (API level 2) the network and file permissions below. `bg` grants nothing yet: there is no background API for apps. There is no consent screen at install and no per-app permission switch yet. Both are planned.
 </Aside>
 
 | Permission | Allows | Without it | Status |
 |---|---|---|---|
 | `sound` | `sound.chime()`, `sound.beep()`, `sound.click()` | the call throws `TypeError: app has no "sound" permission` | <Status s="available" /> |
 | `notify` | `notify()`, `notify.schedule()`, `notify.cancel()`, `app.badge()` | the call throws `TypeError: app has no "notify" permission` | <Status s="available" /> |
-| `net` | nothing yet (reserved) | | <Status s="planned" /> |
+| `net:<host>`, `net:*.<domain>` | [`net.request`](/reference/js-api-2/#netrequest) over https to that host, or every host under the domain | the promise rejects with `code: "denied"` | <Status s="preview" label="0.6.0" /> |
+| `net:setting:<key>` | `net.request` to the host of the address the person set in that setting | rejects with `denied` | <Status s="preview" label="0.6.0" /> |
+| `net:lan` | `net.request` to local addresses, http allowed | rejects with `denied` | <Status s="preview" label="0.6.0" /> |
+| `net:*` | `net.request` to every public host | rejects with `denied` | <Status s="preview" label="0.6.0" /> |
+| `storage:<KB>` | [`fs`](/reference/js-api-2/#fs) `data/` up to that size (4096 at most) | 64 KB | <Status s="preview" label="0.6.0" /> |
+| `cache:<KB>` | `fs` `cache/` and `net.request`'s `save` up to that size (1 MB in flash without a memory card) | no cache: writes throw | <Status s="preview" label="0.6.0" /> |
+| `net` | nothing (the level 1 name, reserved) | | <Status s="planned" /> |
 | `bg` | nothing yet (reserved: run in the background) | | <Status s="planned" /> |
 
 The package tool rejects a manifest with any other permission name. A device ignores names it does not know.

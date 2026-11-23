@@ -1,0 +1,174 @@
+---
+title: 'A networked app: Claude Code sessions'
+description: 'A worked example of an API level 2 JavaScript app that talks to its own server part: net.request with the device credential the OS adds to the app''s own path, a native terminal view, the OS keyboard, dictation, server notes that pop up while the app is closed, and tests against a local mock.'
+---
+
+import { Aside, Steps } from '@astrojs/starlight/components';
+import Status from '../../../components/Status.astro';
+import Shot from '../../../components/Shot.astro';
+import list from '../../../assets/shots/sessions-list.png';
+import termShot from '../../../assets/shots/sessions-term.png';
+import pop from '../../../assets/shots/sessions-popup.png';
+
+<Status s="preview" /> Sessions (`dev.espos.sessions`, in `s3/apps/sessions` of the repository) shows the Claude Code
+sessions of your Mac on the S3. You can watch a session's terminal live, answer it, and approve or deny what it asks.
+It's a complete example of a JavaScript app with a server part. Every piece it uses is a general OS API, so your own
+networked app can do the same.
+
+<Shot src={list} alt="The Sessions list: espos needs approval with Deny and Approve, web waits for a reply" caption="The list: the sessions waiting for you come first." />
+
+## What it is made of
+
+| Piece | Where | What it shows you |
+|---|---|---|
+| The app | `apps/sessions/src/app.js` → `main.js` | one scheduler for every request, screens built from state, nothing sent without a tap |
+| Its words | `apps/sessions/i18n.json`, `tools/build.py` | English as the key, 10 more languages put into `main.js` at build time |
+| Its files | `apps/sessions/pkg/` | a mono font (`fonts/m8.bin`..., `tools/mkfonts.py`) and icons (`icons/mic.a8`) beside `main.js` in the package |
+| The server part | the EspOS server's `/v1/device/app/dev.espos.sessions/*` routes | the app's own API: the sessions, a screen's lines, send, AI suggestions |
+| Tests | `apps/sessions/test/` | a mock of those routes, every screen in the simulator with AddressSanitizer |
+
+## Talking to your own server part
+
+The manifest asks for the device's own server (`net:espos`) and binds the device's credential to the app's own path:
+
+```json
+"perms": ["net:espos", "notify", "overlay", "dictate"],
+"auth": {"espos": {"device": true, "send_to": ["{espos}/v1/device/app/dev.espos.sessions/*"]}}
+```
+
+- `{espos}` is the server this device talks to: `https://api.espos.dev`, or a self-hosted one. Write it instead of a
+  fixed host, and the app works on both.
+- With `auth: "espos"`, the OS adds the device's own credential (`Authorization: Device …`) to the request. It only
+  does that for `{espos}/v1/device/app/<this app's id>/…` with a plain path: no `..`, no `//`, no percent-escapes.
+  It never follows a redirect with it. Another app's path, another server path, or another host is refused at
+  once. JS never sees the credential.
+- The server checks the device, then checks that the app is installed on it.
+
+```js
+const API = '{espos}/v1/device/app/dev.espos.sessions';
+function call(method, path, body) {
+  return net.request({method, url: API + path, body, auth: 'espos', timeout: 20000})
+    .then((r) => r, (e) => ({status: 0, error: e.code, sent: e.sent}));  // never throws: every answer is a value
+}
+```
+
+<Aside title="One request at a time">
+The OS sends one request at a time for an app, on the same connection as its own sync. Sessions keeps one scheduler
+for that reason: while you only watch, its polls wait at the server for up to 3 seconds for new lines; when a panel or
+a question is on screen, it asks without waiting, so a tap never sits behind a held poll.
+</Aside>
+
+Retries are safe because of a nonce. Every send carries `nonce: crypto.random(8)`. When a request may have reached the
+server (`e.sent`), the app sends it again with the same nonce, and the server answers with the first result instead of
+typing it twice.
+
+## A terminal that draws itself
+
+`ui.term` is a native view. Its lines live in PSRAM, outside the JS heap. The app passes the server's answer to it as
+text and never parses it in JavaScript:
+
+```js
+ui.term({key: 't', font: 8, wrap: 'fit', fill: true, pill: '↓ {n} new lines', onTap: () => app.closeKeyboard()})
+
+const info = term.apply('t', r.body);  // {epoch, seq, full, starting, lines, at}
+since = info.seq;                       // the next poll asks for what changed after it
+```
+
+- `"fit"` wraps each line to the screen with a hanging indent and draws Claude's boxes again at the screen's width.
+  `"wide"` keeps the Mac's columns and pans sideways.
+- A line sent again with the same number replaces the old one. A new `epoch` starts over.
+- When you drag up, the view stops following and shows the pill. A tap on the pill goes back to the end.
+- The font is the package's own (`fonts/m<px>.bin`, DejaVu Sans Mono cut by `tools/mkfonts.py`). 8 px uses a 6 px
+  cell: about 52 columns upright and 78 sideways on the 3.5". The 2.8" draws at 2/3, so it starts at 12. The script
+  adds what DejaVu lacks: Claude Code's braille spinners, ⏸ ※ ⧉ ⑂, and the Vietnamese letters with the hook above
+  (from Ubuntu Vietnamese). Emoji become the nearest mark (✅ → ✓) or a diamond, never a box.
+
+<Shot src={termShot} alt="A session's terminal: colour runs, wrapped lines, Claude's input box at the screen's width" caption="The terminal: no render between updates, only the view redraws." />
+
+Render the app only when something you show has changed. A render rebuilds the screen (about 74 ms on the board),
+while the terminal and keyed fields keep their state across it. By default a tap, a timer and every network answer
+redraw. A terminal that polls twice a second turns that off:
+
+```js
+app.selfDraw = true;              // network and voice answers draw nothing by themselves
+timer.after(ms, () => { poll(); return false; });   // a timer that returns false draws nothing
+ui.button('', () => pressKey('up'), {icon: 'icons/up.a8', quiet: true});  // a key is not a redraw
+S.sig = sigOf();                  // on the terminal: only the session's state, its request and the Mac's mode
+if (S.sig !== before) app.refresh();
+```
+
+The OS sends one request at a time, so a held poll is what a key waits behind. Sessions holds for 1 s while you're
+busy and 2 s after half a minute without a touch. For 4 s after a key it doesn't hold at all. Keys tapped while one
+is on its way go together as one kind `"keys"` request. Every 15 s, `log()` writes to the trace what the device
+added: the frames' age, the keys' round trips, and the first new lines after a key.
+
+## Typing, terminal keys, AI, dictation
+
+- The prompt is like Claude Code's own: `ui.input(text, {key: 'reply', mode: 'chat', ok: 'Send', quiet: true, keys,
+  onSubmit})`. Enter on the OS keyboard sends. `keys` is a `ui.row` of buttons that the keyboard shows on top of
+  itself while this field has it: Esc, Tab, Mode (shift+tab), the arrows, Enter, Ctrl+C, 1 2 3.
+- In a full-screen app the OS makes the body shorter by the keyboard's height (`app.kb`), so a layout that fills the
+  screen stays whole above the keys. Back or a tap on the terminal puts them away (`app.closeKeyboard()`).
+- Esc and Ctrl+C stop Claude, so they go only after a 1 s hold. While Claude asks for a permission, 1 approves and 3
+  denies through the request's own path, with the same risky check as the buttons. Enter and 2 ("don't ask again")
+  say "Use Approve or Deny for this request" instead of typing into the dialog.
+- "AI" turns your rough words into a clear reply and shows it next to yours before anything goes.
+- Dictation is the OS's: `voice.dictate({lang: app.lang})` on a button's `onDown`, `voice.stop()` on its `onUp`. The
+  OS records, shows its own card and sends the audio. The app gets only the text. It needs the `dictate` permission.
+- Say OK to send: after a dictation, the app shows the text and calls
+  `voice.dictate({expect: 'yesno', about: text, until_quiet: true})`. Only `yesno: "confirm"` sends; "unclear" asks
+  once more; anything else leaves the text in the field. A risky line still needs its taps.
+
+## Asking while the app is closed
+
+The server adds a note to the dashboard when Claude asks for permission. A note for an installed app becomes that
+app's notification. With `acts` and the `overlay` permission, the OS also shows a card over Home, the saver or
+another app:
+
+```json
+{"app": "dev.espos.sessions", "arg": "900:s-1:r-1", "ref": "r-1", "exp_ms": 1795273800000, "title": "Claude (espos): Bash git push",
+ "pop": {"head": "espos", "title": "Claude wants to run a command", "mono": "git push origin main", "text": "Push the fix"},
+ "acts": [{"id": "deny", "post": "/send", "body": {"mac": 900, "s": "s-1", "kind": "deny", "req": "r-1"}},
+          {"id": "approve", "post": "/send", "body": {"mac": 900, "s": "s-1", "kind": "approve", "req": "r-1"}, "risky": false}]}
+```
+
+<Shot src={pop} alt="A card over Home: Claude wants to run a command, git push origin main, Deny and Approve" caption="The OS's card: its buttons post the act's body to the app's own route, with the device's credential." />
+
+A note can also be spoken: its `pop.say` (a note with actions falls back to its title), through
+`/v1/device/tts`. The OS says at most one every 2 minutes and merges the rest ("3 requests are waiting for you"). It
+says nothing at night, in quiet hours or with Do Not Disturb, and nothing while the app is open or when the app's own
+`announce` setting is off. On espos.dev the voice comes with the AI licence (or the trial) and up to 60 a day. Without
+it, or once the day's 60 are used, the note shows and chimes as usual, and the OS stops asking until the next day or
+until the licence changes.
+
+A button posts its `body` (plus a nonce) to the app's own route, with the device's credential. That's the same request the
+app makes itself. A risky act asks once more. In quiet hours, with Do Not Disturb, or when the app's notifications
+are off, there's no card and no sound: the note waits in the Notification Center.
+
+## Testing it
+
+<Steps>
+
+1. Build the simulator with AddressSanitizer:
+
+   ```sh
+   make -C sim -j4 BUILD=build-sessions EXTRA="-fsanitize=address -fno-omit-frame-pointer"
+   ```
+
+2. Run every screen against the mock, in both orientations:
+
+   ```sh
+   apps/sessions/test/run.sh                     # pictures + OUT/report.txt
+   SHOTS="term perm" THEME=dark LANGS="vi" apps/sessions/test/run.sh
+   ```
+
+   The mock (`test/mock_server.py`) answers the routes with the shapes of the real server and refuses any request
+   without the device credential. It has a scene for each state: offline, view only, emergency stop, not paired,
+   sharing off, AI locked, and a session that prints 50 lines a second. The `authtest` scenario installs a second
+   app that tries to send the credential to another app's path, up with `..`, with escapes, to another server path
+   and to another host; the run fails if any of them gets through.
+
+3. Check the log: an AddressSanitizer report, an "App error" line or an `OVERFLOW` (text cut or out of its box) fails
+   the run.
+
+</Steps>

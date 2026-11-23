@@ -1,0 +1,95 @@
+# PawBoop removed like any app, then installed again (docs/app-slots.md §16). Data: a copy of sim/data-calls (the dog
+# on the card, the "Gâu" listener in, the wake word on) with the store's catalog and PawBoop 2.0.4 in net/:
+#   sim/scripts/assist-remove-data.sh && SIM_DATA=sim/data-p4 sim/build/espos-sim sim/scripts/assist-remove.txt OUT
+wait 2500
+# the store's catalog (its paid marks: Momo in this copy) and an owned device: Momo is bought
+app store
+wait 2500
+home
+wait 600
+lock lic {"plan":"owned"}
+wait 300
+shot 01-home
+drag 280 4 280 360 300
+wait 900
+shot 02-cc-dog
+drag 160 420 160 40 250
+wait 900
+# as Home's "Remove the app and add-ons": the app first, then each add-on
+PKGREMOVE vn.pawboop.pet
+PKGREMOVE vn.pawboop.dog.bao
+PKGREMOVE vn.pawboop.dog.boop
+PKGREMOVE vn.pawboop.dog.byte
+PKGREMOVE vn.pawboop.dog.corgi
+PKGREMOVE vn.pawboop.dog.golden
+PKGREMOVE vn.pawboop.dog.husky
+PKGREMOVE vn.pawboop.dog.leaf
+PKGREMOVE vn.pawboop.dog.momo
+PKGREMOVE vn.pawboop.dog.shiba
+PKGREMOVE vn.pawboop.dog.volt
+PKGREMOVE vn.pawboop.run
+PKGREMOVE vn.pawboop.map.bazaar
+PKGREMOVE vn.pawboop.map.beach
+PKGREMOVE vn.pawboop.map.carnival
+PKGREMOVE vn.pawboop.map.city
+PKGREMOVE vn.pawboop.map.construction
+PKGREMOVE vn.pawboop.map.lantern
+PKGREMOVE vn.pawboop.map.park
+PKGREMOVE vn.pawboop.map.snow
+wait 8000
+PKGSTATUS vn.pawboop.pet
+dumpset slot.assistant slot-after-remove
+dumpset s3.pet_dog dog-after-remove
+shot 03-home-after
+drag 280 4 280 360 300
+wait 900
+shot 04-cc-none
+tap 201 290
+wait 600
+shot 05-none-card
+tap 258 415
+wait 2500
+shot 06-store-assistants
+home
+wait 800
+WAKEFIRE
+wait 1500
+shot 07-after-wakefire
+TALKPRESS
+wait 500
+TALKRELEASE
+wait 800
+saver
+wait 2000
+shot 08-saver
+WAKEFIRE
+wait 1500
+shot 09-saver-wakefire
+wake
+wait 800
+lock sheet Aquarium
+wait 600
+shot 10-lock-sheet
+lock close
+lock lic {"plan":"free","trial_end_ms":1000,"ent":["vn.pawboop.dog.momo"],"ai":"no_ai"}
+lock card
+wait 800
+shot 11-end-card
+lock close
+app pet
+wait 800
+shot 12-app-pet
+home
+wait 600
+lock install vn.pawboop.pet
+wait 35000
+PKGSTATUS vn.pawboop.pet
+dumpset slot.assistant slot-after-reinstall
+PKGSTATUS vn.pawboop.dog.bao
+PKGSTATUS vn.pawboop.dog.momo
+drag 280 4 280 360 300
+wait 900
+shot 13-cc-back
+drag 160 420 160 40 250
+wait 600
+quit

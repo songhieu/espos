@@ -21,6 +21,10 @@ class Preferences {
   size_t putBool(const char* k, bool v) { return putInt(k, v); }
   bool remove(const char* k) { return store().erase(ns_ + k) > 0; }
   bool isKey(const char* k) { return store().count(ns_ + k) > 0; }
+  bool clear() {  // every key of the namespace (keys are stored as namespace + key)
+    for (auto it = store().begin(); it != store().end();) it = it->first.compare(0, ns_.size(), ns_) ? std::next(it) : store().erase(it);
+    return true;
+  }
 
  private:
   static std::map<std::string, std::map<char, std::string>>& store() {

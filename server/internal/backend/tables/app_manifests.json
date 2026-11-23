@@ -54,7 +54,7 @@
     {
       "code": "settings",
       "default": null,
-      "help": "The manifest's \"settings\" list (s3desk docs/manifest-driven.md §1): what app.<pkg_id>.<key> values may be",
+      "help": "The manifest's \"settings\" list (s3desk docs/manifest-driven.md \u00a71): what app.<pkg_id>.<key> values may be",
       "indexed": false,
       "label": "Settings schema",
       "options": [],
@@ -82,7 +82,7 @@
     {
       "code": "server",
       "default": null,
-      "help": "The manifest's \"server\" (feeds, fetch rules, hooks): docs/manifest-driven.md §2",
+      "help": "The manifest's \"server\" (feeds, fetch rules, hooks): docs/manifest-driven.md \u00a72",
       "indexed": false,
       "label": "Server part",
       "options": [],
@@ -128,7 +128,7 @@
     {
       "code": "auth",
       "default": null,
-      "help": "The manifest's \"auth\" bindings (s3desk docs/app-slots.md §15.1): which secrets go to which addresses",
+      "help": "The manifest's \"auth\" bindings (s3desk docs/app-slots.md \u00a715.1): which secrets go to which addresses",
       "indexed": false,
       "label": "Auth bindings",
       "options": [],
@@ -151,6 +151,20 @@
       "ref_table": null,
       "required": false,
       "type": "integer",
+      "unique": false
+    },
+    {
+      "code": "perms",
+      "default": null,
+      "help": "The manifest's permissions (an assistant app's decide what the server sends its provider: docs/assistant-providers.md \u00a72.10)",
+      "indexed": false,
+      "label": "Permissions",
+      "options": [],
+      "position": 11,
+      "read_only": false,
+      "ref_table": null,
+      "required": false,
+      "type": "json",
       "unique": false
     }
   ]

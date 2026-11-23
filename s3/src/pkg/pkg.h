@@ -68,6 +68,9 @@ class File {
 bool open(const char* id, const char* name, File& f);
 // The whole file in PSRAM (heap_caps_malloc SPIRAM; free with heap_caps_free). nullptr if no memory / I/O error.
 uint8_t* loadAll(const File& f);
+// The manifest.json kept with a package that lives in a folder (JavaScript apps on the internal LittleFS or the card),
+// with every field the store sent (settings, perms...); "" for others. UI loop. (lane 1f: jsnet reads `settings`.)
+String manifestJson(const char* id);
 
 // Starts the app of an installed package (engine dispatch). arg as in apps::open.
 void run(const char* id, const char* arg);

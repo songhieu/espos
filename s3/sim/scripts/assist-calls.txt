@@ -1,0 +1,17 @@
+# Calls by the wake word: WAKEFIRE (as if "Gâu gâu" was heard) to the dog (the default assistant), then to the Echo
+# assistant. Data and env: sim/scripts/assist-slot-tests.sh (SIM_FAKE_ASSIST=voice, SIM_MIC=sim/bot/audio/question.wav).
+# The sim's mic plays its file once, in real time, from when the listener opens it: the first call waits in real time
+# and hears the question ("talk: heard ... -> ..."); the second only checks that the call opens the Echo app's pop-up
+# ("assistant: dev.espos.ai.echo's pop-up", then "talk: no question after the wake word" is expected).
+wait 3000
+WAKEFIRE
+realwait 9000
+shot 01-dog-call
+tap 160 40
+wait 1500
+set slot.assistant dev.espos.ai.echo
+wait 2500
+WAKEFIRE
+wait 9000
+shot 02-echo-call
+quit

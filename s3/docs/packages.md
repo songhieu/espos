@@ -80,6 +80,12 @@ A part's choice lives in its own manifest (`group`, `label` in English, `labels`
 version) fill in what a manifest lacks. The build refuses a catalog where a part of a multi-part package is neither
 required nor in a group, or an add-on lost `addon_of`/`set`/`needs` (`tools/espk.py check_catalog`; cases in
 `tools/test_catalog.py`). The device shows a part's label in the language shown.
+An optional part (`"opt": true`, and `"req": false` said in the catalog: firmware before 0.5.12 takes a part with neither
+"req" nor a group as required) is downloaded with the core when a memory card is in and the volume has room for it
+too; never a reason to refuse an install (firmware 0.5.12, `installAs`). The store page puts a package on the card
+when Máy has no room for the core and its optional parts. PawBoop (2026-11-21): a dog's `game` part (run.pbs,
+sfx.pba, voice_full.pba) and the pet's `game` part (sfx.pba), so a desk without a card gets the dog and its
+assistant in Máy (`tools/pawboop/parts.py`).
 The store shows a group as a choice ("Chọn gói tải: Nhẹ / Đẹp" with sizes). Two parts must not hold a file with the
 same name; put each part's files in its own sub-folder (`core/...`, `roads/...`) so the engine reads the same
 names whichever part was picked.

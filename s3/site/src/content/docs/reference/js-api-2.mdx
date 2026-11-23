@@ -1,0 +1,298 @@
+---
+title: JavaScript API (level 2)
+description: 'What API level 2 adds to level 1: net.request with Promises and secrets the OS adds, fs and crypto, settings, and the screen nodes for full-screen apps (grid, rows, split, nav, input, image, qr, sheet).'
+tableOfContents:
+  maxHeadingLevel: 3
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+API level 2 comes with firmware 0.6.0. It keeps all of [level 1](/reference/js-api/) and adds the network, files, secrets and the screen parts that a full app needs. A package that uses any of it says so in its manifest:
+
+```json
+"api": {"min": 2}
+```
+
+Promise jobs run at this level: `async` functions, `await` and `.then()` work. A rejection nobody catches shows as a toast and goes to the trace.
+
+The screen is drawn again after a tap, a timer callback, an answer of `net.request` and `app.refresh()`. A timer callback that returns `false` changed nothing on screen: no redraw follows it. A ticker that only sometimes changes the screen returns `false` and calls `app.refresh()` when it does.
+
+```js
+timer.every(1000, () => {
+  if (Date.now() - lastTouch > 120000 && !locked) {
+    locked = true;
+    app.refresh();
+  }
+  return false;
+});
+```
+
+A point-of-sale sample app that uses every call on this page is coming soon.
+
+| Global | What | Permission |
+|---|---|---|
+| [`net`](#net) | `request()`, `online` | `net:...` |
+| [`fs`](#fs) | read, write, remove, list, free | `storage:<KB>`, `cache:<KB>` |
+| [`crypto`](#crypto) | `sha256()`, `random()` | none |
+| [`settings`](#settings) | `get()`, `open()`; `app.onSettings` | none |
+| [`ui`](#screen-nodes) | grid, rows, split, nav, input, image, qr, line, sheet | none |
+| [`app`](#full-screen-apps) | `full`, `onBack`, `dark` | none |
+
+## net
+
+### net.request
+
+```ts
+net.request(o: {
+  method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'HEAD';
+  url: string;
+  headers?: Record<string, string>;
+  body?: string | object;
+  keep?: string[];
+  timeout?: number;
+  auth?: string;
+  save?: string;
+}): Promise<{status: number; ok: boolean; headers: Record<string, string>; body?: string; size?: number}>
+```
+
+The request goes through the OS's network worker, on the same kept TLS connection as the device's own sync. The device's token and hardware headers are never sent with it.
+
+- **It resolves for any HTTP status**, 404 and 500 included. Check `status` or `ok`.
+- **It rejects only when there is no answer.** The error has a `code` and `sent`:
+
+| `code` | When |
+|---|---|
+| `offline` | no network when it was asked |
+| `timeout` | no full answer in time |
+| `dns` | the name did not resolve |
+| `tls` | the secure connection failed |
+| `too_big` | the body sent is over 32 KB, or the answer over its limit |
+| `denied` | the permissions, the address, a header or `save` are not allowed (the message says which) |
+| `busy` | 4 requests already wait for this app |
+
+`sent` is `true` when the request may have reached the server: the connection was made and the body went out before it failed. A POST that rejects with `sent: true` may have been done. Ask the server before sending it again.
+
+| Option | Rule |
+|---|---|
+| `url` | `https://...`, or `{<setting>}/path` where the OS puts in the address the person set (the setting must be a `url` or `string` field). `http://` only to the local network with `net:lan` |
+| `headers` | 6 at most. `Authorization`, `Cookie` and `Host` are refused: use `auth` |
+| `body` | a string, or an object sent as JSON with `Content-Type: application/json`. 32 KB at most |
+| `keep` | the answer headers to return, 4 at most (`headers` holds them, names in lower case) |
+| `timeout` | ms, 20000 by default, 1000 to 60000 |
+| `auth` | the name of one of the manifest's [`auth` bindings](#secrets-and-auth) |
+| `save` | `cache/<name>`: a 2xx body goes into that file (512 KB at most) and the answer has `size` instead of `body` |
+
+An answer's `body` is text, 256 KB at most. Redirects are followed within the same origin, 3 at most; one to another host comes back as its 3xx status. One request of an app is on the network at a time, and the device's own sync goes between them.
+
+```js
+try {
+  const r = await net.request({url: 'https://api.example.com/v1/items?page=1', keep: ['X-Total']});
+  if (!r.ok) return toast('The server said ' + r.status);
+  items = JSON.parse(r.body);
+} catch (e) {
+  toast(e.code === 'offline' ? 'No network' : 'No answer (' + e.code + ')');
+}
+```
+
+### net.online
+
+```ts
+readonly net.online: boolean
+```
+
+Whether the device is on Wi-Fi now.
+
+### Permissions
+
+A request goes only where the manifest allows:
+
+| Permission | Allows |
+|---|---|
+| `net:api.example.com` | that host, over https |
+| `net:*.example.com` | every host under that domain |
+| `net:setting:<key>` | the host of the address the person set in that setting |
+| `net:lan` | local addresses (10/8, 172.16/12, 192.168/16, 127/8, `*.local`, names without a dot), http allowed. A name must resolve to such an address |
+| `net:*` | every public host |
+
+Without `net:lan`, a request to a local address is refused, even by a name that resolves to one.
+
+### Secrets and auth
+
+A key or token goes in the manifest as a `secret` setting. With `"where": "device"`, the person types it on the device (or from a computer on the same Wi-Fi, through the OS's one-time page with a QR code and a PIN). It stays on the device and is never synced.
+
+The app never reads a secret. A binding in `auth` tells the OS how to add it to requests:
+
+```json
+"auth": {
+  "store": {
+    "basic": ["ck", "cs"],
+    "query": {"consumer_key": "ck", "consumer_secret": "cs"},
+    "send_to": ["{shop_url}/wp-json/wc/v3/*"]
+  }
+}
+```
+
+| Field | |
+|---|---|
+| `basic` | `[user key, password key]`: HTTP Basic auth |
+| `bearer` | `key`: `Authorization: Bearer <value>` |
+| `header` | `{"X-Api-Key": "key"}`: the value in that header |
+| `query` | optional: query parameters to use instead after a 401 (for servers that drop the Authorization header). The OS remembers the form that worked |
+| `send_to` | where the binding may be used: full addresses with `*` at the end, or `{<setting>}/path*` |
+
+`net.request({..., auth: 'store'})` to an address outside `send_to` rejects with `denied`. Changing the address setting a binding names clears its secrets. The trace keeps the method, host and path, never the query, headers or body.
+
+## fs
+
+Files of the app, in two areas:
+
+| Area | Kept | Size |
+|---|---|---|
+| `data/` | until the app is removed | `storage:<KB>` (64 KB without it, 4 MB at most) |
+| `cache/` | the OS may delete the oldest files | `cache:<KB>` (none without it). On the memory card when one is in, else in flash and 1 MB at most |
+
+A name is `data/<file>`, `cache/<file>` or a bare name (then `data/`), with one folder at most: `data/q/123.json`. Letters, digits, `.`, `_` and `-`, 80 characters in all. Files are 512 KB at most. Both areas are deleted when the app is removed.
+
+```ts
+fs.read(name: string): string | undefined
+fs.write(name: string, text: string): true
+fs.remove(name: string): boolean
+fs.list(dir?: string): {name: string; size: number}[]
+fs.free(area?: 'data' | 'cache'): number
+```
+
+- `fs.write` is atomic: it writes a new file and renames it over the old one. In `data/` (flash), a power cut leaves the old text or the new, never a mix.
+- Writing to `cache/` makes room first by deleting the app's oldest cache files.
+- `fs.write` throws `RangeError` with the reason: a bad name, over 512 KB, over the quota.
+- `fs.list` gives the files and folders of a folder (`data/` by default); `fs.free` the bytes left in an area.
+
+## crypto
+
+```ts
+crypto.sha256(text: string): string   // 64 hex characters
+crypto.random(n?: number): string     // n random bytes (1 to 64, default 16) as hex, from the chip's RNG
+```
+
+## settings
+
+```ts
+settings.get(key: string): unknown
+settings.open(): void
+app.onSettings = (changed: string[]) => void
+```
+
+`settings.get` reads a value of the manifest's `settings` (`null` when not set). A secret reads as `{set: boolean, hint: string}`, its last 4 characters. `settings.open()` opens the OS's form for the app's settings on the device. `app.onSettings` is called with the keys that changed, here or from the web; without it, the screen is drawn again.
+
+## Full-screen apps
+
+```ts
+app.full = true;
+app.onBack = () => boolean;
+readonly app.dark: boolean;
+```
+
+- `app.full`: no nav bar and no padding. The app draws the whole screen under the status bar (`app.screen.w` × `app.screen.h`).
+- `app.onBack`: the back gesture asks the app first. Return `true` when the app went back inside itself (closed a sheet, left a screen); `false` lets the OS close the app.
+- `app.dark`: the system theme is dark now.
+
+Colours can be system colours that follow the theme: `@bg`, `@card`, `@card2`, `@fg`, `@dim`, `@faint`, `@line`, `@chip`, `@accent`, `@ok`, `@warn`, `@bad`.
+
+## Screen nodes
+
+All nodes of level 1 work. These are new. Every node takes `fill: true`: in a row it takes the width left by the others; in a column with a set height, the height left.
+
+Buttons take `w`, `h`, `icon` (an OS glyph name, or an `.a8` file in the package: 2 bytes width, 2 bytes height, then one alpha byte per pixel), `onDown` and `onUp`. OS glyphs: `grid`, `list`, `search`, `home`, `gear`, `plus`, `check`, `bell`, `timer`, `photo`, `edit`, `trash`, `sync`, `flag`, `globe`, `pin`, `power`, `back`, `chev`. `ui.column`, `ui.row` and `ui.card` take `pad`.
+
+Text is never cut with "…". A name too long for its place wraps, or takes a smaller size.
+
+### ui.grid
+
+```ts
+ui.grid(items: GridItem[], onTap?: (i: number) => void,
+        o?: {cols?: number; h?: number; gap?: number; onLong?: (i: number) => void}): EspOSNode
+
+type GridItem = {title: string; sub?: string; image?: string; initials?: string; bg?: Colour; bar?: Colour; fg?: Colour;
+                 subColor?: Colour; badge?: string; badgeBg?: Colour; tag?: string; tagBg?: Colour; dim?: boolean; span?: boolean};
+```
+
+Tiles in `cols` columns (3 by default, 1 to 8) of height `h` (72, 32 to 240). With `image`, the photo fills the tile and the title sits on a dark band at its foot; until it is drawn the tile shows `initials` on `bg`. `badge` is a round count at the top right, `tag` a label at the top left. `span: true` makes a tile two columns wide; a title with a word too wide for one column spans by itself.
+
+### ui.rows
+
+```ts
+ui.rows(items: RowItem[], onTap?: (i: number) => void,
+        o?: {thumb?: number; card?: boolean; gap?: number; onStep?: (code: number) => void}): EspOSNode
+
+type RowItem = {title: string; sub?: string; sub2?: string; subColor?: Colour; right?: string; rsub?: string;
+                tone?: 'ok' | 'warn' | 'bad'; image?: string; initials?: string; bg?: Colour; fg?: Colour;
+                badge?: string; sel?: boolean; step?: number};
+```
+
+A list with optional thumbnails (`thumb` px, up to 64), a value on the right (`right`, and `rsub` under it in the `tone` colour), and steppers: a row with `step` shows − n +, and a tap calls `onStep(i * 2 + (plus ? 1 : 0))`. `card: true` puts each row on its own card.
+
+### ui.image
+
+```ts
+ui.image(src: string, o?: {w?: number; h?: number; radius?: number; band?: boolean;
+                           fallback?: {text?: string; bg?: Colour; fg?: Colour}}): EspOSNode
+```
+
+A picture from the app's files (`cache/p1.jpg`, `data/logo.jpg`) or its package. Baseline JPEG only. The OS decodes it once to the node's size (rounded corners and the band baked in) and keeps it in a 1 MB picture cache, so scrolling past it again costs nothing. It decodes only pictures on screen, and not while a finger is on the screen. Until then, and when the file is missing or not a baseline JPEG, the `fallback` shows.
+
+### ui.split
+
+```ts
+ui.split(left: EspOSNode, right: EspOSNode,
+         o?: {w?: number; pad?: number; footL?: EspOSNode; footR?: EspOSNode; bgL?: Colour; bgR?: Colour; key?: string}): EspOSNode
+```
+
+Two panes side by side, each scrolling by itself. `w` is the left pane's width (half by default). `footL` and `footR` stay at the foot of their pane: a total and a button under a long list. With `key`, each pane stays where it was scrolled when the screen is drawn again (a tap on a product does not send the grid back to the top).
+
+A column scrolls by itself with `{scroll: true}` and a height (`fill: true` or `h`); with a `key` too, it keeps its place across redraws the same way.
+
+### ui.nav
+
+```ts
+ui.nav(tabs: {label: string; icon: string}[], sel: number, onPick: (i: number) => void,
+       o?: {badges?: string[]; foot?: EspOSNode}): EspOSNode
+```
+
+The app's tabs: a 60 px rail on the left in landscape, a 52 px bar at the foot in portrait. Put it in a `ui.row` (landscape) or after the content in a `ui.column` (portrait). `badges[i]` shows a count on a tab; `foot` sits at the rail's foot.
+
+### ui.input
+
+```ts
+ui.input(value: string, o?: {key?: string; hint?: string; mode?: 'text' | 'number' | 'decimal' | 'password' | 'search';
+                             lines?: number; max?: number; w?: number;
+                             onChange?: (text: string) => void; onSubmit?: (text: string) => void}): EspOSNode
+```
+
+A text field with the OS keyboard. `onChange` runs on each key, `onSubmit` on Enter. Give it a `key` when the screen is drawn again while typing (search as you type): a node with a `key` is kept across renders, so the keyboard stays open. `lines` 1 to 4, `max` characters (200 by default).
+
+### ui.qr
+
+```ts
+ui.qr(text: string, o?: {size?: number}): EspOSNode
+```
+
+A QR code, `size` px square (140 by default).
+
+### ui.line
+
+```ts
+ui.line(left: string, right?: string, o?: {bold?: boolean; size?: number; color?: Colour; rcolor?: Colour; dim?: boolean}): EspOSNode
+```
+
+A label and a value on one line: totals, details. The label wraps if the two do not fit.
+
+### ui.sheet
+
+```ts
+ui.sheet(children: EspOSNode[], o?: {onClose?: () => void; w?: number}): EspOSNode
+```
+
+A card over the screen on a dim backdrop. A tap outside calls `onClose`. Put it anywhere in what `app.render` returns while it is open; it is drawn over everything else.
+
+<Aside>
+TypeScript typings for level 2 are in `@espos/sdk` (`espos.d.ts`); a sample app that uses them is coming soon.
+</Aside>

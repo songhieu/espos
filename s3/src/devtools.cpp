@@ -41,6 +41,7 @@ extern const uint8_t x509_bundle_end[] asm("_binary_x509_crt_bundle_end");
 #include "js/jsrt.h"
 #include "os.h"
 #include "run/run.h"
+#include "preset.h"
 #include "wake/wake.h"
 #ifndef NO_PET
 #include "pet/talk.h"
@@ -127,7 +128,7 @@ void run(char* cmd) {
       timeval tv = {(time_t)(ms / 1000), (suseconds_t)((ms % 1000) * 1000)};
       settimeofday(&tv, nullptr);
     }
-    Serial.printf("ESPOS:READY {\"fw\":\"%s\",\"kind\":\"s3\",\"board\":\"%s\",\"caps\":[\"claim\"],\"linked\":%s}\n", FW_VERSION, board::name(),
+    Serial.printf("ESPOS:READY {\"fw\":\"%s\",\"kind\":\"s3\",\"board\":\"%s\",\"caps\":[\"claim\",\"preset\"],\"linked\":%s}\n", FW_VERSION, board::name(),
                   desk::link() == desk::Link::Linked ? "true" : "false");
   } else if (!strncmp(cmd, "SOUND ", 6)) {
     if (!strcmp(cmd + 6, "test")) sound::test();
@@ -528,6 +529,7 @@ void run(char* cmd) {
       heap_caps_free(st);
     }
   } else if (wake::console(cmd)) {  // WAKE, WAKEREC n, WAKEPAUSE 0|1, PKGPUT (src/wake/wake.cpp)
+  } else if (preset::console(cmd)) {  // PRESET, PRESET {json}, PRESET FORGET (src/preset.h)
 #ifndef NO_PET
   } else if (pet::talk::console(cmd)) {  // ASK <text>, TALK (src/pet/talk.cpp)
 #endif

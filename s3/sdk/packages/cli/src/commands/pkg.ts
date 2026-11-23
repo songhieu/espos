@@ -17,6 +17,7 @@ const TEMPLATES: Record<string, { summary: string }> = {
   "js-app": { summary: "JavaScript app (main.js, API level 1): a counter that keeps its number" },
   "js-app-ts": { summary: "TypeScript app (src/*.ts bundled into main.js, typed by @espos/sdk): a countdown with a reminder" },
   "j2me-game": { summary: "a J2ME (Java phone) game wrapped as a package: game.jar + icon, engine j2me (firmware 0.4.0)" },
+  assistant: { summary: 'an assistant app ("provides": ["assistant"]): a small screen, and provider/server.mjs, a working provider that espos ai test passes' },
 };
 
 const PALETTE: [string, string][] = [
@@ -68,6 +69,37 @@ ${common}| \`main.js\` | the app |
 Limits: 1.5 MB heap, 1.5 s per call (3 s to start), about 11 KB of stack, 8 timers; no console, no network, no
 Promise callbacks yet. Types for your editor: \`espos types\` writes \`types/espos.d.ts\`.
 `;
+  if (t === "assistant")
+    return `# ${m.name}
+
+An EspOS **assistant app**: \`"provides": ["assistant"]\` in \`manifest.json\`. The person picks it in Settings, Default apps,
+Assistant; after that, every question goes to **your provider** as a signed EspOS Assistant Protocol v1 request, and
+the device says your answer in the voice of the dog the person chose. The guide: espos.dev/docs/guides/assistant.
+
+## Try it in two minutes
+
+\`\`\`
+espos ai secret ${m.id.startsWith("u.") ? m.id : "u." + m.id} --endpoint https://your-host/espos/turn   # after espos upload; shown once
+export ESPOS_SIGNING_SECRET=esps_...        # the secret (or any esps_ value, to try it locally)
+node provider/server.mjs                    # answers on http://localhost:8787/espos/turn
+espos ai test http://localhost:8787/espos/turn
+\`\`\`
+
+\`espos ai test\` sends signed example turns (weather, an alarm, nothing heard, a yes for something held, a wrong
+signature) and checks the answers with the server's own rules.
+
+## What is where
+
+| file | what |
+|---|---|
+| \`manifest.json\` | \`provides\`, \`assistant.provider\` (your endpoint), and \`perms\`: what the server may send your provider and do for it (shown at install) |
+| \`main.js\` | a small screen on the device (the brain is not here) |
+| \`provider/server.mjs\` | a working provider: checks the signature, answers from the request, sets alarms; replace \`answer()\` with your model |
+| \`espos.json\`, \`icon.jpg\` | what \`espos build\` packs (the provider folder is not packed) |
+
+Permissions in this template: \`location:city\` and \`data:weather\` (the city and its weather), \`assist.alarms\`
+(sees the alarms), \`alarms.write\` (sets them). The full list: espos.dev/docs/guides/assistant#permissions.
+${common}`;
   if (t === "js-app-ts")
     return `# ${m.name}
 
@@ -122,6 +154,15 @@ async function createCmd(c: Ctx): Promise<number> {
         j2me: { midlet: "", keypad: c.opts.keypad ?? "full", profile: "MIDP-2.0", config: "CLDC-1.1" },
         license: c.opts.license ?? "", part: "core",
       };
+  } else if (t === "assistant") {
+    m = {
+      id, name, version: "1.0.0", code: 10000, kind: "js", engine: "js", min_fw: 300, category: c.opts.category ?? "tool",
+      author: c.opts.author ?? "", desc: c.opts.desc ?? "An assistant: tells the weather and sets alarms",
+      icon: { bg, glyph: "speaker" }, part: "core",
+      provides: ["assistant"],
+      assistant: { provider: "https://ai.example.com/espos/turn", languages: ["*"] },
+      perms: ["location:city", "data:weather", "assist.alarms", "alarms.write"],
+    };
   } else {
     m = {
       id, name, version: "1.0.0", code: 10000, kind: "js", engine: "js", min_fw: 300, category: c.opts.category ?? "tool",
@@ -149,12 +190,13 @@ async function createCmd(c: Ctx): Promise<number> {
   w("manifest.json", JSON.stringify(m, null, 2) + "\n");
   const files = t === "j2me-game" ? ["game.jar", "icon.jpg"] : ["icon.jpg"];
   const cfg: Record<string, unknown> = { $schema: "https://espos.dev/schemas/project.schema.json" };
-  if (t === "js-app") cfg.main = "main.js";
+  if (t === "js-app" || t === "assistant") cfg.main = "main.js";
   if (t === "js-app-ts") cfg.main = "src/main.ts";
   cfg.files = files;
   cfg.out = "dist";
   w("espos.json", JSON.stringify(cfg, null, 2) + "\n");
   w("icon.jpg", jarInfo?.icon ?? placeholderIcon(bg, t === "j2me-game" ? "play" : t === "js-app" ? "grid" : "circle"));
+  if (t === "assistant") fs.chmodSync(path.join(dir, "provider", "server.mjs"), 0o755);
   if (jarBytes) w("game.jar", jarBytes);
   if (t === "js-app-ts") w("types/espos.d.ts", fs.readFileSync(path.join(sdkDir(), "espos.d.ts")));
   w("README.md", readme(t, m, path.basename(dirArg)));

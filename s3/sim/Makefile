@@ -69,8 +69,9 @@ $(BUILD)/sim/%.o: %.cpp
 	@mkdir -p $(dir $@) && $(CXX) $(CXXFLAGS) -c $< -o $@
 
 # -lz: the built-in art is deflated (src/artz.cpp inflates it with zlib here, the ROM's tinfl on the board).
+# -lcurl: net.request for JavaScript apps (src/js/jsnet.cpp) talks to real servers from the simulator (a local mock).
 $(BUILD)/espos-sim: $(APP_OBJ) $(SIM_OBJ) $(BUILD)/liblvgl.a
-	$(CXX) $(EXTRA) $^ -lz -o $@
+	$(CXX) $(EXTRA) $^ -lz -lcurl -o $@
 
 # The live simulator (sim/live.cpp, SDL2): make -C sim live, or tools/sim-live.sh.
 SDL2_CONFIG ?= $(firstword $(wildcard /opt/homebrew/bin/sdl2-config /usr/local/bin/sdl2-config) sdl2-config)
@@ -85,7 +86,7 @@ $(BUILD)/sim/live.o: live.cpp live.h realsize.h
 $(BUILD)/sim/realsize.o: realsize.cpp realsize.h
 	@mkdir -p $(dir $@) && $(CXX) -O1 -g $(EXTRA) $(SDL_CFLAGS) -c $< -o $@
 $(BUILD)/espos-live: $(APP_OBJ) $(BUILD)/sim/main-live.o $(BUILD)/sim/live.o $(BUILD)/sim/realsize.o $(BUILD)/sim/stubs.o $(BUILD)/liblvgl.a
-	$(CXX) $(EXTRA) $^ -lz $(SDL_LIBS) -o $@
+	$(CXX) $(EXTRA) $^ -lz -lcurl $(SDL_LIBS) -o $@
 
 # Header changes rebuild what uses them.
 -include $(shell find $(BUILD) -name '*.d' 2>/dev/null)

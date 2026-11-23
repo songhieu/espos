@@ -1,0 +1,27 @@
+# Typed turns through the Control Center's tile: the Echo assistant (the OS pop-up), then the PawBoop dog (its pop-up).
+# Data and env: sim/scripts/assist-slot-tests.sh (slot.assistant = dev.espos.ai.echo at start, SIM_FAKE_ASSIST=voice).
+# Portrait 3.5" places: the Control Center pulled down from the top right, its assistant tile at 201 290.
+wait 2500
+drag 280 4 280 360 300
+wait 900
+shot 01-cc-echo
+tap 201 290
+wait 900
+shot 02-pop-open
+ASK what time is it
+wait 5000
+shot 03-pop-answer
+tap 160 40
+wait 800
+shot 04-closed
+set slot.assistant vn.pawboop.pet
+wait 2500
+drag 280 4 280 360 300
+wait 900
+tap 201 290
+wait 1500
+shot 05-dog-pop
+ASK what time is it
+wait 6000
+shot 06-dog-answer
+quit

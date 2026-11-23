@@ -28,7 +28,7 @@ A device works on its own, but it is at its best linked to an **EspOS server**. 
 
 ## Self-hosting<Status s="preview" />
 
-The open-source repository, [github.com/songhieu/espos](https://github.com/songhieu/espos), holds a self-hosted server under AGPL-3.0 (`server/`): one Go binary with the web app built in, one account, and all data in one folder. It runs the same device workflows as the hosted service. Today it is made for the **Xteink X4** reader, whose firmware is in the same repository; an S3 against your own server is not checked end to end yet.
+The open-source repository, [github.com/songhieu/espos](https://github.com/songhieu/espos), holds a self-hosted server under AGPL-3.0 (`server/`): one Go binary with the web app built in, one account, and all data in one folder. It runs the same device workflows as the hosted service, for the S3 desks and the EspOS Bot: pairing with a code, settings both ways, the data feeds, your own apps, the dog assistant with your own AI and voice services, and firmware updates. It has no store catalog of its own yet.
 
 ```sh
 cd server

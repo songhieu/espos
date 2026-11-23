@@ -16,7 +16,7 @@ import (
 // GET|POST /v1/device/app/dev.espos.sessions/:op — the S3's Sessions app (s3desk/docs/desktop-protocol.md §9):
 //   GET  sessions  the account's Macs and Claude sessions (held up to `wait` s until the rev moves)
 //   GET  screen    a session's screen since a seq, and a 15 s watch lease (a new watch pokes the Mac)
-//   POST send      text / a key / approve / deny → desk_queue (node q), the nonce makes a retry harmless
+//   POST send      text / a key / keys (≤ 20) / approve / deny → desk_queue (node q), the nonce makes a retry harmless
 //   POST suggest   ≤ 3 short replies for the session's prompt (cached per turn) → node ai
 //   POST compose   a rough phrase → a clear reply → node ai
 // Auth (§9.0): the device credential, which the S3's OS adds only for the calling app's own path (require_device),
@@ -107,6 +107,76 @@ var riskyText = []risk{
 	{"session", regexp.MustCompile(`^\s*/(clear|exit|quit|logout)\b`)},
 }
 var riskyKeys = map[string]string{"esc": "interrupt", "ctrl_c": "interrupt"}
+
+// answerKeys: keys that would answer Claude Code's own permission dialog (Enter takes the highlighted choice, a digit
+// picks one, y/n). While the session waits on a permission request the app answers with Approve / Deny (the risky
+// check, the request id), so these are refused 409 use_answer; arrows and the rest stay allowed (claude-term-app,
+// 2026-11-22).
+var answerKeys = map[string]bool{"enter": true, "1": true, "2": true, "3": true, "4": true, "5": true, "6": true,
+	"7": true, "8": true, "9": true, "y": true, "n": true}
+
+// permBlock: the 409 use_answer answer when keys would answer a waiting permission request, else nil.
+func permBlock(uid, deskID int, s string, keys []string) map[string]any {
+	hit := false
+	for _, k := range keys {
+		if answerKeys[k] {
+			hit = true
+		}
+	}
+	if !hit {
+		return nil // no read for arrows
+	}
+	m, err := findMac(uid, deskID)
+	if err != nil || m == nil {
+		return nil // desk_queue answers an unknown Mac
+	}
+	sess := sessionOf(m.st, s)
+	if sess == nil || wm.Str(sess["state"]) != "perm" {
+		return nil
+	}
+	req := objOf(sess["req"])
+	if req == nil || wm.Str(req["id"]) == "" {
+		return nil
+	}
+	return answer(409, map[string]any{"error": "use_answer", "req": wm.Str(req["id"])})
+}
+
+// maxKeys: the most keys one "keys" send carries (one claude.keys, typed in order on the Mac, §9.3).
+const maxKeys = 20
+
+// keyNames: the claude.key names (desk_queue checks them again; this answers a bad one at once).
+var keyNames = map[string]bool{"esc": true, "enter": true, "up": true, "down": true, "left": true, "right": true,
+	"tab": true, "shift_tab": true, "ctrl_c": true, "backspace": true, "1": true, "2": true, "3": true, "4": true,
+	"5": true, "6": true, "7": true, "8": true, "9": true, "y": true, "n": true}
+
+// keyList: a "keys" send's keys, a list or a comma text, lower-cased; nil when empty, too many or one unknown.
+func keyList(v any) []string {
+	var raw []string
+	switch x := v.(type) {
+	case []any:
+		for _, k := range x {
+			s, isText := k.(string)
+			if !isText {
+				return nil
+			}
+			raw = append(raw, s)
+		}
+	case string:
+		raw = strings.Split(x, ",")
+	}
+	if len(raw) == 0 || len(raw) > maxKeys {
+		return nil
+	}
+	out := make([]string, len(raw))
+	for i, k := range raw {
+		k = strings.ToLower(strings.TrimSpace(k))
+		if !keyNames[k] {
+			return nil
+		}
+		out[i] = k
+	}
+	return out
+}
 
 // riskyWhy: why the text is risky ("" = it is not); every line is checked.
 func riskyWhy(text string) string {
@@ -267,6 +337,9 @@ func linesOf(v any) []sline {
 		if len(a) < 4 {
 			continue
 		}
+		if _, isText := a[1].(string); !isText {
+			continue // a stray run from the flattened copies (2026-11-22)
+		}
 		out = append(out, sline{N: int64(wm.Num(a[0])), T: wm.Str(a[1]), R: a[2], Seq: int64(wm.Num(a[3]))})
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].N < out[j].N })
@@ -316,7 +389,8 @@ func frame(row map[string]any, since int64) map[string]any {
 		}
 	}
 	return map[string]any{"epoch": wm.Str(row["epoch"]), "seq": seq, "full": full, "cols": wm.Int(row["cols"]),
-		"rows": wm.Int(row["rows"]), "top": int64(wm.Num(row["top"])), "cur": listOf(row["cur"]), "lines": out}
+		"rows": wm.Int(row["rows"]), "top": int64(wm.Num(row["top"])), "cur": listOf(row["cur"]), "lines": out,
+		"at": int64(wm.Num(row["read_ms"]))}
 }
 
 // ---------------------------------------------------------------- Run
@@ -356,6 +430,18 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 		return aiPrep(op, uid, devID, body, now)
 	}
 	return answer(404, map[string]any{"error": "not_found"})
+}
+
+// waitMs: a screen hold in milliseconds from `wait` in seconds, fractions allowed (0.8), at most max seconds.
+func waitMs(v any, max int) int64 {
+	w := wm.Num(v)
+	if w <= 0 {
+		return 0
+	}
+	if w > float64(max) {
+		w = float64(max)
+	}
+	return int64(w * 1000)
 }
 
 func clampWait(v any, max int) int {
@@ -482,11 +568,12 @@ func screen(uid, devID int, q map[string]any, now int64) map[string]any {
 		return answer(200, map[string]any{"epoch": wm.Str(row["epoch"]), "lines": out})
 	}
 	since := int64(wm.Num(q["since"]))
-	wait := clampWait(q["wait"], 3)
+	wait := waitMs(q["wait"], 3)
 	if wait > 0 && (wm.Str(row["epoch"]) == "" || (since > 0 && since >= int64(wm.Num(row["seq"])))) {
-		end := time.Now().Add(time.Duration(wait) * time.Second)
+		// a new frame is looked for every 150 ms (was 400: up to 0.4 s more on every frame, 2026-11-22)
+		end := time.Now().Add(time.Duration(wait) * time.Millisecond)
 		for time.Now().Before(end) {
-			time.Sleep(400 * time.Millisecond)
+			time.Sleep(150 * time.Millisecond)
 			r2, e2 := screenRow(deskID, s)
 			if e2 != nil || r2 == nil {
 				break
@@ -536,11 +623,29 @@ func send(uid, devID int, devName string, b map[string]any, now int64) map[strin
 		args["text"] = t
 	case "key":
 		k := strings.ToLower(wm.Str(b["key"]))
+		if no := permBlock(uid, deskID, s, []string{k}); no != nil {
+			return no
+		}
 		if why, ok := riskyKeys[k]; ok && !ack {
 			return answer(428, map[string]any{"error": "risky", "why": why})
 		}
 		cmd = "claude.key"
 		args["key"] = k
+	case "keys":
+		ks := keyList(b["keys"])
+		if ks == nil {
+			return answer(422, map[string]any{"error": "bad_args"})
+		}
+		if no := permBlock(uid, deskID, s, ks); no != nil {
+			return no
+		}
+		for _, k := range ks {
+			if why, ok := riskyKeys[k]; ok && !ack {
+				return answer(428, map[string]any{"error": "risky", "why": why})
+			}
+		}
+		cmd = "claude.keys"
+		args["keys"] = strings.Join(ks, ",") // text, not a list: one value the Mac's guard checks key by key
 	case "approve", "deny":
 		req := wm.Str(b["req"])
 		if !idRe.MatchString(req) {

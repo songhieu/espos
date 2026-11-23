@@ -69,13 +69,19 @@ const int8_t WORLD_TZ[] = {9, 9, 8, 8, 7, 10, 4, 3, 1, 1, 0, -5, -8};
 struct CityState {
   lv_obj_t *list, *field;
   void (*picked)(int tzMin);
+  void (*chose)(const char* name, double lat, double lon);  // placePicker: an app's "city" setting (appset.cpp)
 } CS;
+String csNow;  // placePicker: the place shown as chosen
 
 void fillCities();
 
 void pickCity(lv_event_t* e) {
   const int i = (int)(intptr_t)lv_event_get_user_data(e);
   const Place& p = PLACES[i];
+  if (CS.chose) {
+    kb::close();
+    return CS.chose(p.name, atof(p.lat), atof(p.lon));
+  }
   desk::setSetting("dash.city", p.name);
   desk::setSetting("dash.lat", p.lat);
   desk::setSetting("dash.lon", p.lon);
@@ -105,7 +111,7 @@ void fillCities() {
   if (!CS.list) return;
   lv_obj_clean(CS.list);
   const String q = search::fold(lv_textarea_get_text(CS.field));
-  const String now = cityNow();
+  const String now = CS.chose ? csNow : cityNow();
   const int n = sizeof PLACES / sizeof PLACES[0];
   int shown = 0, region = -1;
   if (!q.length())
@@ -161,6 +167,13 @@ void cityPicker(lv_obj_t* body, void (*picked)(int tzMin)) {
   lv_obj_add_event_cb(CS.list, [](lv_event_t* e) {
     if (lv_event_get_current_target(e) == CS.list) CS = {};
   }, LV_EVENT_DELETE, nullptr);
+  fillCities();
+}
+
+void placePicker(lv_obj_t* body, const char* current, void (*chose)(const char* name, double lat, double lon)) {
+  cityPicker(body, nullptr);
+  CS.chose = chose;
+  csNow = current ? current : "";
   fillCities();
 }
 

@@ -11,12 +11,15 @@ import esbuild from "esbuild";
 import { jpegInfo } from "./image.js";
 import { nameProblem, type Problem, type ReadPkg } from "./espk.js";
 import { floatPaths, parse, PyObj, toPlain } from "./pyjson.js";
+import { checkAuth, checkSettings, SETTINGS_RULES } from "./settings.js";
 
 export const ENGINES = ["js", "pet", "run", "j2me", "lang", "font", "wake", "tank"]; // tank: Hồ cá cảnh (docs/tank.md) // lang, font: the OS's language and font packs (docs/i18n.md)
 export const KINDS = ["js", "native"];
 export const CATEGORIES = ["game", "tool", "study", "health", "widget"];
 export const PERMS = ["sound", "notify", "net", "bg"];
 export const PERMS_GRANTED = ["sound", "notify"]; // what firmware 0.5.0 grants (src/js/jsapp.cpp)
+/** Manifest v2 permissions (docs/platform.md, app-slots.md §3): accepted, not granted by firmware 0.5.0. */
+export const PERMS_V2 = /^(assist\.(audio|name|alarms|todo|notes|notes\.body|memory|history|desk)|(alarms|todo|notes|settings|memory)\.write|desk\.control|screen\.awake|remote|overlay|mic|location:city|wifi\.info|theme\.write|net:\*|net:\*\.[a-z0-9.-]+|net:lan|net:espos|net:[a-z0-9.-]+|net:setting:[a-z][a-z0-9_]{0,23}|storage:[0-9]+|cache:[0-9]+|dictate|data:(weather|calendar|markets|news|reading)|sensor:[a-z0-9_.]+|actuator:[a-z0-9_.]+)$/;
 export const GLYPHS = ["timer", "alarm", "bell", "list", "drop", "flag", "globe", "sun", "moon", "photo", "edit", "font", "home", "search", "speaker", "play", "lap", "pin", "leaf", "power", "grid"];
 export const TYPES = ["app", "pack"];
 export const KEYPADS = ["full", "compact", "touch"];
@@ -59,7 +62,7 @@ export const DECL_REFRESH = ["minute", "hour", "data", "day"];
 export const DECL_ITEMS = ["box", "line", "circle", "text", "icon", "image", "bar", "list", "group"];
 export const CAPS = ["screen.color", "screen.gray", "screen.eink", "screen.fast", "input.touch", "input.buttons", "mem.psram",
   "audio.out", "audio.in", "store.sd", "net.wifi", "net.ble", "power.battery", "led.rgb"];
-export const DECL_FILE_MAX = 12 * 1024; // the X4 reads the layout file in one go
+export const DECL_FILE_MAX = 12 * 1024; // a device without PSRAM reads the layout file in one go
 export const DECL_DEPTH = 3; // list/group inside list/group
 
 /** Manifest fields the firmware, the store or the tools read. */
@@ -67,7 +70,7 @@ const KNOWN = new Set(["id", "name", "version", "code", "kind", "engine", "min_f
   "part", "type", "addon_of", "j2me", "parts", "group", "label", "default", "req", "license", "permissions", "glyph", "bg",
   "i18n", "lang", "font"]);
 /** Manifest v2 (docs/platform.md): planned, not read by firmware 0.5.0. */
-const V2 = new Set(["runtime", "api", "screens", "theme", "entry", "settings", "web", "match", "provides", "requires", "refresh"]);
+const V2 = new Set(["runtime", "api", "screens", "theme", "entry", "settings", "web", "match", "provides", "requires", "refresh", "assistant", "server", "unlocks", "auth"]);
 /** The v2 fields a declarative package uses (espk.py entry() puts them into the catalog). */
 const DECL_FIELDS = new Set(["runtime", "api", "requires", "screens", "refresh", "entry"]);
 /** Manifest v1 app fields: espk.py ignores them in a face, widget or theme. */
@@ -137,7 +140,7 @@ export const RULES: RuleDoc[] = [
   { code: "F010", level: "warning", text: "the package is bigger than the internal app area (7.5 MB): it fits only on a memory card", from: "docs/ecosystem.md" },
   { code: "F011", level: "warning", text: "engine lang needs strings.bin; engine font needs r<px>.bin (or b<px>.bin) files", from: "src/i18n.cpp + src/fonts.cpp" },
   { code: "F020", level: "error", text: "face/widget: the layout file named by entry is in the package (themes: not checked)", from: "espk.py check_decl_file" },
-  { code: "F021", level: "error", text: "face/widget: the layout file is at most 12288 bytes (the X4 reads it in one go)", from: "espk.py check_decl_file" },
+  { code: "F021", level: "error", text: "face/widget: the layout file is at most 12288 bytes (a small device reads it in one go)", from: "espk.py check_decl_file" },
   { code: "F022", level: "error", text: "face/widget: the layout file is a JSON object (UTF-8, no BOM)", from: "espk.py check_decl_file" },
   { code: "F023", level: "error", text: 'face/widget: the layout file has "decl": 1 (the format level)', from: "espk.py check_decl_file" },
   { code: "F024", level: "error", text: 'face/widget: "layouts": a non-empty list', from: "espk.py check_decl_file" },
@@ -156,6 +159,10 @@ export const RULES: RuleDoc[] = [
   { code: "C007", level: "warning", text: "async/await or .then(): API level 1 never runs Promise jobs, so the callbacks never run", from: "src/js/jsapp.cpp" },
   { code: "C008", level: "warning", text: 'a "…" in main.js (screens show text in full: shrink or wrap)', from: "docs" },
   { code: "C009", level: "warning", text: "main.js is not valid UTF-8", from: "-" },
+  { code: "M049", level: "error", text: 'perms: assist.*, alarms.write, todo.write, notes.write, settings.write, memory.write and desk.control are for assistant apps ("provides": ["assistant"]): what the server may send and do for its provider', from: "docs/assistant-providers.md §2.10" },
+  { code: "M050", level: "error", text: 'an assistant app ("provides": ["assistant"]) needs "assistant": {"provider": "https://<host>/<path>"} (its endpoint; "pawboop" only for PawBoop AI)', from: "docs/assistant-providers.md §3.1" },
+  { code: "M048", level: "warning", text: "perms: a manifest v2 permission (net:<host>, net:setting:<key>, overlay, mic, storage:<KB>, data:* and the others): kept, but firmware 0.5.0 does not grant it", from: "docs/platform.md, docs/app-slots.md" },
+  ...SETTINGS_RULES.map((r) => ({ ...r, from: "docs/manifest-driven.md §1" })),
   { code: "U001", level: "error", text: `espos upload (your own devices): a package is at most ${PRIVATE_MAX_BYTES} bytes (4 MB), a Java game's game.jar at most 2 MB`, from: "web/backend confirm_user_pkg" },
   { code: "U002", level: "error", text: 'espos upload (your own devices): a JavaScript app (kind js, engine js) or a Java game (kind native, engine j2me); one part (core); no pack, add-on, face, widget or theme; the id gets "u." in front, so at most 46 characters; a Java game asks only for "sound"', from: "web/backend confirm_user_pkg" },
 ];
@@ -246,6 +253,8 @@ export function checkManifest(m: unknown, where: string, floats: Set<string> = n
   if (m.author !== undefined && (!isStr(m.author) || len(m.author) > 40)) P("M018", "author: text of at most 40 characters");
   if (m.desc !== undefined && (!isStr(m.desc) || len(m.desc) > 300)) P("M018", "desc: text of at most 300 characters");
   if (!decl) checkAppPerms(m, P);
+  if (m.settings !== undefined) checkSettings(m.settings, m.perms, m.id, P);
+  if (m.auth !== undefined) checkAuth(m.auth, m.settings, m.perms, P);
   checkI18n(m, P);
   if (m.icon !== undefined) {
     const ic = m.icon;
@@ -334,11 +343,24 @@ function checkAppPerms(m: Record<string, any>, P: Put): void {
     else {
       const seen = new Set();
       for (const p of m.perms) {
-        if (!PERMS.includes(p)) P("M019", `perms: unknown ${JSON.stringify(p)} (known: ${PERMS.join(", ")})`);
+        if (typeof p === "string" && ASSIST_PERM.test(p)) {
+          if (!(Array.isArray(m.provides) && m.provides.includes("assistant"))) P("M049", `perms: "${p}" is an assistant app's permission (what the server sends its provider); add "provides": ["assistant"] or remove it`);
+        } else if (typeof p === "string" && PERMS_V2.test(p)) {
+          // an assistant app's city and data permissions are the server's to honour (what it sends the provider)
+          const forProvider = Array.isArray(m.provides) && m.provides.includes("assistant") && /^(location:city|data:(weather|calendar|markets|news|reading))$/.test(p);
+          if (!forProvider && !(apiMin(m) >= 2 && PERMS_GRANTED_L2.test(p))) P("M048", `perms: "${p}" is a manifest v2 permission; ${apiMin(m) >= 2 ? "level-2 firmware does not grant it yet" : "firmware 0.5.0 does not grant it (declare \"api\": {\"min\": 2} for the ones level 2 grants)"}`);
+        }
+        else if (!PERMS.includes(p)) P("M019", `perms: unknown ${JSON.stringify(p)} (known: ${PERMS.join(", ")})`);
         else if (!PERMS_GRANTED.includes(p)) P("M020", `perms: "${p}" is reserved; no firmware grants it yet`);
         if (seen.has(p)) P("M019", `perms: ${JSON.stringify(p)} twice`, "warning");
         seen.add(p);
       }
+    }
+  }
+  if (Array.isArray(m.provides) && m.provides.includes("assistant")) {
+    const prov = isObj(m.assistant) ? m.assistant.provider : undefined;
+    if (!(prov === "pawboop" || (typeof prov === "string" && /^https:\/\/[^\s/]+\.[^\s/]+(\/\S*)?$/.test(prov)))) {
+      P("M050", `assistant.provider: ${prov === undefined ? "missing" : JSON.stringify(prov)}; the provider's https endpoint (espos ai test checks it)`);
     }
   }
 }
@@ -479,7 +501,7 @@ export function checkPart(p: ReadPkg): Problem[] {
     }
     // the device grants perms and the old permissions together (src/pkg/pkg.cpp)
     const granted = [...(Array.isArray(m.perms) ? m.perms : []), ...(Array.isArray(m.permissions) ? m.permissions : [])];
-    out.push(...checkCode(text, granted, p.name));
+    out.push(...checkCode(text, granted, p.name, apiMin(m)));
   }
   return out;
 }
@@ -494,7 +516,7 @@ export function checkDeclFile(m: Record<string, any>, names: Map<string, { size:
   if (!f) return [{ level: "error", code: "F020", where, msg: `${entry || "entry"}: the layout file is missing (entry.${m.type} names a file of the package)` }];
   const E = (code: string, msg: string) => out.push({ level: "error", code, where: `${where}: ${entry}`, msg });
   if (f.size > DECL_FILE_MAX) {
-    E("F021", `${f.size} bytes, at most ${DECL_FILE_MAX} (the X4 reads it in one go)`);
+    E("F021", `${f.size} bytes, at most ${DECL_FILE_MAX} (a small device reads it in one go)`);
     return out;
   }
   let text: string;
@@ -646,7 +668,15 @@ export function stripCode(src: string): string {
 }
 
 /** Permissions vs the APIs the code calls, things API level 1 lacks, syntax. */
-export function checkCode(src: string, perms: string[], where = "main.js"): Problem[] {
+/** The API level a manifest asks for ("api": {"min": n}); 1 when it says nothing. */
+export const apiMin = (m: Record<string, any>): number => (Number.isInteger(m?.api?.min) && m.api.min > 0 ? m.api.min : 1);
+
+/** Level-2 firmware (woo-pos lane 1f) grants these; the others in PERMS_V2 are still only kept. */
+/** The permissions only an assistant app declares: what the server sends its provider and does for it (§2.10). */
+export const ASSIST_PERM = /^(assist\.(audio|name|alarms|todo|notes|notes\.body|memory|history|desk)|(alarms|todo|notes|settings|memory)\.write|desk\.control)$/;
+export const PERMS_GRANTED_L2 = /^(net:[a-z0-9.-]+|net:\*\.[a-z0-9.-]+|net:\*|net:setting:[a-z][a-z0-9_]{0,23}|net:lan|storage:[0-9]+|cache:[0-9]+)$/;
+
+export function checkCode(src: string, perms: string[], where = "main.js", level = 1): Problem[] {
   const out: Problem[] = [];
   const W = (level: Problem["level"], code: string, msg: string) => out.push({ level, code, where: where === "main.js" ? "main.js" : `${where}: main.js`, msg });
   try {
@@ -677,7 +707,8 @@ export function checkCode(src: string, perms: string[], where = "main.js"): Prob
   ] as const)
     if (re.test(code)) missing.push(name);
   if (missing.length) W("warning", "C006", `${missing.join(", ")}: not in API level 1 (use timer.after/every, store, toast; there is no console or network yet)`);
-  if (/(^|[^.\w$])(async\s+(function|\(|[\w$]+\s*=>)|await\s)|\.then\s*\(/.test(code)) W("warning", "C007", "async/await or .then(): API level 1 never runs Promise jobs, so these callbacks never run");
+  // Level 2 runs Promise jobs (net.request answers with a Promise): only a level-1 package is warned.
+  if (level < 2 && /(^|[^.\w$])(async\s+(function|\(|[\w$]+\s*=>)|await\s)|\.then\s*\(/.test(code)) W("warning", "C007", "async/await or .then(): API level 1 never runs Promise jobs, so these callbacks never run (declare \"api\": {\"min\": 2} for level 2)");
   if (src.includes("…")) W("warning", "C008", 'a "…" in main.js: screens show text in full (shrink or wrap instead)');
   return out;
 }

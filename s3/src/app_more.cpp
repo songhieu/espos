@@ -419,8 +419,11 @@ struct Cat {
   const char* id;
   const char* name;
 };
+// "assistant" is not a category of its own: the assistant apps of any category (app-slots.md §16), its chip only.
 const Cat CATS[] = {{"", N_("All")},         {"game", N_("Games")},   {"tool", N_("Tools")},
-                    {"study", N_("Study")}, {"health", N_("Health")}, {"widget", N_("Widgets")}};
+                    {"study", N_("Study")}, {"health", N_("Health")}, {"widget", N_("Widgets")},
+                    {"assistant", N_("Assistants")}, {"saver", N_("Screen savers")}};
+constexpr int ASSIST_CAT = 6, SAVER_CAT = 7;
 constexpr int NCATS = sizeof CATS / sizeof CATS[0];
 
 constexpr uint32_t BLUE = col::IOS_BLUE;
@@ -707,10 +710,11 @@ void fill() {
   seenCat = st::catalogVersion();
   static const char* names[NCATS];
   for (int i = 0; i < NCATS; i++) names[i] = CATS[i].name;
-  chips(listBox, names, NCATS, catSel, [](int i) {
+  lv_obj_t* bar = chips(listBox, names, NCATS, catSel, [](int i) {
     catSel = i;
     refillSoon();
   });
+  if (catSel) lv_obj_scroll_to_view(lv_obj_get_child(bar, catSel), LV_ANIM_OFF);  // a chip off the row's right end
   const auto& cat = st::catalog();
   if (!st::loaded() && cat.empty()) {
     lv_obj_t* r = clear(listBox);
@@ -722,10 +726,11 @@ void fill() {
   }
   if (catSel == 0 && cat.size()) featured(listBox);
   for (int k = 1; k < NCATS; k++) {
-    if (catSel && catSel != k) continue;
+    if (catSel ? catSel != k : k >= ASSIST_CAT) continue;  // "All" lists each app once, in its category
     bool any = false;
     for (const Entry& e : cat) {
-      if (e.category != CATS[k].id || e.addonOf.length() || e.type == "pack") continue;  // add-ons: on their app's page
+      const bool in = k == ASSIST_CAT ? e.assistant : k == SAVER_CAT ? e.saver : e.category == CATS[k].id;
+      if (!in || e.addonOf.length() || e.type == "pack") continue;  // add-ons: on their app's page
       if (!any) caption(listBox, CATS[k].name), any = true;
       appRow(listBox, e.id, &e);
     }
@@ -735,7 +740,7 @@ void fill() {
   bool any = false;
   for (const pkg::Package& p : pkg::list()) {
     if (st::entry(p.id.c_str()) || p.addonOf.length() || p.type == "pack") continue;
-    if (catSel && p.category != CATS[catSel].id) continue;
+    if (catSel && (catSel == ASSIST_CAT ? p.engine != "pet" : catSel == SAVER_CAT ? p.engine != "tank" : p.category != CATS[catSel].id)) continue;
     if (!any) caption(listBox, N_("Installed on the device")), any = true;
     appRow(listBox, p.id, nullptr);
   }
@@ -843,7 +848,9 @@ Sel newSel(const String& id) {
     s.vol = inst->vol;
   } else if (e) {
     s.parts = st::defaultParts(*e);
-    if (pkg::volume(pkg::SD).present && !st::room(st::partsBytes(*e, s.parts), pkg::FLASH, isJs(s, nullptr)).ok) s.vol = pkg::SD;
+    uint64_t want = st::partsBytes(*e, s.parts);
+    for (const st::Part& pt : e->parts) want += pt.opt ? pt.size : 0;  // a card in: the optional parts come too
+    if (pkg::volume(pkg::SD).present && !st::room(want, pkg::FLASH, isJs(s, nullptr)).ok) s.vol = pkg::SD;
   }
   return s;
 }
@@ -1386,6 +1393,11 @@ const lv_image_dsc_t* catalogIcon(const char* id, int size) { return netIcon(st:
 
 void open(const char* arg) {
   lv_obj_t* body;
+  // "assistant": its Assistants (the "No assistant installed" card, app-slots.md §16); otherwise the front page.
+  // "saver": its Screen savers (Settings › Default apps).
+  const bool assistants = arg && !strcmp(arg, "assistant"), savers = arg && !strcmp(arg, "saver");
+  if (assistants) catSel = ASSIST_CAT, arg = nullptr;
+  if (savers) catSel = SAVER_CAT, arg = nullptr;
   scr_ = os::screen(N_("Store"), &body, os::ROOT);
   listBox = stack(body, false, 8);
   lv_obj_add_event_cb(scr_, [](lv_event_t* e) {

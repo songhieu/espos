@@ -47,7 +47,7 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 		if _, aerr := wm.Upsert("app_manifests", []string{"pkg_id", "user_id"}, map[string]any{
 			"pkg_id": pkgID, "user_id": uid, "code": wm.Int(in["code"]), "version": wm.Str(in["version"]),
 			"settings": meta["settings"], "provides": meta["provides"], "auth": meta["auth"], "server": meta["server"],
-			"source": "user", "updated_ms": time.Now().UnixMilli(),
+			"perms": meta["perms"], "source": "user", "updated_ms": time.Now().UnixMilli(),
 		}, nil); aerr != nil {
 			return wm.Fail(aerr)
 		}

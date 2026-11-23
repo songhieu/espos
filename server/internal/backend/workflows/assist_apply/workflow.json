@@ -52,7 +52,9 @@
             "from_device_id": "{{ input.device_id }}",
             "from_name": "{{ each.item.from }}",
             "via": "{{ each.item.via }}",
-            "heard": "{{ each.item.heard }}"
+            "heard": "{{ each.item.heard }}",
+            "confirm": "{{ each.item.voice_ok }}",
+            "key": "{{ each.item.key }}"
           }
         }
       },

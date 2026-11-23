@@ -166,7 +166,7 @@ int plantOf(const char* id);
 int decorOf(const char* id);
 const Spr* spr(PackId p, int piece);       // the padded copy (made on first use, kept); nullptr if missing
 const Spr* sprNamed(PackId p, const char* name);
-void sprTrim(bool keepThumbs);             // frees the shop's pictures (thumbs) or everything not of the water
+int sprTrim(bool keepThumbs);              // frees every picture made (the water must be gone); how many
 // The look's picture at the frame's size (FW x FH, as held): RGB565 into dst; false when its pack is missing.
 bool background(const char* look, bool land, int fw, int fh, uint16_t* dst);
 const lv_font_t* font(int px, bool bold);  // Ubuntu with every Vietnamese letter (the package's, else the OS's)
@@ -333,6 +333,7 @@ struct Scene {
   void setAlgae(float level);
   float algaeLevel() const;
   void clearAlgae();
+  void sleep();  // the big pictures freed (the dog's pop-up); prepare() makes them again
   float floorY(float z) const;
   float coinY(float z) const;
   Fish* fishAt(float x, float y);
@@ -508,6 +509,7 @@ void frameEnd();
 bool frozen();
 void drawFrozen(const Tgt& t);
 void reset();  // closes the sheet, the card, the chooser
+void sleep();  // the screens' cached pictures freed (the dog's pop-up), made again when drawn
 void devOpen(const char* what, int arg);
 bool busy();   // a sheet, a card, the sponge, the chooser is up
 }  // namespace ui

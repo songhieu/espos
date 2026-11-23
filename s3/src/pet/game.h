@@ -57,6 +57,7 @@ struct State {
 State& s();
 
 void load();
+void forget();        // PawBoop was removed: her save in NVS goes, a new dog's state from now (pet::uninstalled)
 void save();          // now
 void saveSoon();      // within a second (after a player action)
 void advance(uint32_t ms, bool alone);  // time passes: needs fall, powered time, she may find a coin

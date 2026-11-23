@@ -577,6 +577,17 @@ bool open(const char* id, const char* name, File& f) {
   return false;
 }
 
+String manifestJson(const char* id) {
+  String dir;
+  {
+    std::lock_guard<std::recursive_mutex> l(mu);
+    Rec* r = id ? rec(id) : nullptr;
+    if (!r || r->area || !r->p.available) return "";
+    dir = r->dir;
+  }
+  return dir.length() ? readText(dir + "/manifest.json") : "";
+}
+
 uint8_t* loadAll(const File& f) {
   if (!f.ok()) return nullptr;
   uint8_t* b = (uint8_t*)heap_caps_malloc(f.size() ? f.size() : 1, MALLOC_CAP_SPIRAM);

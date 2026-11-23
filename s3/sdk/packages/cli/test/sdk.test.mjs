@@ -18,7 +18,9 @@ test("the typings declare exactly the prelude's globals and ui.* functions", { s
   const declared = [...dts.matchAll(/^declare (?:const|function) (\w+)/gm)].map((m) => m[1]);
   assert.deepEqual(declared.sort(), globals.sort());
   const uiFns = [...prelude.slice(prelude.indexOf("var ui = {"), prelude.indexOf("};")).matchAll(/^\s+(\w+): /gm)].map((m) => m[1]);
-  const uiDecl = [...dts.slice(dts.indexOf("interface EspOSUi {"), dts.indexOf("interface EspOSApp")).matchAll(/^\s+(\w+)\(/gm)].map((m) => m[1]);
+  // every "interface EspOSUi {" block: level 2 adds its nodes in blocks of their own (TypeScript merges them)
+  const uiBlocks = [...dts.matchAll(/^interface EspOSUi \{\n([\s\S]*?)^\}/gm)].map((m) => m[1]).join("\n");
+  const uiDecl = [...new Set([...uiBlocks.matchAll(/^\s+(\w+)\(/gm)].map((m) => m[1]))];
   assert.deepEqual(uiDecl.sort(), uiFns.sort());
   for (const k of ["badge", "refresh", "title", "render", "arg"]) assert.match(dts.slice(dts.indexOf("interface EspOSApp")), new RegExp(`\\b${k}\\b`));
   for (const k of ["every", "after", "cancel"]) assert.match(prelude, new RegExp(`${k}: `));

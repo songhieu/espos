@@ -1,0 +1,35 @@
+{
+ "_doc": "Which v1 request scopes (assistant-v1.schema.json turn.scopes) and actions an assistant app gets for the permissions it declares and the person accepted at install (docs/assistant-providers.md §2.10). turn.text and locale always; everything else only through a permission. The server (web/scripts/eap/eap.go eapPermScopes, eapScopeActions) and the validator (cli/src/validate.ts: the permissions an assistant app may declare) read the same table; their tests compare.",
+ "always": ["turn.text", "locale"],
+ "permissions": {
+  "assist.audio": ["turn.audio"],
+  "assist.name": ["profile.name"],
+  "location:city": ["place"],
+  "data:weather": ["weather"],
+  "data:calendar": ["calendar"],
+  "data:markets": ["markets"],
+  "data:news": ["news"],
+  "data:reading": ["reading"],
+  "assist.alarms": ["alarms"],
+  "assist.todo": ["todo"],
+  "assist.notes": ["notes"],
+  "assist.notes.body": ["notes", "notes.body"],
+  "assist.memory": ["memories"],
+  "assist.history": ["history"],
+  "assist.desk": ["desk"],
+  "alarms.write": ["act.alarms"],
+  "todo.write": ["act.todo"],
+  "notes.write": ["act.notes"],
+  "settings.write": ["act.settings"],
+  "memory.write": ["act.memory"],
+  "desk.control": ["act.desk"]
+ },
+ "actions": {
+  "act.alarms": ["alarm.add", "alarm.update", "alarm.delete"],
+  "act.todo": ["todo.add", "todo.update", "todo.done", "todo.delete"],
+  "act.notes": ["note.add", "note.update", "note.delete"],
+  "act.settings": ["setting.set"],
+  "act.memory": ["memory", "profile.name"],
+  "act.desk": ["desk.run"]
+ }
+}

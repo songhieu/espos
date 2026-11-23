@@ -1,0 +1,29 @@
+{
+ "id": "dev.espos.hello.settings",
+ "name": "Hello settings",
+ "version": "1.0.0",
+ "code": 10000,
+ "part": "core",
+ "kind": "js",
+ "engine": "js",
+ "min_fw": 510,
+ "api": {"min": 2},
+ "category": "tool",
+ "author": "EspOS",
+ "desc": "The simplest app with settings: a form on the device and on the web, from one list in the manifest",
+ "icon": {"bg": ["#a78bfa", "#6d28d9"], "glyph": "edit"},
+ "perms": ["net:setting:shop_url"],
+ "settings": [
+  {"key": "name", "type": "string", "label": "Your name", "default": "friend", "max": 30, "i18n": {"vi": {"label": "Tên của bạn"}, "de": {"label": "Dein Name"}}},
+  {"key": "units", "type": "enum", "label": "Units", "default": "c", "options": [{"v": "c", "label": "Celsius"}, {"v": "f", "label": "Fahrenheit"}], "i18n": {"vi": {"label": "Đơn vị", "options": {"c": "Độ C", "f": "Độ F"}}}},
+  {"key": "seconds", "type": "bool", "label": "Show seconds", "default": false},
+  {"key": "speed", "type": "number", "label": "Speed", "min": 1, "max": 10, "step": 1, "default": 4, "help": "How fast the dot moves"},
+  {"key": "color", "type": "color", "label": "Colour", "default": "#0a84ff"},
+  {"key": "wake", "type": "time", "label": "Wake up", "default": "07:00"},
+  {"key": "tags", "type": "list", "label": "Tags", "of": {"type": "string", "max": 20}, "max_items": 10},
+  {"type": "section", "label": "Shop"},
+  {"key": "shop_url", "type": "url", "label": "Shop address", "help": "Like https://shop.example.com"},
+  {"key": "api_key", "type": "secret", "label": "API key", "where": "device", "help": "Kept on this device only; the app never sees it"}
+ ],
+ "auth": {"shop": {"bearer": "api_key", "send_to": ["{shop_url}/*"]}}
+}

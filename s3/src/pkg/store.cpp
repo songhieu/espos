@@ -4,6 +4,8 @@
 // sync report (docs/ecosystem.md §5-6).
 #include "store.h"
 
+#include <unistd.h>
+
 #include <algorithm>
 #include <deque>
 #include <map>
@@ -13,13 +15,14 @@
 #include "espk.h"
 #include "i18n.h"
 #include "internal.h"
+#include "../appset.h"
+#include "../js/jsfs.h"
 #include "../lock.h"
 #include "apps.h"
+#include "assistant.h"
+#include "slots.h"
 #include "notif.h"
 #include "os.h"
-#ifndef NO_PET
-#include "pet/pet.h"
-#endif
 #include "sound.h"
 #include "trace.h"
 
@@ -97,6 +100,10 @@ Entry parseEntry(JsonObjectConst a) {
     e.type = a["type"] | "";
     e.set = a["set"] | "";
     e.needs = a["needs"] | "";
+    e.assistant = e.engine == "pet" && !e.addonOf.length();
+    e.saver = e.engine == "tank" && !e.addonOf.length();
+    for (JsonVariantConst p : a["provides"].as<JsonArrayConst>())
+      e.assistant |= !strcmp(p | "", "assistant"), e.saver |= !strcmp(p | "", "saver");
     for (JsonVariantConst p : a["perms"].as<JsonArrayConst>()) e.perms.push_back(p | "");
     for (JsonObjectConst p : a["parts"].as<JsonArrayConst>()) {
       Part pt;
@@ -107,7 +114,8 @@ Entry parseEntry(JsonObjectConst a) {
       pt.url = p["url"] | "";
       pt.sha256 = p["sha256"] | "";
       pt.size = p["size"] | 0u;
-      pt.req = p["req"] | !pt.group.length();  // no group: required (publish_pkg.py)
+      pt.opt = p["opt"] | false;
+      pt.req = p["req"] | (!pt.group.length() && !pt.opt);  // no group: required (publish_pkg.py)
       pt.def = p["default"] | false;
       pt.board = p["board"] | "";
       // A paid part may have no public link: the server signs one just before the download (pkg-link below).
@@ -144,6 +152,7 @@ struct Job {
   bool js = false, user = true;
   bool quiet = false;  // an update the device chose by itself: no toast, a note in the Notification Center when done
   String mainOf, mainName;  // an add-on: its main package must be installed by the time it runs
+  String addonOf;           // a removal: the app it was an add-on of (assistant::removed: PawBoop's dogs come back)
 };
 struct Finished {
   Job job;
@@ -889,9 +898,7 @@ bool busyNow(const Package& p) {
   const apps::App* a = apps::find(id.c_str());
   const Package* f = find(a && a->pkg ? a->pkg : id.c_str());
   if (f && (f->addonOf.length() ? f->addonOf : f->id) == (p.addonOf.length() ? p.addonOf : p.id)) return true;
-#ifndef NO_PET
-  if (p.engine == "pet" && pet::summoned()) return true;
-#endif
+  if (p.engine == "pet" && assistant::open()) return true;
   return p.engine == "tank" && os::saverOn();
 }
 
@@ -949,7 +956,7 @@ void reconcile() {
         dirtyList = true;
       } else if (!isQueued(id)) {
         Job j;
-        j.kind = Job::REMOVE, j.id = id, j.name = p->name, j.user = false;
+        j.kind = Job::REMOVE, j.id = id, j.name = p->name, j.user = false, j.addonOf = p->addonOf;
         enqueue(j, why);
       }
       continue;
@@ -1006,6 +1013,17 @@ void reconcile() {
   startRunner();
 }
 
+// What a built-in engine keeps for a package outside its folder goes with it (app-slots.md §16): a Java game's record
+// stores (data/<id>/), the aquarium's save. (JavaScript apps: jsfs::wipe; the dog and the run: assistant::removed.)
+void forgetEngineData(const String& id) {
+  if (!id.length() || id.indexOf('/') >= 0) return;
+  const String lr = lfsRoot(), sr = sdRoot();
+  const String lfs = lr.substring(0, lr.lastIndexOf('/')), sd = sr.substring(0, sr.lastIndexOf('/'));
+  rmTree(lfs + "/data/" + id);
+  if (card::present()) rmTree(sd + "/data/" + id);
+  if (id == "vn.pawboop.tank") unlink((lfs + "/tank.sav").c_str());
+}
+
 // A job ended (UI loop): s3.pkgs follows what the device has.
 void afterJob(const Finished& f) {
   JsonDocument d;
@@ -1044,8 +1062,14 @@ void afterJob(const Finished& f) {
     return;
   }
   static const char* const OK[] = {N_("Removed {0}"), N_("Moved {0}"), N_("Installed {0}")};
+  if (f.job.kind == Job::REMOVE) appset::forget(f.job.id.c_str());  // its app.<id>.* values and secrets (manifest-driven.md §1.2)
+  if (f.job.kind == Job::REMOVE) jsfs::wipe(f.job.id.c_str());      // its data/ and cache/ files (lane 1f)
+  // A built-in engine's own data (the dog's game, the run's best) and the assistant slot (app-slots.md §16).
+  if (f.job.kind == Job::REMOVE) forgetEngineData(f.job.id), assistant::removed(f.job.id.c_str(), f.job.name, f.job.addonOf);
+  if (f.job.kind == Job::REMOVE) slots::removed(f.job.id.c_str(), f.job.name);  // the saver slot (slots.h)
   Package live;
   const Package* p = f.job.kind != Job::REMOVE && lookup(f.job.id, live) ? &live : nullptr;
+  if (p && f.job.kind == Job::INSTALL) assistant::installed(*p);
   if (!f.job.quiet) {
     os::toast(i18n::fmt(OK[k], f.job.name).c_str());
   } else if (p) {  // updated by itself: a quiet note in the Center; a tap opens its page in the Store
@@ -1239,6 +1263,12 @@ bool installAs(const Entry& e, const std::vector<String>& asked, Vol v, String& 
     if (all) return why = T_("It is already there"), true;
   }
   if (v == SD && !card::present()) return why = T_("Needs the memory card"), false;
+  // Optional parts (a dog's Coin Run and full voice, the pet's sounds; 2026-11-21): with a memory card in, taken when
+  // the volume has room for them too; never a reason to refuse. A desk sold without a card gets the core only.
+  for (const Part& p : e.parts)
+    if (p.opt && card::present() && std::find(parts.begin(), parts.end(), p.id) == parts.end() &&
+        room(partsBytes(e, parts) + p.size, v, onLfs(e.kind, e.engine, partsBytes(e, parts) + p.size)).ok)
+      parts.push_back(p.id);
   // A Java game needs the Java runtime package (its class library): installed first, on the same volume.
   // The runtime's own entry also says engine "j2me": never for itself (that recursed until the loop task's
   // stack overflowed, on every boot of a board that wanted a Java game without the runtime, 2026-11-17).
@@ -1313,7 +1343,7 @@ bool remove(const char* id, String& why) {
   if (!p) return why = T_("The app is not installed"), false;
   if (p->vol == SD && !card::present()) return why = T_("Insert the memory card with this app to remove it"), false;
   Job j;
-  j.kind = Job::REMOVE, j.id = id, j.name = p->name;
+  j.kind = Job::REMOVE, j.id = id, j.name = p->name, j.addonOf = p->addonOf;
   if (!enqueue(j, why)) return false;
   startRunner();
   return true;

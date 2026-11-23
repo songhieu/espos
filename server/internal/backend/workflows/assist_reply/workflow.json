@@ -18,7 +18,8 @@
             "cid",
             "dog",
             "wake",
-            "intent"
+            "intent",
+            "v1"
           ]
         }
       },
@@ -41,7 +42,9 @@
             "dog": "{{ input.dog }}",
             "wake": "{{ input.wake }}",
             "intent": "{{ input.intent }}",
-            "desk_on": "{{ var.desktop_enabled }}"
+            "desk_on": "{{ var.desktop_enabled }}",
+            "v1": "{{ input.v1 }}",
+            "providers_on": "{{ var.ai_providers_enabled }}"
           }
         }
       },
@@ -71,6 +74,101 @@
             }
           }
         }
+      },
+      {
+        "id": "route",
+        "type": "branch",
+        "config": {
+          "rules": [
+            {
+              "left": "{{ talk.route }}",
+              "op": "eq",
+              "right": "provider"
+            }
+          ]
+        }
+      },
+      {
+        "id": "prov",
+        "type": "call_workflow",
+        "config": {
+          "workflow": "provider_call",
+          "input": {
+            "pkg": "{{ talk.pkg }}",
+            "req": "{{ talk.req }}",
+            "user_id": "{{ input.user_id }}",
+            "device_id": "{{ input.device_id }}"
+          }
+        }
+      },
+      {
+        "id": "pol",
+        "type": "code",
+        "config": {
+          "source": {
+            "$file": "nodes/talk.go"
+          },
+          "timeout_ms": 20000,
+          "memory_mb": 384,
+          "input": {
+            "device_id": "{{ input.device_id }}",
+            "user_id": "{{ input.user_id }}",
+            "source": "{{ input.source }}",
+            "text": "{{ input.text }}",
+            "audio": "{{ input.audio }}",
+            "cid": "{{ input.cid }}",
+            "dog": "{{ input.dog }}",
+            "wake": "{{ input.wake }}",
+            "intent": "{{ input.intent }}",
+            "desk_on": "{{ var.desktop_enabled }}",
+            "v1": "{{ input.v1 }}",
+            "providers_on": "{{ var.ai_providers_enabled }}",
+            "mode": "policy",
+            "req": "{{ talk.req }}",
+            "internal": "{{ talk.internal }}",
+            "provider": "{{ prov }}"
+          }
+        }
+      },
+      {
+        "id": "outp",
+        "type": "return",
+        "config": {
+          "data": {
+            "status": "{{ pol.status }}",
+            "body": "{{ pol.body }}",
+            "changes": "{{ pol.changes }}",
+            "n_changes": "{{ pol.n_changes }}",
+            "oops": "{{ pol.oops }}",
+            "facts": "{{ pol.facts }}",
+            "unclear": "{{ pol.unclear }}"
+          }
+        }
+      },
+      {
+        "id": "boomp",
+        "type": "return",
+        "config": {
+          "data": {
+            "status": 500,
+            "body": {
+              "error": "{{ pol.error }}"
+            }
+          }
+        }
+      },
+      {
+        "id": "boomc",
+        "type": "return",
+        "config": {
+          "data": {
+            "status": 502,
+            "body": {
+              "error": "provider_failed",
+              "provider_error": "call"
+            }
+          }
+        }
       }
     ],
     "edges": [
@@ -80,11 +178,39 @@
       },
       {
         "from": "talk",
-        "to": "out"
+        "to": "boom",
+        "port": "error"
       },
       {
         "from": "talk",
-        "to": "boom",
+        "to": "route"
+      },
+      {
+        "from": "route",
+        "to": "prov",
+        "port": "true"
+      },
+      {
+        "from": "route",
+        "to": "out",
+        "port": "false"
+      },
+      {
+        "from": "prov",
+        "to": "pol"
+      },
+      {
+        "from": "prov",
+        "to": "boomc",
+        "port": "error"
+      },
+      {
+        "from": "pol",
+        "to": "outp"
+      },
+      {
+        "from": "pol",
+        "to": "boomp",
         "port": "error"
       }
     ]

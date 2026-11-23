@@ -18,6 +18,7 @@
 #include "touch.h"
 #include "trace.h"
 #include "os.h"
+#include "preset.h"
 #include "splash.h"
 #include "led.h"
 #include "wake/wake.h"
@@ -93,6 +94,7 @@ void setup() {
     heap("install mode");
     return;
   }
+  preset::begin();  // a product preset written at the factory (/sys/preset.json): applied when new (preset.h)
   os::begin(disp);  // Home replaces the boot screen (its brightness: os::begin)
   heap("ui");
   net::begin();

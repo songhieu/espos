@@ -34,6 +34,7 @@
 #include "i18n.h"
 #include "lock.h"
 #include "pkg/pkg.h"
+#include "pkg/store.h"
 #include "run/run.h"
 #include "sfx.h"
 
@@ -740,6 +741,18 @@ constexpr const char* RUN_ID = "vn.pawboop.run";
 
 void openRun(lv_event_t*) {
   if (!g || g->splash > 0) return;
+  // A desk without a memory card has the dog's core only (no run pictures) and no room for the run and its maps
+  // (2026-11-21): said plainly. With a card in, the dog's game part comes first: the dog again with it, on the card.
+  pkg::File runPics;
+  const bool dogRun = !g->dogPkg.length() || !pkg::find(g->dogPkg.c_str()) || pkg::open(g->dogPkg.c_str(), "run.pbs", runPics);
+  if ((!dogRun || !pkg::find(RUN_ID)) && !pkg::volume(pkg::SD).present) return os::toast(N_("Needs the memory card"));
+  if (!dogRun) {
+    String why;
+    const pkg::store::Entry* e = pkg::store::entry(g->dogPkg.c_str());
+    if (!e || !pkg::store::install(*e, pkg::store::defaultParts(*e), pkg::SD, why))
+      return os::toast(e ? why.c_str() : N_("Needs the memory card"));
+    return os::toast(i18n::fmt(N_("Getting {0}'s Coin Run part"), dogs::name()).c_str());
+  }
   if (!pkg::find(RUN_ID)) return apps::open("store", RUN_ID);  // the add-on, in the store
   // Coin Run 2.0 has its roads in the maps (each its own add-on): none yet, its shelf in the store.
   bool roads = false;

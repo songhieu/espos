@@ -23,7 +23,7 @@
 #include "../home.h"
 #include "../fonts.h"
 #include "../os.h"
-#include "../pet/pet.h"  // summoned(): the dog's pop-up pauses the game
+#include "../assistant.h"  // open(): the assistant's pop-up pauses the game
 #include "../pkg/pkg.h"
 #include "../sound.h"
 #include "../trace.h"
@@ -330,8 +330,8 @@ void vmTask(void* arg) {
 // ---------------------------------------------------------------- UI
 void onTimer(lv_timer_t* t) {
   Game* g = (Game*)lv_timer_get_user_data(t);
-  // The dog's pop-up (a "Gâu" call): the game is paused while it is up (hideNotify), shown again after (showNotify).
-  const bool covered = pet::summoned();
+  // The assistant's pop-up (a "Gâu" call): the game is paused while it is up (hideNotify), shown again after (showNotify).
+  const bool covered = assistant::open();
   if (covered != g->covered && lv_screen_active() == g->scr) {
     g->covered = covered;
     if (!g->menu) g->host.post(covered ? 7 : 8);

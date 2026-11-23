@@ -1,0 +1,23 @@
+{
+  "id": "dev.espos.nettest",
+  "name": "Net test",
+  "version": "1.0.0",
+  "code": 10000,
+  "kind": "js",
+  "engine": "js",
+  "min_fw": 500,
+  "api": {"min": 2},
+  "category": "tool",
+  "desc": "Test app for net.request (tools/nettest/run.sh), not for the store",
+  "icon": {"bg": ["#64748b", "#334155"], "glyph": "globe"},
+  "perms": ["net:lan", "net:no-such-host.invalid", "net:setting:base", "cache:64"],
+  "part": "core",
+  "settings": [
+    {"key": "base", "type": "string", "label": "Server"},
+    {"key": "ck", "type": "secret", "label": "Key", "where": "device"},
+    {"key": "cs", "type": "secret", "label": "Secret", "where": "device"}
+  ],
+  "auth": {
+    "server": {"basic": ["ck", "cs"], "query": {"consumer_key": "ck", "consumer_secret": "cs"}, "send_to": ["{base}/auth*"]}
+  }
+}

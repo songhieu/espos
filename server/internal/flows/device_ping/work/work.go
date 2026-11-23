@@ -47,6 +47,7 @@ var syncKeys = []string{
 	"s3.pet_dog", "s3.assist",
 	"s3.onboard", "s3.call_name",
 	"s3.home_l",
+	"slot.assistant", "slot.saver",
 	"x4.pkgs",
 }
 
@@ -173,8 +174,8 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 		if kind == "bot" {
 			break
 		}
-		if strings.HasPrefix(k, "s3.") && kind != "s3" {
-			continue // the colour desk's keys go to the colour desk only
+		if (strings.HasPrefix(k, "s3.") || strings.HasPrefix(k, "slot.")) && kind != "s3" {
+			continue // the colour desk's keys (and its app slots) go to the colour desk only
 		}
 		if strings.HasPrefix(k, "x4.") && kind == "s3" {
 			continue // and the X4's to the X4 only

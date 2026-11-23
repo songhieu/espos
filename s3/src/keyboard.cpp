@@ -78,18 +78,21 @@ constexpr int VI_KEY = 31;     // button index of the VI/EN key (map index 34 co
 constexpr int SHIFT_KEY = 21;  // index of the shift key
 
 lv_obj_t *box, *btnm, *picker, *target;
+lv_obj_t* acc = nullptr;  // the app's key row on top (kb::accessory)
+int accH = 0;
 lv_obj_t* lifted = nullptr;  // the scrolling container given room under its content
 int32_t liftedPad = 0;
 
 // The field being typed into stays above the keyboard: its scrolling container gets bottom
 // room as tall as the keyboard and is scrolled to show the field.
+lv_obj_t* scrollParent(lv_obj_t* t) {  // the field's nearest parent that scrolls up and down
+  for (lv_obj_t* p = t ? lv_obj_get_parent(t) : nullptr; p; p = lv_obj_get_parent(p))
+    if (lv_obj_has_flag(p, LV_OBJ_FLAG_SCROLLABLE) && (lv_obj_get_scroll_dir(p) & LV_DIR_VER)) return p;
+  return nullptr;
+}
+
 void liftTarget(int kbH) {
-  lifted = nullptr;
-  for (lv_obj_t* p = lv_obj_get_parent(target); p; p = lv_obj_get_parent(p))
-    if (lv_obj_has_flag(p, LV_OBJ_FLAG_SCROLLABLE) && (lv_obj_get_scroll_dir(p) & LV_DIR_VER)) {
-      lifted = p;
-      break;
-    }
+  lifted = scrollParent(target);
   if (!lifted) return;
   liftedPad = lv_obj_get_style_pad_bottom(lifted, 0);
   lv_obj_set_style_pad_bottom(lifted, kbH + 12, 0);
@@ -293,7 +296,33 @@ void onDraw(lv_event_t* e) {
 
 }  // namespace
 
-int height() { return landscape() ? 164 : 204; }
+void (*roomCb)(int) = nullptr;
+void room(int h) {
+  if (roomCb) roomCb(h);
+}
+int keysH() { return landscape() ? 164 : 204; }
+int height() { return keysH() + accH; }
+
+lv_obj_t* accessory(lv_obj_t* textarea, int h) {
+  if (!box || !btnm || textarea != target) return nullptr;
+  if (!acc) {
+    acc = lv_obj_create(box);
+    lv_obj_remove_style_all(acc);
+    lv_obj_remove_flag(acc, LV_OBJ_FLAG_SCROLLABLE);
+  }
+  if (accH != h) {
+    accH = h;
+    lv_obj_set_height(box, keysH() + h);
+    lv_obj_set_size(btnm, lv_pct(100), keysH() - 8);  // the box's padding: 4 around
+    lv_obj_align(btnm, LV_ALIGN_BOTTOM_MID, 0, 0);
+    lv_obj_set_size(acc, lv_pct(100), h);
+    lv_obj_align(acc, LV_ALIGN_TOP_MID, 0, 0);
+    room(height());
+    lower();
+    liftTarget(height());
+  }
+  return acc;
+}
 
 void open(lv_obj_t* textarea, Mode m, void (*onDone)(lv_obj_t*), const char* okLabel) {
   close();
@@ -335,8 +364,11 @@ void open(lv_obj_t* textarea, Mode m, void (*onDone)(lv_obj_t*), const char* okL
   lv_obj_add_event_cb(btnm, onDraw, LV_EVENT_DRAW_TASK_ADDED, nullptr);
   lv_obj_add_event_cb(btnm, onEvent, LV_EVENT_ALL, nullptr);
   applyMap();
+  room(h);
   liftTarget(h);
 }
+
+void onRoom(void (*cb)(int)) { roomCb = cb; }
 
 void setMode(Mode m, const char* okLabel) {
   if (!btnm) return;
@@ -351,18 +383,27 @@ void setMode(Mode m, const char* okLabel) {
 void close() {
   touch::setPrivate(false);
   lower();
+  if (box) room(0);
   closePicker();
   // Deleted on the next cycle: close() is often called from the keyboard's own key event.
   if (box) lv_obj_delete_async(box);
-  box = btnm = nullptr;
+  box = btnm = acc = nullptr;
+  accH = 0;
 }
 
 bool isOpen() { return box != nullptr; }
+lv_obj_t* field() { return box ? target : nullptr; }
 
 void tick() {
   if (box && (!target || !lv_obj_is_valid(target))) {
     target = nullptr;
     close();
+    return;
+  }
+  // The field moved into a rebuilt screen (a JS app's keyed field after a render): lift its new scrolling parent.
+  if (box && lifted != scrollParent(target)) {
+    if (lifted && lv_obj_is_valid(lifted)) lower();
+    liftTarget(height());
   }
 }
 

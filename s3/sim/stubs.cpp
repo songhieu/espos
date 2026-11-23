@@ -13,6 +13,8 @@
 #include <unordered_map>
 #include <vector>
 
+#include "appset.h"
+#include "preset.h"
 #include "desk.h"
 #include "hal/board.h"
 #include "jpeg.h"
@@ -30,6 +32,8 @@
 #include <thread>
 #include "trace.h"
 #include "WiFi.h"
+#include <curl/curl.h>
+#include <set>
 
 SerialClass Serial;
 EspClass ESP;
@@ -145,7 +149,9 @@ size_t heap_caps_get_free_size(uint32_t caps) {
   return cap > used ? cap - used : 0;
 }
 size_t heap_caps_get_largest_free_block(uint32_t caps) {
-  if (!simBoard) return 100 * 1024;
+  // SIM_PSRAM_BLOCK_KB: a fragmented PSRAM (wake.cpp sizes a recording to it); off the board model: room enough
+  if (const char* e = getenv("SIM_PSRAM_BLOCK_KB"); e && (caps & MALLOC_CAP_SPIRAM)) return (size_t)atoi(e) * 1024;
+  if (!simBoard) return caps & MALLOC_CAP_SPIRAM ? 4 * 1024 * 1024 : 100 * 1024;
   return heap_caps_get_free_size(caps) * 9 / 10;
 }
 void simHeap(size_t& ps, size_t& in, size_t& peak) {
@@ -204,7 +210,12 @@ void begin() {
     for (JsonPairConst kv : s.as<JsonObjectConst>()) vals[kv.key().c_str()] = kv.value().as<const char*>();
   deserializeJson(dashDoc, readFile(simDir + "/dash.json"));
 }
+void simSync();
+extern bool simSyncAsked;
+extern uint32_t simSyncAt;
 void poll() {
+  static const uint32_t syncMs = getenv("SIM_SYNC_MS") ? atoi(getenv("SIM_SYNC_MS")) : 5000;
+  if (getenv("SIM_SYNC_URL") && (simSyncAsked || simNow - simSyncAt >= syncMs)) simSync();
   // Answers arrive 300 ms after the request, like a quick network.
   for (size_t i = 0; i < pending.size(); i++) {
     if (simNow - pending[i].at < 300) continue;
@@ -222,18 +233,21 @@ void poll() {
       String f2 = path.substring(0, q);
       f2.replace("/", "_");
       body = readFile(simDir + "/net/" + f2.c_str());
+      if (!body.empty()) file = f2;
     }
+    const std::string st = readFile(simDir + "/net/" + file.c_str() + ".status");  // e.g. "402": a refusal, its body as the answer
+    const int status = st.empty() ? 200 : atoi(st.c_str());
     if (body.empty()) {
       trace::add("sim fetch %s -> 404 (no sim/data/net/%s)", p.url.c_str(), file.c_str());
       if (p.cb) p.cb(p.ctx, 404, nullptr, nullptr, 0);
       return;
     }
     if (p.bytes) {
-      if (p.cb) p.cb(p.ctx, 200, nullptr, (const uint8_t*)body.data(), body.size());
+      if (p.cb) p.cb(p.ctx, status, nullptr, (const uint8_t*)body.data(), body.size());
     } else {
       JsonDocument d;
       deserializeJson(d, body);
-      if (p.cb) p.cb(p.ctx, 200, &d, nullptr, 0);
+      if (p.cb) p.cb(p.ctx, status, &d, nullptr, 0);
     }
     return;
   }
@@ -247,13 +261,71 @@ String pairCode() { return "482913"; }
 String pairUrl() { return "https://espos.dev/app#/pair?code=482913"; }
 const char* pairStatus() { return "Chờ xác nhận trên web"; }
 void unlink() {}
-void syncNow() {}
+// SIM_SYNC_URL=http://127.0.0.1:PORT/v1/device/sync: a sync against a local mock of device_sync (tools/mock_sync.py,
+// docs/app-platform-plan.md lane 1e): the changed settings and appset's secret report go up, the answer's settings
+// (not changed here meanwhile) and secrets come down, as desk.cpp does. Every SIM_SYNC_MS (5000) of sim time, and at
+// once after syncNow().
+std::set<String> simDirty;
+bool simSyncAsked = false;
+uint32_t simSyncAt = 0;
+size_t curlText(char* p, size_t n, size_t k, void* out) { return ((std::string*)out)->append(p, n * k), n * k; }
+void simSync() {
+  const char* url = getenv("SIM_SYNC_URL");
+  if (!url) return;
+  simSyncAsked = false, simSyncAt = simNow;
+  JsonDocument d;
+  JsonArray s = d["settings"].to<JsonArray>();
+  const std::set<String> sent = simDirty;
+  for (const String& k : sent) {
+    JsonObject o = s.add<JsonObject>();
+    o["k"] = k, o["v"] = vals[k], o["age_s"] = 0;
+  }
+  appset::syncBody(d.as<JsonObject>());
+  preset::report(d.as<JsonObject>());
+  std::string body, answer;
+  serializeJson(d, body);
+  CURL* c = curl_easy_init();
+  curl_slist* h = curl_slist_append(nullptr, "Content-Type: application/json");
+  curl_easy_setopt(c, CURLOPT_URL, url);
+  curl_easy_setopt(c, CURLOPT_HTTPHEADER, h);
+  curl_easy_setopt(c, CURLOPT_POSTFIELDS, body.c_str());
+  curl_easy_setopt(c, CURLOPT_WRITEFUNCTION, curlText);
+  curl_easy_setopt(c, CURLOPT_WRITEDATA, &answer);
+  curl_easy_setopt(c, CURLOPT_TIMEOUT, 5L);
+  const CURLcode rc = curl_easy_perform(c);
+  long status = 0;
+  curl_easy_getinfo(c, CURLINFO_RESPONSE_CODE, &status);
+  curl_slist_free_all(h);
+  curl_easy_cleanup(c);
+  JsonDocument a;
+  if (rc != CURLE_OK || status != 200 || deserializeJson(a, answer)) {
+    trace::add("sim sync: failed (curl %d, HTTP %ld)", (int)rc, status);
+    return;
+  }
+  for (const String& k : sent) simDirty.erase(k);
+  bool any = false;
+  for (JsonPairConst kv : a["settings"].as<JsonObjectConst>()) {
+    const String k = kv.key().c_str(), v = kv.value() | "";
+    if (simDirty.count(k) || vals[k] == v) continue;
+    vals[k] = v, any = true;
+    trace::add("sim sync: setting %s = %s (from the server)", k.c_str(), v.c_str());
+  }
+  if (any) settingsVer++;
+  if (a["preset"].is<JsonObjectConst>()) preset::fromSync(a["preset"]);  // as desk.cpp applySync
+  appset::fromSync(a.as<JsonObjectConst>());
+  trace::add("sim sync: ok, %u settings up, %u down", (unsigned)sent.size(), (unsigned)a["settings"].size());
+}
+void syncNow() { simSyncAsked = true; }
 bool syncing() { return false; }
 int64_t lastSyncMs() { return getenv("SIM_NO_SYNC") ? 0 : nowMs() - 6 * 60000; }  // SIM_NO_SYNC: none yet since power-on
 const char* lastError() { return ""; }
 uint32_t changes() { return changeCount; }
 JsonObjectConst dash() { return dashDoc.as<JsonObjectConst>(); }
 uint32_t dashVersion() { return dashVer; }
+void simDash(const std::string& path) {  // the script's "dash": a new dashboard, as after a sync
+  deserializeJson(dashDoc, readFile(path.empty() ? simDir + "/dash.json" : path));
+  dashVer++;
+}
 String setting(const char* key, const char* def) {
   auto it = vals.find(key);
   return it == vals.end() || !it->second.length() ? String(def) : it->second;
@@ -266,9 +338,22 @@ void setSetting(const char* key, const String& value) {
   if (vals[key] == value) return;
   vals[key] = value;
   settingsVer++;
+  simDirty.insert(key);
   // Private calendar links are secrets: never in a log, even the simulator's.
   if (!strcmp(key, "dash.ics_url")) return trace::add("setting %s = (%u chars, hidden)", key, (unsigned)value.length());
   trace::add("setting %s = %s", key, value.length() > 120 ? (value.substring(0, 120) + "...").c_str() : value.c_str());
+}
+void touchSetting(const char* key) {
+  if (vals.count(key)) simDirty.insert(key);
+}
+
+void dropSettings(const char* prefix) {
+  const size_t n = strlen(prefix);
+  bool any = false;
+  for (auto it = vals.begin(); it != vals.end();)
+    if (n && !strncmp(it->first.c_str(), prefix, n)) it = vals.erase(it), any = true;
+    else ++it;
+  if (any) settingsVer++, trace::add("settings %s* dropped", prefix);
 }
 uint32_t settingsVersion() { return settingsVer; }
 #if ESPOS_ONBOARD

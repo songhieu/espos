@@ -12,7 +12,8 @@ OUT=src/fonts
 mkdir -p $OUT
 F=data/fonts
 # Latin-1 and punctuation.
-BASE="0x20-0x7E,0xA0-0xFF,0x2013-0x2014,0x2018-0x2019,0x201C-0x201D,0x2022,0x2212"
+# Currency signs the Ubuntu font has (euro, tugrik, hryvnia, rupee): money in a store's own format (the POS sample).
+BASE="0x20-0x7E,0xA0-0xFF,0x2013-0x2014,0x2018-0x2019,0x201C-0x201D,0x2022,0x2212,0x20AC,0x20AE,0x20B4,0x20B9"
 # name line_height base_line, as the fonts were with the Vietnamese letters.
 METRICS="ub_b12 19 4;ub_b13 20 4;ub_b14 21 4;ub_b15 22 4;ub_b16 23 4;ub_b17 24 4;ub_b18 26 4;ub_b20 29 5;ub_b22 31 5;ub_b24 34 5;ub_r12 17 3;ub_r13 18 3;ub_r14 20 4;ub_r15 21 4;ub_r16 22 4;ub_r18 24 4;ub_r20 27 5"
 DIGITS="0x20,0x25,0x2B-0x3A,0xB0,0x2212"   # space % + , - . / 0-9 : degree, minus sign

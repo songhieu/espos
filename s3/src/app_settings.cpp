@@ -8,6 +8,7 @@
 #include <WiFi.h>
 
 #include "apps.h"
+#include "appset.h"
 #include "appopts.h"
 #include "art.h"
 #include "board.h"
@@ -29,6 +30,7 @@
 #include "pkg/pkg.h"
 #include "remote.h"
 #include "ota.h"
+#include "slots.h"
 #include "sound.h"
 #include "theme.h"
 #include "touch.h"
@@ -1271,6 +1273,7 @@ void openMain() {
   iconRow(body, 0x64748b, &gl_grid_16, N_("Home Screen"), "", [](lv_event_t*) { openHomeReset(); });
   iconRow(body, 0x0a84ff, &gl_sun_16, N_("Display"), (String(rotName(os::rotation())) + ", " + os::brightness() + "%").c_str(),
           [](lv_event_t*) { openDisplay(); });
+  iconRow(body, 0xff9500, &gl_grid_16, N_("Default apps"), slots::summary().c_str(), [](lv_event_t*) { slots::openDefaultApps(); });
   iconRow(body, 0x5e5ce6, &gl_moon_16, N_("Screen saver"),
           saverSecNow() ? i18n::fmt(N_("{0} min"), String(saverSecNow() / 60)).c_str() : N_("off"),
           [](lv_event_t*) { openSaver(); });
@@ -1288,6 +1291,7 @@ void openMain() {
   const int pics = data::codesOf(desk::setting("s3.photos", ""), "").size();
   iconRow(body, 0x34c759, &gl_photo_16, N_("Photos on the device"), pics ? i18n::plural(pics, NP_("{n} photo|{n} photos")).c_str() : N_("none"), [](lv_event_t*) { openPhotos(); });
   caption(body, "");
+  iconRow(body, 0x5e5ce6, &gl_grid_16, N_("Apps"), "", [](lv_event_t*) { appset::openApps(); });  // each app's settings
   iconRow(body, 0x8e8e93, &gl_list_16, N_("Storage"), storageSummary().c_str(), [](lv_event_t*) { pkg::openStorage(); });
   iconRow(body, 0x8e8e93, &gl_gear_16, N_("Update"), desk::fwOffer().version.length() ? N_("new version") : "",
           [](lv_event_t*) { openUpdate(); });
@@ -1324,6 +1328,7 @@ void open(const char* arg) {
     openMain();
     if (a == "display") openDisplay();
     else if (a == "saver") openSaver();
+    else if (a == "defaults") slots::openDefaultApps();
     else if (a == "sound") openSound();
     else if (a == "update") openUpdate();
     else if (a == "name") openName();
@@ -1332,6 +1337,9 @@ void open(const char* arg) {
     else if (a == "home") openHomeReset();
     else if (a == "notif") notif::openSettings();
     else if (a == "storage") pkg::openStorage();
+    else if (a == "apps") appset::openApps();
+    else if (a.startsWith("app:")) appset::openApps(), appset::openApp(a.c_str() + 4);  // Settings › Apps › that app
+    else if (a.startsWith("appform:")) appset::openApps(), appset::openApp(a.c_str() + 8), appset::openForm(a.c_str() + 8);
     else if (a == "time") openTimeData();
     else if (a == "photos") openPhotos();
     else if (a == "city") app_weather::openCity();

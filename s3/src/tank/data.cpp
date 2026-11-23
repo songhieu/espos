@@ -419,12 +419,17 @@ const Spr* spr(PackId p, int i) {
 
 const Spr* sprNamed(PackId p, const char* name) { return spr(p, packs[p].find(name)); }
 
-void sprTrim(bool keepThumbs) {
+// Every picture made so far (the tank closing): they were made one at a time as the water and the shop needed them,
+// so they lay scattered over PSRAM and Home was left with no big block (the 2.8" board, 2026-11-21: a call found
+// 975 KB free but no 400 KB in one piece). The water must be gone first (it points at them).
+int sprTrim(bool keepThumbs) {
+  int n = 0;
   for (int p = 0; p < P_N; p++) {
     if (p == P_THUMBS && keepThumbs) continue;
-    if (p != P_THUMBS) continue;  // the water's pictures stay (the tank changes them seldom)
-    for (int i = 0; i < cache[p].n; i++) heap_caps_free(cache[p].s[i]), cache[p].s[i] = nullptr;
+    for (int i = 0; i < cache[p].n; i++) n += cache[p].s[i] != nullptr, heap_caps_free(cache[p].s[i]);
+    heap_caps_free(cache[p].s), cache[p].s = nullptr, cache[p].n = 0;
   }
+  return n;
 }
 
 bool background(const char* look, bool land, int fw, int fh, uint16_t* dst) {

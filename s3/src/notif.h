@@ -5,7 +5,8 @@
 // The user's per-app switches are setting s3.notif (synced with the web); Do Not Disturb and quiet hours
 // keep banners and sounds away but notifications still reach the Center.
 // History (50 newest) and scheduled ones live in LittleFS /sys/notif.json, written a few seconds after a change.
-// The dashboard's server notes (dash "notes") arrive as notifications of the pseudo app "desk" ("EspOS").
+// The dashboard's server notes (dash "notes") arrive as notifications of the pseudo app "desk" ("EspOS"); a note for
+// an installed app ("app", e.g. Claude asking for permission) is that app's (src/popnote.h).
 // Mockup: mockups/s3-notif.html.
 #include <Arduino.h>
 #include <lvgl.h>
@@ -21,6 +22,7 @@ struct Opts {
   const char* tag = nullptr;  // a later one with the same app+tag replaces it (and a scheduled one)
   bool sound = true;
   bool badge = true;          // counts on the app's icon until the app is opened or it is cleared
+  bool banner = true;         // false: Center and badge only (src/popnote.cpp shows its own card instead)
 };
 
 // false when the app's notifications are off (or the app has no "notify" permission, for packages).
@@ -38,6 +40,7 @@ void seen(const char* app);                     // the app was opened: its notif
 int badge(const char* app);  // what the Home icon shows (0: none): own count, else max(unread, built-in count)
 void setBadge(const char* app, int n);  // an app's own count (e.g. unread items); -1 back to automatic
 bool enabled(const char* app);
+bool quiet();  // Do Not Disturb or the quiet hours now: no banners, no sounds, no pop-ups
 
 void openCenter();
 void closeCenter();

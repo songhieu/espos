@@ -11,6 +11,8 @@ void openCity();  // Thành phố: dash.city + dash.lat + dash.lon, from the web
 // in minutes (the first-boot setup), else it says so and closes the screen.
 void cityPicker(lv_obj_t* body, void (*picked)(int tzMin));
 String cityNow();  // the chosen city's name ("" when the server's default)
+// The same list for any place (an app's "city" setting, appset.cpp): a tap calls `chose` and stores nothing itself.
+void placePicker(lv_obj_t* body, const char* current, void (*chose)(const char* name, double lat, double lon));
 }  // namespace app_weather
 
 namespace app_calendar {

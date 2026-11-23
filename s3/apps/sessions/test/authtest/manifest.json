@@ -1,0 +1,3 @@
+{"id": "dev.espos.authtest", "name": "Auth test", "version": "1.0.0", "code": 10000, "kind": "js", "engine": "js",
+ "part": "core", "min_fw": 600, "api": {"min": 2}, "perms": ["net:espos"],
+ "auth": {"espos": {"device": true, "send_to": ["{espos}/v1/device/app/dev.espos.authtest/*"]}}}

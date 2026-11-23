@@ -6,6 +6,7 @@ import (
 	"espos/internal/wm"
 	"fmt"
 	"net/url"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -44,6 +45,10 @@ var deviceDefaults = map[string]string{
 	// PawBoop (2026-11-18, s3desk/docs/pawboop.md): the chosen dog (a key of petDogs; "" = the first installed) and the
 	// dog assistant's switches (checkAssist). The AI assistant (assist_reply) talks as s3.pet_dog when not told a dog.
 	"s3.pet_dog": "", "s3.assist": "",
+	// The assistant slot (2026-11-22, s3desk/docs/app-slots.md §7, §16): the package id of the device's assistant app,
+	// or "none"; "" = the device's default. Colour desks only; a package id must be on the device (Run).
+	"slot.assistant": "",
+	"slot.saver":     "", // the saver app's package id, or "builtin"
 	// The first-boot setup (2026-11-21, s3desk/docs/onboarding-plan.md): what the device sends when it is done ("again"
 	// from the web runs it again; checkOnboard), and the name it asked for (checkCallName; copied into the account).
 	"s3.onboard": "", "s3.call_name": "",
@@ -59,7 +64,7 @@ func isS3OSKey(k string) bool {
 	if _, ok := s3OSJSON[k]; ok {
 		return true
 	}
-	return k == "s3.theme" || k == "s3.theme_auto" || k == "s3.wall" || k == "s3.cities" || k == "s3.photos" || k == "s3.pkgs" || k == "s3.notif" || k == "s3.notif_preview" || k == "s3.pkg_auto" || k == "s3.saver_pages" || k == "s3.markets" || k == "s3.pet_dog" || k == "s3.assist" || k == "s3.onboard" || k == "s3.call_name"
+	return k == "s3.theme" || k == "s3.theme_auto" || k == "s3.wall" || k == "s3.cities" || k == "s3.photos" || k == "s3.pkgs" || k == "s3.notif" || k == "s3.notif_preview" || k == "s3.pkg_auto" || k == "s3.saver_pages" || k == "s3.markets" || k == "s3.pet_dog" || k == "s3.assist" || k == "s3.onboard" || k == "s3.call_name" || k == "slot.assistant" || k == "slot.saver"
 }
 
 // checkMarkets: "" or up to 20 "kind:CODE" tokens (gold, stocks, fx, crypto), as a markets widget's option.
@@ -796,6 +801,8 @@ func checkSaverPages(v string) string {
 	return ""
 }
 
+var tzNameRe = regexp.MustCompile(`^[A-Za-z][A-Za-z_]*(/[A-Za-z0-9_+\-]+){0,2}$`)
+
 // checkValue answers "" when (k, v) is acceptable, else the reason.
 func checkValue(k, v string) string {
 	if k == "dash.layout" && strings.HasPrefix(v, "pkg:") {
@@ -819,6 +826,13 @@ func checkValue(k, v string) string {
 		return k + ": giá trị không hợp lệ"
 	}
 	switch k {
+	case "slot.assistant", "slot.saver":
+		// "" (the device's default), "none" (assistant) / "builtin" (saver), or a package id (device_sync's checkSlot;
+		// Run wants it on the device)
+		if v == "" || (k == "slot.assistant" && v == "none") || (k == "slot.saver" && v == "builtin") || pkgID(v) {
+			return ""
+		}
+		return k + ": mã ứng dụng không hợp lệ"
 	case "dash.quiet_from", "dash.quiet_to":
 		if len(v) == 5 && v[2] == 0x3a && v[0] >= 0x30 && v[0] <= 0x32 && v[1] >= 0x30 && v[1] <= 0x39 && v[3] >= 0x30 && v[3] <= 0x35 && v[4] >= 0x30 && v[4] <= 0x39 {
 			return ""
@@ -938,6 +952,13 @@ func checkValue(k, v string) string {
 			return ""
 		}
 		return k + ": tối đa 20 mã dạng gold:SJC, stocks:FPT, fx:USD, crypto:BTC"
+	case "sys.tz":
+		// The device's IANA zone ("Europe/Berlin", 2026-11-21): the dog's clock right across daylight saving
+		// (assist_reply placeOf; it falls back to sys.tz_min when the name is unknown there). "" clears it.
+		if v == "" || (len(v) <= 40 && tzNameRe.MatchString(v)) {
+			return ""
+		}
+		return k + ": tên múi giờ IANA, ví dụ Asia/Ho_Chi_Minh"
 	case "dash.blocks":
 		for _, b := range strings.Split(v, ",") {
 			switch b {
@@ -1012,17 +1033,26 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 			appIDs = append(appIDs, pid)
 		}
 	}
-	if len(appIDs) > 0 {
-		mans, qerr := wm.QueryOpts("app_manifests", map[string]any{"filters": []map[string]any{
-			{"column": "pkg_id", "op": "in", "value": appIDs}, {"column": "user_id", "op": "in", "value": []any{0, uid}}}, "limit": 80})
-		if qerr != nil {
-			return wm.Fail(qerr)
+	// The slots name packages the device must have ("none" and "builtin" name none).
+	slotPkg := map[string]string{}
+	for _, k := range []string{"slot.assistant", "slot.saver"} {
+		if v := strings.TrimSpace(wm.Str(changes[k])); v != "" && v != "none" && v != "builtin" {
+			slotPkg[k] = v
 		}
-		for _, own := range []bool{false, true} { // the store's row, then the person's own upload of that id wins
-			for _, r := range mans {
-				if (wm.Int(r["user_id"]) != 0) == own {
-					appSchemas[wm.Str(r["pkg_id"])] = r["settings"]
-					appAuth[wm.Str(r["pkg_id"])] = r["auth"]
+	}
+	if len(appIDs) > 0 || len(slotPkg) > 0 {
+		if len(appIDs) > 0 {
+			mans, qerr := wm.QueryOpts("app_manifests", map[string]any{"filters": []map[string]any{
+				{"column": "pkg_id", "op": "in", "value": appIDs}, {"column": "user_id", "op": "in", "value": []any{0, uid}}}, "limit": 80})
+			if qerr != nil {
+				return wm.Fail(qerr)
+			}
+			for _, own := range []bool{false, true} { // the store's row, then the person's own upload of that id wins
+				for _, r := range mans {
+					if (wm.Int(r["user_id"]) != 0) == own {
+						appSchemas[wm.Str(r["pkg_id"])] = r["settings"]
+						appAuth[wm.Str(r["pkg_id"])] = r["auth"]
+					}
 				}
 			}
 		}
@@ -1066,7 +1096,7 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 				vals[k] = s
 				continue
 			}
-			if k != "dash.city" && k != "sys.tz_min" {
+			if k != "dash.city" && k != "sys.tz_min" && k != "sys.tz" {
 				return map[string]any{"status": 422, "body": map[string]any{"error": k + ": không dành cho EspOS Bot", "code": "not_for_bot", "key": k}}
 			}
 		} else if strings.HasPrefix(k, "bot.") {
@@ -1078,6 +1108,11 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 		}
 		if isS3OSKey(k) && wm.Str(devs[0]["kind"]) != "s3" {
 			return map[string]any{"status": 422, "body": map[string]any{"error": k + ": chỉ dành cho máy S3", "code": "s3_only", "key": k}}
+		}
+		// The assistant slot names an app the device has (its last report, or the store's wanted list).
+		if sp := slotPkg[k]; sp != "" && !appInst[sp] {
+			why := k + ": " + sp + " is not installed on this device"
+			return map[string]any{"status": 422, "body": map[string]any{"error": why, "code": "app_not_installed", "key": k, "why": why}}
 		}
 		// The X4's packages (and faces from them) belong to the X4 (a row without a kind is an X4 from before the column).
 		if (k == "x4.pkgs" || (k == "dash.layout" && strings.HasPrefix(s, "pkg:"))) && wm.Str(devs[0]["kind"]) == "s3" {

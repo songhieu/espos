@@ -42,6 +42,9 @@ lv_obj_t* navAction(lv_obj_t* scr, const char* text, lv_event_cb_t cb, void* dat
 lv_obj_t* navTitle(lv_obj_t* scr);
 void open(lv_obj_t* scr);     // slide it in over the current screen
 void back();                  // close the top screen
+// An app screen that handles the back gesture itself first (a JS app's app.onBack, lane 1f): fn returns true when it
+// went back inside the app; false lets back() close the screen. Removed with the screen.
+void setBackHook(lv_obj_t* scr, bool (*fn)());
 void goHome();                // close every app screen
 void closeApps();             // at once, without animation (an app opens another app)
 bool atHome();

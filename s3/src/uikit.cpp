@@ -111,6 +111,7 @@ int breakLines(const char* text, const lv_font_t* f, int w, String& out, int let
     if (n++) out += '\n';
     out.concat(p, keepLen);
     p += len;
+    while (*p == ' ') p++;  // a wrapped line never starts with the space it broke at
   }
   return n;
 }
@@ -299,7 +300,9 @@ lv_obj_t* button(lv_obj_t* parent, const char* text, uint32_t bg, uint32_t fg, l
     const String t = lv_label_get_text(l);
     if (w > 20 && t.indexOf('\n') < 0 && textW(t.c_str(), 15, true) > w) {
       lv_obj_set_style_pad_hor(b, 8, 0);
-      fitText(l, t.c_str(), w + 16, 38, 15, 12, true, 0);
+      // two lines only where the button is tall enough for them (a 32 px key: one smaller line)
+      const int bh = (int)lv_obj_get_height(b) - 2;
+      fitText(l, t.c_str(), w + 16, bh < 18 ? 18 : bh > 38 ? 38 : bh, 15, 12, true, 0);
       lv_obj_set_style_text_align(l, LV_TEXT_ALIGN_CENTER, 0);
       lv_obj_center(l);
     }

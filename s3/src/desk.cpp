@@ -23,6 +23,8 @@
 #include "os.h"
 #include "ota.h"
 #include "photo.h"
+#include "appset.h"
+#include "preset.h"
 #include "pkg/store.h"
 #include "power.h"
 #include "remote.h"
@@ -159,10 +161,14 @@ constexpr uint32_t PING_MS = 45000;  // 0.5.7: 45 s (was 60), so the kept connec
 constexpr size_t PING_MIN_INTERNAL = 40 * 1024;  // to open a fresh connection for a ping
 constexpr uint32_t PING_FW_GAP_MS = 120000;      // "fw" starts at most one sync in this long
 uint32_t nextPing = 0, fwActedAt = 0;
+// The server may ask for faster pings ("ping_s" in the ping answer, desktop-protocol.md §9.6: while Claude waits for an
+// answer, so its pop-up shows within ~10 s): kept while answers keep asking, back to PING_MS 3 minutes after.
+uint32_t fastPingMs = 0, fastUntil = 0;
+uint32_t pingMs() { return fastPingMs && (int32_t)(fastUntil - millis()) > 0 ? fastPingMs : PING_MS; }
 int64_t pingRevActed = 0;  // the rev a ping started a sync for: a server whose rev never matches cannot loop
 volatile bool pingHold = false;
 
-enum class Job { Sync, PairStart, WhoAmI, PhotoWhere, PhotoGet, Fetch, Remote, Ping, Raw };
+enum class Job { Sync, PairStart, WhoAmI, PhotoWhere, PhotoGet, Fetch, Remote, Ping, Raw, App };
 Job inFlightJob = Job::Sync;
 // Remote control (remoteSend): the one request waiting, and whether the last one sent was a remote one (then the
 // others go first).
@@ -173,6 +179,13 @@ bool remoteWaiting = false, lastRemote = false;
 RawFn rawFn = nullptr;
 RawDone rawDone = nullptr, rawDoneNow = nullptr;
 void *rawCtx = nullptr, *rawCtxNow = nullptr;
+// A JavaScript app's request (appSend): the one waiting, the one running, when the last ended, and whether the last
+// job sent was one (then a due sync goes first).
+AppRun appRun = nullptr;
+RawDone appDone = nullptr, appDoneNow = nullptr;
+void *appCtx = nullptr, *appCtxNow = nullptr;
+uint32_t appLastMs = 0;
+bool lastApp = false;
 struct Request {
   Job job;
   String path, body, token;
@@ -181,6 +194,7 @@ struct Request {
   bool bytes = false;  // keep the raw body
   RawFn raw = nullptr;
   void* rawCtx = nullptr;
+  AppRun app = nullptr;  // Job::App: runs with rawCtx
 };
 struct Response {
   Job job;
@@ -205,6 +219,7 @@ uint32_t keepUsed = 0;
 constexpr uint32_t KEEP_IDLE_MS = 50000;
 constexpr size_t KEEP_MIN_INTERNAL = 24 * 1024;
 volatile bool dropKeep = false, keepOpen = false;
+bool keepForeign = false;  // the kept connection went to an app's host (Job::App): raw() must not take it as ours
 
 void dropKept() {
   if (keepTls) keepTls->stop();
@@ -227,6 +242,7 @@ void makeKept() {
 // rawSend's request: the kept connection handed to the assistant (HTTPClient reuses it afterwards, as it is).
 int raw(const Request& r) {
   makeKept();
+  if (keepForeign) dropKept(), keepForeign = false;
   if (millis() - keepUsed > KEEP_IDLE_MS) dropKept();
   String host = api.substring(api.indexOf("//") + 2);
   if (host.indexOf('/') > 0) host = host.substring(0, host.indexOf('/'));
@@ -247,8 +263,20 @@ int raw(const Request& r) {
   return up ? 200 : -1;
 }
 
+// An app's request (appSend): on the kept connection, which HTTPClient moves to the app's host; ours again later.
+int appJob(const Request& r) {
+  makeKept();
+  if (millis() - keepUsed > KEEP_IDLE_MS) dropKept();
+  r.app(r.rawCtx, keepTls, keepHttp);
+  keepUsed = millis();
+  keepOpen = keepTls->connected();
+  keepForeign = true;
+  return 200;
+}
+
 void hwHeaders(HTTPClient& h);
 int http(const Request& r, String& out, Response* res) {
+  keepForeign = false;  // HTTPClient switches back to our host by itself (it compares hosts)
   const String url = r.url.length() ? r.url : api + r.path;
   for (int attempt = 0; attempt < 2; attempt++) {
     makeKept();
@@ -325,10 +353,10 @@ void worker(void*) {
     String out;
     const uint32_t t0 = millis();
     Response* res = new Response{r->job, 0, new JsonDocument(&psram)};
-    res->status = r->job == Job::Raw ? raw(*r) : http(*r, out, res);
+    res->status = r->job == Job::Raw ? raw(*r) : r->job == Job::App ? appJob(*r) : http(*r, out, res);
     if (out.length() && deserializeJson(*res->doc, out) != DeserializationError::Ok) res->doc->clear();
     // A good ping every minute would push everything else out of the trace: only the ones that failed are kept.
-    if (!(r->job == Job::Ping && res->status == 200))
+    if (!(r->job == Job::Ping && res->status == 200) && r->job != Job::App)  // jsnet traces its own (no query)
       trace::add("http %s %s -> %d, %u bytes, %lu ms, heap %u KB", r->post ? "POST" : "GET",
                  r->url.length() ? "(storage)" : r->path.c_str(), res->status, (unsigned)(res->len ? res->len : out.length()),
                  millis() - t0, ESP.getFreeHeap() / 1024);
@@ -612,6 +640,8 @@ String buildSyncBody() {
   }
   // Packages: volumes, what is installed, the running job (docs/ecosystem.md §6).
   pkg::store::report(d["pkgs"].to<JsonObject>());
+  appset::syncBody(d.as<JsonObject>());  // the packages' secrets kept here, acks of delivered ones (manifest-driven.md §1.4)
+  preset::report(d.as<JsonObject>());     // the product preset applied ({"id", "v"}; app-slots.md §17)
   otaSent = otaReports.size();
   if (otaSent) {
     JsonArray reps = d["ota"].to<JsonArray>();
@@ -658,6 +688,8 @@ void applySync(JsonDocument& doc) {
   }
   settingsRev = doc["settings_rev"] | settingsRev;
   if (!doc["settings"].isNull()) applySettings(doc["settings"], syncStartedAt);
+  if (doc["preset"].is<JsonObjectConst>()) preset::fromSync(doc["preset"]);  // a newer version for this unit's batch
+  appset::fromSync(doc.as<JsonObjectConst>());  // delivered secrets; a url changed on the web clears its secrets
   lic::fromSync(doc["lic"]);  // the account's licence (lic.h): none = no licensing, as before
   if (!doc["dashboard"].isNull()) {
     const uint32_t sig = dashSig(doc["dashboard"].as<JsonObjectConst>());
@@ -719,6 +751,13 @@ void handle(Response* r) {
       if (rawDoneNow) rawDoneNow(rawCtxNow);
       rawDoneNow = nullptr;
       break;
+    case Job::App: {
+      appLastMs = millis();
+      RawDone d = appDoneNow;
+      appDoneNow = nullptr;
+      if (d) d(appCtxNow);
+      break;
+    }
     case Job::Remote:
       if (remoteCbNow) remoteCbNow(r->status, doc);
       remoteCbNow = nullptr;
@@ -769,6 +808,9 @@ void handle(Response* r) {
     case Job::Ping:
       if (r->status == 200) {
         const int64_t rev = doc["rev"] | (int64_t)0;
+        const int fast = doc["ping_s"] | 0;
+        if (fast > 0) fastPingMs = constrain(fast, 5, 45) * 1000u, fastUntil = millis() + 180000;
+        nextPing = millis() + pingMs();
         const bool revNew = rev > settingsRev && rev != pingRevActed;
         const bool fwNew = (doc["fw"] | false) && (!fwActedAt || millis() - fwActedAt >= PING_FW_GAP_MS);
         if (revNew || fwNew) {
@@ -786,7 +828,7 @@ void handle(Response* r) {
       }
       break;
     case Job::Sync:
-      nextPing = millis() + PING_MS;  // the sync brought everything: the next ping PING_MS from now
+      nextPing = millis() + pingMs();  // the sync brought everything: the next ping one interval from now
       if (r->status == 200) {
         const uint32_t dashVerBefore = dashVer;
         applySync(doc);
@@ -827,10 +869,14 @@ bool pingReady(uint32_t now) {
     if (!os::atHome()) return false;
     pingHold = false;  // back at Home: whatever asked for the RAM is closed
   }
+  if (appLastMs && now - appLastMs < 90000) {  // an app is talking to its server: keep the connection on its host
+    nextPing = now + pingMs();
+    return false;
+  }
   const bool keptOpen = keepOpen;
-  if ((int32_t)(nextSync - now) < (int32_t)PING_MS || pkg::store::busy() ||
+  if ((int32_t)(nextSync - now) < (int32_t)pingMs() || pkg::store::busy() ||
       (!keptOpen && heap_caps_get_free_size(MALLOC_CAP_INTERNAL) < PING_MIN_INTERNAL)) {
-    nextPing = now + PING_MS;
+    nextPing = now + pingMs();
     return false;
   }
   return true;
@@ -897,6 +943,11 @@ void begin() {
 void poll() {
   Response* r;
   while (xQueueReceive(results, &r, 0) == pdTRUE) handle(r);
+  if (appRun && net::state() != net::State::Connected) {  // the network went away before it ran: the app hears it
+    RawDone d = appDone;
+    appRun = nullptr;
+    if (d) d(appCtx);
+  }
   if (inFlight || net::state() != net::State::Connected) {
     if (remoteWaiting && (net::state() != net::State::Connected || state != Link::Linked)) {
       remoteWaiting = false;  // no network: the remote loop hears it at once and tries again later
@@ -916,6 +967,19 @@ void poll() {
     xQueueSend(jobs, &q, portMAX_DELAY);
     return;
   }
+  // A JavaScript app's request (someone at the counter waits): next, unless the last job was one and a sync is due.
+  if (appRun && !(lastApp && state == Link::Linked && (int32_t)(now - nextSync) >= 0)) {
+    Request* q = new Request{Job::App, "", "", "", false, ""};
+    q->app = appRun, q->rawCtx = appCtx;
+    appDoneNow = appDone, appCtxNow = appCtx;
+    appRun = nullptr;
+    lastApp = true;
+    inFlight = true;
+    inFlightJob = Job::App;
+    xQueueSend(jobs, &q, portMAX_DELAY);
+    return;
+  }
+  lastApp = false;
   const bool ping = pingReady(now);
   // Remote control first, but after a remote request the others take their turn.
   const bool others =
@@ -948,7 +1012,7 @@ void poll() {
     submit(Job::Sync, "/v1/device/sync", buildSyncBody(), token, true);
     changed();
   } else if (ping) {
-    nextPing = now + PING_MS;
+    nextPing = now + pingMs();
     submit(Job::Ping, "/v1/device/ping", "", token, false);
   }
 }
@@ -996,6 +1060,12 @@ bool rawSend(RawFn fn, RawDone done, void* ctx) {
   return true;
 }
 
+bool appSend(AppRun run, RawDone done, void* ctx) {
+  if (appRun || net::state() != net::State::Connected) return false;
+  appRun = run, appDone = done, appCtx = ctx;
+  return true;
+}
+
 bool remoteSend(const String& body, RemoteCb cb) {
   if (remoteWaiting || state != Link::Linked || net::state() != net::State::Connected) return false;
   remoteBody = body;
@@ -1034,6 +1104,20 @@ void setSetting(const char* key, const String& value) {
   settingsVer++;
 }
 
+void touchSetting(const char* key) {
+  if (vals.count(key)) dirty[key] = millis() | 1;
+}
+
+void dropSettings(const char* prefix) {
+  const size_t n = strlen(prefix);
+  bool any = false;
+  for (auto it = vals.begin(); it != vals.end();) {
+    if (n && !strncmp(it->first.c_str(), prefix, n)) dirty.erase(it->first), it = vals.erase(it), any = true;
+    else ++it;
+  }
+  if (any) saveSettings(), settingsVer++;
+}
+
 uint32_t settingsVersion() { return settingsVer; }
 
 bool provision(const char* json, String& err) {
@@ -1062,6 +1146,7 @@ bool provision(const char* json, String& err) {
     dirty.clear();
     applySettings(d["settings"], 0);
 #endif
+    preset::afterProvision();  // a product preset's values are the factory's: back over the server's defaults
     settingsVer++;
   }
   becomeLinked(tok, d["device"]);
@@ -1070,6 +1155,11 @@ bool provision(const char* json, String& err) {
 }
 
 const FwOffer& fwOffer() { return offer; }
+const String& apiBase() { return api; }
+const String& deviceToken() {
+  static const String none;
+  return state == Link::Linked ? token : none;
+}
 
 void fetch(const String& pathOrUrl, bool bytes, FetchCb cb, void* ctx, bool urgent) {
   // Something the user just asked for goes ahead of pictures still loading.

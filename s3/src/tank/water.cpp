@@ -1084,9 +1084,21 @@ void boxOf(Item& it, float x0, float y0, float x1, float y1) {
 }
 }  // namespace
 
+// The dog's pop-up over the tank (screen.cpp): its big pictures go, so the call has room to record (the 2.8" board,
+// 2026-11-21: "no room to record"); the next prepare() makes them again from the look's picture.
+void Scene::sleep() {
+  heap_caps_free(bgRaw), heap_caps_free(bgc), heap_caps_free(filmW), heap_caps_free(filmT);
+  bgRaw = bgc = nullptr, filmW = filmT = nullptr, filmX0 = filmX1 = 0, filmSoft = false;
+}
 void Scene::prepare() {
   if (!fr || !geo) return;
   const uint32_t p0 = micros();
+  if (!bgRaw) {  // after sleep()
+    bgRaw = (uint16_t*)heap_caps_malloc(FW * FH * 2, MALLOC_CAP_SPIRAM);
+    bgc = (uint16_t*)heap_caps_malloc(FW * FH * 2, MALLOC_CAP_SPIRAM);
+    filmW = (uint8_t*)heap_caps_calloc(1, FW * FH, MALLOC_CAP_SPIRAM);
+    bgLoad = bgBad = true, bgTint[0] = -1;
+  }
   if (bgLoad && bgRaw) {
     if (!background(D.look[look].id, land, FW, FH, bgRaw)) memset(bgRaw, 0, FW * FH * 2);
     bgLoad = false, bgBad = true;
@@ -1292,8 +1304,7 @@ HOT void Scene::draw(const Tgt& t, bool withRays) {
       const FoodI& p = food[i];  // (lying on the sand: a flake lies flat, a worm still wriggles)
       foodPiece(t, p.kind, p.x * S, p.y * S, S * dsc, p.lying && p.kind == F_flake ? 0 : Tm, p.s, tintNow, 0.95f);
     } else {
-      static const Spr* coin = nullptr;
-      if (!coin) coin = sprNamed(P_THINGS, "coin");
+      const Spr* coin = sprNamed(P_THINGS, "coin");  // (not kept: the pictures are freed when the tank closes)
       const CoinI& c = coins[i];
       if (!coin) continue;
       const float w = 11 * dsc * S, kk = w / coin->w, tw = 0.82f + 0.18f * fabsf(fsin(c.t * 2.2f + c.s));

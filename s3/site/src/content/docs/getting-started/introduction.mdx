@@ -33,21 +33,23 @@ EspOS is an open-source operating system for ESP32-S3 devices with a touch scree
 | A JavaScript app (`main.js` + `manifest.json`) | QuickJS inside the firmware, with the `ui`, `timer`, `sound`, `notify`, `toast` and `store` APIs | <Status s="available" /> |
 | A Java phone game (`.jar`, MIDP 2.0 / CLDC 1.1) | The `j2me` engine, a small Java VM in the firmware (firmware 0.4.0) | <Status s="preview" /> |
 | Data for a built-in engine (pictures, sounds, levels) | First-party engines such as `pet` and `run` | First-party only |
-| A declarative clock face or widget (JSON the firmware draws) | the `decl` renderer: built for the e-ink Xteink X4, the S3 next | <Status s="preview" label="In progress" /> |
+| A declarative clock face or widget (JSON the firmware draws) | the `decl` renderer: the format is designed, the S3 renderer is not built | <Status s="planned" /> |
 | A theme, background service or driver | | <Status s="planned" /> |
 
 Third-party native code is not on the list, and it will not be. The ESP32-S3 cannot keep one native app away from another app's memory, so third-party code runs in memory-safe interpreters: QuickJS today, WebAssembly later. See [Security model](/concepts/security/).
 
 ## The hardware
 
-EspOS runs on two boards today. Both use an ESP32-S3 with 16 MB of flash and 8 MB of PSRAM, a capacitive touch screen, a speaker and a microSD slot.
+EspOS runs on the ESP32-S3 family. The apps in these docs run on the two **S3 desks**. Both use an ESP32-S3 with 16 MB of flash and 8 MB of PSRAM, a capacitive touch screen, a speaker and a microSD slot.
 
 | Board | Screen | Notes |
 |---|---|---|
 | ES3C35P | 3.5", 320 × 480 | The reference board. |
 | ES3C28P | 2.8", 240 × 320 | Shows the same interface scaled to 2/3. Checked in QEMU, not yet on the board. |
 
-Both boards turn four ways. Every app is laid out for 320 × 480 in portrait and 480 × 320 in landscape, on both boards, and the OS speaks eleven languages. Details: [Supported boards](/guides/boards/), [Landscape and screen size](/guides/landscape/) and [Languages and translation](/guides/languages/).
+The **EspOS Bot**, a small ESP32-S3 board with a 0.96" OLED (128 × 64), a microphone, a speaker and one button, runs its own firmware for the dog assistant. It pairs with the same server, but it has no app runtime.
+
+Both desks turn four ways. Every app is laid out for 320 × 480 in portrait and 480 × 320 in landscape, on both boards, and the OS speaks eleven languages. Details: [Supported boards](/guides/boards/), [Landscape and screen size](/guides/landscape/) and [Languages and translation](/guides/languages/).
 
 EspOS is meant to run on many chips and displays, and to be rebuilt by anyone for their own hardware while keeping the same platform. See [Hardware and porting](/hardware/).
 

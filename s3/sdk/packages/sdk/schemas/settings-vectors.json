@@ -1,0 +1,486 @@
+{
+ "_doc": "Every implementation of the settings value rules (sdk cli/src/settings.ts checkValue, the server's app_settings_check, the web form, the device's appset.cpp) runs these cases in its tests: {field, value, ok}. docs/manifest-driven.md §1.3.",
+ "cases": [
+  {
+   "field": {
+    "key": "name",
+    "type": "string",
+    "label": "Name",
+    "max": 5
+   },
+   "value": "Hello",
+   "ok": true
+  },
+  {
+   "field": {
+    "key": "name",
+    "type": "string",
+    "label": "Name",
+    "max": 5
+   },
+   "value": "Hello!",
+   "ok": false
+  },
+  {
+   "field": {
+    "key": "name",
+    "type": "string",
+    "label": "Name"
+   },
+   "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+   "ok": true
+  },
+  {
+   "field": {
+    "key": "name",
+    "type": "string",
+    "label": "Name"
+   },
+   "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+   "ok": false
+  },
+  {
+   "field": {
+    "key": "name",
+    "type": "string",
+    "label": "Name"
+   },
+   "value": "two\nlines",
+   "ok": false
+  },
+  {
+   "field": {
+    "key": "note",
+    "type": "text",
+    "label": "Note"
+   },
+   "value": "two\nlines",
+   "ok": true
+  },
+  {
+   "field": {
+    "key": "note",
+    "type": "text",
+    "label": "Note",
+    "max": 3
+   },
+   "value": "four",
+   "ok": false
+  },
+  {
+   "field": {
+    "key": "speed",
+    "type": "number",
+    "label": "Speed",
+    "min": 1,
+    "max": 10,
+    "step": 1
+   },
+   "value": "4",
+   "ok": true
+  },
+  {
+   "field": {
+    "key": "speed",
+    "type": "number",
+    "label": "Speed",
+    "min": 1,
+    "max": 10,
+    "step": 1
+   },
+   "value": "4.5",
+   "ok": false
+  },
+  {
+   "field": {
+    "key": "speed",
+    "type": "number",
+    "label": "Speed",
+    "min": 1,
+    "max": 10
+   },
+   "value": "11",
+   "ok": false
+  },
+  {
+   "field": {
+    "key": "speed",
+    "type": "number",
+    "label": "Speed",
+    "min": 1,
+    "max": 10
+   },
+   "value": "0",
+   "ok": false
+  },
+  {
+   "field": {
+    "key": "speed",
+    "type": "number",
+    "label": "Speed"
+   },
+   "value": "-2.5",
+   "ok": true
+  },
+  {
+   "field": {
+    "key": "speed",
+    "type": "number",
+    "label": "Speed"
+   },
+   "value": "1e3",
+   "ok": false
+  },
+  {
+   "field": {
+    "key": "speed",
+    "type": "number",
+    "label": "Speed",
+    "int": true
+   },
+   "value": "2.5",
+   "ok": false
+  },
+  {
+   "field": {
+    "key": "price",
+    "type": "number",
+    "label": "Price",
+    "min": 0,
+    "step": 0.5
+   },
+   "value": "2.5",
+   "ok": true
+  },
+  {
+   "field": {
+    "key": "price",
+    "type": "number",
+    "label": "Price",
+    "min": 0,
+    "step": 0.5
+   },
+   "value": "2.25",
+   "ok": false
+  },
+  {
+   "field": {
+    "key": "on",
+    "type": "bool",
+    "label": "On"
+   },
+   "value": "1",
+   "ok": true
+  },
+  {
+   "field": {
+    "key": "on",
+    "type": "bool",
+    "label": "On"
+   },
+   "value": "0",
+   "ok": true
+  },
+  {
+   "field": {
+    "key": "on",
+    "type": "bool",
+    "label": "On"
+   },
+   "value": "true",
+   "ok": false
+  },
+  {
+   "field": {
+    "key": "units",
+    "type": "enum",
+    "label": "Units",
+    "options": [
+     {
+      "v": "c",
+      "label": "C"
+     },
+     {
+      "v": "f",
+      "label": "F"
+     }
+    ]
+   },
+   "value": "f",
+   "ok": true
+  },
+  {
+   "field": {
+    "key": "units",
+    "type": "enum",
+    "label": "Units",
+    "options": [
+     {
+      "v": "c",
+      "label": "C"
+     },
+     {
+      "v": "f",
+      "label": "F"
+     }
+    ]
+   },
+   "value": "k",
+   "ok": false
+  },
+  {
+   "field": {
+    "key": "tags",
+    "type": "list",
+    "label": "Tags",
+    "of": {
+     "type": "string",
+     "max": 3
+    },
+    "max_items": 2
+   },
+   "value": "[\"a\",\"bcd\"]",
+   "ok": true
+  },
+  {
+   "field": {
+    "key": "tags",
+    "type": "list",
+    "label": "Tags",
+    "of": {
+     "type": "string",
+     "max": 3
+    },
+    "max_items": 2
+   },
+   "value": "[\"a\",\"b\",\"c\"]",
+   "ok": false
+  },
+  {
+   "field": {
+    "key": "tags",
+    "type": "list",
+    "label": "Tags",
+    "of": {
+     "type": "string",
+     "max": 3
+    }
+   },
+   "value": "[\"abcd\"]",
+   "ok": false
+  },
+  {
+   "field": {
+    "key": "tags",
+    "type": "list",
+    "label": "Tags",
+    "of": {
+     "type": "string"
+    }
+   },
+   "value": "[1]",
+   "ok": false
+  },
+  {
+   "field": {
+    "key": "tags",
+    "type": "list",
+    "label": "Tags",
+    "of": {
+     "type": "string"
+    }
+   },
+   "value": "not json",
+   "ok": false
+  },
+  {
+   "field": {
+    "key": "days",
+    "type": "list",
+    "label": "Days",
+    "of": {
+     "type": "enum",
+     "options": [
+      {
+       "v": "mon",
+       "label": "Mon"
+      },
+      {
+       "v": "tue",
+       "label": "Tue"
+      }
+     ]
+    }
+   },
+   "value": "[\"mon\"]",
+   "ok": true
+  },
+  {
+   "field": {
+    "key": "days",
+    "type": "list",
+    "label": "Days",
+    "of": {
+     "type": "enum",
+     "options": [
+      {
+       "v": "mon",
+       "label": "Mon"
+      },
+      {
+       "v": "tue",
+       "label": "Tue"
+      }
+     ]
+    }
+   },
+   "value": "[\"sun\"]",
+   "ok": false
+  },
+  {
+   "field": {
+    "key": "wake",
+    "type": "time",
+    "label": "Wake"
+   },
+   "value": "07:30",
+   "ok": true
+  },
+  {
+   "field": {
+    "key": "wake",
+    "type": "time",
+    "label": "Wake"
+   },
+   "value": "24:00",
+   "ok": false
+  },
+  {
+   "field": {
+    "key": "wake",
+    "type": "time",
+    "label": "Wake"
+   },
+   "value": "7:30",
+   "ok": false
+  },
+  {
+   "field": {
+    "key": "day",
+    "type": "date",
+    "label": "Day"
+   },
+   "value": "2026-02-28",
+   "ok": true
+  },
+  {
+   "field": {
+    "key": "day",
+    "type": "date",
+    "label": "Day"
+   },
+   "value": "2026-02-30",
+   "ok": false
+  },
+  {
+   "field": {
+    "key": "col",
+    "type": "color",
+    "label": "Colour"
+   },
+   "value": "#1a2B3c",
+   "ok": true
+  },
+  {
+   "field": {
+    "key": "col",
+    "type": "color",
+    "label": "Colour"
+   },
+   "value": "#123",
+   "ok": false
+  },
+  {
+   "field": {
+    "key": "shop",
+    "type": "url",
+    "label": "Shop"
+   },
+   "value": "https://shop.example.com/wp",
+   "ok": true
+  },
+  {
+   "field": {
+    "key": "shop",
+    "type": "url",
+    "label": "Shop"
+   },
+   "value": "http://shop.example.com",
+   "ok": false
+  },
+  {
+   "field": {
+    "key": "shop",
+    "type": "url",
+    "label": "Shop"
+   },
+   "value": "https://localhost",
+   "ok": false
+  },
+  {
+   "field": {
+    "key": "city",
+    "type": "city",
+    "label": "City"
+   },
+   "value": "{\"name\":\"Berlin\",\"lat\":52.52,\"lon\":13.4}",
+   "ok": true
+  },
+  {
+   "field": {
+    "key": "city",
+    "type": "city",
+    "label": "City"
+   },
+   "value": "{\"name\":\"Berlin\",\"lat\":152.5,\"lon\":13.4}",
+   "ok": false
+  },
+  {
+   "field": {
+    "key": "city",
+    "type": "city",
+    "label": "City"
+   },
+   "value": "Berlin",
+   "ok": false
+  },
+  {
+   "field": {
+    "key": "pic",
+    "type": "photo",
+    "label": "Photo"
+   },
+   "value": "p_7f3a",
+   "ok": true
+  },
+  {
+   "field": {
+    "key": "pic",
+    "type": "photo",
+    "label": "Photo"
+   },
+   "value": "../x",
+   "ok": false
+  },
+  {
+   "field": {
+    "key": "ck",
+    "type": "secret",
+    "label": "Key",
+    "where": "device"
+   },
+   "value": "anything",
+   "ok": false
+  }
+ ]
+}

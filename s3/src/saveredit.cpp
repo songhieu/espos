@@ -21,6 +21,7 @@ extern std::string simDir;
 #include "data.h"
 #include "desk.h"
 #include "desksaver.h"
+#include "slots.h"
 #include "fonts.h"
 #include "home.h"
 #include "keyboard.h"
@@ -1358,6 +1359,12 @@ void buildAll() {
 
 void open(void (*closed)()) {
   if (root) return;
+  if (!slots::saverBuiltin()) {  // an app draws the saver (Settings › Default apps): its pages are not edited here
+    os::toast(i18n::fmt(N_("{0} draws the screen saver. To edit pages, choose Clock and photos in Default apps, in Settings."),
+                        slots::saverName()).c_str());
+    if (closed) closed();
+    return;
+  }
   desksaver::doc();  // re-read if the web changed it
   desksaver::parse(desk::setting("s3.saver_pages", ""), d);  // the same as the saver's (no copy code: flash)
   land = os::landscape();

@@ -41,6 +41,8 @@ import (
 	desktop_token_work "espos/internal/flows/desktop_token/work"
 	desktop_unpair_work "espos/internal/flows/desktop_unpair/work"
 	desktop_view_work "espos/internal/flows/desktop_view/work"
+	dev_ai_list_work "espos/internal/flows/dev_ai_list/work"
+	dev_ai_set_work "espos/internal/flows/dev_ai_set/work"
 	dev_me_work "espos/internal/flows/dev_me/work"
 	device_assist_prep "espos/internal/flows/device_assist/prep"
 	device_assist_take "espos/internal/flows/device_assist/take"
@@ -64,6 +66,8 @@ import (
 	device_sync_upk "espos/internal/flows/device_sync/upk"
 	device_sync_work "espos/internal/flows/device_sync/work"
 	device_sync_x4p "espos/internal/flows/device_sync/x4p"
+	device_tts_gate "espos/internal/flows/device_tts/gate"
+	device_tts_prep "espos/internal/flows/device_tts/prep"
 	device_wallpaper_find "espos/internal/flows/device_wallpaper/find"
 	get_device_dashboard_own "espos/internal/flows/get_device_dashboard/own"
 	get_device_settings_work "espos/internal/flows/get_device_settings/work"
@@ -84,6 +88,7 @@ import (
 	market_tick_work "espos/internal/flows/market_tick/work"
 	photo_source_find "espos/internal/flows/photo_source/find"
 	post_notification_work "espos/internal/flows/post_notification/work"
+	provider_call_call "espos/internal/flows/provider_call/call"
 	push_user_pkg_work "espos/internal/flows/push_user_pkg/work"
 	put_app_secret_work "espos/internal/flows/put_app_secret/work"
 	put_device_settings_work "espos/internal/flows/put_device_settings/work"
@@ -148,6 +153,8 @@ var Nodes = map[string]engine.NodeFunc{
 	"desktop_token/work":          desktop_token_work.Run,
 	"desktop_unpair/work":         desktop_unpair_work.Run,
 	"desktop_view/work":           desktop_view_work.Run,
+	"dev_ai_list/work":            dev_ai_list_work.Run,
+	"dev_ai_set/work":             dev_ai_set_work.Run,
 	"dev_me/work":                 dev_me_work.Run,
 	"device_assist/prep":          device_assist_prep.Run,
 	"device_assist/take":          device_assist_take.Run,
@@ -171,6 +178,8 @@ var Nodes = map[string]engine.NodeFunc{
 	"device_sync/upk":             device_sync_upk.Run,
 	"device_sync/work":            device_sync_work.Run,
 	"device_sync/x4p":             device_sync_x4p.Run,
+	"device_tts/gate":             device_tts_gate.Run,
+	"device_tts/prep":             device_tts_prep.Run,
 	"device_wallpaper/find":       device_wallpaper_find.Run,
 	"get_device_dashboard/own":    get_device_dashboard_own.Run,
 	"get_device_settings/work":    get_device_settings_work.Run,
@@ -191,6 +200,7 @@ var Nodes = map[string]engine.NodeFunc{
 	"market_tick/work":            market_tick_work.Run,
 	"photo_source/find":           photo_source_find.Run,
 	"post_notification/work":      post_notification_work.Run,
+	"provider_call/call":          provider_call_call.Run,
 	"push_user_pkg/work":          push_user_pkg_work.Run,
 	"put_app_secret/work":         put_app_secret_work.Run,
 	"put_device_settings/work":    put_device_settings_work.Run,

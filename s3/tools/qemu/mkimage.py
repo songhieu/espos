@@ -11,6 +11,9 @@ as the board keeps them; and the memory card as a FAT image (its sd/: build-qemu
                                                build's; no PawBoop packs (v2 has no pb_* partitions). To switch an
                                                image that has data from v1 to v2, use tools/migrate_v2.py --image.
   --build DIR                                  the firmware from DIR (default .pio/build/<env>)
+  --bundle DIR                                 a product's delivery bundle (tools/make_bundle.py --preset): its
+                                               littlefs.bin and its card/ (with this env's firmware: QEMU's panel and
+                                               network), no PawBoop 1.0 packs, nothing else: a unit off the line
 """
 import argparse
 import csv
@@ -41,6 +44,7 @@ def main():
     a.add_argument("--sd", help="the card image (default: sd.img next to OUT)")
     a.add_argument("--table", default="partitions_pawboop.csv", help="the partition table (CSV in the project)")
     a.add_argument("--build", help="the build folder (default .pio/build/<env>)")
+    a.add_argument("--bundle", help="a delivery bundle folder (make_bundle.py --preset)")
     o = a.parse_args()
     build = Path(o.build) if o.build else ROOT / ".pio/build" / o.env
     table = ROOT / o.table
@@ -66,6 +70,17 @@ def main():
     img[: len(fw)] = fw
     tableBin(img, table)
     parts = partitions(table)
+    if o.bundle:
+        b = Path(o.bundle)
+        lfs = (b / "littlefs.bin").read_bytes()
+        off, size = parts["spiffs"]
+        if len(lfs) != size:
+            raise SystemExit(f"{b}/littlefs.bin: {len(lfs)} bytes, the partition has {size}")
+        img[off : off + size] = lfs
+        Path(o.out).write_bytes(img)
+        print(f"{o.out}: firmware {len(fw)} bytes, the bundle's LittleFS")
+        card(b / "card", Path(o.sd) if o.sd else Path(o.out).parent / "sd.img")
+        return
     for name, fname in PACKS.items():
         if name not in parts:
             continue

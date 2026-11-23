@@ -37,7 +37,8 @@ var deskCmds = map[string]string{
 	"sys.lock": "safe", "sys.display_off": "safe", "sys.bright": "safe", "sys.sleep": "confirm",
 	"shortcut.run": "safe",
 	"claude.deny":  "safe", "claude.approve": "confirm", "claude.reply": "confirm", "claude.new": "confirm",
-	"claude.stop": "confirm", "claude.focus": "safe", "claude.key": "confirm",
+	"claude.stop": "confirm", "claude.focus": "safe", "claude.key": "confirm", "claude.status": "safe",
+	"claude.keys": "confirm",
 }
 
 // claude.key's keys (§9.3); esc and ctrl_c interrupt Claude: risky (the app asks once, ack_risky).
@@ -50,7 +51,19 @@ const safeTTL = 30000    // a safe command not delivered in 30 s expires (no lat
 const confirmTTL = 60000 // a risky command waits 60 s for a yes (then 30 s more once confirmed)
 const perMin = 30        // commands a minute per desktop
 const confirmsPerMin = 5 // risky ones a minute per desktop
-const appPerMin = 90     // claude.reply / claude.key from the Sessions app a minute per desktop (§9.3)
+const appPerMin = 90     // claude.reply / claude.key / claude.keys from the Sessions app a minute per desktop (§9.3)
+const maxKeys = 20       // keys in one claude.keys
+
+// typing: the Sessions app's typing commands, with their own budget (§9.3).
+func typing(via, cmd string) bool {
+	return via == "app" && (cmd == "claude.reply" || cmd == "claude.key" || cmd == "claude.keys")
+}
+
+// fastKey: a key from the Sessions app rides on the poke to the Mac (node pub's "cmd"), so it is typed without
+// waiting for a sync; keys only, never text (§9.3, 2026-11-22). The S3 is answered at once (no hold for the result).
+func fastKey(via, cmd string) bool {
+	return via == "app" && (cmd == "claude.key" || cmd == "claude.keys")
+}
 
 var idRe = regexp.MustCompile(`^[A-Za-z0-9_.:\-]{1,100}$`)
 var folderRe = regexp.MustCompile(`^[A-Za-z0-9_.\-]{1,64}$`)
@@ -231,6 +244,11 @@ func checkArgs(cmd string, raw any, long bool) (map[string]any, bool) {
 		return out, ids("session", idRe) && ids("req", idRe)
 	case "claude.stop", "claude.focus":
 		return out, ids("session", idRe)
+	case "claude.status":
+		if a["session"] == nil || wm.Str(a["session"]) == "" {
+			return out, true // every session
+		}
+		return out, ids("session", idRe)
 	case "claude.reply":
 		if long {
 			// the Sessions app (§9.3): up to 2000 characters, new lines allowed (a bracketed paste on the Mac)
@@ -254,6 +272,20 @@ func checkArgs(cmd string, raw any, long bool) (map[string]any, bool) {
 			return nil, false
 		}
 		out["key"] = k
+		return out, ids("session", idRe)
+	case "claude.keys":
+		ks := strings.Split(strings.ToLower(wm.Str(a["keys"])), ",")
+		if len(ks) == 0 || len(ks) > maxKeys {
+			return nil, false
+		}
+		for i, k := range ks {
+			k = strings.TrimSpace(k)
+			if !claudeKeys[k] {
+				return nil, false
+			}
+			ks[i] = k
+		}
+		out["keys"] = strings.Join(ks, ",")
 		return out, ids("session", idRe)
 	case "claude.new":
 		t := strings.Join(strings.Fields(wm.Str(a["task"])), " ")
@@ -283,6 +315,11 @@ func sessionName(st map[string]any, id string) (string, map[string]any) {
 func cmdText(cmd string, a map[string]any, st map[string]any) string {
 	s := func(k string) string { return wm.Str(a[k]) }
 	switch cmd {
+	case "claude.status":
+		if n, _ := sessionName(st, wm.Str(a["session"])); n != "" {
+			return "hỏi Claude ở " + n + " tình hình"
+		}
+		return "hỏi Claude tình hình các phiên"
 	case "app.open":
 		return "mở app " + s("name")
 	case "app.switch":
@@ -437,7 +474,9 @@ func stateOf(v any) map[string]any {
 // command id cannot be guessed; the platform offers no random source to code nodes.
 func newID(parts ...any) string {
 	ctx := wm.Context()
-	sum := sha256.Sum256([]byte(fmt.Sprint(append(parts, time.Now().UnixNano(), ctx["run_id"], ctx["node_id"])...)))
+	seed := fmt.Sprint(parts...) + "|" + fmt.Sprint(time.Now().UnixNano()) + "|" + fmt.Sprint(ctx["run_id"]) + "|" +
+		fmt.Sprint(ctx["node_id"]) // joined as text, not appended to parts (applint -strict)
+	sum := sha256.Sum256([]byte(seed))
 	return hex.EncodeToString(sum[:16])
 }
 
@@ -499,8 +538,8 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 			res, _ := h["result"].(map[string]any)
 			return map[string]any{"ok": true, "status": 200, "id": keyID, "state": wm.Str(h["state"]), "risk": wm.Str(h["risk"]),
 				"exp_ms": int64(wm.Num(h["exp_ms"])), "desktop_id": wm.Int(h["desktop_id"]), "again": true,
-				"text": wm.Str(res["text"]), "err": wm.Str(res["err"]), "chan": "",
-				"wait": wm.Str(h["state"]) == "queued" || wm.Str(h["state"]) == "sent"}
+				"text": wm.Str(res["text"]), "err": wm.Str(res["err"]), "chan": "", "push": "",
+				"wait": (wm.Str(h["state"]) == "queued" || wm.Str(h["state"]) == "sent") && !fastKey(wm.Str(h["via"]), wm.Str(h["cmd"]))}
 		}
 	}
 
@@ -612,7 +651,7 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 	}
 	risky, nOther := 0, 0 // the Sessions app's typing has its own budget (below)
 	for _, r := range recent {
-		if wm.Str(r["via"]) == "app" && (wm.Str(r["cmd"]) == "claude.reply" || wm.Str(r["cmd"]) == "claude.key") {
+		if typing(wm.Str(r["via"]), wm.Str(r["cmd"])) {
 			continue
 		}
 		nOther++
@@ -620,12 +659,12 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 			risky++
 		}
 	}
-	appCmd := via == "app" && (cmd == "claude.reply" || cmd == "claude.key")
+	appCmd := typing(via, cmd)
 	if appCmd {
 		// typing from the Sessions app: its own, larger budget (§9.3); the tap on the device is the yes
 		nApp := 0
 		for _, r := range recent {
-			if wm.Str(r["via"]) == "app" && (wm.Str(r["cmd"]) == "claude.reply" || wm.Str(r["cmd"]) == "claude.key") {
+			if typing(wm.Str(r["via"]), wm.Str(r["cmd"])) {
 				nApp++
 			}
 		}
@@ -645,6 +684,10 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 			confirmed = map[string]any{"by": "web", "where": "web", "at_ms": now} // the page asked the person first
 		} else if wm.Bool(in["confirm"]) && via == "app" && fromID > 0 && confirmAt != "mac" {
 			confirmed = map[string]any{"by": "s3", "where": "s3", "at_ms": now} // the person's tap on the device (§9.3)
+		} else if wm.Bool(in["confirm"]) && via == "voice" && fromID > 0 && confirmAt != "mac" &&
+			(wm.Str(st["confirm_by"]) == "" || wm.Str(st["confirm_by"]) == "voice") {
+			// the person said yes to the dog's read-back (assist_reply holds it a turn; the Mac's "confirm by" is voice)
+			confirmed = map[string]any{"by": "voice", "where": "s3", "at_ms": now}
 		} else {
 			state = "confirm"
 			exp = now + confirmTTL
@@ -679,10 +722,21 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 	// The poke channel is rt:desk:<desktop>:<chan_key> (node pub writes the "rt:desk:" part: the platform checks a
 	// channel's kind in the drawing).
 	waitS := 2
-	if cmd == "yt.play" {
-		waitS = 9 // search, open, and the check that it really plays (the Mac's autoplay check)
+	if cmd == "yt.play" || cmd == "claude.status" {
+		waitS = 9 // yt.play: search, open, the check it plays; claude.status: a report from the last 2 min comes at once
+	}
+	// a key: the command itself goes with the poke (as JSON text; the same shape desktop_sync sends), and the S3 is
+	// answered at once: the screen shows the key's effect
+	push := ""
+	wait := state == "queued"
+	if fastKey(via, cmd) && state == "queued" {
+		wait = false
+		pb, _ := json.Marshal(map[string]any{"id": id, "cmd": cmd, "args": args, "risk": risk, "state": "queued", "exp_ms": exp,
+			"nonce": vals["nonce"], "from": map[string]any{"device_id": fromID, "name": fromName, "via": via}, "heard": "",
+			"confirmed": confirmed})
+		push = string(pb)
 	}
 	return map[string]any{"ok": true, "status": 200, "id": id, "state": state, "risk": risk, "what": what,
-		"exp_ms": exp, "desktop_id": deskID, "chan": fmt.Sprintf("%d:%s", deskID, wm.Str(row["chan_key"])), "wait": state == "queued",
-		"wait_s": waitS, "where": confirmWhere(confirmAt)}
+		"exp_ms": exp, "desktop_id": deskID, "chan": fmt.Sprintf("%d:%s", deskID, wm.Str(row["chan_key"])), "wait": wait,
+		"wait_s": waitS, "where": confirmWhere(confirmAt), "push": push}
 }

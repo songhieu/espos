@@ -57,10 +57,26 @@ var (
 var categories = []string{"game", "tool", "study", "health", "widget"}
 var engines = []string{"js", "pet", "run", "j2me", "lang", "font", "wake", "tank"}
 var permsKnown = []string{"sound", "notify", "net", "bg"}
+
+// assistPerm: what an assistant app ("provides": ["assistant"]) may declare besides those: what the server sends its
+// provider and does for it (s3desk/docs/assistant-providers.md §2.10; the validator's ASSIST_PERM and data perms).
+var assistPerm = regexp.MustCompile(`^(assist\.(audio|name|alarms|todo|notes|notes\.body|memory|history|desk)|(alarms|todo|notes|settings|memory)\.write|desk\.control|location:city|data:(weather|calendar|markets|news|reading))$`)
 var glyphs = []string{"timer", "alarm", "bell", "list", "drop", "flag", "globe", "sun", "moon", "photo", "edit", "font", "home",
 	"search", "speaker", "play", "lap", "pin", "leaf", "power", "grid"}
 var langTags = []string{"en", "vi", "zh-Hans", "es", "fr", "de", "ja", "ko", "pt-BR", "ru", "id"}
 var keypads = []string{"full", "compact", "touch"}
+
+// eapLike: a list of strings (non-strings left out).
+func eapLike(v any) []string {
+	out := []string{}
+	l, _ := v.([]any)
+	for _, x := range l {
+		if s, ok := x.(string); ok {
+			out = append(out, s)
+		}
+	}
+	return out
+}
 
 func in(list []string, s string) bool {
 	for _, x := range list {
@@ -523,9 +539,22 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 		if !isList {
 			P("M019", "perms: a list of %s", strings.Join(permsKnown, ", "))
 		}
+		isAssistant := false
+		for _, x := range eapLike(m["provides"]) {
+			if x == "assistant" {
+				isAssistant = true
+			}
+		}
 		for _, x := range pl {
 			s, _ := x.(string)
-			if !in(permsKnown, s) {
+			if isAssistant && assistPerm.MatchString(s) && !have[s] {
+				have[s] = true
+				perms = append(perms, s) // an assistant app's: the server honours them, not the device
+			} else if isAssistant && assistPerm.MatchString(s) {
+				continue
+			} else if assistPerm.MatchString(s) && !in(permsKnown, s) && !strings.HasPrefix(s, "data:") && s != "location:city" {
+				P("M049", "perms: %q is an assistant app's permission; add \"provides\": [\"assistant\"] or remove it", s)
+			} else if !in(permsKnown, s) {
 				P("M019", "perms: unknown %v (known: %s)", x, strings.Join(permsKnown, ", "))
 			} else if !have[s] {
 				have[s] = true

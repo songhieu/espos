@@ -106,8 +106,9 @@ def put_pkg(bd, path):
         for o in range(0, len(d), 1024):
             bd.s.write(d[o:o + 1024])
             time.sleep(0.005)
-        if not bd.until(r"PKGPUT (ok|failed|bad)", 15):
-            sys.exit(f"no answer for {n}")
+        got = bd.until(r"PKGPUT (ok|failed|bad)", 15)
+        if not got or b"PKGPUT ok" not in got:
+            sys.exit(f"{n}: {got.decode() if got else 'no answer'} (nothing is shown until manifest.json arrives)")
     bd.send("RESTART")
 
 

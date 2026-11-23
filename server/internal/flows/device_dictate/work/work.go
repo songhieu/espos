@@ -120,10 +120,24 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 	if name == "" {
 		name = lang
 	}
+	// ?expect=yesno&about=<what was read back>: the "say ok to send" flow of an app (the Sessions app's dictated
+	// reply): the words, and whether they mean yes / no / unclear / something else. The app still decides to send.
+	yesno := wm.Str(query["expect"]) == "yesno"
+	about := strings.Join(strings.Fields(wm.Str(query["about"])), " ")
+	if len([]rune(about)) > 300 {
+		about = string([]rune(about)[:300])
+	}
+	sys := "Write down exactly what the person says in the recording, in " + name +
+		", with normal punctuation and capitals. Do not answer it, translate it or add anything. Silence or noise: an empty text. " +
+		"Answer JSON {\"text\":\"...\"}."
+	if yesno {
+		sys = "The person was just asked to confirm sending this: «" + about + "». Write down exactly what they say in the recording, in " +
+			name + ", and decide what they meant: \"yesno\": \"confirm\" (agrees, in any wording or language), \"cancel\" (no, later, " +
+			"stop), \"unclear\" (asks what it is, or cannot be understood) or \"other\" (says something else). Answer JSON " +
+			"{\"text\":\"...\",\"yesno\":\"...\"}."
+	}
 	msgs := []any{
-		map[string]any{"role": "system", "content": "Write down exactly what the person says in the recording, in " + name +
-			", with normal punctuation and capitals. Do not answer it, translate it or add anything. Silence or noise: an empty text. " +
-			"Answer JSON {\"text\":\"...\"}."},
+		map[string]any{"role": "system", "content": sys},
 		map[string]any{"role": "user", "content": []any{
 			map[string]any{"type": "input_audio", "input_audio": map[string]any{"data": base64.StdEncoding.EncodeToString(raw), "format": "wav"}}}},
 	}
@@ -161,7 +175,15 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 		if len([]rune(t)) > 2000 {
 			t = string([]rune(t)[:2000])
 		}
-		return answer(200, map[string]any{"text": t, "seconds": secs})
+		out := map[string]any{"text": t, "seconds": secs}
+		if yesno {
+			yn := wm.Str(got["yesno"])
+			if yn != "confirm" && yn != "cancel" && yn != "other" {
+				yn = "unclear"
+			}
+			out["yesno"] = yn
+		}
+		return answer(200, out)
 	}
 	wm.Log("model failed: ", lastErr)
 	return answer(502, map[string]any{"error": "ai_failed"})

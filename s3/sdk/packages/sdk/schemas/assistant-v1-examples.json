@@ -1,0 +1,454 @@
+{
+ "_doc": "Examples of the EspOS Assistant Protocol v1 (assistant-v1.schema.json): each validates against its $defs entry (cli/test/assistant.test.mjs). The turn is an English S3 in Berlin with PawBoop's Bao; the response sets an alarm.",
+ "manifest": {
+  "protocol": [
+   "1"
+  ],
+  "name": "Home AI",
+  "developer": "Sam Lee",
+  "description": "My own assistant running at home.",
+  "icon": "https://ai.example.com/icon-256.png",
+  "homepage": "https://ai.example.com",
+  "privacy_url": "https://ai.example.com/privacy",
+  "endpoint": "https://ai.example.com/espos/turn",
+  "auth": {
+   "hmac": true,
+   "bearer": "none"
+  },
+  "input": {
+   "text": true,
+   "audio": [
+    "wav16k"
+   ]
+  },
+  "output": {
+   "audio": [
+    "pcm16"
+   ],
+   "stream": true
+  },
+  "languages": [
+   "*"
+  ],
+  "persona": "espos",
+  "memory": "espos",
+  "scopes": {
+   "required": [
+    "turn.text",
+    "locale"
+   ],
+   "optional": [
+    "profile.name",
+    "place",
+    "weather",
+    "calendar",
+    "alarms",
+    "todo",
+    "notes",
+    "memories",
+    "history",
+    "act.alarms",
+    "act.memory"
+   ]
+  },
+  "actions": [
+   "alarm.add",
+   "alarm.update",
+   "alarm.delete",
+   "todo.add",
+   "todo.done",
+   "note.add",
+   "memory"
+  ]
+ },
+ "turn": {
+  "v": "1",
+  "type": "turn",
+  "request_id": "req_01JDA7Q3V8K2",
+  "sent_ms": 1795300000000,
+  "deadline_ms": 1795300012000,
+  "turn": {
+   "id": "t_9c1e",
+   "seq": 7,
+   "source": "voice",
+   "intent": null,
+   "input": {
+    "text": "Set an alarm for 6:30 tomorrow",
+    "text_from": "espos_stt"
+   }
+  },
+  "locale": {
+   "language": "en",
+   "timezone": "Europe/Berlin",
+   "utc_offset_min": 60,
+   "units": "metric",
+   "clock": "24h",
+   "currency": "EUR",
+   "calendar": "gregorian"
+  },
+  "now": "2026-11-21T09:41:00+01:00",
+  "persona": {
+   "id": "pawboop/bao",
+   "name": "Bao",
+   "species": "dog",
+   "character": "The grumpy old uncle of the neighbourhood",
+   "speech": "Gruff, short sentences of 3 to 8 words. Grumbles and denies he cares, but worries about everything for the kid.",
+   "address": {
+    "self": "",
+    "user": "kid"
+   },
+   "profile": {
+    "breed": "a Vietnamese street dog, short and chubby",
+    "coat": "red-orange fur, cream belly",
+    "age": "about 7"
+   },
+   "lines": [
+    "Oh, you're here. I wasn't waiting. I just happened to be sitting here."
+   ],
+   "refuse": "That's not my business, kid. Ask me about the weather.",
+   "voice": "pawboop/bao"
+  },
+  "user": {
+   "ref": "u_7f3c2a91",
+   "name": "Sam"
+  },
+  "device": {
+   "ref": "d_19aa04be",
+   "kind": "s3",
+   "model": "es3c35p",
+   "name": "Desk",
+   "screen": {
+    "w": 320,
+    "h": 480,
+    "touch": true
+   },
+   "speaks": true,
+   "say_max_chars": 500,
+   "say_max_chars_long": 950
+  },
+  "scopes": [
+   "turn.text",
+   "locale",
+   "profile.name",
+   "place",
+   "weather",
+   "calendar",
+   "alarms",
+   "todo",
+   "notes",
+   "memories",
+   "history",
+   "act.alarms",
+   "act.memory"
+  ],
+  "context": {
+   "place": {
+    "city": "Berlin",
+    "country": "DE"
+   },
+   "weather": {
+    "state": "fresh",
+    "fetched_ms": 1795299400000,
+    "now": {
+     "at": "2026-11-21T09:30",
+     "temp_c": 4,
+     "feels_c": 1,
+     "text": "light rain",
+     "is_day": true,
+     "humidity": 88
+    },
+    "hours": [
+     {
+      "at": "2026-11-21T12:00",
+      "temp_c": 5,
+      "text": "light rain",
+      "rain_chance": 70
+     }
+    ],
+    "days": [
+     {
+      "date": "2026-11-21",
+      "min_c": 2,
+      "max_c": 6,
+      "text": "light rain",
+      "rain_chance": 70
+     },
+     {
+      "date": "2026-11-22",
+      "min_c": 1,
+      "max_c": 5,
+      "text": "overcast",
+      "rain_chance": 30
+     }
+    ]
+   },
+   "calendar": {
+    "state": "ok",
+    "fetched_ms": 1795298000000,
+    "events": [
+     {
+      "date": "2026-11-21",
+      "time": "14:00",
+      "title": "Dentist",
+      "all_day": false
+     }
+    ]
+   },
+   "alarms": {
+    "snapshot": "h_3a9c",
+    "items": [
+     {
+      "ref": "al_1",
+      "time": "07:00",
+      "days": "12345",
+      "on": true,
+      "label": "Work",
+      "next": "2026-11-24T07:00:00+01:00"
+     }
+    ]
+   },
+   "todo": {
+    "snapshot": "h_77e0",
+    "items": [
+     {
+      "ref": "td_1",
+      "text": "Buy milk",
+      "done": false
+     }
+    ]
+   },
+   "notes": {
+    "snapshot": "h_c1d2",
+    "items": [
+     {
+      "ref": "nt_1",
+      "title": "Shopping",
+      "body": "eggs, bread"
+     }
+    ]
+   },
+   "memories": {
+    "total": 42,
+    "items": [
+     {
+      "ref": "m_12",
+      "fact": "Sam's birthday is 12 March",
+      "kind": "date"
+     }
+    ]
+   },
+   "history": {
+    "session": {
+     "id": "s_5b20",
+     "started": "2026-11-21T09:30:00+01:00",
+     "summary": "Sam said the dentist moved to 2 pm.",
+     "turns": [
+      {
+       "seq": 6,
+       "user": "Is it cold out?",
+       "assistant": "Four degrees, kid. Take a coat.",
+       "persona": "pawboop/bao"
+      }
+     ],
+     "note": ""
+    },
+    "earlier": [
+     {
+      "started": "2026-11-20T21:10:00+01:00",
+      "summary": "Sam planned a trip to Munich on Saturday.",
+      "where": "device"
+     }
+    ]
+   },
+   "markets": {
+    "kinds": {
+     "gold": {
+      "state": "missing",
+      "fetched_ms": 0
+     },
+     "crypto": {
+      "state": "fresh",
+      "fetched_ms": 1795299000000
+     },
+     "fx": {
+      "state": "stale",
+      "fetched_ms": 1795100000000
+     }
+    },
+    "items": [
+     {
+      "id": "crypto:BTC",
+      "name": "Bitcoin",
+      "kind": "crypto",
+      "price": 63765,
+      "currency": "USD",
+      "change_pct": -1.18,
+      "fetched_ms": 1795299000000
+     }
+    ]
+   },
+   "news": {
+    "state": "fresh",
+    "fetched_ms": 1795298800000,
+    "source": "Tagesschau",
+    "language": "de",
+    "items": [
+     {
+      "section": "World",
+      "section_id": "world",
+      "title": "Example headline",
+      "lead": "One line about it."
+     }
+    ]
+   }
+  },
+  "capabilities": {
+   "actions": [
+    "alarm.add",
+    "alarm.update",
+    "alarm.delete",
+    "memory"
+   ],
+   "settings": [
+    {
+     "key": "volume",
+     "type": "int",
+     "min": 0,
+     "max": 100,
+     "value": "60",
+     "label": "Speaker volume"
+    },
+    {
+     "key": "dnd",
+     "type": "enum",
+     "values": [
+      "on",
+      "off"
+     ],
+     "value": "off",
+     "label": "Do not disturb"
+    }
+   ],
+   "moods": [
+    "happy",
+    "giggle",
+    "high_five",
+    "levelup",
+    "plead",
+    "sulk",
+    "yuck",
+    "alert",
+    "look_up",
+    "stand",
+    "no_tired",
+    "sleep"
+   ],
+   "audio_out": {
+    "formats": [
+     "pcm16"
+    ],
+    "rates": [
+     16000,
+     22050,
+     24000
+    ]
+   }
+  },
+  "last_results": [
+   {
+    "id": "a1",
+    "type": "todo.add",
+    "state": "done"
+   }
+  ]
+ },
+ "response": {
+  "v": "1",
+  "request_id": "req_01JDA7Q3V8K2",
+  "heard": "Set an alarm for 6:30 tomorrow",
+  "say": {
+   "text": "Done, kid. Alarm at 6:30 tomorrow morning.",
+   "lang": "en",
+   "long": false,
+   "if_not_done": "Hm. I couldn't set that alarm, kid."
+  },
+  "mood": "happy",
+  "topic": "alarm",
+  "actions": [
+   {
+    "id": "a1",
+    "type": "alarm.add",
+    "args": {
+     "time": "06:30",
+     "days": "",
+     "label": ""
+    }
+   }
+  ],
+  "memory": [
+   {
+    "op": "remember",
+    "fact": "Sam gets up at 6:30 on weekdays",
+    "kind": "pref"
+   }
+  ],
+  "follow_up": {
+   "listen": false
+  },
+  "session": {
+   "note": "",
+   "summary": null,
+   "end": false
+  },
+  "meta": {
+   "model": "my-model-7b",
+   "ms": 840
+  }
+ },
+ "error": {
+  "error": {
+   "code": "rate_limited",
+   "message": "Too many turns",
+   "retry_after_s": 30
+  }
+ },
+ "events": [
+  {
+   "event": "plan",
+   "data": {
+    "heard": "Set an alarm for 6:30 tomorrow",
+    "actions": [
+     {
+      "id": "a1",
+      "type": "alarm.add",
+      "args": {
+       "time": "06:30"
+      }
+     }
+    ]
+   }
+  },
+  {
+   "event": "say",
+   "data": {
+    "delta": "Done, kid. "
+   }
+  },
+  {
+   "event": "say",
+   "data": {
+    "delta": "Alarm at 6:30 tomorrow morning."
+   }
+  },
+  {
+   "event": "final",
+   "data": {
+    "v": "1",
+    "request_id": "req_01JDA7Q3V8K2",
+    "say": {
+     "text": "Done, kid. Alarm at 6:30 tomorrow morning."
+    }
+   }
+  }
+ ]
+}

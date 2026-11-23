@@ -1,0 +1,15 @@
+{
+  "id": "dev.espos.uitest",
+  "name": "UI test",
+  "version": "1.0.0",
+  "code": 10000,
+  "kind": "js",
+  "engine": "js",
+  "min_fw": 500,
+  "api": {"min": 2},
+  "category": "tool",
+  "desc": "Smoke test of the level-2 UI nodes (tools/uitest), not for the store",
+  "icon": {"bg": ["#64748b", "#334155"], "glyph": "grid"},
+  "perms": [],
+  "part": "core"
+}

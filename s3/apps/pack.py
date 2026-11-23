@@ -43,10 +43,15 @@ for d in sorted(p for p in Path(__file__).parent.iterdir() if (p / "manifest.jso
           "perms": m.get("perms", m.get("permissions", [])), "part": "core"}
     if m.get("i18n"):  # names and descriptions in other languages (docs/i18n.md)
         pm["i18n"] = m["i18n"]
+    for k in ("settings", "auth", "api"):  # the settings form and its secrets' bindings (app-slots.md §15.1): the device
+        if m.get(k):                      # reads them from the installed package
+            pm[k] = m[k]
     with tempfile.TemporaryDirectory() as tmp:
         t = Path(tmp)
         (t / "manifest.json").write_text(json.dumps(pm, ensure_ascii=False))
         shutil.copy(d / "main.js", t / "main.js")
+        if (d / "pkg").is_dir():  # the app's own files beside main.js (fonts, icons: e.g. apps/sessions/pkg)
+            shutil.copytree(d / "pkg", t, dirs_exist_ok=True)
         if (d / "icon.jpg").exists():
             shutil.copy(d / "icon.jpg", t / "icon.jpg")
             shutil.copy(d / "icon.jpg", out / f"{m['id']}-{m['version']}.jpg")

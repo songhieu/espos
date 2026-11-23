@@ -17,6 +17,7 @@ reads it, so it stays.
 """
 import hashlib
 import json
+import re
 import os
 import struct
 import sys
@@ -26,6 +27,11 @@ from pathlib import Path
 ENGINES = {"js", "pet", "run", "j2me", "lang", "font", "wake", "tank"}  # lang, font: language packs (docs/i18n.md); wake: a wake word's model; tank: Hồ cá cảnh (docs/tank.md)
 CATEGORIES = {"game", "tool", "study", "health", "widget"}
 PERMS = {"sound", "notify", "net", "bg"}
+# API level 2 (docs/app-slots.md §15.1): net:<host> net:*.<domain> net:* net:lan net:espos net:setting:<field>,
+# storage:<KB>, cache:<KB>, and the plain names below.
+PERMS2 = {"net:*", "net:lan", "net:espos", "overlay", "screen.awake", "mic", "dictate", "location:city"} | {
+    "data:" + d for d in ("weather", "calendar", "reading", "news", "markets")}
+PERM2_RE = re.compile(r"^(net:(setting:[a-z0-9_]{1,24}|(\*\.)?[a-z0-9-]+(\.[a-z0-9-]+)+)|(storage|cache):[1-9][0-9]{0,4})$")
 # Declarative packages (docs/profiles.md): data only, drawn by the firmware.
 DECL_TYPES = {"face", "widget", "theme"}
 DECL_LEVEL = 1
@@ -78,8 +84,9 @@ def check_manifest(m, where):
         if m.get("category", "tool") not in CATEGORIES:
             errs.append(f"category: one of {sorted(CATEGORIES)}")
         for p in m.get("perms", []):
-            if p not in PERMS:
-                errs.append(f"perms: unknown {p!r} (known: {sorted(PERMS)})")
+            if p not in PERMS and p not in PERMS2 and not (isinstance(p, str) and PERM2_RE.match(p)):
+                errs.append(f"perms: unknown {p!r} (known: {sorted(PERMS)}, and level 2: net:<host>, net:lan, "
+                            "net:setting:<field>, storage:<KB>, cache:<KB> ...)")
         icon = m.get("icon", {})
         if icon.get("glyph", "grid") not in GLYPHS:
             errs.append(f"icon.glyph: one of {sorted(GLYPHS)}")
@@ -328,7 +335,8 @@ def check(paths):
 # A part's choice in the store (docs/packages.md §4): its group, its English label and that label in other languages
 # ({"vi": "Nhẹ (10 hình/giây)"}), the default of its group. Kept in the part's manifest (or a builder's
 # <id>-<version>-catalog.json, or apps/catalog-text.json "parts"); check_catalog() refuses a catalog that lost them.
-PART_KEYS = ("group", "label", "labels", "default", "board")  # board: the part is for that board ("es3c28p"): the device takes it there
+PART_KEYS = ("group", "label", "labels", "default", "board", "opt")  # board: the part is for that board ("es3c28p"): the device takes it there;
+# opt: downloaded with the core when a memory card is in and there is room (firmware 0.5.12, PawBoop's game parts)
 
 
 def check_catalog(cat, espk_dir=None):
@@ -355,8 +363,11 @@ def check_catalog(cat, espk_dir=None):
             for k in ("id", "url", "size", "sha256"):
                 if k not in p and not (k == "url" and e.get("paid") and p.get("key")):  # paid: a signed link instead
                     errs.append(f"{pid} part {p.get('id', '?')}: no {k}")
-            if not p.get("req") and not p.get("group"):
+            if not p.get("req") and not p.get("group") and not p.get("opt"):
                 errs.append(f"{pid} part {p.get('id')}: neither required nor in a group (the store would install it always)")
+            if p.get("opt") and (p.get("req") is not False or p.get("group")):
+                errs.append(f"{pid} part {p.get('id')}: an optional part needs \"req\": false and no group (else firmware "
+                            "before 0.5.12 installs it always)")
             if p.get("group"):
                 groups.setdefault(p["group"], []).append(p)
                 if not p.get("label"):
@@ -384,6 +395,8 @@ def entry(base, paths, show=False):
         e = {"id": part, "url": f"{base.rstrip('/')}/{Path(p).name}", "size": len(b), "sha256": hashlib.sha256(b).hexdigest()}
         if part == "core" or m.get("req"):
             e["req"] = True
+        elif m.get("opt"):
+            e["req"] = False  # said, not left out: firmware before 0.5.12 takes a part without "req" or a group as required
         for k in PART_KEYS:
             if k in m:
                 e[k] = m[k]

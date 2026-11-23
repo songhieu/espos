@@ -35,7 +35,7 @@ CATEGORY = {"dev.espos.dice": "game", "dev.espos.vocab": "study", "dev.espos.wat
 def code_of(v):
     a, b, c = (list(map(int, v.split("."))) + [0, 0, 0])[:3]; return a * 10000 + b * 100 + c
 for d in sorted(apps.iterdir()):
-    if not (d / "manifest.json").exists(): continue
+    if not (d / "manifest.json").exists() or not (d / "main.js").exists(): continue  # bundled apps (espos.json, src/) build their main.js
     m = json.loads((d / "manifest.json").read_text())
     pm = {"id": m["id"], "name": m["name"], "version": m["version"], "code": m.get("code", code_of(m["version"])),
           "kind": "js", "engine": "js", "min_fw": m.get("min_fw", 300),

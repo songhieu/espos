@@ -1,8 +1,10 @@
 // espos: the EspOS developer CLI.
 import { GLOBAL_OPTS, helpText, parseArgs, setCmdPath, usageLine, type CmdSpec } from "./args.js";
 import { accountCommands } from "./commands/account.js";
+import { aiCommand } from "./commands/ai.js";
 import { deviceCommand } from "./commands/device.js";
 import { pkgCommands } from "./commands/pkg.js";
+import { presetCommand } from "./commands/preset.js";
 import { qemuCommand } from "./commands/qemu.js";
 import { simCommand } from "./commands/sim.js";
 import { doctorCommand, firmwareCommand, j2meCommand } from "./commands/tools.js";
@@ -19,7 +21,7 @@ const helpCmd: CmdSpec = {
 
 const versionCmd: CmdSpec = { name: "version", summary: "Print the CLI's version.", json: true };
 
-export const COMMANDS: CmdSpec[] = [...pkgCommands, ...accountCommands, simCommand, qemuCommand, deviceCommand, firmwareCommand, j2meCommand, doctorCommand, helpCmd, versionCmd];
+export const COMMANDS: CmdSpec[] = [...pkgCommands, ...accountCommands, aiCommand, presetCommand, simCommand, qemuCommand, deviceCommand, firmwareCommand, j2meCommand, doctorCommand, helpCmd, versionCmd];
 
 const ROOT: CmdSpec = {
   name: "espos",

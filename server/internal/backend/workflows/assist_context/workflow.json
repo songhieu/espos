@@ -1,0 +1,83 @@
+{
+  "code": "assist_context",
+  "name": "Dog assistant: one turn as an EspOS Assistant Protocol v1 request (phase 3; no model call, nothing written)",
+  "draft": {
+    "nodes": [
+      {
+        "id": "in",
+        "type": "function_in",
+        "config": {
+          "inputs": [
+            "device_id",
+            "user_id",
+            "source"
+          ],
+          "optional": [
+            "text",
+            "audio",
+            "cid",
+            "dog",
+            "wake",
+            "intent"
+          ]
+        }
+      },
+      {
+        "id": "ctx",
+        "type": "call_workflow",
+        "config": {
+          "workflow": "assist_reply",
+          "input": {
+            "device_id": "{{ input.device_id }}",
+            "user_id": "{{ input.user_id }}",
+            "source": "{{ input.source }}",
+            "text": "{{ input.text }}",
+            "audio": "{{ input.audio }}",
+            "cid": "{{ input.cid }}",
+            "dog": "{{ input.dog }}",
+            "wake": "{{ input.wake }}",
+            "intent": "{{ input.intent }}",
+            "v1": "1"
+          }
+        }
+      },
+      {
+        "id": "out",
+        "type": "return",
+        "config": {
+          "data": {
+            "status": "{{ ctx.status }}",
+            "request": "{{ ctx.body.v1 }}",
+            "internal": "{{ ctx.body.internal }}",
+            "error": "{{ ctx.body.error }}"
+          }
+        }
+      },
+      {
+        "id": "boom",
+        "type": "return",
+        "config": {
+          "data": {
+            "status": 500,
+            "error": "{{ ctx.error }}"
+          }
+        }
+      }
+    ],
+    "edges": [
+      {
+        "from": "in",
+        "to": "ctx"
+      },
+      {
+        "from": "ctx",
+        "to": "out"
+      },
+      {
+        "from": "ctx",
+        "to": "boom",
+        "port": "error"
+      }
+    ]
+  }
+}

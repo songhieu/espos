@@ -1,0 +1,1714 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "https://espos.dev/schemas/assistant/1/assistant.json",
+ "title": "EspOS Assistant Protocol v1",
+ "description": "The contract between the EspOS server and an assistant (s3/docs/assistant-providers.md §2). Validate a document against one entry: #/$defs/manifest (GET /.well-known/espos-assistant.json), #/$defs/turn (the server's POST), #/$defs/response (the provider's answer), #/$defs/error, #/$defs/event (one streamed event). The same rules are coded in the espos CLI (assistant.ts, `espos ai test`) and the server (web/scripts/eap/eap.go); assistant-v1-vectors.json holds the cases both run.",
+ "$defs": {
+  "hhmm": {
+   "type": "string",
+   "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$"
+  },
+  "days": {
+   "type": "string",
+   "pattern": "^[0-6]{0,7}$"
+  },
+  "ref": {
+   "type": "string",
+   "pattern": "^[a-z]{1,3}_[A-Za-z0-9]{1,24}$",
+   "maxLength": 28
+  },
+  "scope": {
+   "type": "string",
+   "enum": [
+    "turn.text",
+    "turn.audio",
+    "locale",
+    "profile.name",
+    "place",
+    "weather",
+    "calendar",
+    "markets",
+    "news",
+    "alarms",
+    "todo",
+    "notes",
+    "notes.body",
+    "reading",
+    "memories",
+    "history",
+    "desk",
+    "act.alarms",
+    "act.todo",
+    "act.notes",
+    "act.settings",
+    "act.desk",
+    "act.memory"
+   ]
+  },
+  "actionType": {
+   "type": "string",
+   "enum": [
+    "alarm.add",
+    "alarm.update",
+    "alarm.delete",
+    "todo.add",
+    "todo.update",
+    "todo.done",
+    "todo.delete",
+    "note.add",
+    "note.update",
+    "note.delete",
+    "setting.set",
+    "profile.name",
+    "desk.run",
+    "memory"
+   ]
+  },
+  "mood": {
+   "type": "string",
+   "enum": [
+    "happy",
+    "giggle",
+    "high_five",
+    "levelup",
+    "plead",
+    "sulk",
+    "yuck",
+    "alert",
+    "look_up",
+    "stand",
+    "no_tired",
+    "sleep"
+   ]
+  },
+  "topic": {
+   "type": "string",
+   "enum": [
+    "weather",
+    "calendar",
+    "alarm",
+    "todo",
+    "note",
+    "news",
+    "markets",
+    "memory",
+    "desk",
+    "time",
+    "reading",
+    "chat",
+    "refuse"
+   ]
+  },
+  "manifest": {
+   "type": "object",
+   "required": [
+    "protocol",
+    "name",
+    "endpoint",
+    "scopes"
+   ],
+   "properties": {
+    "protocol": {
+     "type": "array",
+     "items": {
+      "type": "string",
+      "enum": [
+       "1"
+      ]
+     },
+     "minItems": 1
+    },
+    "name": {
+     "type": "string",
+     "minLength": 1,
+     "maxLength": 40
+    },
+    "developer": {
+     "type": "string",
+     "maxLength": 60
+    },
+    "description": {
+     "type": "string",
+     "maxLength": 300
+    },
+    "icon": {
+     "type": "string",
+     "pattern": "^https://",
+     "maxLength": 300
+    },
+    "homepage": {
+     "type": "string",
+     "pattern": "^https?://",
+     "maxLength": 300
+    },
+    "privacy_url": {
+     "type": "string",
+     "pattern": "^https?://",
+     "maxLength": 300
+    },
+    "endpoint": {
+     "type": "string",
+     "pattern": "^https?://",
+     "maxLength": 300
+    },
+    "auth": {
+     "type": "object",
+     "properties": {
+      "hmac": {
+       "type": "boolean"
+      },
+      "bearer": {
+       "type": "string",
+       "enum": [
+        "none",
+        "optional",
+        "required"
+       ]
+      }
+     },
+     "additionalProperties": false
+    },
+    "input": {
+     "type": "object",
+     "properties": {
+      "text": {
+       "type": "boolean"
+      },
+      "audio": {
+       "type": "array",
+       "items": {
+        "type": "string",
+        "enum": [
+         "wav16k"
+        ]
+       }
+      }
+     },
+     "additionalProperties": false
+    },
+    "output": {
+     "type": "object",
+     "properties": {
+      "audio": {
+       "type": "array",
+       "items": {
+        "type": "string",
+        "enum": [
+         "pcm16"
+        ]
+       }
+      },
+      "stream": {
+       "type": "boolean"
+      }
+     },
+     "additionalProperties": false
+    },
+    "languages": {
+     "type": "array",
+     "items": {
+      "type": "string",
+      "pattern": "^(\\*|[a-z]{2,3}(-[A-Za-z0-9]{2,8})*)$"
+     }
+    },
+    "persona": {
+     "type": "string",
+     "enum": [
+      "espos",
+      "own"
+     ]
+    },
+    "memory": {
+     "type": "string",
+     "enum": [
+      "espos",
+      "own",
+      "none"
+     ]
+    },
+    "scopes": {
+     "type": "object",
+     "required": [
+      "required"
+     ],
+     "properties": {
+      "required": {
+       "type": "array",
+       "items": {
+        "$ref": "#/$defs/scope"
+       }
+      },
+      "optional": {
+       "type": "array",
+       "items": {
+        "$ref": "#/$defs/scope"
+       }
+      }
+     },
+     "additionalProperties": false
+    },
+    "actions": {
+     "type": "array",
+     "items": {
+      "$ref": "#/$defs/actionType"
+     }
+    }
+   },
+   "additionalProperties": false
+  },
+  "turn": {
+   "type": "object",
+   "required": [
+    "v",
+    "type",
+    "request_id",
+    "sent_ms",
+    "deadline_ms",
+    "turn",
+    "locale",
+    "now",
+    "persona",
+    "device",
+    "scopes",
+    "context",
+    "capabilities"
+   ],
+   "properties": {
+    "v": {
+     "const": "1"
+    },
+    "type": {
+     "const": "turn"
+    },
+    "request_id": {
+     "type": "string",
+     "pattern": "^req_[A-Za-z0-9]{6,40}$"
+    },
+    "sent_ms": {
+     "type": "integer"
+    },
+    "deadline_ms": {
+     "type": "integer"
+    },
+    "turn": {
+     "type": "object",
+     "required": [
+      "id",
+      "seq",
+      "source",
+      "input"
+     ],
+     "properties": {
+      "id": {
+       "type": "string",
+       "maxLength": 40
+      },
+      "seq": {
+       "type": "integer",
+       "minimum": 1
+      },
+      "source": {
+       "type": "string",
+       "enum": [
+        "voice",
+        "follow_up",
+        "wake",
+        "typed",
+        "chip"
+       ]
+      },
+      "intent": {
+       "type": [
+        "string",
+        "null"
+       ],
+       "enum": [
+        "news",
+        null
+       ]
+      },
+      "input": {
+       "type": "object",
+       "properties": {
+        "text": {
+         "type": "string",
+         "maxLength": 500
+        },
+        "text_from": {
+         "type": "string",
+         "enum": [
+          "typed",
+          "espos_stt"
+         ]
+        },
+        "audio": {
+         "type": "object",
+         "required": [
+          "format",
+          "rate",
+          "data"
+         ],
+         "properties": {
+          "format": {
+           "const": "wav"
+          },
+          "rate": {
+           "type": "integer"
+          },
+          "channels": {
+           "type": "integer"
+          },
+          "seconds": {
+           "type": "number"
+          },
+          "data": {
+           "type": "string"
+          }
+         },
+         "additionalProperties": false
+        }
+       },
+       "additionalProperties": false
+      }
+     },
+     "additionalProperties": false
+    },
+    "locale": {
+     "type": "object",
+     "required": [
+      "language",
+      "timezone",
+      "utc_offset_min"
+     ],
+     "properties": {
+      "language": {
+       "type": "string",
+       "maxLength": 16
+      },
+      "timezone": {
+       "type": "string",
+       "maxLength": 40
+      },
+      "utc_offset_min": {
+       "type": "integer",
+       "minimum": -720,
+       "maximum": 840
+      },
+      "units": {
+       "type": "string",
+       "enum": [
+        "metric",
+        "imperial"
+       ]
+      },
+      "clock": {
+       "type": "string",
+       "enum": [
+        "24h",
+        "12h"
+       ]
+      },
+      "currency": {
+       "type": "string",
+       "pattern": "^[A-Z]{3}$"
+      },
+      "calendar": {
+       "type": "string",
+       "enum": [
+        "gregorian",
+        "gregorian+lunar"
+       ]
+      }
+     },
+     "additionalProperties": false
+    },
+    "now": {
+     "type": "string",
+     "maxLength": 40
+    },
+    "persona": {
+     "type": "object",
+     "required": [
+      "id",
+      "name"
+     ],
+     "properties": {
+      "id": {
+       "type": "string",
+       "maxLength": 60
+      },
+      "name": {
+       "type": "string",
+       "maxLength": 40
+      },
+      "species": {
+       "type": "string",
+       "maxLength": 20
+      },
+      "character": {
+       "type": "string",
+       "maxLength": 200
+      },
+      "speech": {
+       "type": "string",
+       "maxLength": 800
+      },
+      "address": {
+       "type": "object",
+       "properties": {
+        "self": {
+         "type": "string",
+         "maxLength": 30
+        },
+        "user": {
+         "type": "string",
+         "maxLength": 30
+        }
+       },
+       "additionalProperties": false
+      },
+      "profile": {
+       "type": "object",
+       "additionalProperties": {
+        "type": "string",
+        "maxLength": 200
+       }
+      },
+      "lines": {
+       "type": "array",
+       "items": {
+        "type": "string",
+        "maxLength": 200
+       },
+       "maxItems": 20
+      },
+      "refuse": {
+       "type": "string",
+       "maxLength": 300
+      },
+      "voice": {
+       "type": "string",
+       "maxLength": 60
+      }
+     },
+     "additionalProperties": false
+    },
+    "user": {
+     "type": "object",
+     "required": [
+      "ref"
+     ],
+     "properties": {
+      "ref": {
+       "type": "string",
+       "maxLength": 40
+      },
+      "name": {
+       "type": "string",
+       "maxLength": 40
+      }
+     },
+     "additionalProperties": false
+    },
+    "device": {
+     "type": "object",
+     "required": [
+      "ref",
+      "kind"
+     ],
+     "properties": {
+      "ref": {
+       "type": "string",
+       "maxLength": 40
+      },
+      "kind": {
+       "type": "string",
+       "enum": [
+        "s3",
+        "bot",
+        "x4"
+       ]
+      },
+      "model": {
+       "type": "string",
+       "maxLength": 20
+      },
+      "name": {
+       "type": "string",
+       "maxLength": 40
+      },
+      "screen": {
+       "type": "object",
+       "properties": {
+        "w": {
+         "type": "integer"
+        },
+        "h": {
+         "type": "integer"
+        },
+        "touch": {
+         "type": "boolean"
+        }
+       },
+       "additionalProperties": false
+      },
+      "speaks": {
+       "type": "boolean"
+      },
+      "say_max_chars": {
+       "type": "integer"
+      },
+      "say_max_chars_long": {
+       "type": "integer"
+      }
+     },
+     "additionalProperties": false
+    },
+    "scopes": {
+     "type": "array",
+     "items": {
+      "$ref": "#/$defs/scope"
+     }
+    },
+    "context": {
+     "$ref": "#/$defs/context"
+    },
+    "capabilities": {
+     "type": "object",
+     "required": [
+      "actions",
+      "moods"
+     ],
+     "properties": {
+      "actions": {
+       "type": "array",
+       "items": {
+        "$ref": "#/$defs/actionType"
+       }
+      },
+      "settings": {
+       "type": "array",
+       "items": {
+        "$ref": "#/$defs/settingCap"
+       }
+      },
+      "moods": {
+       "type": "array",
+       "items": {
+        "$ref": "#/$defs/mood"
+       }
+      },
+      "desk": {
+       "type": "object",
+       "properties": {
+        "commands": {
+         "type": "array",
+         "items": {
+          "type": "object",
+          "required": [
+           "cmd",
+           "risk"
+          ],
+          "properties": {
+           "cmd": {
+            "type": "string"
+           },
+           "risk": {
+            "type": "string",
+            "enum": [
+             "safe",
+             "confirm"
+            ]
+           },
+           "args": {
+            "type": "string"
+           }
+          },
+          "additionalProperties": false
+         }
+        }
+       },
+       "additionalProperties": false
+      },
+      "audio_out": {
+       "type": "object",
+       "properties": {
+        "formats": {
+         "type": "array",
+         "items": {
+          "const": "pcm16"
+         }
+        },
+        "rates": {
+         "type": "array",
+         "items": {
+          "type": "integer"
+         }
+        }
+       },
+       "additionalProperties": false
+      }
+     },
+     "additionalProperties": false
+    },
+    "last_results": {
+     "type": "array",
+     "items": {
+      "type": "object",
+      "required": [
+       "id",
+       "type",
+       "state"
+      ],
+      "properties": {
+       "id": {
+        "type": "string"
+       },
+       "type": {
+        "$ref": "#/$defs/actionType"
+       },
+       "state": {
+        "type": "string",
+        "enum": [
+         "done",
+         "held",
+         "refused",
+         "failed"
+        ]
+       },
+       "reason": {
+        "type": "string"
+       }
+      },
+      "additionalProperties": false
+     }
+    },
+    "held": {
+     "type": "object",
+     "description": "what waits for the person's yes from the last turn (answer it in the response's held)",
+     "properties": {
+      "actions": {
+       "type": "object",
+       "required": [
+        "say"
+       ],
+       "properties": {
+        "say": {
+         "type": "string"
+        }
+       },
+       "additionalProperties": false
+      },
+      "desk": {
+       "type": "object",
+       "required": [
+        "say"
+       ],
+       "properties": {
+        "say": {
+         "type": "string"
+        },
+        "expires_ms": {
+         "type": "integer"
+        },
+        "expired": {
+         "type": "boolean"
+        }
+       },
+       "additionalProperties": false
+      }
+     },
+     "additionalProperties": false
+    }
+   },
+   "additionalProperties": false
+  },
+  "settingCap": {
+   "type": "object",
+   "required": [
+    "key",
+    "type",
+    "value"
+   ],
+   "properties": {
+    "key": {
+     "type": "string",
+     "enum": [
+      "volume",
+      "brightness",
+      "dnd",
+      "touch_sounds",
+      "theme",
+      "theme_auto",
+      "saver",
+      "saver_mode",
+      "quiet_from",
+      "quiet_to",
+      "language",
+      "city",
+      "speaks",
+      "night",
+      "style",
+      "wake",
+      "text_size",
+      "sleep_after",
+      "reading_goal"
+     ]
+    },
+    "type": {
+     "type": "string",
+     "enum": [
+      "int",
+      "enum",
+      "time",
+      "text"
+     ]
+    },
+    "min": {
+     "type": "integer"
+    },
+    "max": {
+     "type": "integer"
+    },
+    "values": {
+     "type": "array",
+     "items": {
+      "type": "string"
+     }
+    },
+    "value": {
+     "type": "string"
+    },
+    "label": {
+     "type": "string"
+    },
+    "confirm": {
+     "type": "boolean"
+    }
+   },
+   "additionalProperties": false
+  },
+  "context": {
+   "type": "object",
+   "properties": {
+    "place": {
+     "type": "object",
+     "properties": {
+      "city": {
+       "type": "string",
+       "maxLength": 60
+      },
+      "country": {
+       "type": "string",
+       "pattern": "^[A-Z]{2}$"
+      }
+     },
+     "additionalProperties": false
+    },
+    "weather": {
+     "type": "object",
+     "required": [
+      "state",
+      "fetched_ms"
+     ],
+     "properties": {
+      "fetched_ms": {
+       "type": "integer"
+      },
+      "now": {
+       "type": "object",
+       "properties": {
+        "at": {
+         "type": "string"
+        },
+        "temp_c": {
+         "type": "number"
+        },
+        "feels_c": {
+         "type": "number"
+        },
+        "text": {
+         "type": "string"
+        },
+        "is_day": {
+         "type": "boolean"
+        },
+        "humidity": {
+         "type": "integer"
+        },
+        "wind_kmh": {
+         "type": "number"
+        }
+       },
+       "additionalProperties": false
+      },
+      "hours": {
+       "type": "array",
+       "items": {
+        "type": "object",
+        "properties": {
+         "at": {
+          "type": "string"
+         },
+         "temp_c": {
+          "type": "number"
+         },
+         "text": {
+          "type": "string"
+         },
+         "rain_chance": {
+          "type": "integer"
+         }
+        },
+        "additionalProperties": false
+       }
+      },
+      "days": {
+       "type": "array",
+       "items": {
+        "type": "object",
+        "required": [
+         "date"
+        ],
+        "properties": {
+         "date": {
+          "type": "string"
+         },
+         "min_c": {
+          "type": "number"
+         },
+         "max_c": {
+          "type": "number"
+         },
+         "text": {
+          "type": "string"
+         },
+         "rain_chance": {
+          "type": "integer"
+         },
+         "uv": {
+          "type": "number"
+         },
+         "sunrise": {
+          "type": "string"
+         },
+         "sunset": {
+          "type": "string"
+         }
+        },
+        "additionalProperties": false
+       }
+      },
+      "state": {
+       "type": "string",
+       "enum": [
+        "fresh",
+        "stale",
+        "missing"
+       ]
+      }
+     },
+     "additionalProperties": false,
+     "description": "Always there when the device's city is set. state stale or missing: no figures, only when it was last fetched. now.at and hours[].at are the forecast's local times (YYYY-MM-DDTHH:MM); figures as the forecast gave them."
+    },
+    "calendar": {
+     "type": "object",
+     "required": [
+      "state",
+      "fetched_ms",
+      "events"
+     ],
+     "properties": {
+      "fetched_ms": {
+       "type": "integer"
+      },
+      "events": {
+       "type": "array",
+       "maxItems": 15,
+       "items": {
+        "type": "object",
+        "required": [
+         "date",
+         "title"
+        ],
+        "properties": {
+         "date": {
+          "type": "string"
+         },
+         "time": {
+          "type": "string"
+         },
+         "title": {
+          "type": "string",
+          "maxLength": 120
+         },
+         "all_day": {
+          "type": "boolean"
+         }
+        },
+        "additionalProperties": false
+       }
+      },
+      "state": {
+       "type": "string",
+       "enum": [
+        "no_link",
+        "unread",
+        "ok"
+       ]
+      },
+      "day": {
+       "type": "string",
+       "description": "an older cache row: the one day its events are for"
+      }
+     },
+     "additionalProperties": false
+    },
+    "markets": {
+     "type": "object",
+     "required": [
+      "kinds",
+      "items"
+     ],
+     "properties": {
+      "items": {
+       "type": "array",
+       "items": {
+        "type": "object",
+        "required": [
+         "id",
+         "kind",
+         "price",
+         "fetched_ms"
+        ],
+        "properties": {
+         "id": {
+          "type": "string"
+         },
+         "name": {
+          "type": "string"
+         },
+         "kind": {
+          "type": "string",
+          "enum": [
+           "gold",
+           "crypto",
+           "index",
+           "stock",
+           "fx"
+          ]
+         },
+         "price": {
+          "type": "number"
+         },
+         "buy": {
+          "type": "number"
+         },
+         "currency": {
+          "type": "string"
+         },
+         "unit": {
+          "type": "string"
+         },
+         "change": {
+          "type": "number"
+         },
+         "change_pct": {
+          "type": "number"
+         },
+         "source": {
+          "type": "string"
+         },
+         "fetched_ms": {
+          "type": "integer"
+         },
+         "price_vnd": {
+          "type": "number"
+         }
+        },
+        "additionalProperties": false
+       }
+      },
+      "kinds": {
+       "type": "object",
+       "description": "each kind's state as the server judged it (stale and missing kinds have no items)",
+       "additionalProperties": {
+        "type": "object",
+        "required": [
+         "state",
+         "fetched_ms"
+        ],
+        "properties": {
+         "state": {
+          "type": "string",
+          "enum": [
+           "fresh",
+           "stale",
+           "missing"
+          ]
+         },
+         "fetched_ms": {
+          "type": "integer"
+         },
+         "source": {
+          "type": "string"
+         }
+        },
+        "additionalProperties": false
+       },
+       "propertyNames": {
+        "enum": [
+         "gold",
+         "crypto",
+         "index",
+         "stk",
+         "fx"
+        ]
+       }
+      }
+     },
+     "additionalProperties": false
+    },
+    "news": {
+     "type": "object",
+     "required": [
+      "state",
+      "fetched_ms",
+      "items"
+     ],
+     "properties": {
+      "fetched_ms": {
+       "type": "integer"
+      },
+      "source": {
+       "type": "string"
+      },
+      "language": {
+       "type": "string"
+      },
+      "items": {
+       "type": "array",
+       "maxItems": 15,
+       "items": {
+        "type": "object",
+        "required": [
+         "section",
+         "title"
+        ],
+        "properties": {
+         "section": {
+          "type": "string"
+         },
+         "title": {
+          "type": "string",
+          "maxLength": 300
+         },
+         "lead": {
+          "type": "string",
+          "maxLength": 200
+         },
+         "section_id": {
+          "type": "string",
+          "maxLength": 60
+         }
+        },
+        "additionalProperties": false
+       }
+      },
+      "state": {
+       "type": "string",
+       "enum": [
+        "fresh",
+        "stale",
+        "missing"
+       ]
+      }
+     },
+     "additionalProperties": false
+    },
+    "alarms": {
+     "$ref": "#/$defs/alarmList"
+    },
+    "todo": {
+     "type": "object",
+     "required": [
+      "snapshot",
+      "items"
+     ],
+     "properties": {
+      "snapshot": {
+       "type": "string"
+      },
+      "items": {
+       "type": "array",
+       "maxItems": 30,
+       "items": {
+        "type": "object",
+        "required": [
+         "ref",
+         "text",
+         "done"
+        ],
+        "properties": {
+         "ref": {
+          "$ref": "#/$defs/ref"
+         },
+         "text": {
+          "type": "string",
+          "maxLength": 120
+         },
+         "done": {
+          "type": "boolean"
+         }
+        },
+        "additionalProperties": false
+       }
+      }
+     },
+     "additionalProperties": false
+    },
+    "notes": {
+     "type": "object",
+     "required": [
+      "snapshot",
+      "items"
+     ],
+     "properties": {
+      "snapshot": {
+       "type": "string"
+      },
+      "items": {
+       "type": "array",
+       "maxItems": 12,
+       "items": {
+        "type": "object",
+        "required": [
+         "ref",
+         "title"
+        ],
+        "properties": {
+         "ref": {
+          "$ref": "#/$defs/ref"
+         },
+         "title": {
+          "type": "string",
+          "maxLength": 200
+         },
+         "body": {
+          "type": "string",
+          "maxLength": 1000
+         }
+        },
+        "additionalProperties": false
+       }
+      }
+     },
+     "additionalProperties": false
+    },
+    "reading": {
+     "type": "object",
+     "properties": {
+      "today_min": {
+       "type": "integer"
+      },
+      "goal_min": {
+       "type": "integer"
+      },
+      "week_min": {
+       "type": "integer"
+      },
+      "last_book": {
+       "type": "string",
+       "maxLength": 120
+      }
+     },
+     "additionalProperties": false
+    },
+    "memories": {
+     "type": "object",
+     "required": [
+      "total",
+      "items"
+     ],
+     "properties": {
+      "total": {
+       "type": "integer"
+      },
+      "items": {
+       "type": "array",
+       "maxItems": 15,
+       "items": {
+        "type": "object",
+        "required": [
+         "ref",
+         "fact"
+        ],
+        "properties": {
+         "ref": {
+          "$ref": "#/$defs/ref"
+         },
+         "fact": {
+          "type": "string",
+          "maxLength": 300
+         },
+         "kind": {
+          "type": "string",
+          "enum": [
+           "date",
+           "pref",
+           "family",
+           "work",
+           "other"
+          ]
+         }
+        },
+        "additionalProperties": false
+       }
+      }
+     },
+     "additionalProperties": false
+    },
+    "history": {
+     "type": "object",
+     "properties": {
+      "session": {
+       "type": "object",
+       "properties": {
+        "id": {
+         "type": "string"
+        },
+        "started": {
+         "type": "string"
+        },
+        "summary": {
+         "type": "string"
+        },
+        "turns": {
+         "type": "array",
+         "maxItems": 14,
+         "items": {
+          "type": "object",
+          "required": [
+           "seq",
+           "user",
+           "assistant"
+          ],
+          "properties": {
+           "seq": {
+            "type": "integer"
+           },
+           "user": {
+            "type": "string"
+           },
+           "assistant": {
+            "type": "string"
+           },
+           "persona": {
+            "type": "string",
+            "maxLength": 60
+           },
+           "note": {
+            "type": "string",
+            "maxLength": 200
+           }
+          },
+          "additionalProperties": false
+         }
+        },
+        "note": {
+         "type": "string",
+         "maxLength": 100
+        }
+       },
+       "additionalProperties": false
+      },
+      "earlier": {
+       "type": "array",
+       "maxItems": 3,
+       "items": {
+        "type": "object",
+        "required": [
+         "started",
+         "summary"
+        ],
+        "properties": {
+         "started": {
+          "type": "string"
+         },
+         "summary": {
+          "type": "string"
+         },
+         "where": {
+          "type": "string",
+          "enum": [
+           "device",
+           "web"
+          ]
+         }
+        },
+        "additionalProperties": false
+       }
+      }
+     },
+     "additionalProperties": false
+    },
+    "desk": {
+     "type": "object",
+     "required": [
+      "online"
+     ],
+     "properties": {
+      "online": {
+       "type": "boolean"
+      },
+      "name": {
+       "type": "string"
+      },
+      "view_only": {
+       "type": "boolean"
+      },
+      "front_app": {
+       "type": "string"
+      },
+      "playing": {
+       "type": "object",
+       "properties": {
+        "title": {
+         "type": "string"
+        },
+        "artist": {
+         "type": "string"
+        },
+        "paused": {
+         "type": "boolean"
+        }
+       },
+       "additionalProperties": false
+      },
+      "volume": {
+       "type": "integer"
+      },
+      "battery_pct": {
+       "type": "integer"
+      }
+     },
+     "additionalProperties": false
+    }
+   },
+   "additionalProperties": false
+  },
+  "alarmList": {
+   "type": "object",
+   "required": [
+    "snapshot",
+    "items"
+   ],
+   "properties": {
+    "snapshot": {
+     "type": "string"
+    },
+    "items": {
+     "type": "array",
+     "maxItems": 20,
+     "items": {
+      "type": "object",
+      "required": [
+       "ref",
+       "time",
+       "days",
+       "on"
+      ],
+      "properties": {
+       "ref": {
+        "$ref": "#/$defs/ref"
+       },
+       "time": {
+        "$ref": "#/$defs/hhmm"
+       },
+       "days": {
+        "$ref": "#/$defs/days"
+       },
+       "on": {
+        "type": "boolean"
+       },
+       "label": {
+        "type": "string",
+        "maxLength": 60
+       },
+       "next": {
+        "type": "string"
+       }
+      },
+      "additionalProperties": false
+     }
+    }
+   },
+   "additionalProperties": false
+  },
+  "action": {
+   "type": "object",
+   "required": [
+    "id",
+    "type",
+    "args"
+   ],
+   "properties": {
+    "id": {
+     "type": "string",
+     "minLength": 1,
+     "maxLength": 32
+    },
+    "type": {
+     "$ref": "#/$defs/actionType"
+    },
+    "args": {
+     "type": "object"
+    }
+   },
+   "additionalProperties": false
+  },
+  "memoryOp": {
+   "type": "object",
+   "required": [
+    "op"
+   ],
+   "properties": {
+    "op": {
+     "type": "string",
+     "enum": [
+      "remember",
+      "update",
+      "forget"
+     ]
+    },
+    "fact": {
+     "type": "string",
+     "maxLength": 160
+    },
+    "kind": {
+     "type": "string",
+     "enum": [
+      "date",
+      "pref",
+      "family",
+      "work",
+      "other"
+     ]
+    },
+    "ref": {
+     "$ref": "#/$defs/ref"
+    },
+    "match": {
+     "type": "string",
+     "minLength": 1,
+     "maxLength": 80,
+     "description": "forget by words: the server finds at most 3 memories holding them"
+    }
+   },
+   "additionalProperties": false
+  },
+  "response": {
+   "type": "object",
+   "required": [
+    "v",
+    "request_id",
+    "say"
+   ],
+   "properties": {
+    "v": {
+     "const": "1"
+    },
+    "request_id": {
+     "type": "string"
+    },
+    "heard": {
+     "type": "string",
+     "maxLength": 500
+    },
+    "say": {
+     "type": "object",
+     "required": [
+      "text"
+     ],
+     "properties": {
+      "text": {
+       "type": "string",
+       "minLength": 1,
+       "maxLength": 950
+      },
+      "lang": {
+       "type": "string",
+       "maxLength": 16
+      },
+      "long": {
+       "type": "boolean"
+      },
+      "if_not_done": {
+       "type": "string",
+       "maxLength": 300
+      }
+     },
+     "additionalProperties": false
+    },
+    "mood": {
+     "$ref": "#/$defs/mood"
+    },
+    "topic": {
+     "$ref": "#/$defs/topic"
+    },
+    "actions": {
+     "type": "array",
+     "maxItems": 30,
+     "items": {
+      "$ref": "#/$defs/action"
+     }
+    },
+    "memory": {
+     "type": "array",
+     "maxItems": 20,
+     "items": {
+      "$ref": "#/$defs/memoryOp"
+     }
+    },
+    "follow_up": {
+     "type": "object",
+     "properties": {
+      "listen": {
+       "type": "boolean"
+      }
+     },
+     "additionalProperties": false
+    },
+    "session": {
+     "type": "object",
+     "properties": {
+      "note": {
+       "type": "string",
+       "maxLength": 100
+      },
+      "summary": {
+       "type": [
+        "string",
+        "null"
+       ],
+       "maxLength": 1000
+      },
+      "end": {
+       "type": "boolean"
+      }
+     },
+     "additionalProperties": false
+    },
+    "audio": {
+     "type": "object",
+     "required": [
+      "format",
+      "rate",
+      "data"
+     ],
+     "properties": {
+      "format": {
+       "const": "pcm16"
+      },
+      "rate": {
+       "type": "integer"
+      },
+      "data": {
+       "type": "string"
+      }
+     },
+     "additionalProperties": false
+    },
+    "meta": {
+     "type": "object"
+    },
+    "ask_first": {
+     "type": "boolean",
+     "description": "hold this turn's actions until the person agrees in the next turn"
+    },
+    "held": {
+     "type": "object",
+     "description": "the person's answer to what the request's held says is waiting",
+     "properties": {
+      "actions": {
+       "type": "string",
+       "enum": [
+        "yes",
+        "no"
+       ]
+      },
+      "desk": {
+       "type": "string",
+       "enum": [
+        "yes",
+        "no",
+        "unclear",
+        "other"
+       ]
+      }
+     },
+     "additionalProperties": false
+    }
+   },
+   "additionalProperties": false
+  },
+  "error": {
+   "type": "object",
+   "required": [
+    "error"
+   ],
+   "properties": {
+    "error": {
+     "type": "object",
+     "required": [
+      "code"
+     ],
+     "properties": {
+      "code": {
+       "type": "string",
+       "enum": [
+        "bad_request",
+        "unauthorized",
+        "rate_limited",
+        "unavailable",
+        "internal"
+       ]
+      },
+      "message": {
+       "type": "string",
+       "maxLength": 300
+      },
+      "retry_after_s": {
+       "type": "integer",
+       "minimum": 0
+      }
+     },
+     "additionalProperties": false
+    }
+   },
+   "additionalProperties": false
+  },
+  "event": {
+   "type": "object",
+   "required": [
+    "event",
+    "data"
+   ],
+   "properties": {
+    "event": {
+     "type": "string",
+     "enum": [
+      "plan",
+      "say",
+      "audio",
+      "final"
+     ]
+    },
+    "data": {
+     "type": "object"
+    }
+   },
+   "additionalProperties": false
+  }
+ }
+}

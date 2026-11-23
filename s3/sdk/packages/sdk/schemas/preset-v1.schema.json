@@ -1,0 +1,109 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://espos.dev/schemas/preset-v1.schema.json",
+  "title": "EspOS product preset v1",
+  "description": "The starting point of one product (docs/app-slots.md §17): which packages come installed, the slot defaults, settings, templates, the first-boot questions. A preset never locks anything: the customer can change every part later, and a newer version of the preset changes only what the customer never changed. Checked by `espos preset check`; turned into the device's file by `espos preset compile --board`. The same subset of JSON Schema as the SDK's other schemas (src/jsonschema.ts); the rules a schema cannot say are the checker's (P001-P016).",
+  "$ref": "#/$defs/preset",
+  "$defs": {
+    "preset": {
+      "type": "object",
+      "required": ["preset", "id", "version", "name", "boards"],
+      "additionalProperties": false,
+      "properties": {
+        "preset": { "const": 1, "description": "the format's version" },
+        "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{1,40}$", "description": "the product, stable across versions" },
+        "version": { "type": "integer", "minimum": 1, "maximum": 100000, "description": "a higher number replaces the device's (three-way merge, never over the customer's own changes)" },
+        "name": { "type": "string", "minLength": 1, "maxLength": 60 },
+        "desc": { "type": "string", "maxLength": 300, "description": "for the people who keep presets; never shown on the device" },
+        "boards": { "type": "array", "minItems": 1, "maxItems": 4, "items": { "enum": ["es3c35p", "es3c28p"] } },
+        "packages": { "type": "array", "maxItems": 40, "items": { "$ref": "#/$defs/package" } },
+        "slots": { "$ref": "#/$defs/slots" },
+        "settings": {
+          "type": "object",
+          "description": "OS keys (s3.*, sys.lang, sys.tz, dash.city ...) and package settings app.<id>.<key>; every value a string, as the device stores it",
+          "additionalProperties": { "type": "string", "maxLength": 8000 }
+        },
+        "home": { "$ref": "#/$defs/template" },
+        "saver": { "$ref": "#/$defs/template" },
+        "locale": { "$ref": "#/$defs/locale" },
+        "orientation": { "enum": ["portrait", "landscape", "ask"] },
+        "onboarding": { "$ref": "#/$defs/onboarding" },
+        "entitlements": {
+          "type": "array",
+          "maxItems": 20,
+          "description": "names the seller's server resolves at the claim (owned dogs, the full aquarium, the assistant's term): never keys or ids of the account",
+          "items": { "type": "string", "pattern": "^@[a-z0-9][a-z0-9-]{0,40}$" }
+        },
+        "branding": { "$ref": "#/$defs/branding" }
+      }
+    },
+    "package": {
+      "type": "object",
+      "required": ["id"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{1,63}$" },
+        "parts": { "type": "array", "maxItems": 8, "items": { "type": "string", "pattern": "^[a-z0-9][a-z0-9_-]{0,23}$" }, "description": "absent: the store's default parts; a part made for one board is added for that board" }
+      }
+    },
+    "slots": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "assistant": { "type": "string", "pattern": "^(none|[a-z0-9][a-z0-9._-]{1,63})$", "description": "the assistant app's package id, or none" },
+        "saver": { "type": "string", "pattern": "^(builtin|[a-z0-9][a-z0-9._-]{1,63})$", "description": "the screen saver app's package id, or builtin (the saver pages)" }
+      }
+    },
+    "template": {
+      "type": "object",
+      "required": ["template"],
+      "additionalProperties": false,
+      "properties": { "template": { "type": "string", "pattern": "^[a-z0-9][a-z0-9_-]{0,40}$" } }
+    },
+    "locale": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "lang": { "type": "string", "pattern": "^(ask|[a-z]{2}(-[A-Za-z]{2,4})?)$", "description": "a language tag, or ask at first boot" },
+        "timezone": { "type": "string", "pattern": "^(ask|[A-Za-z_]+(/[A-Za-z0-9_+-]+){0,2}|UTC)$", "description": "an IANA zone, or ask" },
+        "city": { "type": "string", "minLength": 1, "maxLength": 60, "description": "the weather's city (with lat and lon), or ask" },
+        "lat": { "type": "string", "pattern": "^-?[0-9]{1,2}(\\.[0-9]{1,6})?$" },
+        "lon": { "type": "string", "pattern": "^-?[0-9]{1,3}(\\.[0-9]{1,6})?$" }
+      }
+    },
+    "onboarding": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "skip": { "type": "array", "maxItems": 8, "items": { "enum": ["dog", "name", "call", "city", "pair", "tips"] } },
+        "first": { "type": "string", "maxLength": 40, "description": "reserved: a step to show first (not used by firmware 0.6)" }
+      }
+    },
+    "branding": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string", "minLength": 1, "maxLength": 30 },
+        "boot_logo": { "type": "string", "pattern": "^[a-z0-9][a-z0-9_.-]{0,60}\\.png$", "description": "reserved: a picture shipped with the bundle" }
+      }
+    },
+    "device": {
+      "type": "object",
+      "description": "The device's file /sys/preset.json, written by `espos preset compile --board` (one board): templates, orientation and the fixed locale already turned into settings.",
+      "required": ["preset", "id", "version", "board", "settings"],
+      "additionalProperties": false,
+      "properties": {
+        "preset": { "const": 1 },
+        "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{1,40}$" },
+        "version": { "type": "integer", "minimum": 1, "maximum": 100000 },
+        "name": { "type": "string", "maxLength": 60 },
+        "board": { "enum": ["es3c35p", "es3c28p"] },
+        "packages": { "type": "array", "maxItems": 40, "items": { "$ref": "#/$defs/package" } },
+        "settings": { "type": "object", "additionalProperties": { "type": "string", "maxLength": 8000 } },
+        "ask": { "type": "array", "items": { "enum": ["lang", "timezone", "city", "orientation"] } },
+        "skip": { "type": "array", "items": { "enum": ["dog", "name", "call", "city", "pair", "tips"] } },
+        "branding": { "$ref": "#/$defs/branding" }
+      }
+    }
+  }
+}

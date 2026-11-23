@@ -144,6 +144,17 @@ the packages (`tools/pawboop/sounds.py`), played by `src/pet/sfx.cpp`:
   simulator: loops, tunes, the run; SIM_WAV records the speaker in real time). Use a daytime `SIM_CLOCK` (quiet hours
   silence everything).
 
+## A desk without a memory card (2026-11-21, owner: "cách 2 đi")
+
+Desks are sold without a card; the app area is 7,352 KB. The dogs (1.0.4) and the pet game (2.0.4) come in two
+parts (`tools/pawboop/parts.py`, from the newest built packages, every file kept): `core` (a dog: pet.pbs, a lite
+voice.pba with 2 lines a moment and no Coin Run lines, caught_1/caught_2 by the same index, assist.pba, icon; the
+pet: its pieces, fonts, sfx.cue) and an optional `game` part (a dog: run.pbs, sfx.pba, voice_full.pba; the pet:
+sfx.pba), taken only with a card in. The pet plays voice_full.pba when it is there, else voice.pba. Without a card:
+pet core 1,243 KB + a dog core (5.2-6.0 MB; Husky 6.6 MB does not fit), the assistant works, the game is silent but
+for the dog's voice, and the Coin Run pill says "Needs the memory card"; a card put in later: the pill fetches the
+dog again with its game part onto the card ("Getting Bao's Coin Run part"). min_fw 512.
+
 ## What is where
 
 | Path | What |

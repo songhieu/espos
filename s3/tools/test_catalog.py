@@ -114,6 +114,16 @@ with tempfile.TemporaryDirectory() as t:
     e = entry(cat, "t.dog") if cat else {}
     check(r.returncode == 0 and e.get("paid") is True and "key" not in e["parts"][0], "6 a new version: still paid, no stale key")
 
+    # 7. an optional part (PawBoop's game parts, 2026-11-21): "opt" and an explicit "req": false reach the catalog
+    src7, out7 = t / "src7", t / "out7"
+    src7.mkdir(), out7.mkdir()
+    files7 = [part(src7, dict(CORE, id="t.pup", set="dog")),
+              part(src7, {"id": "t.pup", "version": "1.0.0", "code": 10000, "part": "game", "opt": True, "label": "Game"})]
+    r, cat = run_pack(out7, files7)
+    e = entry(cat, "t.pup") if cat else {}
+    gp = {p["id"]: p for p in e.get("parts", [])}.get("game", {})
+    check(r.returncode == 0 and gp.get("opt") is True and gp.get("req") is False, "7 an optional part: opt, req false")
+
 # 5. the real catalog
 real = ROOT / "build-pkgs/espos/s3/catalog.json"
 if real.exists():

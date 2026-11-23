@@ -163,13 +163,16 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 			return wm.Fail(cerr)
 		}
 		items, _ := cr["items"].(map[string]any)
-		list := []any{}
+		// filled by index: the live engine spreads a list appended into a []any (applint -strict)
+		list := make([]any, len(mk.coins))
+		n := 0
 		for _, c := range mk.coins {
 			if v := items[c]; v != nil {
-				list = append(list, v)
+				list[n] = v
+				n++
 			}
 		}
-		d["crypto"] = map[string]any{"at": cr["at"], "items": list}
+		d["crypto"] = map[string]any{"at": cr["at"], "items": list[:n]}
 	}
 	if len(mk.tickers) > 0 {
 		q, qerr := stockQuotes(mk.tickers)
@@ -955,13 +958,15 @@ func pick(list any, field string, codes []string) []any {
 			byCode[strings.ToUpper(wm.Str(m[field]))] = m
 		}
 	}
-	out := []any{}
+	out := make([]any, len(codes)) // filled by index (applint -strict)
+	n := 0
 	for _, c := range codes {
 		if v := byCode[c]; v != nil {
-			out = append(out, v)
+			out[n] = v
+			n++
 		}
 	}
-	return out
+	return out[:n]
 }
 
 func marketCached(key string) (map[string]any, int64, error) {
@@ -985,16 +990,21 @@ func stockQuotes(tickers []string) (map[string]any, error) {
 	}
 	idxItems, _ := idx["items"].(map[string]any)
 	stkItems, _ := stk["items"].(map[string]any)
-	out := []any{}
+	out := make([]any, len(tickers)) // filled by index (applint -strict)
+	n := 0
 	for _, t := range tickers {
+		var v any
 		if indexNames[t] {
-			if v := idxItems[t]; v != nil {
-				out = append(out, v)
-			}
-		} else if v := stkItems[t]; v != nil {
-			out = append(out, v)
+			v = idxItems[t]
+		} else {
+			v = stkItems[t]
+		}
+		if v != nil {
+			out[n] = v
+			n++
 		}
 	}
+	out = out[:n]
 	at := wm.Str(idx["at"])
 	if s := wm.Str(stk["at"]); s > at {
 		at = s
@@ -1467,6 +1477,10 @@ func ruleHits(rule string, sday, today time.Time, loc *time.Location) bool {
 func popTitle(kind, tool, lang string) string {
 	vi := strings.HasPrefix(lang, "vi")
 	switch {
+	case kind == "claude_status" && vi:
+		return "Claude báo tình hình"
+	case kind == "claude_status":
+		return "Claude's status report"
 	case kind == "claude_wait" && vi:
 		return "Claude đang chờ bạn"
 	case kind == "claude_wait":
@@ -1475,6 +1489,10 @@ func popTitle(kind, tool, lang string) string {
 		return "Claude xin chạy lệnh"
 	case tool == "Bash":
 		return "Claude wants to run a command"
+	case (tool == "Edit" || tool == "Write" || tool == "MultiEdit" || tool == "NotebookEdit") && vi:
+		return "Claude xin sửa tệp"
+	case tool == "Edit" || tool == "Write" || tool == "MultiEdit" || tool == "NotebookEdit":
+		return "Claude wants to edit a file"
 	case vi:
 		return "Claude xin quyền"
 	}
@@ -1482,7 +1500,8 @@ func popTitle(kind, tool, lang string) string {
 }
 
 // claudePop: the pop-up card of a Claude note (desktop-protocol §9.6): what it shows, and the buttons the OS posts to the
-// app's own /send (it adds the nonce and the device credential). Approve takes a second tap (risky).
+// app's own /send (it adds the nonce and the device credential). Approve takes a second tap when the request's
+// command is risky (desktop_sync marks it from the shared list).
 func claudePop(kind string, data map[string]any, lang string) (map[string]any, []any) {
 	pop := map[string]any{"head": wm.Str(data["head"]), "title": popTitle(kind, wm.Str(data["tool"]), lang)}
 	if t := wm.Str(data["mono"]); t != "" {
@@ -1491,43 +1510,76 @@ func claudePop(kind string, data map[string]any, lang string) (map[string]any, [
 	if t := wm.Str(data["text"]); t != "" {
 		pop["text"] = t
 	}
+	// what the S3 may speak for it, once (its announcement rules: one per 2 minutes, merged, none at night)
+	if head := wm.Str(data["head"]); head != "" && kind != "claude_status" {
+		vi := strings.HasPrefix(lang, "vi")
+		say := head + " is waiting for you"
+		switch {
+		case kind == "claude_perm" && vi:
+			say = head + " chờ bạn duyệt"
+		case kind == "claude_perm":
+			say = head + " is waiting for your OK"
+		case vi:
+			say = head + " đang chờ bạn"
+		}
+		if r := []rune(say); len(r) > 80 {
+			say = string(r[:80])
+		}
+		pop["say"] = say
+	}
 	acts := []any{}
 	if kind == "claude_perm" && wm.Str(data["req"]) != "" {
 		body := func(k string) map[string]any {
 			return map[string]any{"mac": wm.Int(data["mac"]), "s": wm.Str(data["s"]), "kind": k, "req": wm.Str(data["req"])}
 		}
 		acts = append(acts, map[string]any{"id": "deny", "post": "/send", "body": body("deny")},
-			map[string]any{"id": "approve", "post": "/send", "body": body("approve"), "risky": true})
+			map[string]any{"id": "approve", "post": "/send", "body": body("approve"), "risky": data["risky"] == true})
 	}
 	return pop, acts
 }
 
+// notes: the newest 2 plain notes of 24 h (what the dashboard always showed), and every live note of an app (a Claude
+// permission request, a waiting session, a status report: up to 10), which the S3 turns into that app's
+// notifications and pop-up cards (s3desk src/popnote.cpp: app, arg, ref, kind, exp_ms, pop, acts). An app note never
+// pushes a plain one out, nor the other way round.
 func notes(userID int, now time.Time, loc *time.Location, lang string) ([]any, error) {
 	rows, err := wm.QueryOpts("notifications", map[string]any{
 		"filters":  []map[string]any{{"column": "user_id", "op": "eq", "value": userID}, {"column": "created_at", "op": "gte", "value": now.Add(-24 * time.Hour).UTC().Format(time.RFC3339)}},
-		"order_by": "created_at", "desc": true, "limit": 2,
+		"order_by": "created_at", "desc": true, "limit": 40,
 	})
 	if err != nil {
 		return nil, err
 	}
 	out := []any{}
+	plain, apps := 0, 0
 	for _, r := range rows {
+		k := wm.Str(r["kind"])
 		exp := int64(wm.Num(r["exp_ms"]))
 		if exp > 0 && exp < now.UnixMilli() {
-			continue // a Claude note past its time (desktop-protocol §9.6)
+			continue // past its time (desktop-protocol §9.6)
+		}
+		if (k == "" && plain >= 2) || (k != "" && apps >= 10) {
+			continue
 		}
 		t := ""
 		if ts, perr := time.Parse(time.RFC3339, wm.Str(r["created_at"])); perr == nil {
 			t = ts.In(loc).Format("15:04")
 		}
 		n := map[string]any{"title": cut(wm.Str(r["title"]), 60), "time": t}
-		// a note that opens an app (the S3's Claude pop-up: kind claude_perm / claude_wait, app, arg, exp_ms)
-		if k := wm.Str(r["kind"]); k != "" {
+		if k == "" {
+			plain++
+		} else {
+			apps++
 			n["kind"] = k
 			n["app"] = wm.Str(r["app"])
 			n["arg"] = wm.Str(r["arg"])
+			n["ref"] = wm.Str(r["ref"]) // the device's key for it: one notification per request, cancelled when it goes
 			n["exp_ms"] = exp
-			if data, _ := r["data"].(map[string]any); data != nil && (k == "claude_perm" || k == "claude_wait") {
+			data, _ := r["data"].(map[string]any)
+			if str, isText := r["data"].(string); isText && str != "" {
+				json.Unmarshal([]byte(str), &data) // a json column read back as text
+			}
+			if data != nil && (k == "claude_perm" || k == "claude_wait" || k == "claude_status") {
 				pop, acts := claudePop(k, data, lang)
 				n["pop"] = pop
 				n["acts"] = acts

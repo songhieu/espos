@@ -108,6 +108,35 @@ func cmdOut(c map[string]any, state string) map[string]any {
 	}
 }
 
+// The risky-input list (s3desk/docs/desktop-risky.json, as sess_app; scripts/test-desktop.py compares the copies):
+// a permission request whose command matches asks the pop-up's second tap before approve.
+var riskyRes = []*regexp.Regexp{
+	regexp.MustCompile(`^\s*!`),
+	regexp.MustCompile(`\brm\s+-[A-Za-z]*[rRf]`),
+	regexp.MustCompile(`\bfind\b.*\s-delete\b`),
+	regexp.MustCompile(`\bgit\s+push\b.*(\s-f\b|\s--force)`),
+	regexp.MustCompile(`\bgit\s+reset\s+--hard\b`),
+	regexp.MustCompile(`\bgit\s+clean\s+-[A-Za-z]*f`),
+	regexp.MustCompile(`\bsudo\b`),
+	regexp.MustCompile(`\b(curl|wget)\b[^|]*\|\s*(sudo\s+)?(sh|bash|zsh)\b`),
+	regexp.MustCompile(`(?i)\b(drop\s+(table|database|schema)|truncate\s+table)\b`),
+	regexp.MustCompile(`\b(mkfs(\.[a-z0-9]+)?|dd\s+if=)`),
+	regexp.MustCompile(`\bkill(all)?\s+-9\b`),
+	regexp.MustCompile(`\bchmod\s+(-R\s+)?777\b`),
+	regexp.MustCompile(`^\s*/(clear|exit|quit|logout)\b`),
+}
+
+func riskyCmd(cmd string) bool {
+	for _, l := range strings.Split(cmd, "\n") {
+		for _, re := range riskyRes {
+			if re.MatchString(l) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 // watchList: the sessions a device watches now (§9.5), none in view or off mode.
 func watchList(screens []map[string]any, now int64, mode string) []any {
 	out := []any{}
@@ -152,7 +181,7 @@ func claudeNotes(deskID, userID int, st map[string]any, have []map[string]any, n
 					"arg": prefix + sid + ":" + rid, "ref": rid, "exp_ms": exp, "source": "desktop",
 					"title": fit("Claude ("+name+"): "+what, 120),
 					"data": map[string]any{"head": name, "tool": fit(wm.Str(req["tool"]), 40), "mono": fit(wm.Str(req["cmd"]), 300),
-						"text": fit(wm.Str(req["desc"]), 200), "mac": deskID, "s": sid, "req": rid}}
+						"text": fit(wm.Str(req["desc"]), 200), "mac": deskID, "s": sid, "req": rid, "risky": riskyCmd(wm.Str(req["cmd"]))}}
 			case "input":
 				if sid == "" {
 					continue
@@ -319,7 +348,7 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 		{"table": "desk_screens", "filters": []map[string]any{{"column": "desktop_id", "op": "eq", "value": deviceID}},
 			"limit": 50, "with_total": false},
 		{"table": "notifications", "filters": []map[string]any{{"column": "user_id", "op": "eq", "value": userID},
-			{"column": "kind", "op": "in", "value": []any{"claude_perm", "claude_wait"}}}, "limit": 100, "with_total": false},
+			{"column": "kind", "op": "in", "value": []any{"claude_perm", "claude_wait", "claude_status"}}}, "limit": 100, "with_total": false},
 	})
 	if err != nil {
 		wm.Log("read: ", err.Error())
@@ -327,8 +356,9 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 	}
 	screens := rowsOf(r9, 0)
 	ops := []map[string]any{}
+	var claudeOps []map[string]any // the Claude notes: their new ones share the notes cap a minute (section 4)
 	if stateJSON != "" {
-		ops = append(ops, claudeNotes(deviceID, userID, newState, rowsOf(r9, 1), now)...)
+		claudeOps = claudeNotes(deviceID, userID, newState, rowsOf(r9, 1), now)
 	}
 	set := func(c map[string]any, vals map[string]any) {
 		for k, v := range vals {
@@ -364,7 +394,11 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 			continue
 		}
 		ok := wm.Bool(r["ok"])
-		out := map[string]any{"ok": ok, "text": fit(wm.Str(r["text"]), 200), "err": fit(wm.Str(r["err"]), 200),
+		textMax := 200
+		if wm.Str(c["cmd"]) == "claude.status" {
+			textMax = 1500 // the sessions' own reports, one or two sentences each
+		}
+		out := map[string]any{"ok": ok, "text": fit(wm.Str(r["text"]), textMax), "err": fit(wm.Str(r["err"]), 200),
 			"ms": wm.Int(r["ms"]), "confirmed_here": wm.Bool(r["confirmed_here"])}
 		vals := map[string]any{"state": "failed", "result": out, "done_ms": now}
 		if ok {
@@ -374,6 +408,18 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 			vals["confirmed"] = map[string]any{"by": "mac", "where": "mac", "at_ms": now}
 		}
 		set(c, vals)
+		if ok && wm.Str(c["cmd"]) == "claude.status" && wm.Str(r["text"]) != "" {
+			// the S3 shows the round's report (one note per desktop: the last round replaces the one before)
+			for _, old := range rowsOf(r9, 1) {
+				if wm.Str(old["kind"]) == "claude_status" && wm.Str(old["ref"]) == fmt.Sprintf("status:%d", deviceID) {
+					ops = append(ops, map[string]any{"op": "delete", "table": "notifications", "id": wm.Int(old["id"])})
+				}
+			}
+			ops = append(ops, map[string]any{"op": "insert", "table": "notifications", "values": map[string]any{
+				"user_id": userID, "kind": "claude_status", "app": "dev.espos.sessions", "arg": fmt.Sprint(deviceID),
+				"ref": fmt.Sprintf("status:%d", deviceID), "exp_ms": now + 30*60000, "source": "desktop",
+				"title": "Claude báo tình hình các phiên", "data": map[string]any{"head": "Claude", "text": fit(wm.Str(r["text"]), 1500)}}})
+		}
 	}
 
 	// ---- 3. expiry: nothing runs late ----
@@ -432,6 +478,19 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 				keys[key] = now
 			}
 		}
+	}
+
+	// The Claude notes (§9.6): deletions always; new ones count toward the same cap a minute as the alerts, so a
+	// session asking again and again cannot flood the S3 (its Sessions app still shows every request).
+	for _, op := range claudeOps {
+		if wm.Str(op["op"]) == "insert" {
+			if n >= noticeCap {
+				dropped++
+				continue
+			}
+			n++
+		}
+		ops = append(ops, op)
 	}
 
 	// ---- 5. the state row, the device row, old commands ----

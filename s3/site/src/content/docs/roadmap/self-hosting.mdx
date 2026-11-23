@@ -1,23 +1,24 @@
 ---
 title: Self-hosting
-description: 'Run your own EspOS server: the open Go server in the public repository, its settings, firmware and packages, connecting a device, and the plan for full self-hosting.'
+description: 'Run your own EspOS server for the S3 desks and the EspOS Bot: the open Go server in the public repository, its settings, connecting a device, and the plan for full self-hosting.'
 ---
 
 import Status from '../../../components/Status.astro';
 import { Aside, Steps } from '@astrojs/starlight/components';
 
 <Aside type="note" title="What works today">
-<Status s="preview" /> The open server runs the **Xteink X4** reader today. It carries the same device workflows as the hosted service, the S3's included, but an S3 against your own server has not been checked end to end. The discovery document, the conformance suite and a server setting on the device are <Status s="planned" />.
+<Status s="preview" /> The open server pairs the S3 desks and the EspOS Bot, syncs their settings and data, takes your own apps and runs the dog assistant with your own AI and voice services. It has no store catalog of its own yet, and its firmware updates are not ready for these devices. The discovery document, the conformance suite and a server setting on the device are <Status s="planned" />.
 </Aside>
 
 ## The open server
 
-The public repository, [github.com/songhieu/espos](https://github.com/songhieu/espos), holds the server in `server/` (AGPL-3.0), next to the S3 firmware and SDK in `s3/` (Apache-2.0) and the X4 firmware in `firmware/`. Releases up to commit `fac0c54` stay MIT.
+The public repository, [github.com/songhieu/espos](https://github.com/songhieu/espos), holds the server in `server/` (AGPL-3.0), next to the firmware and the SDK in `s3/` (Apache-2.0). Releases up to commit `fac0c54` stay MIT.
 
 - **One Go binary**, `espos`, with the React web app built in.
 - **One account**, set by `ESPOS_USER` and `ESPOS_PASSWORD`. No sign-up, no email.
-- **All data in one folder**: a SQLite database, files, firmware bundles and the key that signs file links.
+- **All data in one folder**: a SQLite database, files and the key that signs file links.
 - **The same workflows as the hosted service.** Each API route runs a small workflow graph, and `tools/importer` imports them again from the hosted backend, so both stay the same.
+- **What it does:** pairing with a code; settings both ways (the latest change wins); data for the widgets (weather, solar and lunar dates, calendar links, news, markets, your photos), fetched and cached by the server; notifications from scripts (`POST /v1/notify` with a key); [your own apps](/guides/my-apps/) with a developer key and `espos upload`; the dog assistant.
 
 ## Run it
 
@@ -49,37 +50,27 @@ Open `http://localhost:8080` and sign in. Put the server behind HTTPS (Caddy, ng
 | `ESPOS_ADDR` | `:8080` | Where the server listens. |
 | `ESPOS_DATA` | `./data` | The database, files and the link-signing key. |
 | `ESPOS_PUBLIC_URL` | (none) | The address the browser and the devices use, such as `https://espos.example`. Set it behind a reverse proxy; without it the server uses each request's host. |
-| `ESPOS_PKG_CATALOG` | (none) | The package catalog the X4 gets its faces and widgets from: any public URL of a v2 `apps/catalog.json`, such as the hosted store's. Without it the X4 is offered no packages; `.espk` files copied to its card still install. |
-
-## Firmware
-
-A firmware bundle is a folder with the image files and a `manifest.json` that names the version:
-
-```json title="manifest.json"
-{"version": "espos-x4-0.4.0", "chip": "esp32c3", "flash_size": "16MB",
- "parts": [{"file": "bootloader.bin", "offset": 0}, {"file": "partitions.bin", "offset": 32768},
-           {"file": "boot_app0.bin", "offset": 57344}, {"file": "firmware.bin", "offset": 65536}]}
-```
-
-```sh
-./espos firmware add path/to/bundle -notes "What changed"
-```
-
-The server offers it to linked devices as an update, and the web app's USB installer uses it. Versions are tagged by device kind: `espos-x4-X.Y.Z` for the X4 and `espos-s3-X.Y.Z` for the S3; the server tells the kinds apart by that prefix. The X4 firmware's `scripts/espos_bundle.sh` builds the bundle.
+| `ESPOS_AI_*`, `ESPOS_STT_*`, `ESPOS_TTS_*` | (none) | The dog assistant's AI model, speech-to-text and voice. The server's README lists them: [The dog assistant: AI and voice](https://github.com/songhieu/espos/blob/main/server/README.md#the-dog-assistant-ai-and-voice). |
 
 ## Connect a device
 
 <Steps>
 
-1. **The X4:** open the web app in Chrome or Edge on a computer, go to the devices page and follow the steps. The USB installer backs up the reader's own firmware, installs EspOS, and gives the reader this server's address, a device token and your WiFi. Web Serial needs a secure page: open the app at `http://localhost:8080` on the computer that runs the server, or serve it over HTTPS.
-2. **An X4 without a cable** links with the code it shows, but it asks the server it was built for: build its firmware with your address (`-DESPOS_DEFAULT_API="https://espos.example"`, see the firmware's README).
-3. **The S3** has its server built in: `https://api.espos.dev`, set by the build flag `ESPOS_API` in `platformio.ini`. The USB installer's setup line (`ESPOS:PROVISION`) can carry another address in `api`. Running an S3 against your own server this way is not checked yet.
+1. **Build the firmware for your server.** The address is a build flag in `s3/platformio.ini`: `ESPOS_API` (the server the device calls: pairing, sync, news, the store's catalog) and, for the desks, `ESPOS_WEB` (the web app, for the pairing link and QR code). Set them to your server's address, such as `https://espos.example`, in env `s3desk` for a desk or `bot128` for the Bot. See [Build the firmware](/contributing/firmware/).
+2. **Flash it over USB.**
+3. **Pair it.** The device shows a code; enter it on the web app's devices page.
 
 </Steps>
 
+Apps reach a device on your server from a memory card or as [your own apps](/guides/my-apps/) (`espos upload`); the store's catalog is read from `ESPOS_API`, and a self-hosted server has none yet.
+
+<Aside type="caution" title="Firmware updates over WiFi">
+`./espos firmware add` does not yet record which device a release is for, so the desks and the Bot are not offered what it adds. Update them over USB for now.
+</Aside>
+
 ## Data and backups
 
-Everything is in `ESPOS_DATA`: `espos.db` (the database), `files/`, `firmware/` and `secret.key` (it signs file links: keep it private). Stop the server, or run `sqlite3 espos.db ".backup backup.db"`, and copy the folder.
+Everything is in `ESPOS_DATA`: `espos.db` (the database), `files/`, `firmware/` (bundles added with `firmware add`) and `secret.key` (it signs file links: keep it private). Stop the server, or run `sqlite3 espos.db ".backup backup.db"`, and copy the folder.
 
 ## The plan<Status s="planned" />
 
@@ -88,7 +79,7 @@ The platform plan makes **the protocol the product**: one written spec, **EspOS 
 Still to do for full self-hosting:
 
 - more engine features in the open server (`for_each`, `storage_get`, variables in templates, API-key routes, public storage with HTTP Range, expiry dates);
-- the S3 checked end to end: pairing, sync, the store, remote control and OTA;
+- a store catalog of its own, and firmware updates over WiFi for the desks and the Bot;
 - several users, with passwords or OIDC.
 
 ### How a device will pick its server

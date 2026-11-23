@@ -1,0 +1,37 @@
+{
+ "preset": 1,
+ "id": "clock-desk",
+ "version": 1,
+ "name": "Clock desk",
+ "desc": "A sample preset: a desk clock with the weather, nothing installed, no assistant. Copy it to start your own.",
+ "boards": [
+  "es3c35p",
+  "es3c28p"
+ ],
+ "packages": [],
+ "slots": {
+  "assistant": "none",
+  "saver": "builtin"
+ },
+ "settings": {
+  "s3.saver": "120",
+  "s3.theme": "dark",
+  "sys.clock_fmt": "24"
+ },
+ "saver": {
+  "template": "minimal"
+ },
+ "locale": {
+  "lang": "ask",
+  "timezone": "ask",
+  "city": "ask"
+ },
+ "orientation": "ask",
+ "onboarding": {
+  "skip": [
+   "dog",
+   "name",
+   "call"
+  ]
+ }
+}

@@ -45,6 +45,12 @@ var deviceDefaults = map[string]string{
 	// PawBoop (2026-11-18, s3desk/docs/pawboop.md): the chosen dog (a key of petDogs; "" = the first installed) and the
 	// dog assistant's switches (checkAssist). The AI assistant (assist_reply) talks as s3.pet_dog when not told a dog.
 	"s3.pet_dog": "", "s3.assist": "",
+	// The assistant slot (2026-11-22, s3desk/docs/app-slots.md §7, §16): the package id of the device's assistant app,
+	// or "none" (none installed: assist_reply answers 409 no_assistant); "" = the device's default (PawBoop when
+	// installed). Colour desks only (checkSlot); the device writes it when its assistant app goes or comes.
+	"slot.assistant": "",
+	// The saver slot (§7): the saver app's package id, or "builtin" (the saver pages); "" = the device's default.
+	"slot.saver": "",
 	// The first-boot setup (2026-11-21, s3desk/docs/onboarding-plan.md): what the device sends when it is done ("again"
 	// from the web runs it again; checkOnboard), and the name it asked for (checkCallName; copied into the account).
 	"s3.onboard": "", "s3.call_name": "",
@@ -173,8 +179,16 @@ func s3OSCheck(k, v string) (handled bool, good bool) {
 		return true, checkOnboard(v) == ""
 	case "s3.call_name":
 		return true, checkCallName(v) == ""
+	case "slot.assistant", "slot.saver":
+		return true, checkSlot(k, v)
 	}
 	return false, false
+}
+
+// checkSlot: a slot's value: "" (the device's default), "none" (the assistant) or "builtin" (the saver), or a package
+// id. The same check is in put_device_settings (which also wants the package on the device): change both.
+func checkSlot(k, v string) bool {
+	return v == "" || (k == "slot.assistant" && v == "none") || (k == "slot.saver" && v == "builtin") || pkgID(v)
 }
 
 // photoIDs: "" or up to 12 photo ids, digits separated by commas ("12,15,9"), at most 120 characters.
@@ -1667,12 +1681,25 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 			}
 		}
 	}
+	// PawBoop's chosen dog goes only to a colour desk that has PawBoop (s3desk docs/app-slots.md §16): its packages
+	// report (this sync's, else the last one) or the store's wanted list. No report yet: sent as before. Its time still
+	// counts in the rev, as device_ping counts every key.
+	petHave := true
+	if kind == "s3" {
+		rep := body["pkgs"]
+		if rep == nil && len(kindRows) == 1 {
+			rep = kindRows[0]["pkgs"]
+		}
+		if r, _ := rep.(map[string]any); r != nil {
+			petHave = appInstalled(rep, cur["s3.pkgs"].v)["vn.pawboop.pet"]
+		}
+	}
 	for k, def := range deviceDefaults {
 		if kind == "bot" {
 			break // the EspOS Bot has none of these (reading, sleep screens, X4 dashboard keys)
 		}
-		if strings.HasPrefix(k, "s3.") != (kind == "s3") && strings.HasPrefix(k, "s3.") {
-			continue // the colour desk's keys go to the colour desk only
+		if (strings.HasPrefix(k, "s3.") || strings.HasPrefix(k, "slot.")) && kind != "s3" {
+			continue // the colour desk's keys (and its app slots) go to the colour desk only
 		}
 		if strings.HasPrefix(k, "x4.") && kind == "s3" {
 			continue // and the X4's to the X4 only
@@ -1683,6 +1710,9 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 			if c.ms > rev {
 				rev = c.ms
 			}
+		}
+		if k == "s3.pet_dog" && !petHave {
+			delete(settings, k)
 		}
 	}
 	if kind == "s3" {
@@ -1954,6 +1984,33 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 	}
 	if kind == "bot" {
 		out["kind"] = "bot" // merge adds the bot's small weather from the dashboard
+	}
+	// A product preset's newer version (s3desk docs/app-slots.md §17.3): only to a unit Kho máy prepared with that
+	// preset (its admin_stock row), only when the device reports an older version; the device merges it key by key,
+	// keeping what the person changed. Devices without a preset report none and cost nothing here.
+	if rp, ok := body["preset"].(map[string]any); ok && kind == "s3" {
+		pid := wm.Str(rp["id"])
+		pv := wm.Int(rp["v"])
+		if pid != "" && len(pid) <= 41 {
+			stk, serr := wm.QueryOpts("admin_stock", map[string]any{"filters": []map[string]any{{"column": "device_id", "op": "eq", "value": deviceID}}, "limit": 1})
+			if serr != nil {
+				return wm.Fail(serr)
+			}
+			if len(stk) == 1 && wm.Str(stk[0]["preset"]) == pid {
+				prs, prerr := wm.QueryOpts("admin_presets", map[string]any{"filters": []map[string]any{{"column": "code", "op": "eq", "value": pid},
+					{"column": "version", "op": "gt", "value": pv}, {"column": "active", "op": "eq", "value": true}}, "order_by": "version", "desc": true, "limit": 1})
+				if prerr != nil {
+					return wm.Fail(prerr)
+				}
+				if len(prs) == 1 {
+					if devs, ok := prs[0]["device"].(map[string]any); ok {
+						if f, ok := devs[wm.Str(stk[0]["board"])].(map[string]any); ok {
+							out["preset"] = f
+						}
+					}
+				}
+			}
+		}
 	}
 	return map[string]any{"status": 200, "body": out}
 }

@@ -1,0 +1,39 @@
+{
+  "about": "The three-way merge a device runs when a preset (docs/app-slots.md §17.3) is applied: base = the values the preset set last time (kept by the device), current = the device's values now (\"\" or absent: never chosen), next = the new version's settings. A key changes only where the device still has the old preset's value, or never had one; the customer's own choices stay. set = what is written (only where it differs from current), base_after = what the device keeps for the next version. Packages: added when new to the preset, never removed, and one the customer removed is not brought back. The firmware's test (test_host/preset_test.cpp) runs every case.",
+  "settings": [
+    { "name": "first apply on a new unit: every key", "base": {}, "current": {}, "next": { "s3.rot": "1", "s3.theme": "dark" },
+      "set": { "s3.rot": "1", "s3.theme": "dark" }, "base_after": { "s3.rot": "1", "s3.theme": "dark" } },
+    { "name": "v2 changes a key the customer never touched", "base": { "s3.saver": "60" }, "current": { "s3.saver": "60" }, "next": { "s3.saver": "120" },
+      "set": { "s3.saver": "120" }, "base_after": { "s3.saver": "120" } },
+    { "name": "v2 keeps the customer's change", "base": { "s3.saver": "60" }, "current": { "s3.saver": "300" }, "next": { "s3.saver": "120" },
+      "set": {}, "base_after": { "s3.saver": "60" } },
+    { "name": "v3 still sees the customer's change (the base stays the preset's)", "base": { "s3.saver": "60" }, "current": { "s3.saver": "300" }, "next": { "s3.saver": "600" },
+      "set": {}, "base_after": { "s3.saver": "60" } },
+    { "name": "a key new in v2 that was never chosen", "base": { "s3.rot": "1" }, "current": { "s3.rot": "1" }, "next": { "s3.rot": "1", "s3.theme": "dark" },
+      "set": { "s3.theme": "dark" }, "base_after": { "s3.rot": "1", "s3.theme": "dark" } },
+    { "name": "a key new in v2 that the customer had chosen", "base": {}, "current": { "s3.theme": "light" }, "next": { "s3.theme": "dark" },
+      "set": {}, "base_after": {} },
+    { "name": "a key v2 no longer sets stays as it is", "base": { "s3.rot": "1", "s3.theme": "dark" }, "current": { "s3.rot": "1", "s3.theme": "dark" }, "next": { "s3.rot": "1" },
+      "set": {}, "base_after": { "s3.rot": "1" } },
+    { "name": "the customer cleared a key (back to the device's default): kept", "base": { "s3.theme": "dark" }, "current": { "s3.theme": "" }, "next": { "s3.theme": "photo" },
+      "set": {}, "base_after": { "s3.theme": "dark" } },
+    { "name": "v2 says what the device has: nothing written", "base": { "s3.theme": "dark" }, "current": { "s3.theme": "dark" }, "next": { "s3.theme": "dark" },
+      "set": {}, "base_after": { "s3.theme": "dark" } },
+    { "name": "the customer already picked what v2 now says: the base follows", "base": { "s3.theme": "dark" }, "current": { "s3.theme": "photo" }, "next": { "s3.theme": "photo" },
+      "set": {}, "base_after": { "s3.theme": "photo" } },
+    { "name": "the slots merge like any key: the person chose an assistant", "base": { "slot.assistant": "none" }, "current": { "slot.assistant": "vn.pawboop.pet" }, "next": { "slot.assistant": "com.example.homeai" },
+      "set": {}, "base_after": { "slot.assistant": "none" } },
+    { "name": "a key absent from current counts as never chosen", "base": { "s3.click": "1" }, "current": {}, "next": { "s3.click": "0", "s3.dnd": "1" },
+      "set": { "s3.dnd": "1" }, "base_after": { "s3.click": "1", "s3.dnd": "1" } }
+  ],
+  "packages": [
+    { "name": "first apply: what is not installed yet is wanted", "base": [], "installed": ["vn.pawboop.tank"], "next": ["vn.pawboop.tank", "dev.espos.lang.vi"],
+      "add": ["dev.espos.lang.vi"], "base_after": ["vn.pawboop.tank", "dev.espos.lang.vi"] },
+    { "name": "v2 adds a package", "base": ["vn.pawboop.tank"], "installed": ["vn.pawboop.tank"], "next": ["vn.pawboop.tank", "dev.espos.wake.gau"],
+      "add": ["dev.espos.wake.gau"], "base_after": ["vn.pawboop.tank", "dev.espos.wake.gau"] },
+    { "name": "one the customer removed is not brought back", "base": ["vn.pawboop.pet", "vn.pawboop.dog.bao"], "installed": ["vn.pawboop.dog.bao"], "next": ["vn.pawboop.pet", "vn.pawboop.dog.bao"],
+      "add": [], "base_after": ["vn.pawboop.pet", "vn.pawboop.dog.bao"] },
+    { "name": "a package v2 drops is never removed", "base": ["vn.pawboop.tank", "dev.espos.lang.vi"], "installed": ["vn.pawboop.tank", "dev.espos.lang.vi"], "next": ["vn.pawboop.tank"],
+      "add": [], "base_after": ["vn.pawboop.tank", "dev.espos.lang.vi"] }
+  ]
+}

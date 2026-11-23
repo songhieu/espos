@@ -57,6 +57,9 @@ const std::vector<Kind>& kinds();
 // The codes a gold, stocks, fx or crypto widget shows when its option is empty ("gold:SJC,gold:N24K"); "" for others.
 String marketDefault(const String& kind);
 const Kind* kind(const String& id);
+// The kind can show now: an app's own widget only while its app is installed ("pet": PawBoop, app-slots.md §16).
+// Home drops a widget whose app went; the gallery leaves it out.
+bool installed(const String& kind);
 // The item's style if its kind draws it, else the kind's default ("" for a kind with one look).
 String styleOf(const Item& it);
 // Whether a flag (Kind::flags) is on in the item's option ("12" in "12,sec").

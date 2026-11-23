@@ -1,0 +1,64 @@
+{
+  "code": "dev_quota",
+  "columns": [
+    {
+      "code": "device_id",
+      "default": null,
+      "help": null,
+      "indexed": true,
+      "label": "Device",
+      "options": [],
+      "position": 1,
+      "read_only": false,
+      "ref_table": null,
+      "required": true,
+      "type": "integer",
+      "unique": false
+    },
+    {
+      "code": "what",
+      "default": null,
+      "help": null,
+      "indexed": true,
+      "label": "What is counted (tts)",
+      "options": [],
+      "position": 2,
+      "read_only": false,
+      "ref_table": null,
+      "required": true,
+      "type": "text",
+      "unique": false
+    },
+    {
+      "code": "day",
+      "default": null,
+      "help": null,
+      "indexed": false,
+      "label": "Day (UTC, YYYY-MM-DD)",
+      "options": [],
+      "position": 3,
+      "read_only": false,
+      "ref_table": null,
+      "required": false,
+      "type": "text",
+      "unique": false
+    },
+    {
+      "code": "n",
+      "default": null,
+      "help": null,
+      "indexed": false,
+      "label": "Count that day",
+      "options": [],
+      "position": 4,
+      "read_only": false,
+      "ref_table": null,
+      "required": false,
+      "type": "integer",
+      "unique": false
+    }
+  ],
+  "label": "Device daily quotas",
+  "singular": "Device daily quota",
+  "unique_together": []
+}

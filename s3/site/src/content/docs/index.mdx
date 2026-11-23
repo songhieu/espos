@@ -1,12 +1,17 @@
 ---
 title: Overview
-description: 'Developer documentation for EspOS, the open-source app platform for ESP32-S3 devices: apps, packages, the store, simulators and the SDK.'
+description: 'Developer documentation for EspOS, the open-source operating system for the ESP32-S3 family: the S3 desks, the EspOS Bot, apps, packages, the store, simulators, the SDK and the self-hosted server.'
 ---
 
 import Status from '../../components/Status.astro';
 import StatusBoard from '../../components/StatusBoard.astro';
 
-EspOS is an open-source operating system for ESP32-S3 boards with a touch screen. The firmware is the OS. Apps, games and data are packages that you install from the store or copy onto the memory card, so a new app needs no new firmware.
+EspOS is an open-source operating system for the ESP32-S3 family. The firmware is the OS. It runs on:
+
+- **the S3 desks**: colour touch screens, the 3.5" ES3C35P and the 2.8" ES3C28P (one firmware finds its board). Apps, games and data are packages that you install from the store or copy onto the memory card, so a new app needs no new firmware;
+- **the EspOS Bot**: a small ESP32-S3 board with a 0.96" OLED, a microphone and a speaker, for the dog assistant you talk to.
+
+Both sync with an EspOS server: the hosted one at espos.dev, or your own.
 
 These docs explain how to build apps in JavaScript, test them in the simulator or in QEMU, package and publish them, and port the OS to a new board.
 
@@ -37,11 +42,10 @@ Everything is in one public repository, [github.com/songhieu/espos](https://gith
 
 | Folder | What | Licence |
 |---|---|---|
-| `s3/` | The S3 firmware (EspOS), the SDK and the `espos` CLI, the simulator, the tools and the sources of these docs | Apache-2.0 |
-| `server/` | The self-hosted server and its web app | AGPL-3.0 |
-| `firmware/` | The firmware of the Xteink X4 e-ink reader | EspOS's changes Apache-2.0, CrossPoint Reader's own code MIT |
+| `s3/` | The firmware for the S3 desks and the EspOS Bot, the SDK and the `espos` CLI, the simulators, the tools and the sources of these docs | Apache-2.0 |
+| `server/` | The self-hosted server, its web app and the dog assistant with your own AI and voice services | AGPL-3.0 |
 
-Releases up to commit `fac0c54` stay MIT. To build from the sources, see [Set up your tools](/getting-started/install/); to run your own server, [Self-hosting](/roadmap/self-hosting/).
+Releases up to commit `fac0c54` stay MIT. Support for the Xteink X4 e-ink reader is paused: its firmware is in the repository's history up to commit `9059678`. To build from the sources, see [Set up your tools](/getting-started/install/); to run your own server, [Self-hosting](/roadmap/self-hosting/).
 
 ## Status labels
 

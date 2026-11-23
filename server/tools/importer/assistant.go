@@ -117,7 +117,10 @@ const shortSwap = `	if wm.AIPromptShort() { // ESPOS_AI_PROMPT=short: a local mo
 
 func portShortPrompt(code, stem, s string) string {
 	if strings.Count(s, nowCall) != 1 || strings.Count(s, whereCall) != 1 || strings.Count(s, buildCall) != 1 {
-		log.Fatalf("%s/%s: the prompt's parts changed; update portShortPrompt in tools/importer/assistant.go", code, stem)
+		// The hosted prompt was rebuilt: the short prompt cannot be fitted in. The node keeps its full prompt and
+		// ESPOS_AI_PROMPT=short does nothing until portShortPrompt follows the new prompt (README says so).
+		log.Printf("%s/%s: the prompt's parts changed; the short prompt is left out (ESPOS_AI_PROMPT=short has no effect)", code, stem)
+		return s
 	}
 	s = strings.Replace(s, nowCall, "\tnowLine := nowText(now, tzMin, wm.Str(devs[0][\"name\"]), city)\n\tdata.WriteString(nowLine)\n", 1)
 	s = strings.Replace(s, whereCall, "\twhereLine := whereText(wm.Str(devs[0][\"name\"]), board, boardOf(devs[0]), city, citySet, tzMin)\n\tdata.WriteString(whereLine)\n", 1)

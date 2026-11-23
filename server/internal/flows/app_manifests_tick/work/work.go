@@ -50,7 +50,8 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 				continue // private ids are people's own uploads; an older or equal code changes nothing
 			}
 			vals := map[string]any{"pkg_id": id, "user_id": 0, "code": wm.Int(e["code"]), "version": wm.Str(e["version"]),
-				"settings": e["settings"], "provides": e["provides"], "server": e["server"], "auth": e["auth"], "source": "store", "updated_ms": now}
+				"settings": e["settings"], "provides": e["provides"], "server": e["server"], "auth": e["auth"], "perms": e["perms"],
+				"source": "store", "updated_ms": now}
 			if _, uerr := wm.Upsert("app_manifests", []string{"pkg_id", "user_id"}, vals, nil); uerr != nil {
 				wm.Log("save ", id, ": ", uerr.Error())
 				continue

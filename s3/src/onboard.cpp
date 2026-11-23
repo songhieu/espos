@@ -8,6 +8,8 @@
 #endif
 
 #include "apps.h"
+#include "assistant.h"
+#include "preset.h"
 #include "appopts.h"
 #include "art.h"
 #include "brand.h"
@@ -139,6 +141,16 @@ lv_obj_t* lbl(lv_obj_t* parent, const char* text, int px, bool bold, uint32_t co
   return l;
 }
 
+// The assistant's steps (the dog, its name for you, its calls) only when an assistant app is on the device: a product
+// without one (only the aquarium, say) never mentions a dog (app-slots.md §16, §17).
+bool assistStep(int s) { return s == DOG || s == NAME || s == CALL; }
+// A step this unit never shows: the assistant's without one, those a product preset (preset.h) names, and the
+// questions it answered (a fixed language, city). The dots count only the others.
+bool leftOut(int k) {
+  return (assistStep(k) && !assistant::any()) || preset::skips(KEYS[k]) || (k == LANG && !preset::asks("lang")) ||
+         (k == CITY && !preset::asks("city"));
+}
+
 // The step's screen: a bar (‹, the steps as dots, "Later"), the title, a body that scrolls, the buttons at the bottom.
 // Turned (most units stand sideways): the title sits in the bar and the dots beside the buttons, for a taller body.
 void frame(const char* title, lv_event_cb_t later = nullptr) {
@@ -165,6 +177,7 @@ void frame(const char* title, lv_event_cb_t later = nullptr) {
   lv_obj_t* dots = stack(bar, true, 5);
   lv_obj_center(dots);
   for (int i = 0; i < DONE; i++) {
+    if (i != nv.step && leftOut(i)) continue;  // a step this unit skips is no dot
     const uint32_t c = pet ? (i < nv.step ? 0xf5b46b : i == nv.step ? ORANGE : 0xecd2b4)
                            : (i < nv.step ? 0x8fb9f2 : i == nv.step ? col::IOS_BLUE : 0xcdd0d7);
     lv_obj_set_size(box(dots, c, 3), i == nv.step ? 18 : 6, 6);
@@ -806,7 +819,7 @@ void stepDone() {
   const int sw = os::landscape() ? 200 : os::W() - 24, sh = os::landscape() ? os::H() - 140 : 160;
   lv_obj_set_size(st, sw, sh);
   u.c = st;
-  if (pk::ready()) {
+  if (assistant::any() && pk::ready()) {
     View* v = View::create(st, sw, sh, 0, CREAM, (320 - sw) / 2, 292 - sh);
     lv_obj_align(v->obj(), LV_ALIGN_BOTTOM_MID, 0, 0);
     v->play("high_five", 1);
@@ -822,8 +835,10 @@ void stepDone() {
   lv_obj_set_style_pad_hor(c, 14, 0);
   lv_obj_set_style_pad_ver(c, 4, 0);
   lv_obj_set_flex_flow(c, LV_FLEX_FLOW_COLUMN);
-  doneRow(c, N_("Dog"), dogName().c_str(), 0x2b2f3a);
-  doneRow(c, N_("Calls"), assist::prefs().wake ? callNames(0).c_str() : nv.skip >> CALL & 1 ? nullptr : T_("Off"), 0x2b2f3a);
+  if (assistant::any()) {
+    doneRow(c, N_("Dog"), dogName().c_str(), 0x2b2f3a);
+    doneRow(c, N_("Calls"), assist::prefs().wake ? callNames(0).c_str() : nv.skip >> CALL & 1 ? nullptr : T_("Off"), 0x2b2f3a);
+  }
   doneRow(c, N_("City"), app_weather::cityNow().c_str(), 0x2b2f3a);
   doneRow(c, N_("Account"), pairNeeded() ? nullptr : T_("Activated"), GREEN);
   btn(N_("Start"), true, [](lv_event_t*) { finish(); });
@@ -832,6 +847,10 @@ void stepDone() {
 // ---------------------------------------------------------------- the flow
 void show(int s) {
   if (s > DONE) s = DONE;
+  const int dir = s < nv.step ? -1 : 1;  // going back skips them backwards
+  while (s >= LANG && s < DONE && leftOut(s) && (s > LANG || dir > 0)) s += dir;
+  if (s < LANG) s = LANG;
+  if (s == TIPS && sub < 2 && !assistant::any()) sub = 2;  // the tips: only "Getting around"
   on = true;
   nv.step = s;
   save();
@@ -863,7 +882,7 @@ void finish() {
   os::closeApps();
   lv_timer_t* t = lv_timer_create([](lv_timer_t* t) {  // Home, then the dog says hello for the first time
     lv_timer_delete(t);
-    if (os::atHome()) summon("cc");
+    if (os::atHome() && assistant::dog()) summon("cc");
   }, 1200, nullptr);
   (void)t;
   trace::add("onboard: done %s", j);

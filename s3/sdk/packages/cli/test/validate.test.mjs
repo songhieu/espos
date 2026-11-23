@@ -26,7 +26,7 @@ test("a good JavaScript package has no errors or warnings", () => {
 test("every rule has a code, a level and a source", () => {
   const seen = new Set();
   for (const r of RULES) {
-    assert.match(r.code, /^[MFCPU]\d{3}$/); // U: the private-upload rules (espos upload)
+    assert.match(r.code, /^[MFCPUS]\d{3}$/); // U: the private-upload rules (espos upload); S: the settings schema
     assert.ok(["error", "warning", "info"].includes(r.level));
     assert.ok(r.text && r.from);
     assert.ok(!seen.has(r.code), r.code);

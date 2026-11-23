@@ -21,6 +21,7 @@
 #include <ctime>
 #include <deque>
 #include <fstream>
+#include <chrono>
 #include <functional>
 #include <iostream>
 #include <mutex>
@@ -30,6 +31,8 @@
 #include <vector>
 
 #include "apps.h"
+#include "appset.h"
+#include "lanform.h"
 #include "desk.h"
 #include "fonts.h"
 #include "hal/board.h"
@@ -48,6 +51,7 @@
 #include "pet/pet.h"
 #include "pet/game.h"
 #include "pet/talk.h"
+#include "preset.h"
 #include "led.h"
 #include "wake/wake.h"
 #include "run/run.h"
@@ -68,6 +72,9 @@ extern Watcher watcher;
 namespace lcd {
 lv_display_t* simDisp;
 }
+namespace desk {
+void simDash(const std::string& path);  // stubs.cpp
+}  // namespace desk
 namespace trace {
 extern bool quiet;
 }
@@ -308,6 +315,35 @@ void runLine(const std::string& line) {
       step(80);
       pressed = false;
       step(400);
+    } else if (cmd == "tapat" || cmd == "downat") {  // tapat TEXT: tap the middle of the visible label showing TEXT (its
+      // button, card...); downat TEXT: the finger stays down there (hold to talk) until "up"
+      std::string want;
+      std::getline(ss >> std::ws, want);
+      std::function<lv_obj_t*(lv_obj_t*)> find = [&](lv_obj_t* o) -> lv_obj_t* {
+        if (lv_obj_has_flag(o, LV_OBJ_FLAG_HIDDEN)) return nullptr;
+        for (int32_t i = (int32_t)lv_obj_get_child_count(o) - 1; i >= 0; i--)
+          if (lv_obj_t* f = find(lv_obj_get_child(o, i))) return f;
+        if (lv_obj_check_type(o, &lv_label_class) && want == lv_label_get_text(o)) return o;
+        if (lv_obj_check_type(o, &lv_textarea_class) && want == lv_textarea_get_placeholder_text(o)) return o;
+        return nullptr;
+      };
+      lv_obj_t* hit = find(lv_layer_top());
+      if (!hit) hit = find(lv_screen_active());
+      if (!hit) {
+        trace::add("tapat: no \"%s\" on screen", want.c_str());
+      } else {
+        lv_area_t a;
+        lv_obj_get_coords(hit, &a);
+        // the wall clock too: a latency test lines taps up with what a local mock server saw (apps/sessions/test)
+        trace::add("%s \"%s\" wall %lld", cmd.c_str(), want.c_str(), (long long)std::chrono::duration_cast<std::chrono::milliseconds>(
+                                                                std::chrono::system_clock::now().time_since_epoch()).count());
+        press((a.x1 + a.x2) / 2, (a.y1 + a.y2) / 2);
+        step(80);
+        if (cmd == "tapat") {
+          pressed = false;
+          step(400);
+        }
+      }
     } else if (cmd == "long") {
       int x, y;
       ss >> x >> y;
@@ -315,9 +351,10 @@ void runLine(const std::string& line) {
       step(900);
       pressed = false;
       step(400);
-    } else if (cmd == "drag") {
-      int x0, y0, x1, y1, ms;
-      ss >> x0 >> y0 >> x1 >> y1 >> ms;
+    } else if (cmd == "drag") {  // drag X0 Y0 X1 Y1 [MS]: MS 300 when left out (a failed read gives 0: no move at all)
+      int x0, y0, x1, y1, ms = 300;
+      ss >> x0 >> y0 >> x1 >> y1;
+      if (!(ss >> ms) || ms <= 0) ms = 300;
       press(x0, y0);
       step(20);
       for (int t = 0; t <= ms; t += 10) {
@@ -406,6 +443,10 @@ void runLine(const std::string& line) {
       int ms;
       ss >> ms;
       step(ms);
+    } else if (cmd == "realwait") {  // MS of real time, the simulator running meanwhile (net.request answers come
+      int ms;                         // from real servers: a headless "wait" passes far faster than real time)
+      ss >> ms;
+      for (int t = 0; t < ms; t += 5) step(5), usleep(5000);
     } else if (cmd == "shot") {
       std::string name;
       ss >> name;
@@ -438,6 +479,22 @@ void runLine(const std::string& line) {
       if (!v.empty() && v[0] == ' ') v = v.substr(1);
       desk::setSetting(k.c_str(), v.c_str());
       step(2000);
+    } else if (cmd == "lanform") {  // lanform APP: the "From a computer" page for a package (lanform.h)
+      std::string a;
+      ss >> a;
+      lanform::open(a.c_str());
+      step(500);
+    } else if (cmd == "secret") {  // secret APP KEY VALUE: a device secret typed for a package (appset.h; tests only)
+      std::string a, k, v;
+      ss >> a >> k >> v;
+      String why;
+      if (!appset::setSecret(a.c_str(), k.c_str(), v.c_str(), why)) fprintf(stderr, "secret %s %s: %s\n", a.c_str(), k.c_str(), why.c_str());
+      step(100);
+    } else if (cmd == "dash") {  // dash [FILE]: the dashboard read again (DATA/dash.json, or FILE), as after a sync
+      std::string f;
+      ss >> f;
+      desk::simDash(f);
+      step(300);
     } else if (cmd == "sync") {  // as after a sync from the web: the store reconciles s3.pkgs, looks for new versions
       pkg::store::afterSync();
       step(2000);
@@ -836,7 +893,7 @@ void runLine(const std::string& line) {
                       "backswipe | home | back | app ID [ARG] | pet | run [ARG] | dev auto|god|manual|stats | shot [NAME] | "
                       "mem | set KEY VALUE | sync | userpkgs FILE | rot N | saver | wake | wait MS | quit\n"
                       "keys: arrows = swipe, H = home, B = back, S = shot, M = memory, Q = quit; mouse = finger\n");
-    } else if (wake::console(line.c_str()) || pet::talk::console(line.c_str())) {  // WAKE, WAKEREC n, ASK text, TALK
+    } else if (wake::console(line.c_str()) || pet::talk::console(line.c_str()) || preset::console(line.c_str())) {  // WAKE, WAKEREC n, ASK text, TALK, PRESET
     } else {
       fprintf(stderr, "?? %s (help: the commands)\n", cmd.c_str());
     }
@@ -897,6 +954,7 @@ int main(int argc, char** argv) {
           simBoard ? "the board's speed (--fast: the computer's)" : "the computer's speed", out.c_str());
 #endif
   desk::begin();
+  preset::begin();  // as src/main.cpp: a factory preset before Home is built
   os::begin(lcd::simDisp);
   led::begin();   // the RGB LED: a dot in the window's frame
   wake::begin();  // the mic's listener (SIM_MIC=file feeds it) and the dog assistant's turns

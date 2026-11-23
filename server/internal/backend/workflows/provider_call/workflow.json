@@ -1,0 +1,18 @@
+{
+  "code": "provider_call",
+  "name": "Assistant apps: one turn sent to a third-party provider (EspOS Assistant Protocol v1, signed; phase 3, not wired yet)",
+  "draft": {
+    "nodes": [
+      {"id": "in", "type": "function_in", "config": {"inputs": ["pkg", "req"], "optional": ["user_id", "device_id"]}},
+      {"id": "call", "type": "code", "config": {"source": {"$file": "nodes/call.go"}, "timeout_ms": 15000,
+        "input": {"pkg": "{{ input.pkg }}", "req": "{{ input.req }}", "user_id": "{{ input.user_id }}", "device_id": "{{ input.device_id }}"}}},
+      {"id": "out", "type": "return", "config": {"data": {"ok": "{{ call.ok }}", "response": "{{ call.response }}", "error": "{{ call.error }}", "status": "{{ call.status }}", "ms": "{{ call.ms }}"}}},
+      {"id": "boom", "type": "return", "config": {"data": {"ok": false, "error": "timeout", "status": 0}}}
+    ],
+    "edges": [
+      {"from": "in", "to": "call"},
+      {"from": "call", "to": "out"},
+      {"from": "call", "to": "boom", "port": "error"}
+    ]
+  }
+}

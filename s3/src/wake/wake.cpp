@@ -13,6 +13,7 @@
 #include "../desk.h"
 #include "../i18n.h"
 #include "../mic.h"
+#include "../assistant.h"
 #include "../pet/assist.h"
 #include "../pet/sfx.h"  // bedOnly(): a tune alone does not stop the wake word
 #include "../notif.h"
@@ -301,10 +302,14 @@ bool loadModel() {
 }
 
 void readPrefs() {
-  if (prefsVer == desk::settingsVersion() && prefsVer) return;
-  prefsVer = desk::settingsVersion();
+  static uint32_t pkgVer = 0;
+  if (prefsVer == desk::settingsVersion() && prefsVer && pkgVer == pkg::version()) return;
+  prefsVer = desk::settingsVersion(), pkgVer = pkg::version();
   const pet::assist::Prefs p = pet::assist::prefs();
   mode_ = p.wake, word = p.wakeWord, sens = p.wakeSens, calls = p.calls;
+  // It listens only for the assistant slot's app (app-slots.md §16): none, or one whose turn the device lacks, and
+  // the wake word is off whatever s3.assist says (kept for when an assistant is back).
+  if (!assistant::listens()) mode_ = OFF;
 }
 
 bool wantDetector() {
@@ -598,19 +603,25 @@ bool console(const char* cmd) {
     return true;
   }
   // PKGPUT <id> <file> <bytes>, then the bytes: a file of a small package straight into LittleFS (development: the
-  // wake model before it is in the store). The package shows after RESTART (pkg scans LittleFS at boot).
+  // wake model before it is in the store, the Sessions app on a test board). One folder level ("fonts/m12.bin").
+  // Send manifest.json last: a folder without it is removed at boot. The package shows after RESTART (pkg scans
+  // LittleFS at boot). wake/tools/s3.py pkg FILE.espk sends a whole package.
   if (!strncmp(cmd, "PKGPUT ", 7)) {
     char id[64] = "", name[52] = "";
     unsigned n = 0;
+    const char* slash = nullptr;
     if (sscanf(cmd + 7, "%63s %51s %u", id, name, &n) != 3 || strncmp(id, "dev.espos.", 10) || n > 512 * 1024 ||
         strspn(id, "abcdefghijklmnopqrstuvwxyz0123456789.-_") != strlen(id) ||
-        strspn(name, "abcdefghijklmnopqrstuvwxyz0123456789.-_") != strlen(name)) {
+        strspn(name, "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.-_/") != strlen(name) ||
+        name[0] == '.' || name[0] == '/' || strstr(name, "..") || strstr(name, "/.") ||
+        ((slash = strchr(name, '/')) && (slash != strrchr(name, '/') || !slash[1]))) {
       Serial.println("PKGPUT bad");
       return true;
     }
     String dir = String("/littlefs/pkgs/") + id;
     mkdir("/littlefs/pkgs", 0777);
     mkdir(dir.c_str(), 0777);
+    if (slash) mkdir((dir + "/" + String(name).substring(0, slash - name)).c_str(), 0777);
     FILE* f = fopen((dir + "/" + name).c_str(), "wb");
     uint8_t buf[256];
     unsigned got = 0;

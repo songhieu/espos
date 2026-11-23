@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "apps.h"
+#include "assistant.h"
 #include "claim.h"
 #include "desk.h"
 #include "lic.h"
@@ -228,19 +229,26 @@ lv_obj_t* glyph(lv_obj_t* parent, int s, uint32_t color) {  // a padlock in a bo
 }
 namespace {
 
-lv_obj_t* portrait(lv_obj_t* parent, int size) {  // the chosen dog (else PawBoop's own icon), round
+// Who speaks the sheet: the chosen dog (else PawBoop's own icon), round, in PawBoop's games or while the dog is the
+// device's assistant; else a plain padlock (no assistant, or another one: app-slots.md §16).
+lv_obj_t* portrait(lv_obj_t* parent, int size, Look look) {
   lv_obj_t* w = clear(parent);
   lv_obj_set_size(w, size, size);
   lv_obj_set_style_radius(w, LV_RADIUS_CIRCLE, 0);
   lv_obj_set_style_clip_corner(w, true, 0);
-  lv_obj_set_style_bg_color(w, C(0xffcf7a), 0);
   lv_obj_set_style_bg_opa(w, LV_OPA_COVER, 0);
+  lv_obj_remove_flag(w, LV_OBJ_FLAG_CLICKABLE);
+  if (look != Look::Pet && !assistant::dog()) {
+    lv_obj_set_style_bg_color(w, C(0xe5e7eb), 0);
+    glyph(w, size * 55 / 100, 0x374151);
+    return w;
+  }
+  lv_obj_set_style_bg_color(w, C(0xffcf7a), 0);
   const pet::dogs::Info* d = pet::dogs::chosen();
   lv_obj_t* ic = d ? apps::packageIcon(w, pet::dogs::pkgId(d->key).c_str(), size)
                    : pkg::find("vn.pawboop.pet") ? apps::packageIcon(w, "vn.pawboop.pet", size)
                                                  : apps::drawnIcon(w, 0xffcf7a, 0xe8892c, "play", size);
   lv_obj_center(ic);
-  lv_obj_remove_flag(w, LV_OBJ_FLAG_CLICKABLE);
   return w;
 }
 
@@ -291,21 +299,20 @@ void bullet(lv_obj_t* parent, const String& text, uint32_t dot, uint32_t fg, int
 }
 
 // What stays free and what is locked now, from the catalog's marks (the names from the catalog, else the packages).
+// PawBoop's dogs and run maps only while PawBoop is on the device (removed: nothing points at the dog, §16).
 void lists(std::vector<String>& free, std::vector<String>& locked) {
-  std::vector<String> dogsFree;
-  int dogsLocked = 0;
-  for (const pet::dogs::Info& d : pet::dogs::ALL) {
-    if (may(pet::dogs::pkgId(d.key).c_str())) dogsFree.push_back(d.name);
-    else dogsLocked++;
-  }
-  std::vector<String> mapsFree, others;
-  int mapsLocked = 0;
+  const bool pawboop = pkg::find(assistant::DOG) != nullptr;
+  std::vector<String> dogsFree, mapsFree, others;
+  int dogsLocked = 0, mapsLocked = 0;
   bool anyMap = false;
   for (const st::Entry& e : st::catalog()) {
-    if (e.set == "map") {
+    if (!pawboop || e.addonOf != assistant::DOG) continue;
+    if (e.set == "dog") {
+      if (may(e.id.c_str())) dogsFree.push_back(e.name);
+      else dogsLocked++;
+    } else if (e.set == "map") {
       anyMap = true;
       if (may(e.id.c_str())) mapsFree.push_back(e.name);
-      continue;
     }
   }
   const char* end;
@@ -315,7 +322,7 @@ void lists(std::vector<String>& free, std::vector<String>& locked) {
     if (!eq) break;
     const String id = String(q + 1).substring(0, eq - q - 1);
     if (id.startsWith(MAP)) {
-      if (!may(id.c_str())) mapsLocked++;
+      if (pawboop && !may(id.c_str())) mapsLocked++;
     } else if (!id.startsWith(DOG) && id != TANK && !may(id.c_str())) {
       const st::Entry* e = st::entry(id.c_str());
       const pkg::Package* p = pkg::find(id.c_str());
@@ -339,7 +346,7 @@ void lists(std::vector<String>& free, std::vector<String>& locked) {
   if (mapsLocked) locked.push_back(i18n::plural(mapsLocked, mapsFree.size() ? NP_("{n} more map|{n} more maps") : NP_("{n} map|{n} maps")));
   if (tankLocked) locked.push_back(T_("Aquarium: every fish, tank look and the sea tank"));
   for (size_t i = 0; i < others.size() && i < 3; i++) locked.push_back(others[i]);
-  if (lic::aiLocked()) locked.push_back(T_("The AI assistant"));
+  if (lic::aiLocked() && assistant::any()) locked.push_back(T_("The AI assistant"));
 }
 
 }  // namespace
@@ -579,7 +586,7 @@ void sheet(const char* name, Look look) {
   fitText(t, i18n::fmt(N_("{0} is locked"), name).c_str(), f.colW, 48, 18, 14, true, 0);
   lv_obj_t* row = clear(f.col);
   lv_obj_set_size(row, f.colW, LV_SIZE_CONTENT);
-  portrait(row, 52);
+  portrait(row, 52, look);
   lv_obj_t* bub = box(row, k.bubble, 14);
   lv_obj_set_style_bg_opa(bub, k.bubbleOpa, 0);
   lv_obj_set_size(bub, f.colW - 62, LV_SIZE_CONTENT);

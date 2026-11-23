@@ -1,0 +1,153 @@
+{
+  "code": "admin_presets",
+  "label": "Admin: product presets (Kho máy)",
+  "singular": "Preset version",
+  "unique_together": [
+    [
+      "code",
+      "version"
+    ]
+  ],
+  "columns": [
+    {
+      "code": "code",
+      "default": null,
+      "help": "the preset's id (s3desk presets/<id>.json); one row per version",
+      "indexed": true,
+      "label": "Code",
+      "options": [],
+      "position": 1,
+      "read_only": false,
+      "ref_table": null,
+      "required": true,
+      "type": "text",
+      "unique": false
+    },
+    {
+      "code": "version",
+      "default": null,
+      "help": "a higher one reaches the units of that product at their next sync (three-way merge on the device)",
+      "indexed": true,
+      "label": "Version",
+      "options": [],
+      "position": 2,
+      "read_only": false,
+      "ref_table": null,
+      "required": true,
+      "type": "integer",
+      "unique": false
+    },
+    {
+      "code": "name",
+      "default": null,
+      "help": "the product's name",
+      "indexed": false,
+      "label": "Name",
+      "options": [],
+      "position": 3,
+      "read_only": false,
+      "ref_table": null,
+      "required": false,
+      "type": "text",
+      "unique": false
+    },
+    {
+      "code": "boards",
+      "default": null,
+      "help": "[\"es3c35p\", \"es3c28p\"]",
+      "indexed": false,
+      "label": "Boards",
+      "options": [],
+      "position": 4,
+      "read_only": false,
+      "ref_table": null,
+      "required": false,
+      "type": "json",
+      "unique": false
+    },
+    {
+      "code": "device",
+      "default": null,
+      "help": "{board: the compiled /sys/preset.json} (espos preset compile --board)",
+      "indexed": false,
+      "label": "Device files",
+      "options": [],
+      "position": 5,
+      "read_only": false,
+      "ref_table": null,
+      "required": false,
+      "type": "json",
+      "unique": false
+    },
+    {
+      "code": "grants",
+      "default": null,
+      "help": "what a unit of this product gets at its claim: [{item, days}] (the preset's @refs resolved; days 0 = for good)",
+      "indexed": false,
+      "label": "Grants",
+      "options": [],
+      "position": 6,
+      "read_only": false,
+      "ref_table": null,
+      "required": false,
+      "type": "json",
+      "unique": false
+    },
+    {
+      "code": "entitlements",
+      "default": null,
+      "help": "the preset's own @names, kept for reference",
+      "indexed": false,
+      "label": "Entitlement names",
+      "options": [],
+      "position": 7,
+      "read_only": false,
+      "ref_table": null,
+      "required": false,
+      "type": "json",
+      "unique": false
+    },
+    {
+      "code": "active",
+      "default": null,
+      "help": "Kho máy offers it for new units",
+      "indexed": true,
+      "label": "Active",
+      "options": [],
+      "position": 8,
+      "read_only": false,
+      "ref_table": null,
+      "required": false,
+      "type": "boolean",
+      "unique": false
+    },
+    {
+      "code": "made_by",
+      "default": null,
+      "help": "the admin's account id (0: scripts/admin-presets.py)",
+      "indexed": false,
+      "label": "Made by",
+      "options": [],
+      "position": 9,
+      "read_only": false,
+      "ref_table": null,
+      "required": false,
+      "type": "integer",
+      "unique": false
+    },
+    {
+      "code": "note",
+      "default": null,
+      "help": "",
+      "indexed": false,
+      "label": "Note",
+      "options": [],
+      "position": 10,
+      "read_only": false,
+      "ref_table": null,
+      "required": false,
+      "type": "text",
+      "unique": false
+    }
+  ]
+}

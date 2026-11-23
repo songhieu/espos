@@ -41,6 +41,44 @@ var reasons = map[string]string{
 	"no_browser":         "không thấy trình duyệt trên máy tính",
 }
 
+// reasonsEN: reasons for a device in any language but Vietnamese (assist_reply's lines carry "en": true).
+var reasonsEN = map[string]string{
+	"desktop_disabled":   "computer control is paused for now",
+	"no_desktop":         "no computer is paired with the account",
+	"desktop_offline":    "the computer is off or EspOS Desktop is not open",
+	"desktop_view_only":  "the computer is set to view only",
+	"command_off":        "that command is switched off on the computer",
+	"unknown_command":    "the computer does not have that command",
+	"bad_args":           "the command was not clear enough",
+	"sender_not_allowed": "the computer does not take commands from this device",
+	"rate_limited":       "too many commands too fast, wait a moment and try again",
+	"expired":            "the computer did not pick the command up in time",
+	"cancelled":          "the command was cancelled",
+	"denied":             "the command was refused on the computer",
+	"not_installed":      "that app is not on the computer",
+	"not_found":          "that could not be found on the computer",
+	"not_allowed":        "that command is switched off on the computer",
+	"busy":               "the computer is busy",
+	"timeout":            "the computer did not finish in time",
+	"opened_not_playing": "it opened in Chrome but the music did not start, press play please",
+	"chrome_hidden_only": "your Chrome could not be opened, only a hidden Chrome is running",
+	"no_browser":         "no web browser was found on the computer",
+}
+
+// whyL: why in English (en) or Vietnamese. The Mac's own sentences are Vietnamese: an English turn never reads one.
+func whyL(en bool, code string) string {
+	if !en {
+		return why(code)
+	}
+	if r, ok := reasonsEN[strings.TrimSpace(code)]; ok {
+		return r
+	}
+	if c := strings.TrimSpace(code); c == "" || c == "server_error" {
+		return "the server is having trouble"
+	}
+	return "the computer reported an error"
+}
+
 // why: a refusal code or the Mac's error, as words. The Mac's own sentence is used when it reads like one.
 func why(code string) string {
 	c := strings.TrimSpace(code)
@@ -106,9 +144,11 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 		return map[string]any{"body": body}
 	}
 	lines, _ := in["lines"].(map[string]any)
+	en := wm.Bool(lines["en"]) // the device speaks another language than Vietnamese
 	items, _ := in["items"].([]any)
 	outcome := []any{}
-	failWhy, confirmWhat, where, playText := "", []string{}, "", ""
+	failWhy, confirmWhat, where, playText, statusText := "", []string{}, "", "", ""
+	statusWait := false
 	sent := false
 	for i, x := range results {
 		r, _ := x.(map[string]any)
@@ -124,16 +164,16 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 			o["state"] = "refused"
 			o["error"] = wm.Str(r["error"])
 			if failWhy == "" {
-				failWhy = why(wm.Str(r["error"]))
+				failWhy = whyL(en, wm.Str(r["error"]))
 			}
 		case state == "failed":
 			o["err"] = wm.Str(r["err"])
 			if failWhy == "" {
-				failWhy = why(wm.Str(r["err"]))
+				failWhy = whyL(en, wm.Str(r["err"]))
 			}
 		case state == "expired" || state == "cancelled":
 			if failWhy == "" {
-				failWhy = why(state)
+				failWhy = whyL(en, state)
 			}
 		case state == "confirm":
 			confirmWhat = append(confirmWhat, wm.Str(r["what"]))
@@ -145,8 +185,14 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 			if cmd == "yt.play" && wm.Str(r["text"]) != "" && playText == "" {
 				playText = wm.Str(r["text"]) // "Đang phát “…” trên Chrome": the dog says what plays
 			}
+			if cmd == "claude.status" && wm.Str(r["text"]) != "" {
+				statusText = wm.Str(r["text"]) // the sessions' own words: the dog reads them
+			}
 		default: // queued or sent: not run within 2 s
 			sent = true
+			if cmd == "claude.status" {
+				statusWait = true
+			}
 		}
 		outcome = append(outcome, o)
 	}
@@ -155,6 +201,9 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 	switch {
 	case failWhy != "":
 		head := strings.TrimSpace(wm.Str(lines["fail"]))
+		if head == "" && en {
+			head = "Couldn't do it"
+		}
 		if head == "" {
 			head = "Chưa làm được"
 		}
@@ -169,11 +218,22 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 		}
 		done, _ := body["done"].([]any)
 		for _, w := range confirmWhat {
-			done = append(done, "chờ bạn xác nhận: "+w)
+			if en {
+				done = append(done, "waiting for your yes: "+w)
+			} else {
+				done = append(done, "chờ bạn xác nhận: "+w)
+			}
 		}
 		body["done"] = done
+	case statusWait:
+		reply = wm.Str(lines["status_wait"]) // the sessions are being asked: the S3 shows the report when it comes
+		if reply == "" {
+			reply = wm.Str(lines["sent"])
+		}
 	case sent:
 		reply = wm.Str(lines["sent"])
+	case statusText != "":
+		reply = statusText
 	}
 	if reply == "" && playText != "" {
 		// all done, music among it: the model's line, then what really plays and where

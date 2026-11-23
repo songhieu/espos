@@ -1,0 +1,34 @@
+{
+  "id": "dev.espos.ai.echo",
+  "name": "Echo assistant",
+  "version": "1.0.0",
+  "code": 10000,
+  "kind": "js",
+  "engine": "js",
+  "min_fw": 300,
+  "category": "tool",
+  "desc": "A sample assistant app: answers the weather and sets alarms from the request",
+  "icon": {
+    "bg": [
+      "#4ade80",
+      "#16a34a"
+    ],
+    "glyph": "speaker"
+  },
+  "part": "core",
+  "provides": [
+    "assistant"
+  ],
+  "assistant": {
+    "provider": "https://ai.example.com/espos/turn",
+    "languages": [
+      "*"
+    ]
+  },
+  "perms": [
+    "location:city",
+    "data:weather",
+    "assist.alarms",
+    "alarms.write"
+  ]
+}

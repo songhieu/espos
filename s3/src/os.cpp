@@ -12,6 +12,8 @@
 
 #include "alarm.h"
 #include "apps.h"
+#include "assistant.h"
+#include "preset.h"
 #include "art.h"
 #include "desk.h"
 #include "desksaver.h"
@@ -32,7 +34,6 @@
 #include "js/jsapp.h"
 #ifndef NO_PET
 #include "pet/pet.h"
-#include "pet/talk.h"
 #endif
 #include "wake/wake.h"
 #include "power.h"
@@ -237,8 +238,9 @@ bool watchTouch(bool down, int32_t x, int32_t y) {
     const bool app = !stack.empty();
     // With the keyboard up, a finger landing on its keys types (no back swipe from its left column).
     const int kbTop = kb::isOpen() ? H() - kb::height() : H();
-    // Biscuit's pop-up has its own gestures (swipe down, tap outside): nothing underneath may take its touches.
-    if (saverShown || ccOpen() || ::home::editing() || notif::centerShown() || pet::summoned()) gst.kind = G_NONE;
+    // The assistant's pop-up (or its "No assistant installed" card) has its own gestures (swipe down, tap outside):
+    // nothing underneath may take its touches.
+    if (saverShown || ccOpen() || ::home::editing() || notif::centerShown() || assistant::open()) gst.kind = G_NONE;
     else if (app && x < EDGE && y > SB_H && y < kbTop) gst.kind = G_BACK;
 #if ESPOS_ONBOARD
     else if (onboard::running()) gst.kind = G_NONE;  // the first-boot setup: only back (one step back, onboard.h)
@@ -505,8 +507,11 @@ void closeCcNow() {
 }
 
 void fillCcNotes();
+String ccAssist;  // what the assistant tile and the mic tile were built for (ccFollowAssistant)
+String assistSig() { return assistant::id() + "|" + assistant::name() + (assistant::listens() ? "|m" : ""); }
 
 void buildControl() {
+  ccAssist = assistSig();
   keep(&cc, clear(lv_layer_top()));
   lv_obj_set_size(cc, W(), H());
   grad(cc, 0x141833, 0x1d1230);
@@ -598,9 +603,11 @@ void buildControl() {
       apps::open("clock", "alarm");
     });
 #ifndef NO_PET
-    ccTile(grid, tw, th, &gl_home_22, pet::name(), [](lv_event_t*) {  // a name: as it is
+    // The assistant slot's app (app-slots.md §16): the dog's name, or "No assistant" (a tap says how to get one).
+    const String an = assistant::name();
+    ccTile(grid, tw, th, &gl_home_22, an.length() ? an.c_str() : NC_("cc", "No assistant"), [](lv_event_t*) {
       closeCcNow();
-      pet::summon("cc");  // the dog assistant pops up over any screen
+      assistant::summon("cc");  // its pop-up over any screen, or the "No assistant installed" card
     });
 #else
     ccTile(grid, tw, th, &gl_timer_22, N_("Timer"), [](lv_event_t*) {
@@ -619,14 +626,14 @@ void buildControl() {
   const int nh = land ? 56 : 64;
   int micW = 0;
 #ifndef NO_PET
-  if (sound::micChannel()) {
+  if (sound::micChannel() && assistant::listens()) {  // no assistant: nothing listens, no tile for it
     micW = nh + 8;
     keep(&ccMic, box(cc, 0x2b3050, 22));
     lv_obj_set_size(ccMic, nh, nh);
     lv_obj_set_pos(ccMic, W() - x0 - nh, ny);
     lv_obj_add_flag(ccMic, LV_OBJ_FLAG_CLICKABLE);
     lv_obj_set_style_bg_opa(ccMic, LV_OPA_70, LV_STATE_PRESSED);
-    lv_obj_center(pet::talk::micIcon(ccMic, 0xffffff));
+    lv_obj_center(assistant::micIcon(ccMic, 0xffffff));
     lv_obj_add_event_cb(ccMic, [](lv_event_t*) {
       if (wake::mode() == wake::OFF) {
         closeCcNow();
@@ -660,6 +667,16 @@ void buildControl() {
   ccSliding = false;
   ccY = -H();
   setCcY(-H());
+}
+
+// The assistant slot changed (its app removed or installed, another dog's name): the closed Control Center is built
+// again, so its tile names the new one (or "No assistant") and the mic tile comes or goes (app-slots.md §16).
+void ccFollowAssistant() {
+  if (!cc || ccOpen() || ccSliding || ccAssist == assistSig()) return;
+  if (ccShot) lv_obj_delete(ccShot);
+  lv_obj_delete(cc);  // keep() clears cc, ccShot and the tiles' pointers
+  buildControl();
+  trace::add("control center: the assistant tile is now %s", ccAssist.c_str());
 }
 
 // The "Thông báo" tile: a red bell, the name and how many wait in the Notification Center.
@@ -755,11 +772,10 @@ void buildSaver() {
 void updateSaver(const tm& t) {
   if (!saverShown) {
     // Not over a ringing alarm (it woke the screen; nobody has touched it since the night, so idle is long).
-    // Nor over the dog's pop-up (it was called by "Gâu gâu" while the saver was on: talking to it is no touch).
-#ifndef NO_PET
-    if (pet::summoned()) return;
-#endif
-    if (saverSec > 0 && stack.empty() && !kb::isOpen() && !ccOpen() && !home::editing() && !alarms::ringing() &&
+    // Nor over the assistant's pop-up (it was called by "Gâu gâu" while the saver was on: talking to it is no touch).
+    if (assistant::open()) return;
+    // An app's screen keeps the saver away (stack); one with "screen.awake" does even if that rule changes.
+    if (saverSec > 0 && stack.empty() && !jsapp::keepsAwake() && !kb::isOpen() && !ccOpen() && !home::editing() && !alarms::ringing() &&
         idleMs() > (uint32_t)saverSec * 1000 && millis() > 5000)
       showSaver();
     return;
@@ -961,8 +977,19 @@ void open(lv_obj_t* scr) {
   updateChrome();
 }
 
+std::map<lv_obj_t*, bool (*)()> backHooks;  // setBackHook
+
+void setBackHook(lv_obj_t* scr, bool (*fn)()) {
+  if (!backHooks.count(scr))
+    lv_obj_add_event_cb(scr, [](lv_event_t* e) { backHooks.erase((lv_obj_t*)lv_event_get_current_target(e)); },
+                        LV_EVENT_DELETE, nullptr);
+  backHooks[scr] = fn;
+}
+
 void back() {
   if (stack.empty()) return;
+  auto hook = backHooks.find(stack.back());
+  if (hook != backHooks.end() && hook->second && hook->second()) return;  // the app went back inside itself
   kb::close();
   lv_obj_t* top = stack.back();
   stack.pop_back();
@@ -1157,10 +1184,13 @@ void tick() {
     seenApps = apps::version();
     pending = true;
   }
+  static uint32_t ccCheck = 0;
+  if (millis() - ccCheck >= 1000) ccCheck = millis(), ccFollowAssistant();  // cheap: two strings, once a second
 #if ESPOS_ONBOARD
   onboard::tick();  // the first-boot setup, the claim's welcome, a store demo unit (onboard.h)
 #endif
   lock::tick();  // the trial's notices and end card (lock.h)
+  preset::tick();  // a factory card's preset, once the card has been looked at (preset.h)
   if (seenLock != lock::version()) {  // a paid app locked or opened again: its icon's lock
     seenLock = lock::version();
     pending = true;

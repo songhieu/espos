@@ -16,6 +16,7 @@ their own licences.
 | TJpgDec R0.03 (ChaN) | `src/pet/tjpgd_pb.c`, `src/pet/tjpgd_pb.h` | ChaN's TJpgDec licence (free use, keep the notice) | header of `tjpgd_pb.c` |
 | LVGL's symbol glyphs, copied from `lv_font_montserrat_*.c` (the glyphs come from Font Awesome Free) | `src/fonts/sym_*.c` | LVGL: MIT; Font Awesome Free font: SIL OFL 1.1 | [LVGL licence](https://github.com/lvgl/lvgl/blob/master/LICENCE.txt), [Font Awesome Free licence](https://fontawesome.com/license/free) |
 | Ubuntu font family (Canonical), and the bitmap fonts made from it | `data/fonts/Ubuntu-*.ttf`, `src/fonts/ub_*.c`, `src/fonts/zfonts.c` (the same bitmaps deflated by `tools/fontconv/zfonts.py`), the Vietnamese and Cyrillic font packages that `tools/i18n.py` builds | Ubuntu Font Licence 1.0 | `data/fonts/UFL.txt` |
+| DejaVu Sans Mono (Bitstream Vera with the DejaVu changes), and the glyphs made from it | `data/fonts/dejavu/*.ttf` | Bitstream Vera Fonts licence (DejaVu changes public domain) | `data/fonts/dejavu/LICENSE` |
 | Noto Sans SC, JP and KR (Adobe, Google), and the glyphs made from them | `data/fonts/noto/*.otf`, `src/fonts/lang_names.c`, the CJK font packages that `tools/i18n.py` builds | SIL Open Font License 1.1 | `data/fonts/noto/LICENSE-OFL.txt` |
 
 ## Fetched when you build (not in this folder)

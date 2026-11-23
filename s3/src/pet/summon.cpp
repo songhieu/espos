@@ -10,6 +10,7 @@
 #include <ctime>
 
 #include "apps.h"
+#include "assistant.h"
 #include "assist.h"
 #include "data.h"
 #include "dogs.h"
@@ -467,8 +468,9 @@ void build() {
     lv_obj_t* tail = img(stage, pk::image(pk::piece("tail_down")));  // the game's bubble point, towards the dog
     lv_obj_set_pos(tail, CW / 2 - 6, -1);
   }
-  // Talk to the dog (the AI assistant, talk.cpp): hold the round button, speak, let go.
-  if (talk::canTalk()) {
+  // Talk to the dog (the AI assistant, turn.cpp): hold the round button, speak, let go. Only while the dog is the
+  // device's assistant (app-slots.md §5: another app in the slot answers through its own pop-up).
+  if (talk::canTalk() && assistant::dog()) {
     // The voice's level: a fixed 84 px halo behind the button whose opacity follows it in 5 steps. (It was the
     // button's outline width, changed every 40 ms: each change re-measured and redrew the card under the 40 % dim
     // layer, ~200 ms UI loops on the board while listening, 0.5.6.)
@@ -511,7 +513,7 @@ void build() {
   const int rw = land ? colW : CW - 24, cw = (rw - 8) / 2;
   lv_obj_set_size(row, rw, CHIP_H * 2 + 6);
   for (int k = 0; k < 4; k++) {
-    if (k == 3 && !talk::canChat()) continue;  // no AI here (not linked): no news chip
+    if (k == 3 && (!talk::canChat() || !assistant::dog())) continue;  // no AI here (not linked, or not the assistant)
     lv_obj_t* c = chip(row, chips[k], k, cw);
     lv_obj_set_pos(c, (at[k] % 2) * (cw + 8), (at[k] / 2) * (CHIP_H + 6));
   }
@@ -652,5 +654,38 @@ void talkButton(int state) {
 }
 
 void talkTouched() { touchedAt = millis(); }
+
+// ---------------------------------------------------------------- the dog as the assistant's face (assistant.h Face)
+// The OS client (turn.cpp) shows a turn through this when PawBoop is in the assistant slot: this pop-up, its clips,
+// and the dog's own recorded words (the answer to its name, "say it again", the lock lines) in its own voice.
+namespace {
+uint32_t dogSay(const char* what) {
+  uint32_t ms = 0;
+  if (!strcmp(what, "ack") || !strcmp(what, "ai_trial_end") || !strcmp(what, "ai_locked")) {  // assist.pba moments
+    assist::Speech sp;
+    if (!assist::line(what, sp) || !assist::play(sp)) return 0;
+    for (const voice::Item& it : sp.items) ms += (it.clip ? it.clip->samples / 16 : 0) + it.gapMs;
+    return ms ? ms : 1;
+  }
+  const pba_clip_t* l = pk::line(what);  // a clip the server named, else a line of that mood
+  if (!l) l = voice::lineFor(what);
+  if (!l) return 0;
+  voice::speak(l, true);
+  return l->samples / 16 ? l->samples / 16 : 1;
+}
+bool dogSpeaking() { return voice::busy(); }
+void dogHush() { voice::hush(); }
+uint32_t dogQuiet() { return voice::quietMs(); }
+String dogVoice() {
+  const dogs::Info* d = dogs::chosen();
+  return d ? d->key : "";
+}
+}  // namespace
+
+const assistant::Face& face() {
+  static const assistant::Face F = {talkOpen, talkShow, talkLevel, talkButton, talkTouched, talkLock, talkTrial,
+                                    dogSay, dogSpeaking, dogHush, dogQuiet, dogVoice};
+  return F;
+}
 
 }  // namespace pet

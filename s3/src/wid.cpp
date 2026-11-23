@@ -82,6 +82,8 @@ const std::vector<Kind>& kinds() {
   return K;
 }
 
+bool installed(const String& k) { return k != "pet" || apps::find("pet"); }
+
 const Kind* kind(const String& id) {
   for (const Kind& k : kinds())
     if (id == k.id) return &k;
@@ -160,7 +162,10 @@ lv_obj_t* create(lv_obj_t* parent, const Item& it, int w, int h, bool interactiv
   else if (k == "overview") wOverview(parent, it, c);
   else if (k == "claude") wClaude(parent, it, c);
 #ifndef NO_PET
-  else if (k == "pet") pet::widget(c.o, w, h, it.size);
+  else if (k == "pet") {
+    if (apps::find("pet")) pet::widget(c.o, w, h, it.size);
+    else lv_obj_add_flag(c.o, LV_OBJ_FLAG_HIDDEN);  // PawBoop removed: nothing of the dog (a saver page's slot stays empty)
+  }
 #endif
   else {
     cap(c.o, k.c_str(), GREY);

@@ -82,7 +82,7 @@ This page goes from nothing to your app running on your device, then shows how t
 
 5. **Make a developer key on the web.** Open [espos.dev/app](https://espos.dev/app), sign in, and open **Account** (your initial, top right). Under **Developer keys**, type a name for the key (for example the computer's name) and press **Create key**.
 
-   <Shot src={keysShot} alt="Account, Developer keys: a name field and a Create key button; a new key shown once in a box as espos login, Developer key: espos_dev_ and 64 hex digits; Copy key and Saved, hide it buttons; two keys listed with Revoke buttons" caption="Account › Developer keys, right after Create key" />
+   <Shot src={keysShot} alt="Account, Developer keys: a name field and a Create key button; a new key shown once in a box as espos login, Developer key: espos_dev_ and 64 characters, masked here; Copy key and Saved, hide it buttons; two keys listed with Revoke buttons" caption="Account › Developer keys, right after Create key (the key is masked in this picture)" />
 
    The key starts with `espos_dev_`. It is shown **only once**: press **Copy key** now. The server keeps only a fingerprint of it (its SHA-256), so nobody can show it to you again; if you lose it, make a new one. You can have 5 keys, and **Revoke** stops one at once.
 

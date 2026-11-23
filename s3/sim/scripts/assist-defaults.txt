@@ -1,0 +1,39 @@
+# Settings › Default apps: the saver picker (Aquarium), the saver shown, the assistant picker (None), then the
+# aquarium removed: the saver slot goes back to "builtin" with one note. Data: sim/scripts/assist-slot-tests.sh
+# (PawBoop on the card, the aquarium installed, slot.assistant = vn.pawboop.pet, no slot.saver). Portrait 3.5" places.
+# Expected: d-saver.txt vn.pawboop.tank, d-assistant.txt none, d-saver-after.txt builtin.
+wait 2500
+app settings
+wait 1200
+shot 01-settings
+app settings defaults
+wait 1200
+shot 02-defaults
+tap 160 135
+wait 1000
+shot 03-saver-pick
+tap 160 165
+wait 1200
+shot 04-defaults-aquarium
+dumpset slot.saver d-saver
+saver
+wait 2500
+shot 05-saver-tank
+wake
+wait 800
+app settings defaults
+wait 1200
+tap 160 235
+wait 1000
+shot 06-assistant-pick
+tap 160 232
+wait 1200
+shot 07-defaults-none
+dumpset slot.assistant d-assistant
+PKGREMOVE vn.pawboop.tank
+wait 4000
+dumpset slot.saver d-saver-after
+app settings defaults
+wait 1200
+shot 08-defaults-after-remove
+quit

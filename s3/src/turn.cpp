@@ -1,5 +1,10 @@
-#pragma GCC optimize("Os")  // the firmware must fit 3.75 MB; nothing here is hot
-#include "talk.h"
+#pragma GCC optimize("Os")  // the firmware must fit; nothing here is hot
+// The assistant's turn (turn.h): the OS's client for whichever assistant app is in the slot (docs/app-slots.md §5,
+// lane 4b). It was the dog's (src/pet/talk.cpp until 2026-11-22); the dog is now one assistant app, whose face (its
+// pop-up, clips and recorded lines) the pet engine gives (pet::face()); any other assistant app gets the OS's own
+// pop-up (assistant.cpp). Everything here is the same for both: the recording, the request, the streamed voice,
+// follow-ups, locks.
+#include "turn.h"
 
 #include <Arduino.h>
 #include <ArduinoJson.h>
@@ -11,37 +16,37 @@
 #include <unistd.h>
 #endif
 
-#include "../desk.h"
-#include "../i18n.h"
-#include "../led.h"
-#include "../lic.h"
-#include "../lock.h"
-#include "../mic.h"
-#include "../net.h"
-#include "../sound.h"
-#include "../trace.h"
-#include "../uikit.h"
-#include "../wake/wake.h"
-#include "assist.h"
-#include "dogs.h"
-#include "../cues.h"
-#include "dog.h"
-#include "packs.h"
-#include "pet.h"
-#include "voice.h"
+#include "assistant.h"
+#include "cues.h"
+#include "desk.h"
+#include "i18n.h"
+#include "led.h"
+#include "lic.h"
+#include "lock.h"
+#include "mic.h"
+#include "net.h"
+#include "pet/assist.h"  // s3.assist: the assistant's settings (the call, the follow-up, the ack), the OS's own key
+#include "pet/dog.h"     // DOGBENCH (a developer command)
+#include "sound.h"
+#include "trace.h"
+#include "uikit.h"
+#include "wake/wake.h"
 
-namespace pet {
-// The pop-up's side (summon.cpp).
-bool talkOpen();                                                   // open it (wakes the screen); false: no dog
-void talkShow(const char* clip, const String& big, const String& small);  // the dog's clip (nullptr: as is), the bubble
-void talkLevel(int pct);                                           // the mic button's ring, < 0: none
-void talkButton(int state);  // 0 ready, 1 recording (held), 2 busy, 3 recording after "Gâu" (a tap ends it)
-void talkTouched();                                                // keeps the pop-up open
-void talkLock(const char* url);  // the way to unlock talking: the QR in place of the button and the chips
-void talkTrial(int left);        // the "{n} left" chip of a trial (< 0: none)
-
-namespace talk {
+namespace turn {
 namespace {
+
+// What shows the turn: the slot app's face (assistant.h Face).
+bool talkOpen() { return assistant::face().open(); }
+void talkShow(const char* clip, const String& big, const String& small) { assistant::face().show(clip, big, small); }
+void talkLevel(int pct) { assistant::face().level(pct); }
+void talkButton(int state) { assistant::face().button(state); }
+void talkTouched() { assistant::face().touched(); }
+void talkLock(const char* url) { assistant::face().lock(url); }
+void talkTrial(int left) { assistant::face().trial(left); }
+uint32_t say(const char* what) { return what ? assistant::face().say(what) : 0; }
+bool speaking() { return assistant::face().speaking(); }
+void hush() { assistant::face().hush(); }
+uint32_t quietMs() { return assistant::face().quietMs(); }
 
 constexpr int RATE = 16000;
 
@@ -498,10 +503,7 @@ int pull(short* out, int n, void*) {
 }
 
 // ---------------------------------------------------------------- UI
-String dogKey() {
-  const dogs::Info* d = dogs::chosen();
-  return d ? d->key : "";
-}
+String dogKey() { return assistant::face().voice(); }  // the voice the server speaks with ("dog"): "" = its choice
 
 bool submit(const String& path, uint8_t* body, uint32_t len, bool json, bool get, uint8_t* base = nullptr) {
   if (exBusy) return false;
@@ -557,8 +559,7 @@ void finish() {
 
 void failShow(const char* clip, const char* line, const char* words) {
   led::mode(led::Mode::Error);
-  const pba_clip_t* l = line ? voice::lineFor(line) : nullptr;
-  if (l) voice::speak(l, true);
+  say(line);
   talkShow(clip, T_(words), "");
   set(St::After);
 }
@@ -578,7 +579,7 @@ void warmUp() {
 
 bool startListening(uint32_t fromSample, int maxMs, bool wakeTurn) {
   warmUp();
-  voice::hush();
+  hush();
   // the recording first: a try that finds no room leaves the listener as it was (held and let go every 100 ms
   // during retryWake's 4 s, it traced "listening (resumed)" each time; the detector does not fire while recording)
   if (!wake::captureStart(fromSample, maxMs)) return false;
@@ -654,7 +655,7 @@ void send() {
   talkLevel(-1);
   talkShow("look_up", T_("Thinking"), "");
   led::mode(led::Mode::Think);
-  if (byWake && assist::prefs().ack) sound::blipEnd();  // heard, sent: the dog is thinking (the recording is done)
+  if (byWake && pet::assist::prefs().ack) sound::blipEnd();  // heard, sent: the dog is thinking (the recording is done)
   heap_caps_free(pendingBase);
   pendingWav = w, pendingBase = base, pendingLen = bytes, pendingJson = false;
   set(St::Send);
@@ -683,8 +684,7 @@ void handleJson() {
   trace::add("talk: answer %d (%s) in %lu ms", s, d["silent"] == true ? "nothing made out" : d["error"] | "",
              (unsigned long)((ex.tEnd ? ex.tEnd : millis()) - ex.tStart));
   if (s == 200 && d["silent"] == true) {  // nothing the server could make out after "Gâu gâu": ask again, listen again
-    const pba_clip_t* l = voice::lineFor("alert");
-    if (l) voice::speak(l, true);
+    say("alert");
     talkShow("alert", sayAgain(), "");
     led::mode(led::Mode::Error);
     retryPending = !again;  // once: a second empty answer ends it
@@ -715,13 +715,17 @@ void handleJson() {
     led::mode(led::Mode::Done);
     return set(St::After);
   }
+  if (s == 409 && !strcmp(d["error"] | "", "no_assistant")) {  // the server's slot.assistant says "none" (app-slots.md
+    // §16): the device's own slot has not gone up yet (the dog just reinstalled), or the web changed it. A sync now
+    // settles it both ways: the next question is answered, or the slot here becomes "none" too.
+    desk::syncNow();
+    return failShow("look_up", nullptr, N_("Setting up the assistant. Ask again in a moment."));
+  }
   if (s == 401) return failShow("look_up", nullptr, N_("Pair this device again in Settings"));
   if (s == 413 || s == 422) return failShow("alert", "alert", N_("Say it again, please"));
   if (s == 429) return failShow("no_tired", "no_tired", N_("Wait a moment, then ask again"));
   if (s == 502 && d["reply"].is<const char*>()) {  // the model failed: the dog's own recorded clip says the reply
-    const pba_clip_t* l = pk::line(d["clip"] | "no_tired");
-    if (!l) l = voice::lineFor("no_tired");
-    if (l) voice::speak(l, true);
+    if (!say(d["clip"] | "no_tired")) say("no_tired");
     talkShow("no_tired", d["reply"].as<const char*>(), "");
     return set(St::After);
   }
@@ -771,7 +775,7 @@ void step(lv_timer_t*) {
         // the speaker): while its voice plays, nothing is the question, the window opens 250 ms after it, and the
         // recording is cut to there (2026-11-21, the 2.8": "vừa gọi chưa kịp nói gì nó ... nghĩ luôn": the end of
         // "Gì đó bây?" was taken for the question and sent with the call).
-        if (ackFrom && voice::busy()) {
+        if (ackFrom && speaking()) {
           quietUntil = max(quietUntil, now + 250);
           wake::vadMute(300);
           winFrom = max(winFrom, now + 250);
@@ -797,13 +801,9 @@ void step(lv_timer_t*) {
             // The dog answers its name at once (owner: heard from across the room): a word in its own voice, a
             // beep, or nothing (s3.assist "ack"). Its sound is not the question: not counted as speech, and cut
             // from the recording (trimmed up to its end), and the wake word does not hear it (the speaker gate).
-            const uint8_t how = assist::prefs().ack;
+            const uint8_t how = pet::assist::prefs().ack;
             uint32_t ackMs = 0;
-            if (how == 2) {
-              assist::Speech sp;
-              if (assist::line("ack", sp) && assist::play(sp))
-                for (const voice::Item& it : sp.items) ackMs += (it.clip ? it.clip->samples / (RATE / 1000) : 0) + it.gapMs;
-            }
+            if (how == 2) ackMs = say("ack");  // its own word ("Dạ?"), its length in ms
             if (!ackMs && how) sound::blip(), ackMs = cues::length(cues::LISTEN, 1000);  // (its length in ms)
             quietUntil = millis() + ackMs + 250;
             wake::vadMute(ackMs + 250);  // the mic task too: a late step still never counts the ack
@@ -901,7 +901,7 @@ void step(lv_timer_t*) {
     case St::Speak: {
       const uint32_t have = wpos - rpos;
       if (!playing && (have >= RATE || (ex.done && have))) {
-        voice::hush();
+        hush();
         sound::stream(pull, nullptr);
         playing = true;
         led::mode(led::Mode::Speak);
@@ -917,11 +917,11 @@ void step(lv_timer_t*) {
       return;
     }
     case St::After:
-      if (retryPending && !voice::busy() && voice::quietMs() > 300) {  // its line is over (the mic would hear it)
+      if (retryPending && !speaking() && quietMs() > 300) {  // its line is over (the mic would hear it)
         retryPending = false;
         return listenAgain();
       }
-      if (t > 2000 && !voice::busy() && !retryPending) {
+      if (t > 2000 && !speaking() && !retryPending) {
         talkShow("happy", String(), String());  // keep the words, back to wagging
         finish();
       }
@@ -932,6 +932,7 @@ void step(lv_timer_t*) {
 void onWake(uint32_t at) {
   const bool waiting = st == St::Listen && byWake && !heard && !again && !followUp;  // called again before asking
   if ((st != St::Idle && st != St::After && !waiting) || !canTalk()) return;
+  if (!assistant::listens()) return;  // another assistant, or none (app-slots.md §16): the call is not the dog's
   if (lock::accountBlocked()) {  // the account is blocked: nothing is recorded or sent; the pop-up says it calmly
     if (talkOpen()) talkShow("stand", T_("Your account is locked"), T_("See espos.dev for details"));
     return;
@@ -988,7 +989,7 @@ void retryWake(lv_timer_t*) {
 
 // After the dog's answer: FOLLOW_MS of listening without the call, the ears up (its own voice not counted).
 void listenFollowUp() {
-  if (!assist::prefs().follow) return set(St::After);  // the setting: every question starts with the call
+  if (!pet::assist::prefs().follow) return set(St::After);  // the setting: every question starts with the call
   asksFollow = lastAsks;
   if (!startListening(wake::now(), asksFollow ? 15000 : 12000, true)) return set(St::After);
   talkShow(nullptr, lastReply.length() ? lastReply : String(T_("I'm listening")), T_("Listening"));  // its answer stays
@@ -1046,14 +1047,10 @@ void showLock() {
   if (!lockSyncAt || millis() - lockSyncAt > 30000) lockSyncAt = millis(), desk::syncNow();
   if (!talkOpen()) return finish();
   const bool trial = !strcmp(lic::lockedWhy(), "trial_ended");
-  const dogs::Info* d = dogs::chosen();
   bool voiced = false;
-  if (millis() - lockShownAt > 3000 || !voice::busy()) {  // called again at once: the line is not started twice
-    assist::Speech s;
-    voiced = assist::line(trial ? "ai_trial_end" : "ai_locked", s) && assist::play(s);
-  }
+  if (millis() - lockShownAt > 3000 || !speaking()) voiced = say(trial ? "ai_trial_end" : "ai_locked") > 0;  // not twice at once
   lockShownAt = millis();
-  talkShow("plead", lockLineOf(d ? d->key : "", trial), "");
+  talkShow("plead", lockLineOf(dogKey(), trial), "");
   String url = lic::buyUrl();
   if (!url.length()) url = ESPOS_WEB;  // the server sent no address: the web, where the account is
   talkLock(url.c_str());
@@ -1068,10 +1065,7 @@ void showLock() {
 
 // "I didn't catch that", each dog its own way (the server heard nothing after "Gâu gâu", or could not make it out).
 const char* sayAgainOf(const String& k);
-const char* sayAgain() {
-  const dogs::Info* d = dogs::chosen();
-  return sayAgainOf(d ? d->key : "");
-}
+const char* sayAgain() { return sayAgainOf(dogKey()); }
 
 const char* sayAgainOf(const String& k) {
   // i18n: the dog's own words when it could not make out what was said; each dog has its manner (docs: assistant-ai.md §8)
@@ -1140,27 +1134,7 @@ void closed() {  // the pop-up went away: the turn stops
   finish();
 }
 
-lv_obj_t* micIcon(lv_obj_t* parent, uint32_t color) {
-  lv_obj_t* m = kit::clear(parent);
-  lv_obj_set_size(m, 18, 26);
-  lv_obj_t* cap = kit::box(m, color, 5);  // the capsule
-  lv_obj_set_size(cap, 10, 15);
-  lv_obj_align(cap, LV_ALIGN_TOP_MID, 0, 0);
-  // the U around it: three bars (an arc widget would cost 3 KB of firmware)
-  for (int k = 0; k < 3; k++) {
-    lv_obj_t* b = kit::box(m, color, 1);
-    lv_obj_set_size(b, k == 2 ? 16 : 2, k == 2 ? 2 : 8);
-    lv_obj_set_pos(b, k == 1 ? 16 : 1, k == 2 ? 17 : 9);
-  }
-  lv_obj_t* stem = kit::box(m, color, 1);
-  lv_obj_set_size(stem, 2, 5);
-  lv_obj_align(stem, LV_ALIGN_BOTTOM_MID, 0, -2);
-  lv_obj_t* base = kit::box(m, color, 1);
-  lv_obj_set_size(base, 10, 2);
-  lv_obj_align(base, LV_ALIGN_BOTTOM_MID, 0, 0);
-  lv_obj_add_flag(m, LV_OBJ_FLAG_EVENT_BUBBLE);
-  return m;
-}
+lv_obj_t* micIcon(lv_obj_t* parent, uint32_t color) { return assistant::micIcon(parent, color); }  // the OS's glyph
 
 // A typed turn (the pop-up's chips, the console): the same request as a spoken one with {"text"} in place of the
 // recording (and "intent": what the chip asks for, the server's hint), the same answer: words, mood, voice.
@@ -1222,7 +1196,7 @@ bool console(const char* cmd) {
     return true;
   }
   if (!strncmp(cmd, "DOGBENCH", 8)) {  // DOGBENCH [clip]: the dog's picture decoders on 20 pictures of a clip
-    Serial.printf("DOGBENCH %s\n", dog::bench(cmd[8] == ' ' ? cmd + 9 : "happy", 20).c_str());
+    Serial.printf("DOGBENCH %s\n", pet::dog::bench(cmd[8] == ' ' ? cmd + 9 : "happy", 20).c_str());
     return true;
   }
 #if defined(ESPOS_QA) || defined(SIM)
@@ -1255,5 +1229,4 @@ bool console(const char* cmd) {
   return false;
 }
 
-}  // namespace talk
-}  // namespace pet
+}  // namespace turn

@@ -81,7 +81,8 @@
           "values": [
             "js-app",
             "js-app-ts",
-            "j2me-game"
+            "j2me-game",
+            "assistant"
           ],
           "default": "js-app"
         },
@@ -155,6 +156,7 @@
         "js-app: JavaScript app (main.js, API level 1): a counter that keeps its number",
         "js-app-ts: TypeScript app (src/*.ts bundled into main.js, typed by @espos/sdk): a countdown with a reminder",
         "j2me-game: a J2ME (Java phone) game wrapped as a package: game.jar + icon, engine j2me (firmware 0.4.0)",
+        "assistant: an assistant app (\"provides\": [\"assistant\"]): a small screen, and provider/server.mjs, a working provider that espos ai test passes",
         "No widget, face, theme, service or driver templates: those package types need manifest v2 (planned, docs/platform.md), which no firmware reads yet."
       ],
       "examples": [
@@ -738,6 +740,294 @@
           "examples": [
             "espos apps rm u.vn.you.timer",
             "espos apps rm vn.you.timer --yes"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "ai",
+      "path": "ai",
+      "usage": "espos ai <command>",
+      "summary": "Assistant apps: set up your provider on espos.dev (secret, endpoint, status, pause) and test it from here.",
+      "description": "An assistant app is a package whose manifest says \"provides\": [\"assistant\"]; its brain runs at your provider, which gets each turn as a signed EspOS Assistant Protocol v1 request. Your own private assistant apps (espos upload) are set up here; store apps are set up by review. The signing secret is made on your machine, sent once and shown once; a new one keeps the old one valid for 24 hours.",
+      "json": false,
+      "args": [],
+      "options": [],
+      "commands": [
+        {
+          "name": "secret",
+          "path": "ai secret",
+          "usage": "espos ai secret PKG [options]",
+          "summary": "Make a new signing secret for your assistant app and show it once (the previous one stays valid 24 hours).",
+          "json": true,
+          "args": [
+            {
+              "name": "pkg",
+              "description": "the app's package id on your devices (\"u.\" + its id)",
+              "required": true,
+              "variadic": false
+            }
+          ],
+          "options": [
+            {
+              "name": "--endpoint",
+              "type": "string",
+              "placeholder": "URL",
+              "description": "also set where turns go (needed the first time)"
+            },
+            {
+              "name": "--api",
+              "type": "string",
+              "placeholder": "URL",
+              "description": "the server (default https://api.espos.dev, or the one saved by espos login)",
+              "env": "ESPOS_API"
+            }
+          ],
+          "examples": [
+            "espos ai secret u.homeai --endpoint https://ai.example.com/espos/turn",
+            "espos ai secret u.homeai"
+          ]
+        },
+        {
+          "name": "endpoint",
+          "path": "ai endpoint",
+          "usage": "espos ai endpoint PKG URL [options]",
+          "summary": "Set where your assistant app's turns go (https, a public host).",
+          "json": true,
+          "args": [
+            {
+              "name": "pkg",
+              "description": "the app's package id",
+              "required": true,
+              "variadic": false
+            },
+            {
+              "name": "url",
+              "description": "the endpoint",
+              "required": true,
+              "variadic": false
+            }
+          ],
+          "options": [
+            {
+              "name": "--api",
+              "type": "string",
+              "placeholder": "URL",
+              "description": "the server (default https://api.espos.dev, or the one saved by espos login)",
+              "env": "ESPOS_API"
+            }
+          ]
+        },
+        {
+          "name": "status",
+          "path": "ai status",
+          "usage": "espos ai status [options]",
+          "summary": "Your assistant apps: endpoint, secret's last 4, state, the last day's turns and failures.",
+          "json": true,
+          "args": [],
+          "options": [
+            {
+              "name": "--api",
+              "type": "string",
+              "placeholder": "URL",
+              "description": "the server (default https://api.espos.dev, or the one saved by espos login)",
+              "env": "ESPOS_API"
+            }
+          ]
+        },
+        {
+          "name": "pause",
+          "path": "ai pause",
+          "usage": "espos ai pause PKG [options]",
+          "summary": "Stop sending turns to your provider (devices fall back).",
+          "json": true,
+          "args": [
+            {
+              "name": "pkg",
+              "description": "the app's package id",
+              "required": true,
+              "variadic": false
+            }
+          ],
+          "options": [
+            {
+              "name": "--api",
+              "type": "string",
+              "placeholder": "URL",
+              "description": "the server (default https://api.espos.dev, or the one saved by espos login)",
+              "env": "ESPOS_API"
+            }
+          ]
+        },
+        {
+          "name": "resume",
+          "path": "ai resume",
+          "usage": "espos ai resume PKG [options]",
+          "summary": "Send turns to your provider again.",
+          "json": true,
+          "args": [
+            {
+              "name": "pkg",
+              "description": "the app's package id",
+              "required": true,
+              "variadic": false
+            }
+          ],
+          "options": [
+            {
+              "name": "--api",
+              "type": "string",
+              "placeholder": "URL",
+              "description": "the server (default https://api.espos.dev, or the one saved by espos login)",
+              "env": "ESPOS_API"
+            }
+          ]
+        },
+        {
+          "name": "test",
+          "path": "ai test",
+          "usage": "espos ai test URL [options]",
+          "summary": "Send signed example turns to your provider and check its answers as the server will (no device, no espos.dev).",
+          "description": "Checks the manifest (/.well-known/espos-assistant.json), then sends: a weather question, an alarm request, a turn with nothing heard, the answer to a held delete, and a turn with a wrong signature (which must be refused). Each answer is checked with the server's own rules (what would be dropped, what fails the turn) and the schema, within the deadline. Redirects are not followed. http is allowed only for localhost.",
+          "json": true,
+          "args": [
+            {
+              "name": "url",
+              "description": "your provider's endpoint",
+              "required": true,
+              "variadic": false
+            }
+          ],
+          "options": [
+            {
+              "name": "--secret",
+              "type": "string",
+              "placeholder": "S",
+              "description": "the signing secret (or ESPOS_SIGNING_SECRET, or paste it when asked)",
+              "env": "ESPOS_SIGNING_SECRET"
+            },
+            {
+              "name": "--timeout",
+              "type": "string",
+              "placeholder": "S",
+              "description": "seconds to wait for each answer (default 12, the server's deadline)"
+            }
+          ],
+          "examples": [
+            "espos ai test https://ai.example.com/espos/turn",
+            "ESPOS_SIGNING_SECRET=<secret> espos ai test http://localhost:8787/turn"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "preset",
+      "path": "preset",
+      "usage": "espos preset <command>",
+      "summary": "Product presets: check a preset file, or make the device's file for one board.",
+      "description": "A preset is the starting point of one product: the packages it comes with, the assistant and saver, settings, the first-boot questions and the names of what the buyer is entitled to (resolved only by the seller's server). It never locks anything: the customer can change every part, and a newer version changes only what the customer never changed (the device's three-way merge). The format is sdk/schemas/preset-v1.schema.json; tools/make_bundle.py --preset builds a delivery bundle from it.",
+      "json": false,
+      "args": [],
+      "options": [],
+      "commands": [
+        {
+          "name": "check",
+          "path": "preset check",
+          "usage": "espos preset check [FILES...] [options]",
+          "summary": "Check preset files against the format and its rules (P001-P014).",
+          "json": true,
+          "args": [
+            {
+              "name": "files",
+              "description": "preset .json files",
+              "required": false,
+              "variadic": true
+            }
+          ],
+          "options": [
+            {
+              "name": "--catalog",
+              "type": "string",
+              "placeholder": "FILE",
+              "description": "the store's catalog.json: packages and parts are checked against it, and compile picks each board's parts"
+            },
+            {
+              "name": "--saver-templates",
+              "type": "string",
+              "placeholder": "FILE",
+              "description": "the saver templates (web's os/saver-templates.json): saver.template is checked and compiled from it"
+            },
+            {
+              "name": "--home-templates",
+              "type": "string",
+              "placeholder": "FILE",
+              "description": "Home templates as JSON {id: s3.home}: home.template other than default"
+            },
+            {
+              "name": "--strict",
+              "type": "bool",
+              "description": "warnings fail too"
+            },
+            {
+              "name": "--rules",
+              "type": "bool",
+              "description": "list the rules"
+            }
+          ],
+          "examples": [
+            "espos preset check sdk/presets/clock-desk.json",
+            "espos preset check my-product.json --catalog build-pkgs/espos/s3/catalog.json"
+          ]
+        },
+        {
+          "name": "compile",
+          "path": "preset compile",
+          "usage": "espos preset compile FILE [options]",
+          "summary": "Write the device's /sys/preset.json for one board (parts, saver template, orientation and locale as settings).",
+          "json": true,
+          "args": [
+            {
+              "name": "file",
+              "description": "the preset",
+              "required": true,
+              "variadic": false
+            }
+          ],
+          "options": [
+            {
+              "name": "--board",
+              "type": "string",
+              "placeholder": "B",
+              "description": "es3c35p (3.5\") or es3c28p (2.8\")"
+            },
+            {
+              "name": "--out",
+              "type": "string",
+              "placeholder": "FILE",
+              "description": "write it there (default: print it)"
+            },
+            {
+              "name": "--catalog",
+              "type": "string",
+              "placeholder": "FILE",
+              "description": "the store's catalog.json: packages and parts are checked against it, and compile picks each board's parts"
+            },
+            {
+              "name": "--saver-templates",
+              "type": "string",
+              "placeholder": "FILE",
+              "description": "the saver templates (web's os/saver-templates.json): saver.template is checked and compiled from it"
+            },
+            {
+              "name": "--home-templates",
+              "type": "string",
+              "placeholder": "FILE",
+              "description": "Home templates as JSON {id: s3.home}: home.template other than default"
+            }
+          ],
+          "examples": [
+            "espos preset compile sdk/presets/clock-desk.json --board es3c35p",
+            "espos preset compile p.json --board es3c28p --catalog catalog.json --saver-templates saver-templates.json --out preset.json"
           ]
         }
       ]

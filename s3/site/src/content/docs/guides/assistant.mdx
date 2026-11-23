@@ -1,0 +1,226 @@
+---
+title: Build your own assistant
+description: "Make an assistant app: the person picks it, says the wake word, and every question goes to your provider as a signed EspOS Assistant Protocol v1 request. From a template to a provider that passes espos ai test, the permissions, and the reference code."
+---
+
+import { Aside, Steps } from '@astrojs/starlight/components';
+
+An **assistant app** answers when the person says the wake word on their EspOS device. You write its brain (your own
+model, a cloud API, rules, anything) and run it as a small web service: your **provider**. EspOS sends it each turn
+as one signed HTTPS request and speaks your answer in the voice of the dog the person chose.
+
+<Aside type="caution" title="Preview">
+The protocol is v1 and stable, the tools on this page work today, and your own assistant apps can be set up on
+espos.dev. Devices sending their turns to third-party providers is switched off on the hosted service until it has
+been reviewed: test with `espos ai test` until then.
+</Aside>
+
+| You write | EspOS does |
+|---|---|
+| A provider: one HTTPS endpoint that answers a JSON turn with a JSON answer | Hears the person, writes down what they said, sends the turn, speaks the answer |
+| An assistant app: a manifest with `"provides": ["assistant"]`, your endpoint and permissions | Installs it, shows its permissions, lets the person pick it as the assistant |
+| What to say and what to do (set an alarm, add a note) | Checks every action against what the person allowed, then does it, or says it could not |
+
+## How a turn goes
+
+<Steps>
+
+1. The person says the wake word and asks something. The device records it; the EspOS server turns it into text.
+2. The server builds the **turn request**: what was said, the time and place, and only the data your app's
+   permissions allow (the weather, the alarms, the memories, and so on). It signs it with your app's secret and sends it to
+   your endpoint.
+3. Your provider answers with what to **say**, and optionally **actions** (set an alarm, add a to-do) and **memory**
+   (remember that the person likes tea).
+4. The server checks the answer: actions you were not allowed, or that do not fit, are refused, and then none of
+   your actions run. It does what is left and the device speaks your words.
+
+</Steps>
+
+Nothing on the device changes for your app: the server talks to your provider, the device talks to the server.
+
+## From a template to a passing provider
+
+<Steps>
+
+1. **Make the app.** The template has a small screen for the device and a working provider in `provider/server.mjs`
+   (Node 20, about 80 lines, no dependencies).
+
+   ```sh
+   espos create home-ai --template assistant --id vn.you.homeai --name "Home AI"
+   cd home-ai
+   ```
+
+2. **Run the provider** on your machine with any secret that starts with `esps_`.
+
+   ```sh
+   export ESPOS_SIGNING_SECRET=esps_try_it_locally_0123456789abcdef
+   node provider/server.mjs
+   ```
+
+   ```txt title="Output"
+   Home AI answers on http://localhost:8787/espos/turn
+   ```
+
+3. **Test it** from a second terminal. `espos ai test` sends signed example turns and checks every answer with the
+   server's own rules.
+
+   ```sh
+   ESPOS_SIGNING_SECRET=esps_try_it_locally_0123456789abcdef espos ai test http://localhost:8787/espos/turn
+   ```
+
+   ```txt title="Output"
+     manifest                         ok             protocol 1
+     turn: weather                    ok       5 ms  mood happy
+     turn: set an alarm               ok       2 ms  mood happy, 1 action(s) alarm.add
+     turn: nothing heard              ok       2 ms  mood happy
+     turn: held delete                ok       2 ms  mood happy
+     signature: a wrong one refused   ok       2 ms  refused (401)
+   6 of 6 passed
+   ```
+
+4. **Make it yours.** Replace `answer()` in `provider/server.mjs` with your model. Keep the signature check, and
+   answer only from the request: the turn carries everything you may know.
+
+5. **Put it online** behind https on a public host, and point the manifest's `assistant.provider` at it.
+
+6. **Upload the app and set it up on espos.dev.** The app installs on your own devices
+   ([Your app on your own device](/guides/my-apps/)); the secret is made on your machine, sent once and shown once.
+
+   ```sh
+   espos upload
+   espos ai secret u.vn.you.homeai --endpoint https://ai.example.com/espos/turn
+   ```
+
+   Put the secret in your provider as `ESPOS_SIGNING_SECRET`. `espos ai status` shows the last day's turns and
+   failures; `espos ai pause` and `espos ai resume` stop and start the turns.
+
+</Steps>
+
+A finished example lives in the repository: [`s3/examples/assistant-echo`](https://github.com/songhieu/espos/tree/main/s3/examples/assistant-echo),
+made from the same template, with its provider in `provider/server.mjs`.
+
+## The manifest
+
+```json title="manifest.json"
+{
+  "id": "vn.you.homeai",
+  "name": "Home AI",
+  "version": "1.0.0",
+  "code": 10000,
+  "kind": "js",
+  "engine": "js",
+  "provides": ["assistant"],
+  "assistant": { "provider": "https://ai.example.com/espos/turn", "languages": ["*"] },
+  "perms": ["location:city", "data:weather", "assist.alarms", "alarms.write"]
+}
+```
+
+- `provides: ["assistant"]` makes it an assistant: the person can pick it in **Settings › Default apps › Assistant**.
+- `assistant.provider` is your endpoint: https, on a public host.
+- `perms` are what the server may send your provider and do for it. The person sees them at install and can switch
+  them off later; a permission switched off stops at the next turn.
+
+`espos check` refuses an assistant permission in an app that is not an assistant (M049) and an assistant without an
+https provider (M050).
+
+## Permissions
+
+Every turn carries what was said (`turn.text`) and the language, time zone and time (`locale`). Everything else comes
+only with a permission.
+
+| Permission | What your provider gets or may do | Request scope |
+|---|---|---|
+| (always) | What the person said; the language, time zone and time | `turn.text`, `locale` |
+| `assist.audio` | The recording of the voice (a voice can identify a person) | `turn.audio` |
+| `assist.name` | The name the person wants to be called | `profile.name` |
+| `location:city` | The device's city (never coordinates or an address) | `place` |
+| `data:weather` | The weather there | `weather` |
+| `data:calendar`, `data:markets`, `data:news`, `data:reading` | The calendar, market prices, news headlines, reading time | `calendar`, `markets`, `news`, `reading` |
+| `assist.alarms`, `assist.todo`, `assist.notes` | The alarms, to-dos and note titles | `alarms`, `todo`, `notes` |
+| `assist.notes.body` | The notes with their text | `notes.body` |
+| `assist.memory`, `assist.history` | What the person asked to be remembered; earlier conversations | `memories`, `history` |
+| `assist.desk` | The state of the person's computer (EspOS Desktop) | `desk` |
+| `alarms.write`, `todo.write`, `notes.write` | Set alarms, to-dos, notes | `act.alarms`, `act.todo`, `act.notes` |
+| `settings.write` | Change a few device settings (volume, brightness, quiet hours, and so on) | `act.settings` |
+| `memory.write` | Remember and forget things; save the person's name | `act.memory` |
+| `desk.control` | Run the computer commands the person turned on | `act.desk` |
+
+The same table, as data: [`assistant-v1-scopes.json`](https://github.com/songhieu/espos/blob/main/s3/sdk/packages/sdk/schemas/assistant-v1-scopes.json).
+A field your app was not granted is simply missing from the request.
+
+## The turn and the answer
+
+A turn, shortened (the full example and the schema are linked below):
+
+```json title="POST /espos/turn"
+{
+  "v": "1",
+  "type": "turn",
+  "request_id": "req_01JDA7Q3V8K2",
+  "turn": { "id": "t_9c1e", "seq": 7, "source": "voice", "input": { "text": "Set an alarm for 6:30 tomorrow" } },
+  "locale": { "language": "en", "timezone": "Europe/Berlin", "utc_offset_min": 60 },
+  "persona": { "id": "pawboop/bao", "name": "Bao" },
+  "scopes": ["turn.text", "locale", "place", "weather", "alarms", "act.alarms"],
+  "context": {
+    "place": { "city": "Berlin" },
+    "weather": { "state": "fresh", "fetched_ms": 1795299400000, "days": [{ "date": "2026-11-21", "min_c": 2, "max_c": 6, "text": "light rain" }] },
+    "alarms": { "snapshot": "h_3a9c", "items": [{ "ref": "al_1", "time": "07:00", "days": "12345", "on": true }] }
+  },
+  "capabilities": { "actions": ["alarm.add", "alarm.update", "alarm.delete"], "moods": ["happy", "alert"] }
+}
+```
+
+```json title="Your answer"
+{
+  "v": "1",
+  "request_id": "req_01JDA7Q3V8K2",
+  "heard": "Set an alarm for 6:30 tomorrow",
+  "say": { "text": "Alarm set for 6:30 tomorrow.", "if_not_done": "I couldn't set that alarm." },
+  "actions": [{ "id": "a1", "type": "alarm.add", "args": { "time": "06:30", "days": "" } }]
+}
+```
+
+- Answer the same `request_id`, and always something to `say`. Without it, the turn counts as not answered.
+- Lists come with **refs** (`al_1`, `td_2`, `nt_1`, `m_3`): change or delete an item by its ref, never by its text.
+- Deleting two or more things at once is **held**: the device asks the person first. The next turn says so in
+  `held`, and you answer `"held": {"actions": "yes"}` when the person agrees.
+- To forget a memory, give its ref, or the words it holds: `{"op": "forget", "match": "the dentist"}`.
+- `say.if_not_done` is what the device says instead when one of your actions was refused.
+- At most 30 actions and 20 memory changes in one answer, and at most 64 KB.
+
+## Signing and limits
+
+| Rule | Value |
+|---|---|
+| Signature | `EspOS-Signature: t=<unix seconds>,v1=<hex HMAC-SHA256(secret, t + "." + request_id + "." + body)>` |
+| Your check | refuse a timestamp more than 5 minutes off, a `request_id` seen in the last 10 minutes, a wrong signature (401) |
+| Secret rotation | a new secret keeps the previous one valid for 24 hours; both signatures come in the header |
+| Deadline | a complete answer within 12 seconds |
+| Redirects | not followed: answer at the endpoint itself |
+| After failures | 3 failures in 5 minutes rest your app for 2 minutes; a 429 rests it for its `retry_after_s` |
+| Privacy | the person and the device come as refs of your app only (two apps cannot match a person); never a device token, id, e-mail or account id |
+
+The signature check in [`provider/server.mjs`](https://github.com/songhieu/espos/blob/main/s3/examples/assistant-echo/provider/server.mjs)
+is the one to copy.
+
+## Reference
+
+- The schema, with the turn, the answer, the provider manifest and every action:
+  [`assistant-v1.schema.json`](https://github.com/songhieu/espos/blob/main/s3/sdk/packages/sdk/schemas/assistant-v1.schema.json),
+  a full example of each: [`assistant-v1-examples.json`](https://github.com/songhieu/espos/blob/main/s3/sdk/packages/sdk/schemas/assistant-v1-examples.json),
+  and the cases both checks run (signing, what is kept and dropped):
+  [`assistant-v1-vectors.json`](https://github.com/songhieu/espos/blob/main/s3/sdk/packages/sdk/schemas/assistant-v1-vectors.json).
+- The answer check `espos ai test` runs: [`cli/src/assistant.ts`](https://github.com/songhieu/espos/blob/main/s3/sdk/packages/cli/src/assistant.ts)
+  (`signTurn`, `verifySignature`, `cleanResponse`); the server's copy of it is `eapClean` in the server's EAP code.
+- **PawBoop AI is built the same way.** The dog's own brain gets the same request and gives the same answer as yours,
+  in [`assist_reply/talk/talk.go`](https://github.com/songhieu/espos/blob/main/server/internal/flows/assist_reply/talk/talk.go):
+
+  | Stage | Function | What it does |
+  |---|---|---|
+  | Context | `eapRequest` | builds the turn request from the person's data (stale figures left out, lists by ref) |
+  | Scopes | `eapScopesFor`, `eapFilter` | keeps only what the app's permissions allow |
+  | Brain | `pbSystem`, `pbResponse` | PawBoop's prompt from the request; its answer as a v1 answer |
+  | Policy | `eapClean`, then the hold and memory rules in `Run` | checks an answer, any provider's, and does what is allowed |
+  | Your provider | `provider_call` (the `provider_call` flow) | signs, sends, times out, rests after failures |
+
+- The whole design, with the decisions behind it: [`s3/docs/assistant-providers.md`](https://github.com/songhieu/espos/blob/main/s3/docs/assistant-providers.md).

@@ -36,6 +36,16 @@ The CLI is **Preview**: commands and options may still change before 1.0. It wor
 | [`espos apps list`](#espos-apps-list) | List your uploaded packages, and each S3 device's copy of them. |
 | [`espos apps install`](#espos-apps-install) | Ask your devices for one of your packages (all S3 devices, or --device). |
 | [`espos apps rm`](#espos-apps-rm) | Delete one of your packages from the account; your devices remove it at their next sync. |
+| [`espos ai`](#espos-ai) | Assistant apps: set up your provider on espos.dev (secret, endpoint, status, pause) and test it from here. |
+| [`espos ai secret`](#espos-ai-secret) | Make a new signing secret for your assistant app and show it once (the previous one stays valid 24 hours). |
+| [`espos ai endpoint`](#espos-ai-endpoint) | Set where your assistant app's turns go (https, a public host). |
+| [`espos ai status`](#espos-ai-status) | Your assistant apps: endpoint, secret's last 4, state, the last day's turns and failures. |
+| [`espos ai pause`](#espos-ai-pause) | Stop sending turns to your provider (devices fall back). |
+| [`espos ai resume`](#espos-ai-resume) | Send turns to your provider again. |
+| [`espos ai test`](#espos-ai-test) | Send signed example turns to your provider and check its answers as the server will (no device, no espos.dev). |
+| [`espos preset`](#espos-preset) | Product presets: check a preset file, or make the device's file for one board. |
+| [`espos preset check`](#espos-preset-check) | Check preset files against the format and its rules (P001-P014). |
+| [`espos preset compile`](#espos-preset-compile) | Write the device's /sys/preset.json for one board (parts, saver template, orientation and locale as settings). |
 | [`espos sim`](#espos-sim) | Run packages in the SDL simulator: install, build the simulator if needed, open the app. |
 | [`espos qemu`](#espos-qemu) | Run the real firmware in Espressif's QEMU (tools/qemu/run.sh), with packages put onto its card. |
 | [`espos device`](#espos-device) | Talk to an EspOS S3 over USB: list, info, shot, logs, app, tap, drag, home, trace, mem, js, send, console. |
@@ -117,7 +127,7 @@ espos create DIR [options]
 
 | Option | Description |
 |---|---|
-| `-t, --template NAME` | the kind of project One of `js-app`, `js-app-ts`, `j2me-game`. Default: `"js-app"`. |
+| `-t, --template NAME` | the kind of project One of `js-app`, `js-app-ts`, `j2me-game`, `assistant`. Default: `"js-app"`. |
 | `--id ID` | package id, reverse domain (default com.example.&lt;dir&gt;, jar.&lt;name&gt; for games); never changes once published |
 | `--name TEXT` | display name (at most 40 characters, no ellipsis character U+2026) |
 | `--desc TEXT` | one line for the store (at most 300 characters) |
@@ -133,6 +143,8 @@ espos create DIR [options]
 > js-app-ts: TypeScript app (src/*.ts bundled into main.js, typed by @espos/sdk): a countdown with a reminder
 
 > j2me-game: a J2ME (Java phone) game wrapped as a package: game.jar + icon, engine j2me (firmware 0.4.0)
+
+> assistant: an assistant app ("provides": ["assistant"]): a small screen, and provider/server.mjs, a working provider that espos ai test passes
 
 > No widget, face, theme, service or driver templates: those package types need manifest v2 (planned, docs/platform.md), which no firmware reads yet.
 
@@ -484,6 +496,191 @@ Supports `--json`.
 ```sh
 espos apps rm u.vn.you.timer
 espos apps rm vn.you.timer --yes
+```
+
+## espos ai
+
+Assistant apps: set up your provider on espos.dev (secret, endpoint, status, pause) and test it from here.
+
+An assistant app is a package whose manifest says "provides": ["assistant"]; its brain runs at your provider, which gets each turn as a signed EspOS Assistant Protocol v1 request. Your own private assistant apps (espos upload) are set up here; store apps are set up by review. The signing secret is made on your machine, sent once and shown once; a new one keeps the old one valid for 24 hours.
+
+### espos ai secret
+
+Make a new signing secret for your assistant app and show it once (the previous one stays valid 24 hours).
+
+```sh
+espos ai secret PKG [options]
+```
+
+| Argument | Required | Description |
+|---|---|---|
+| `pkg` | yes | the app's package id on your devices ("u." + its id) |
+
+| Option | Description |
+|---|---|
+| `--endpoint URL` | also set where turns go (needed the first time) |
+| `--api URL` | the server (default https://api.espos.dev, or the one saved by espos login) Environment: `ESPOS_API`. |
+
+Supports `--json`.
+
+```sh
+espos ai secret u.homeai --endpoint https://ai.example.com/espos/turn
+espos ai secret u.homeai
+```
+
+### espos ai endpoint
+
+Set where your assistant app's turns go (https, a public host).
+
+```sh
+espos ai endpoint PKG URL [options]
+```
+
+| Argument | Required | Description |
+|---|---|---|
+| `pkg` | yes | the app's package id |
+| `url` | yes | the endpoint |
+
+| Option | Description |
+|---|---|
+| `--api URL` | the server (default https://api.espos.dev, or the one saved by espos login) Environment: `ESPOS_API`. |
+
+Supports `--json`.
+
+### espos ai status
+
+Your assistant apps: endpoint, secret's last 4, state, the last day's turns and failures.
+
+```sh
+espos ai status [options]
+```
+
+| Option | Description |
+|---|---|
+| `--api URL` | the server (default https://api.espos.dev, or the one saved by espos login) Environment: `ESPOS_API`. |
+
+Supports `--json`.
+
+### espos ai pause
+
+Stop sending turns to your provider (devices fall back).
+
+```sh
+espos ai pause PKG [options]
+```
+
+| Argument | Required | Description |
+|---|---|---|
+| `pkg` | yes | the app's package id |
+
+| Option | Description |
+|---|---|
+| `--api URL` | the server (default https://api.espos.dev, or the one saved by espos login) Environment: `ESPOS_API`. |
+
+Supports `--json`.
+
+### espos ai resume
+
+Send turns to your provider again.
+
+```sh
+espos ai resume PKG [options]
+```
+
+| Argument | Required | Description |
+|---|---|---|
+| `pkg` | yes | the app's package id |
+
+| Option | Description |
+|---|---|
+| `--api URL` | the server (default https://api.espos.dev, or the one saved by espos login) Environment: `ESPOS_API`. |
+
+Supports `--json`.
+
+### espos ai test
+
+Send signed example turns to your provider and check its answers as the server will (no device, no espos.dev).
+
+Checks the manifest (/.well-known/espos-assistant.json), then sends: a weather question, an alarm request, a turn with nothing heard, the answer to a held delete, and a turn with a wrong signature (which must be refused). Each answer is checked with the server's own rules (what would be dropped, what fails the turn) and the schema, within the deadline. Redirects are not followed. http is allowed only for localhost.
+
+```sh
+espos ai test URL [options]
+```
+
+| Argument | Required | Description |
+|---|---|---|
+| `url` | yes | your provider's endpoint |
+
+| Option | Description |
+|---|---|
+| `--secret S` | the signing secret (or ESPOS_SIGNING_SECRET, or paste it when asked) Environment: `ESPOS_SIGNING_SECRET`. |
+| `--timeout S` | seconds to wait for each answer (default 12, the server's deadline) |
+
+Supports `--json`.
+
+```sh
+espos ai test https://ai.example.com/espos/turn
+ESPOS_SIGNING_SECRET=<secret> espos ai test http://localhost:8787/turn
+```
+
+## espos preset
+
+Product presets: check a preset file, or make the device's file for one board.
+
+A preset is the starting point of one product: the packages it comes with, the assistant and saver, settings, the first-boot questions and the names of what the buyer is entitled to (resolved only by the seller's server). It never locks anything: the customer can change every part, and a newer version changes only what the customer never changed (the device's three-way merge). The format is sdk/schemas/preset-v1.schema.json; tools/make_bundle.py --preset builds a delivery bundle from it.
+
+### espos preset check
+
+Check preset files against the format and its rules (P001-P014).
+
+```sh
+espos preset check [FILES...] [options]
+```
+
+| Argument | Required | Description |
+|---|---|---|
+| `files...` | no | preset .json files |
+
+| Option | Description |
+|---|---|
+| `--catalog FILE` | the store's catalog.json: packages and parts are checked against it, and compile picks each board's parts |
+| `--saver-templates FILE` | the saver templates (web's os/saver-templates.json): saver.template is checked and compiled from it |
+| `--home-templates FILE` | Home templates as JSON {id: s3.home}: home.template other than default |
+| `--strict` | warnings fail too |
+| `--rules` | list the rules |
+
+Supports `--json`.
+
+```sh
+espos preset check sdk/presets/clock-desk.json
+espos preset check my-product.json --catalog build-pkgs/espos/s3/catalog.json
+```
+
+### espos preset compile
+
+Write the device's /sys/preset.json for one board (parts, saver template, orientation and locale as settings).
+
+```sh
+espos preset compile FILE [options]
+```
+
+| Argument | Required | Description |
+|---|---|---|
+| `file` | yes | the preset |
+
+| Option | Description |
+|---|---|
+| `--board B` | es3c35p (3.5") or es3c28p (2.8") |
+| `--out FILE` | write it there (default: print it) |
+| `--catalog FILE` | the store's catalog.json: packages and parts are checked against it, and compile picks each board's parts |
+| `--saver-templates FILE` | the saver templates (web's os/saver-templates.json): saver.template is checked and compiled from it |
+| `--home-templates FILE` | Home templates as JSON {id: s3.home}: home.template other than default |
+
+Supports `--json`.
+
+```sh
+espos preset compile sdk/presets/clock-desk.json --board es3c35p
+espos preset compile p.json --board es3c28p --catalog catalog.json --saver-templates saver-templates.json --out preset.json
 ```
 
 ## espos sim
@@ -1004,7 +1201,7 @@ Supports `--json`.
 | `F010` | warning | the package is bigger than the internal app area (7.5 MB): it fits only on a memory card | docs/ecosystem.md |
 | `F011` | warning | engine lang needs strings.bin; engine font needs r&lt;px&gt;.bin (or b&lt;px&gt;.bin) files | src/i18n.cpp + src/fonts.cpp |
 | `F020` | error | face/widget: the layout file named by entry is in the package (themes: not checked) | espk.py check_decl_file |
-| `F021` | error | face/widget: the layout file is at most 12288 bytes (the X4 reads it in one go) | espk.py check_decl_file |
+| `F021` | error | face/widget: the layout file is at most 12288 bytes (a small device reads it in one go) | espk.py check_decl_file |
 | `F022` | error | face/widget: the layout file is a JSON object (UTF-8, no BOM) | espk.py check_decl_file |
 | `F023` | error | face/widget: the layout file has "decl": 1 (the format level) | espk.py check_decl_file |
 | `F024` | error | face/widget: "layouts": a non-empty list | espk.py check_decl_file |
@@ -1023,5 +1220,22 @@ Supports `--json`.
 | `C007` | warning | async/await or .then(): API level 1 never runs Promise jobs, so the callbacks never run | src/js/jsapp.cpp |
 | `C008` | warning | a the ellipsis character in main.js (screens show text in full: shrink or wrap) | docs |
 | `C009` | warning | main.js is not valid UTF-8 | - |
+| `M049` | error | perms: assist.*, alarms.write, todo.write, notes.write, settings.write, memory.write and desk.control are for assistant apps ("provides": ["assistant"]): what the server may send and do for its provider | docs/assistant-providers.md §2.10 |
+| `M050` | error | an assistant app ("provides": ["assistant"]) needs "assistant": {"provider": "https://&lt;host&gt;/&lt;path&gt;"} (its endpoint; "pawboop" only for PawBoop AI) | docs/assistant-providers.md §3.1 |
+| `M048` | warning | perms: a manifest v2 permission (net:&lt;host&gt;, net:setting:&lt;key&gt;, overlay, mic, storage:&lt;KB&gt;, data:* and the others): kept, but firmware 0.5.0 does not grant it | docs/platform.md, docs/app-slots.md |
+| `S001` | error | settings: a list of at most 40 fields | docs/manifest-driven.md §1 |
+| `S002` | error | a field: an object whose "type" is one of string, text, number, bool, enum, list, time, date, color, url, city, photo, secret, section | docs/manifest-driven.md §1 |
+| `S003` | error | key: 1-24 of a-z 0-9 _, starting with a letter, unique in the list ("section" has none) | docs/manifest-driven.md §1 |
+| `S004` | error | label: text of 1-40 characters; help: at most 120 | docs/manifest-driven.md §1 |
+| `S005` | error | string max 1-200, text max 1-2000; number min &lt; max, step &gt; 0; enum: 2-20 options {v, label} with different v | docs/manifest-driven.md §1 |
+| `S006` | error | list: "of" is a string or enum item, max_items 1-50 | docs/manifest-driven.md §1 |
+| `S007` | error | secret: "where" device (kept on the device only) or server (kept by the server); no default; it reaches requests only through an "auth" binding | docs/manifest-driven.md §1 |
+| `S008` | error | default: a valid value of the field's type (none for city, photo, secret, section) | docs/manifest-driven.md §1 |
+| `S009` | error | i18n: {"&lt;language&gt;": {"label", "help", "options": {"&lt;v&gt;": "&lt;label&gt;"}}} in the device's languages | docs/manifest-driven.md §1 |
+| `S010` | warning | an auth binding's send_to host is not covered by perms net:&lt;host&gt;, net:* or net:setting:&lt;key&gt;: the device will not send it | docs/manifest-driven.md §1 |
+| `S011` | error | a {placeholder} in an auth binding's send_to names a "url" or "string" field of the settings, or is {espos} (the device's own server, perm net:espos) | docs/manifest-driven.md §1 |
+| `S012` | warning | store_as: only the OS's own packages (dev.espos.*) may point a field at an existing setting; the server ignores it for others | docs/manifest-driven.md §1 |
+| `S013` | error | auth: {"&lt;name&gt;": {"basic": [user, pass]} \| {"bearer": key} \| {"header": {"&lt;Name&gt;": key}} \| {"device": true} (the device's own credential, {espos}/v1/device/app/&lt;id&gt;/* only), "query": {"&lt;param&gt;": key} (optional), "send_to": [1-4 patterns https://host/path or {url_field}/path]}, at most 8 bindings | docs/manifest-driven.md §1 |
+| `S014` | error | auth: every key a binding uses is a secret field of the settings | docs/manifest-driven.md §1 |
 | `U001` | error | espos upload (your own devices): a package is at most 4194304 bytes (4 MB), a Java game's game.jar at most 2 MB | web/backend confirm_user_pkg |
 | `U002` | error | espos upload (your own devices): a JavaScript app (kind js, engine js) or a Java game (kind native, engine j2me); one part (core); no pack, add-on, face, widget or theme; the id gets "u." in front, so at most 46 characters; a Java game asks only for "sound" | web/backend confirm_user_pkg |

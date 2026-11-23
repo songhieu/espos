@@ -1,0 +1,814 @@
+{
+ "_doc": "Shared cases of the EspOS Assistant Protocol v1: the turn signature (§2.9: hex(HMAC-SHA256(secret, timestamp.request_id.body)), the secret's UTF-8 bytes as the key) and the server's check of a provider's answer (§2.6, §2.8: errors fail the turn, anything else that does not fit is dropped and named). Every response is checked against assistant-v1-examples.json's turn (\"req_actions\" replaces its capabilities.actions, \"req_held\" adds a held block). Run by cli/test/assistant.test.mjs and web/scripts/eap/eap_test.go.",
+ "signing": [
+  {
+   "secret": "esps_test_0123456789abcdef0123456789abcdef",
+   "timestamp": 1795300000,
+   "request_id": "req_01JDA7Q3V8K2",
+   "body": "{\"v\":\"1\",\"type\":\"turn\"}",
+   "signature": "9bf6bd4b739f621bc78bb697fd48e943af221b9198ff6d9873e5824d36292494"
+  },
+  {
+   "secret": "esps_test_0123456789abcdef0123456789abcdef",
+   "timestamp": 1795300001,
+   "request_id": "req_01JDA7Q3V8K2",
+   "body": "{\"v\":\"1\",\"type\":\"turn\"}",
+   "signature": "5a9e6d87bd451cc9d92e14c11a9a05c1e5c42ca882413dbd330ffa666a5ea041"
+  },
+  {
+   "secret": "esps_other_secret_ffffffffffffffffffffffff",
+   "timestamp": 1795300000,
+   "request_id": "req_01JDA7Q3V8K2",
+   "body": "{\"v\":\"1\",\"type\":\"turn\"}",
+   "signature": "39bc21a6f4ffe81e175222d66ff89eaf4089ff059aa2afd53dd874e2afa54ecd"
+  },
+  {
+   "secret": "esps_test_0123456789abcdef0123456789abcdef",
+   "timestamp": 1795300000,
+   "request_id": "req_ZZZZZZZZ",
+   "body": "{\"say\":\"Xin chào, chú Bao! Grüß dich. 你好\"}",
+   "signature": "b1e7836626259f0a8c598bf3d65d7a633b4f8001884d7757fb4f401d74110fd7"
+  }
+ ],
+ "responses": [
+  {
+   "name": "example",
+   "response": "examples.response",
+   "expect": {
+    "ok": true,
+    "actions": [
+     "a1"
+    ],
+    "memory": [
+     "remember"
+    ],
+    "dropped": [],
+    "mood": "happy",
+    "topic": "alarm"
+   }
+  },
+  {
+   "name": "not_object",
+   "response": "hello",
+   "expect": {
+    "ok": false,
+    "error": "not_object"
+   }
+  },
+  {
+   "name": "bad_version",
+   "response": {
+    "v": "2",
+    "request_id": "req_01JDA7Q3V8K2",
+    "say": {
+     "text": "Hi"
+    }
+   },
+   "expect": {
+    "ok": false,
+    "error": "bad_version"
+   }
+  },
+  {
+   "name": "wrong_request",
+   "response": {
+    "v": "1",
+    "request_id": "req_OTHER123",
+    "say": {
+     "text": "Hi"
+    }
+   },
+   "expect": {
+    "ok": false,
+    "error": "wrong_request"
+   }
+  },
+  {
+   "name": "no_say",
+   "response": {
+    "v": "1",
+    "request_id": "req_01JDA7Q3V8K2",
+    "say": {
+     "text": "   "
+    }
+   },
+   "expect": {
+    "ok": false,
+    "error": "no_say"
+   }
+  },
+  {
+   "name": "say_cut",
+   "response": {
+    "v": "1",
+    "request_id": "req_01JDA7Q3V8K2",
+    "say": {
+     "text": "This sentence is here to fill the reply up past the limit. This sentence is here to fill the reply up past the limit. This sentence is here to fill the reply up past the limit. This sentence is here to fill the reply up past the limit. This sentence is here to fill the reply up past the limit. This sentence is here to fill the reply up past the limit. This sentence is here to fill the reply up past the limit. This sentence is here to fill the reply up past the limit. This sentence is here to fill the reply up past the limit. This sentence is here to fill the reply up past the limit. "
+    }
+   },
+   "expect": {
+    "ok": true,
+    "dropped": [
+     "say_cut"
+    ],
+    "say_max": 500,
+    "say_ends": "."
+   }
+  },
+  {
+   "name": "say_long",
+   "response": {
+    "v": "1",
+    "request_id": "req_01JDA7Q3V8K2",
+    "say": {
+     "text": "This sentence is here to fill the reply up past the limit. This sentence is here to fill the reply up past the limit. This sentence is here to fill the reply up past the limit. This sentence is here to fill the reply up past the limit. This sentence is here to fill the reply up past the limit. This sentence is here to fill the reply up past the limit. This sentence is here to fill the reply up past the limit. This sentence is here to fill the reply up past the limit. This sentence is here to fill the reply up past the limit. This sentence is here to fill the reply up past the limit. ",
+     "long": true
+    }
+   },
+   "expect": {
+    "ok": true,
+    "dropped": [],
+    "say_max": 950
+   }
+  },
+  {
+   "name": "mood_topic",
+   "response": {
+    "v": "1",
+    "request_id": "req_01JDA7Q3V8K2",
+    "say": {
+     "text": "Hi"
+    },
+    "mood": "dance",
+    "topic": "sports"
+   },
+   "expect": {
+    "ok": true,
+    "dropped": [
+     "mood",
+     "topic"
+    ],
+    "mood": "happy",
+    "topic": "chat"
+   }
+  },
+  {
+   "name": "actions_mixed",
+   "response": {
+    "v": "1",
+    "request_id": "req_01JDA7Q3V8K2",
+    "say": {
+     "text": "Okay."
+    },
+    "actions": [
+     {
+      "id": "a1",
+      "type": "alarm.add",
+      "args": {
+       "time": "06:30",
+       "days": "12345",
+       "label": "Work"
+      }
+     },
+     {
+      "id": "a2",
+      "type": "todo.add",
+      "args": {
+       "text": "Milk"
+      }
+     },
+     {
+      "id": "a3",
+      "type": "alarm.update",
+      "args": {
+       "ref": "al_9",
+       "on": false
+      }
+     },
+     {
+      "id": "a4",
+      "type": "alarm.add",
+      "args": {
+       "time": "25:00"
+      }
+     },
+     {
+      "id": "a1",
+      "type": "alarm.delete",
+      "args": {
+       "ref": "al_1"
+      }
+     },
+     {
+      "id": "a6",
+      "type": "alarm.delete",
+      "args": {
+       "ref": "al_1"
+      }
+     }
+    ]
+   },
+   "expect": {
+    "ok": true,
+    "actions": [
+     "a1",
+     "a6"
+    ],
+    "dropped": [
+     "action:a2:type",
+     "action:a3:ref",
+     "action:a4:args",
+     "action:a1:dup_id"
+    ]
+   }
+  },
+  {
+   "name": "actions_shape",
+   "response": {
+    "v": "1",
+    "request_id": "req_01JDA7Q3V8K2",
+    "say": {
+     "text": "Okay."
+    },
+    "actions": [
+     {
+      "type": "alarm.add",
+      "args": {
+       "time": "06:30"
+      }
+     },
+     {
+      "id": "b2",
+      "type": "alarm.add",
+      "args": {
+       "time": "07:00",
+       "snooze": 5
+      }
+     },
+     {
+      "id": "b3",
+      "type": "alarm.update",
+      "args": {
+       "ref": "al_1"
+      }
+     },
+     {
+      "id": "b4",
+      "type": "alarm.update",
+      "args": {
+       "ref": "al_1",
+       "on": false
+      }
+     },
+     {
+      "id": "b5",
+      "type": "memory",
+      "args": {}
+     }
+    ]
+   },
+   "expect": {
+    "ok": true,
+    "actions": [
+     "b4"
+    ],
+    "dropped": [
+     "action:0:shape",
+     "action:b2:args",
+     "action:b3:args",
+     "action:b5:type"
+    ]
+   }
+  },
+  {
+   "name": "memory_ops",
+   "response": {
+    "v": "1",
+    "request_id": "req_01JDA7Q3V8K2",
+    "say": {
+     "text": "Got it."
+    },
+    "memory": [
+     {
+      "op": "remember",
+      "fact": "Loves pho",
+      "kind": "weird"
+     },
+     {
+      "op": "update",
+      "ref": "m_99",
+      "fact": "x"
+     },
+     {
+      "op": "forget",
+      "ref": "m_12"
+     },
+     {
+      "op": "remember",
+      "fact": "Fourth"
+     }
+    ]
+   },
+   "expect": {
+    "ok": true,
+    "memory": [
+     "remember",
+     "forget",
+     "remember"
+    ],
+    "dropped": [
+     "memory:1:ref"
+    ],
+    "memory_kinds": [
+     "other",
+     "other"
+    ]
+   }
+  },
+  {
+   "name": "memory_not_allowed",
+   "req_actions": [
+    "alarm.add"
+   ],
+   "response": {
+    "v": "1",
+    "request_id": "req_01JDA7Q3V8K2",
+    "say": {
+     "text": "Got it."
+    },
+    "memory": [
+     {
+      "op": "remember",
+      "fact": "Loves pho"
+     }
+    ]
+   },
+   "expect": {
+    "ok": true,
+    "memory": [],
+    "dropped": [
+     "memory"
+    ]
+   }
+  },
+  {
+   "name": "settings",
+   "req_actions": [
+    "setting.set",
+    "profile.name"
+   ],
+   "response": {
+    "v": "1",
+    "request_id": "req_01JDA7Q3V8K2",
+    "say": {
+     "text": "Done."
+    },
+    "actions": [
+     {
+      "id": "s1",
+      "type": "setting.set",
+      "args": {
+       "key": "volume",
+       "value": "60"
+      }
+     },
+     {
+      "id": "s2",
+      "type": "setting.set",
+      "args": {
+       "key": "volume",
+       "value": "150"
+      }
+     },
+     {
+      "id": "s3",
+      "type": "setting.set",
+      "args": {
+       "key": "dnd",
+       "value": "maybe"
+      }
+     },
+     {
+      "id": "s4",
+      "type": "setting.set",
+      "args": {
+       "key": "brightness",
+       "value": "5"
+      }
+     },
+     {
+      "id": "n1",
+      "type": "profile.name",
+      "args": {
+       "name": "Sam O'Neil"
+      }
+     }
+    ]
+   },
+   "expect": {
+    "ok": true,
+    "actions": [
+     "s1",
+     "n1"
+    ],
+    "dropped": [
+     "action:s2:args",
+     "action:s3:args",
+     "action:s4:args"
+    ]
+   }
+  },
+  {
+   "name": "session_audio",
+   "response": {
+    "v": "1",
+    "request_id": "req_01JDA7Q3V8K2",
+    "say": {
+     "text": "Guess!"
+    },
+    "follow_up": {
+     "listen": true
+    },
+    "session": {
+     "note": "nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn",
+     "summary": "",
+     "end": true
+    },
+    "audio": {
+     "format": "pcm16",
+     "rate": 8000,
+     "data": "AAA="
+    }
+   },
+   "expect": {
+    "ok": true,
+    "dropped": [
+     "audio"
+    ],
+    "listen": true,
+    "note_len": 100,
+    "summary_null": true,
+    "end": true
+   }
+  },
+  {
+   "name": "audio_ok",
+   "response": {
+    "v": "1",
+    "request_id": "req_01JDA7Q3V8K2",
+    "say": {
+     "text": "Hi"
+    },
+    "audio": {
+     "format": "pcm16",
+     "rate": 24000,
+     "data": "AAA="
+    }
+   },
+   "expect": {
+    "ok": true,
+    "dropped": [],
+    "audio": true
+   }
+  },
+  {
+   "name": "actions_over",
+   "response": {
+    "v": "1",
+    "request_id": "req_01JDA7Q3V8K2",
+    "say": {
+     "text": "Sure?"
+    },
+    "actions": [
+     {
+      "id": "d0",
+      "type": "alarm.delete",
+      "args": {
+       "ref": "al_1"
+      }
+     },
+     {
+      "id": "d1",
+      "type": "alarm.delete",
+      "args": {
+       "ref": "al_1"
+      }
+     },
+     {
+      "id": "d2",
+      "type": "alarm.delete",
+      "args": {
+       "ref": "al_1"
+      }
+     },
+     {
+      "id": "d3",
+      "type": "alarm.delete",
+      "args": {
+       "ref": "al_1"
+      }
+     },
+     {
+      "id": "d4",
+      "type": "alarm.delete",
+      "args": {
+       "ref": "al_1"
+      }
+     },
+     {
+      "id": "d5",
+      "type": "alarm.delete",
+      "args": {
+       "ref": "al_1"
+      }
+     },
+     {
+      "id": "d6",
+      "type": "alarm.delete",
+      "args": {
+       "ref": "al_1"
+      }
+     },
+     {
+      "id": "d7",
+      "type": "alarm.delete",
+      "args": {
+       "ref": "al_1"
+      }
+     },
+     {
+      "id": "d8",
+      "type": "alarm.delete",
+      "args": {
+       "ref": "al_1"
+      }
+     },
+     {
+      "id": "d9",
+      "type": "alarm.delete",
+      "args": {
+       "ref": "al_1"
+      }
+     },
+     {
+      "id": "d10",
+      "type": "alarm.delete",
+      "args": {
+       "ref": "al_1"
+      }
+     },
+     {
+      "id": "d11",
+      "type": "alarm.delete",
+      "args": {
+       "ref": "al_1"
+      }
+     },
+     {
+      "id": "d12",
+      "type": "alarm.delete",
+      "args": {
+       "ref": "al_1"
+      }
+     },
+     {
+      "id": "d13",
+      "type": "alarm.delete",
+      "args": {
+       "ref": "al_1"
+      }
+     },
+     {
+      "id": "d14",
+      "type": "alarm.delete",
+      "args": {
+       "ref": "al_1"
+      }
+     },
+     {
+      "id": "d15",
+      "type": "alarm.delete",
+      "args": {
+       "ref": "al_1"
+      }
+     },
+     {
+      "id": "d16",
+      "type": "alarm.delete",
+      "args": {
+       "ref": "al_1"
+      }
+     },
+     {
+      "id": "d17",
+      "type": "alarm.delete",
+      "args": {
+       "ref": "al_1"
+      }
+     },
+     {
+      "id": "d18",
+      "type": "alarm.delete",
+      "args": {
+       "ref": "al_1"
+      }
+     },
+     {
+      "id": "d19",
+      "type": "alarm.delete",
+      "args": {
+       "ref": "al_1"
+      }
+     },
+     {
+      "id": "d20",
+      "type": "alarm.delete",
+      "args": {
+       "ref": "al_1"
+      }
+     },
+     {
+      "id": "d21",
+      "type": "alarm.delete",
+      "args": {
+       "ref": "al_1"
+      }
+     },
+     {
+      "id": "d22",
+      "type": "alarm.delete",
+      "args": {
+       "ref": "al_1"
+      }
+     },
+     {
+      "id": "d23",
+      "type": "alarm.delete",
+      "args": {
+       "ref": "al_1"
+      }
+     },
+     {
+      "id": "d24",
+      "type": "alarm.delete",
+      "args": {
+       "ref": "al_1"
+      }
+     },
+     {
+      "id": "d25",
+      "type": "alarm.delete",
+      "args": {
+       "ref": "al_1"
+      }
+     },
+     {
+      "id": "d26",
+      "type": "alarm.delete",
+      "args": {
+       "ref": "al_1"
+      }
+     },
+     {
+      "id": "d27",
+      "type": "alarm.delete",
+      "args": {
+       "ref": "al_1"
+      }
+     },
+     {
+      "id": "d28",
+      "type": "alarm.delete",
+      "args": {
+       "ref": "al_1"
+      }
+     },
+     {
+      "id": "d29",
+      "type": "alarm.delete",
+      "args": {
+       "ref": "al_1"
+      }
+     },
+     {
+      "id": "d30",
+      "type": "alarm.delete",
+      "args": {
+       "ref": "al_1"
+      }
+     }
+    ]
+   },
+   "expect": {
+    "ok": true,
+    "dropped": [
+     "actions_over"
+    ]
+   }
+  },
+  {
+   "name": "forget_by_words",
+   "response": {
+    "v": "1",
+    "request_id": "req_01JDA7Q3V8K2",
+    "say": {
+     "text": "Forgotten."
+    },
+    "memory": [
+     {
+      "op": "forget",
+      "match": "  the   dentist "
+     },
+     {
+      "op": "forget",
+      "match": ""
+     },
+     {
+      "op": "forget"
+     }
+    ]
+   },
+   "expect": {
+    "ok": true,
+    "memory": [
+     "forget"
+    ],
+    "dropped": [
+     "memory:1:match",
+     "memory:2:ref"
+    ]
+   }
+  },
+  {
+   "name": "desk_any_command",
+   "req_actions": [
+    "desk.run"
+   ],
+   "response": {
+    "v": "1",
+    "request_id": "req_01JDA7Q3V8K2",
+    "say": {
+     "text": "Opening."
+    },
+    "actions": [
+     {
+      "id": "k1",
+      "type": "desk.run",
+      "args": {
+       "cmd": "app.open",
+       "args": {
+        "name": "Safari"
+       }
+      }
+     },
+     {
+      "id": "k2",
+      "type": "desk.run",
+      "args": {
+       "cmd": "rm -rf /"
+      }
+     }
+    ]
+   },
+   "expect": {
+    "ok": true,
+    "actions": [
+     "k1"
+    ],
+    "dropped": [
+     "action:k2:args"
+    ]
+   }
+  },
+  {
+   "name": "held_answers",
+   "req_held": {
+    "actions": {
+     "say": "delete alarm #1; delete alarm #2"
+    }
+   },
+   "response": {
+    "v": "1",
+    "request_id": "req_01JDA7Q3V8K2",
+    "say": {
+     "text": "Done."
+    },
+    "ask_first": true,
+    "held": {
+     "actions": "yes",
+     "desk": "yes"
+    }
+   },
+   "expect": {
+    "ok": true,
+    "dropped": [
+     "held"
+    ],
+    "held": {
+     "actions": "yes"
+    },
+    "ask_first": true
+   }
+  }
+ ]
+}

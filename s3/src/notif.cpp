@@ -25,6 +25,7 @@
 #include "fonts.h"
 #include "os.h"
 #include "pkg/pkg.h"
+#include "popnote.h"
 #include "sound.h"
 #include "trace.h"
 #include "uikit.h"
@@ -620,10 +621,11 @@ void importDesk() {
   };
   std::vector<New> fresh;
   const int64_t now = desk::nowMs();
+  popnote::sync(desk::dash()["notes"].as<JsonArrayConst>());  // notes for an app: its own notifications and pop-ups
   for (JsonObjectConst n : desk::dash()["notes"].as<JsonArrayConst>()) {
     const char* title = n["title"] | "";
     const char* hm = n["time"] | "";
-    if (!*title) continue;
+    if (!*title || n["app"].is<const char*>()) continue;
     const uint32_t h = fnv(hm, fnv(title));
     if (std::find(deskSeen.begin(), deskSeen.end(), h) != deskSeen.end()) continue;
     int64_t at = 0;
@@ -1185,8 +1187,10 @@ bool post(const char* app, const char* title, const char* body, const Opts& o) {
     trace::add("notif %s: no \"notify\" permission", app);
     return false;
   }
-  return deliver(app, title ? title : "", body ? body : "", o.arg, o.tag, o.sound, o.badge, true, 0);
+  return deliver(app, title ? title : "", body ? body : "", o.arg, o.tag, o.sound, o.badge, o.banner, 0);
 }
+
+bool quiet() { return quietNow(); }
 
 bool schedule(const char* app, time_t at, const char* title, const char* body, const Opts& o) {
   title = i18n::trl(title), body = i18n::trl(body);
@@ -1354,6 +1358,7 @@ lv_obj_t* icon(lv_obj_t* parent, const char* app, int size) { return appIcon(par
 String when(time_t at) { return whenText((int64_t)at * 1000); }
 
 void tick() {
+  popnote::tick();  // the pop-ups' countdowns and expiry
   load();
   if (!ban) banOut = banHeld = false;
   if (!ctr && cstate != CState::CLOSED) {  // the OS rebuilt its layers

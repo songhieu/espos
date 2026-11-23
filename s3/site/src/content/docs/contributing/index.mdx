@@ -12,9 +12,8 @@ The public monorepo is [github.com/songhieu/espos](https://github.com/songhieu/e
 
 | Folder | What |
 |---|---|
-| `s3/` | The S3 firmware (EspOS), its simulator, the tools, the SDK and these docs. Its layout: [Repository layout](/contributing/repo-layout/). |
+| `s3/` | The firmware for the S3 desks and the EspOS Bot, the simulators, the tools, the SDK and these docs. Its layout: [Repository layout](/contributing/repo-layout/). |
 | `server/` | The self-hosted Go server and its web app. See [Self-hosting](/roadmap/self-hosting/). |
-| `firmware/` | The firmware of the Xteink X4 e-ink reader. |
 
 The repository holds no simulator data: `mkdir -p sim/data sim/data-live` in `s3/` gives the simulator and the SDK's tests a new, unlinked device.
 
@@ -22,10 +21,10 @@ The repository holds no simulator data: `mkdir -p sim/data sim/data-live` in `s3
 
 | Part | Licence |
 |---|---|
-| `s3/`: the S3 firmware (EspOS), the SDK (`@espos/sdk`, `@espos/cli`), the templates, the simulator and these docs' sources | Apache-2.0 |
+| `s3/`: the firmware (EspOS for the desks and the Bot), the SDK (`@espos/sdk`, `@espos/cli`), the templates, the simulators and these docs' sources | Apache-2.0 |
 | `server/`: the self-hosted server and its web app | AGPL-3.0 |
-| `firmware/`: the X4 firmware | EspOS's changes Apache-2.0; CrossPoint Reader's own code stays MIT |
 | Everything up to commit `fac0c54` | stays MIT |
+| `docs/device-api.md`: the contract between the devices and the server | Apache-2.0 |
 | Third-party code in the tree | its own licence (QuickJS-ng: MIT; libopus: BSD; LVGL: MIT) |
 
 The name EspOS is covered by a trademark policy. There are no paid-only device features.

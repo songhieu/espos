@@ -28,8 +28,6 @@ EspOS shows its text in the language of the setting `sys.lang`. English is built
 
 A language package holds the texts (about 40 to 70 KB). A font package holds the letters the built-in fonts lack: 88 KB for Cyrillic, 170 KB for Vietnamese, 0.8 to 1.5 MB for Chinese, Japanese or Korean. Both are packages of `type: "pack"`: the store never lists them, and Settings › Language is where they are picked. They need firmware 0.5.0 (`min_fw: 500`). The same list, for tools and the web, is `i18n/languages.json` in the firmware repository.
 
-The Xteink X4 reader has 34 languages built into its firmware and reads the same `sys.lang` tags (`en`, `vi`, `de`, `pt-BR`, `pt-PT`, `ca-valencia` and so on). It needs no language packages.
-
 <DeviceShots shots={[{ src: langShot, alt: 'Settings, Language: English is ticked; below it Tiếng Việt, 简体中文, Español, Français, Deutsch and 日本語, each with its English name', caption: 'Settings › Language' }]} />
 
 ## How a device changes language
@@ -146,6 +144,6 @@ A new language is a firmware change: its tag goes into the language lists of the
 
 | Setting | Values | Where |
 |---|---|---|
-| `sys.lang` | a tag from the table above; default `en` | Settings › Language on the S3, the X4's own settings, the device settings on the web |
+| `sys.lang` | a tag from the table above; default `en` | Settings › Language on the S3, the device settings on the web |
 
-The server accepts every tag of both devices. An S3 shows English for a tag it does not have, such as `it`, which only the X4 carries.
+The server accepts more tags than the S3 shows. An S3 shows English for a tag it does not have, such as `it`.

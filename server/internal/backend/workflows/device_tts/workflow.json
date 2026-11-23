@@ -1,0 +1,217 @@
+{
+  "code": "device_tts",
+  "draft": {
+    "edges": [
+      {
+        "from": "in",
+        "to": "prep"
+      },
+      {
+        "from": "prep",
+        "to": "okb"
+      },
+      {
+        "from": "prep",
+        "port": "error",
+        "to": "fail"
+      },
+      {
+        "from": "okb",
+        "port": "true",
+        "to": "lic"
+      },
+      {
+        "from": "okb",
+        "port": "false",
+        "to": "none"
+      },
+      {
+        "from": "lic",
+        "to": "gate"
+      },
+      {
+        "from": "lic",
+        "port": "error",
+        "to": "failgate"
+      },
+      {
+        "from": "gate",
+        "to": "may"
+      },
+      {
+        "from": "gate",
+        "port": "error",
+        "to": "failgate"
+      },
+      {
+        "from": "may",
+        "port": "true",
+        "to": "say"
+      },
+      {
+        "from": "may",
+        "port": "false",
+        "to": "no"
+      },
+      {
+        "from": "say",
+        "to": "out"
+      },
+      {
+        "from": "say",
+        "port": "error",
+        "to": "say_none"
+      }
+    ],
+    "nodes": [
+      {
+        "id": "in",
+        "type": "http_in"
+      },
+      {
+        "config": {
+          "input": {
+            "device_id": "{{ input.guard.require_device.device_id }}",
+            "query": "{{ input.query }}"
+          },
+          "source": {
+            "$file": "nodes/prep.go"
+          }
+        },
+        "id": "prep",
+        "type": "code"
+      },
+      {
+        "config": {
+          "rules": [
+            {
+              "left": "{{ prep.ok }}",
+              "op": "eq",
+              "right": true
+            }
+          ]
+        },
+        "id": "okb",
+        "type": "branch"
+      },
+      {
+        "config": {
+          "input": {
+            "device_id": "{{ input.guard.require_device.device_id }}",
+            "user_id": "{{ input.guard.require_device.user_id }}"
+          },
+          "workflow": "admin_lic_core"
+        },
+        "id": "lic",
+        "type": "call_workflow"
+      },
+      {
+        "config": {
+          "input": {
+            "applies": "{{ lic.applies }}",
+            "buy_url": "{{ lic.buy_url }}",
+            "device_id": "{{ input.guard.require_device.device_id }}",
+            "lic": "{{ lic.lic }}",
+            "locked": "{{ lic.locked }}"
+          },
+          "source": {
+            "$file": "nodes/gate.go"
+          }
+        },
+        "id": "gate",
+        "type": "code"
+      },
+      {
+        "config": {
+          "rules": [
+            {
+              "left": "{{ gate.ok }}",
+              "op": "eq",
+              "right": true
+            }
+          ]
+        },
+        "id": "may",
+        "type": "branch"
+      },
+      {
+        "config": {
+          "body": "{{ gate.body }}",
+          "headers": {
+            "Cache-Control": "no-store"
+          },
+          "status": "{{ gate.status }}"
+        },
+        "id": "no",
+        "type": "respond"
+      },
+      {
+        "config": {
+          "body": {
+            "error": "server_error"
+          },
+          "status": 500
+        },
+        "id": "failgate",
+        "type": "respond"
+      },
+      {
+        "config": {
+          "rate": "{{ prep.rate }}",
+          "text": "{{ prep.text }}",
+          "voice": "{{ prep.voice }}"
+        },
+        "id": "say",
+        "type": "tts"
+      },
+      {
+        "config": {
+          "headers": {
+            "Cache-Control": "no-store",
+            "Content-Type": "audio/pcm",
+            "X-Sample-Rate": "{{ prep.rate }}",
+            "X-Voice": "{{ prep.voice }}"
+          },
+          "stream": true
+        },
+        "id": "out",
+        "type": "respond"
+      },
+      {
+        "config": {
+          "body": {
+            "error": "{{ prep.err }}"
+          },
+          "status": "{{ prep.status }}"
+        },
+        "id": "none",
+        "type": "respond"
+      },
+      {
+        "config": {
+          "body": {
+            "error": "server_error"
+          },
+          "status": 500
+        },
+        "id": "fail",
+        "type": "respond"
+      },
+      {
+        "config": {
+          "body": {
+            "detail": "{{ say.error }}",
+            "error": "no_voice"
+          },
+          "headers": {
+            "Cache-Control": "no-store"
+          },
+          "status": 503
+        },
+        "id": "say_none",
+        "type": "respond"
+      }
+    ]
+  },
+  "name": "Device: a short phrase spoken in the device's dog voice (the OS's announcements; desktop-protocol §11). The paid voice: the device's licence or active trial (else 402 lic), 60 a day per device (else 429 daily_cap)"
+}

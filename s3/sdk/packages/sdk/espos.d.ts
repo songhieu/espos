@@ -196,4 +196,266 @@ declare const sound: EspOSSound;
 declare const notify: EspOSNotify;
 /** A short message at the top of the screen. */
 declare function toast(text: string): void;
+/** A line in the device's trace ("app <id>: <text>", the first 200 characters): what `espos device log` and the
+ *  serial console show. For debugging; nothing appears on the screen. */
+declare function log(text: unknown): void;
 declare const store: EspOSStore;
+
+// ---------------------------------------------------------------- API level 2 (planned, docs/app-slots.md)
+// Not in firmware 0.5.x: `espos check` warns when a package uses them before its min_fw grants them.
+
+/** A secret setting as the app sees it: whether it is set, and its last 4 characters ("" when not set). */
+interface EspOSSecretState {
+  set: boolean;
+  hint: string;
+}
+
+/** A setting's value as the form stored it: text, number, bool, a list of texts, a city; a secret reads as its state. */
+type EspOSSettingValue = string | number | boolean | string[] | { name: string; lat: number; lon: number } | EspOSSecretState | null;
+
+interface EspOSSettings {
+  /**
+   * The value of one of this package's settings (manifest "settings", docs/manifest-driven.md §1), or its default,
+   * or null. Secrets are never readable: they read as {set, hint}; the OS adds them to requests through the
+   * manifest's "auth" bindings (docs/app-slots.md §15).
+   * @since 2
+   */
+  get(key: string): EspOSSettingValue;
+  /** Opens this app's own settings form on the device (the OS draws it from the manifest's schema). @since 2 */
+  open(): void;
+}
+
+interface EspOSApp {
+  /** Called when the person changed settings on the device or on the web; `changed` lists their keys. @since 2 */
+  onSettings?: (changed: string[]) => void;
+}
+
+/** This package's settings (manifest "settings"). @since 2 */
+declare const settings: EspOSSettings;
+
+// ---------------------------------------------------------------- API level 2: the terminal view and dictation
+// (src/js/jsterm.cpp, src/js/jsvoice.cpp; first used by apps/sessions, the Claude Code sessions app)
+
+interface EspOSTermOpts {
+  /** Required: the view and its lines survive re-renders under this key; term.apply(key, ...) feeds it. */
+  key: string;
+  /** Text size in px: the package's fonts/m<px>.bin (mono, ESF) when there is one, else the OS font in cells. */
+  font?: number;
+  /** "fit" (default): lines wrap to the view, boxes are drawn again at its width; "wide": the sender's columns, panned. */
+  wrap?: "fit" | "wide";
+  /** Lines kept (default 2000, 50 to 5000), in PSRAM outside the JS heap. */
+  lines?: number;
+  /** Background and text colour (default: the OS theme's terminal colours). */
+  bg?: EspOSColor;
+  fg?: EspOSColor;
+  /** Height in px when not {fill: true}. */
+  h?: number;
+  /** Take the room the parent has left. */
+  fill?: boolean;
+  /** Shown at the bottom when the person scrolled up and lines came; {n} = how many. A tap goes back to the end. */
+  pill?: string;
+  onTap?: () => void;
+  /** 1: following the end again, 0: the person scrolled back. */
+  onScroll?: (following: number) => void;
+}
+
+interface EspOSTermInfo {
+  follow: boolean; fresh: number; lines: number; first: number; last: number; seq: number; epoch: string; cols: number;
+}
+
+interface EspOSTermApplied {
+  epoch: string; seq: number; full: boolean; starting: boolean; lines: number;
+  /** the answer's "at": when the source read that screen (unix ms), for the age of what is drawn */
+  at?: number;
+}
+
+interface EspOSUi {
+  /** A terminal view (level 2). Feed it with term.apply(); it redraws itself without a re-render. */
+  term(opts: EspOSTermOpts): EspOSNode;
+}
+
+interface EspOSCardOpts {
+  /** Level 2: the whole card is a button. */
+  onTap?: () => void;
+}
+
+interface EspOSBoxOpts {
+  /** Level 2, column: it scrolls up and down (give it a height: fill or h). */
+  scroll?: boolean;
+  /** Level 2, column: its height in px. */
+  h?: number;
+  /** Level 2, row: children align their tops instead of their middles. */
+  top?: boolean;
+  /** Level 2: room inside the column or row, 0 to 24 px. */
+  pad?: number;
+  /** Level 2: take the room the parent has left. */
+  fill?: boolean;
+}
+
+/** The lines of terminal views (level 2): a screen answer as desktop-protocol.md §9.2 shapes it, parsed in C. */
+interface EspOSTerm {
+  /**
+   * Puts a screen answer ({epoch, seq, full, cols, rows, top, lines: [{n, t, r}]}, or the older lines of a `before`
+   * answer) into the view's lines: a line with the same n replaces the old one, another epoch starts over.
+   * Throws TypeError when the text is not JSON.
+   */
+  apply(key: string, text: string): EspOSTermApplied;
+  clear(key: string): void;
+  /** Follows the end again. */
+  end(key: string): void;
+  /** Wide views: pans by `cells` columns. */
+  pan(key: string, cells: number): void;
+  /** Drops the key's lines. */
+  forget(key: string): void;
+  info(key: string): EspOSTermInfo;
+  /** The last `lines` lines as plain text ("\n" between), at most 8 KB. */
+  tail(key: string, lines?: number): string;
+}
+
+/**
+ * Speech to text through the OS (permission "dictate"): the OS records with its own card and mic light, sends the
+ * audio to the account's server and gives the app the text only. Errors carry `code`: denied, no_mic, busy, no_room,
+ * offline, locked (the OS's lock sheet shows), failed, cancelled.
+ */
+interface EspOSVoice {
+  /**
+   * expect "yesno": a spoken answer about `about` (what the app read back); the result's `yesno` is confirm, cancel,
+   * unclear or other, decided by the server from the words. until_quiet: the recording ends by itself once the person
+   * has spoken and gone quiet.
+   */
+  dictate(opts?: { lang?: string; max_ms?: number; expect?: "yesno"; about?: string; until_quiet?: boolean }):
+    Promise<{ text: string; yesno?: "confirm" | "cancel" | "unclear" | "other" }>;
+  /** Ends the recording now (hold to talk: the button's onUp); the text still comes. cancel: nothing is sent. */
+  stop(cancel?: boolean): void;
+}
+
+declare const term: EspOSTerm;
+declare const voice: EspOSVoice;
+
+// ---------------------------------------------------------------- API level 2: net, files, crypto, UI nodes
+// (src/js/jsnet.cpp, jsfs.cpp, jsui.cpp).
+// Limits as the firmware has them: docs/app-slots.md §15.4 and reference/js-api-2.mdx.
+// EspOS JavaScript API level 2 (docs/app-slots.md §15.4), as firmware 0.6.0 gives it: the calls this app uses on top
+// of level 1 (types/espos.d.ts). @espos/sdk will carry these; until then this file declares them.
+
+/** A colour: "#rrggbb", or a system colour that follows the light/dark theme. */
+type EspOSColor2 = `#${string}` | '@bg' | '@card' | '@card2' | '@fg' | '@dim' | '@faint' | '@line' | '@chip' | '@accent' | '@ok' | '@warn' | '@bad';
+
+interface EspOSNetRequest {
+  method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'HEAD';
+  /** "https://host/path", "http://<local address>/..." (net:lan), or "{<url setting>}/path" filled in by the OS. */
+  url: string;
+  headers?: Record<string, string>;
+  /** A string, or an object sent as JSON. 32 KB at most. */
+  body?: unknown;
+  /** Response header names to return (4 at most). */
+  keep?: string[];
+  /** Milliseconds, 20000 by default, 1000 to 60000. */
+  timeout?: number;
+  /** One of the manifest's `auth` bindings: the OS adds its secrets. */
+  auth?: string;
+  /** "cache/<name>": a 2xx body goes into that file; the answer then has `size` and no body. */
+  save?: string;
+}
+interface EspOSNetResponse {
+  status: number;
+  ok: boolean;
+  headers: Record<string, string>;
+  body?: string;
+  size?: number;
+}
+/** net.request rejects only without an answer. */
+interface EspOSNetError extends Error {
+  code: 'offline' | 'timeout' | 'dns' | 'tls' | 'too_big' | 'denied' | 'busy';
+  /** The request may have reached the server. */
+  sent: boolean;
+}
+interface EspOSNet {
+  request(o: EspOSNetRequest): Promise<EspOSNetResponse>;
+  readonly online: boolean;
+}
+interface EspOSFs {
+  /** "data/<path>" (kept) or "cache/<path>" (the OS may delete old files); a bare name is data/. */
+  read(name: string): string | undefined;
+  write(name: string, text: string): true;
+  remove(name: string): boolean;
+  list(dir?: string): {name: string; size: number}[];
+  free(area?: 'data' | 'cache'): number;
+}
+interface EspOSCrypto {
+  sha256(text: string): string;
+  /** n random bytes (1 to 64) as hex. */
+  random(n?: number): string;
+}
+declare const net: EspOSNet;
+declare const fs: EspOSFs;
+declare const crypto: EspOSCrypto;
+
+interface EspOSGridItem {
+  title: string; sub?: string; image?: string; initials?: string; bg?: EspOSColor2; bar?: EspOSColor2;
+  badge?: string; badgeBg?: EspOSColor2; tag?: string; tagBg?: EspOSColor2; dim?: boolean; span?: boolean; subColor?: EspOSColor2; fg?: EspOSColor2;
+}
+interface EspOSRowItem {
+  title: string; sub?: string; sub2?: string; subColor?: EspOSColor2; right?: string; rsub?: string; tone?: 'ok' | 'warn' | 'bad';
+  image?: string; initials?: string; bg?: EspOSColor2; fg?: EspOSColor2; badge?: string; sel?: boolean; step?: number;
+}
+interface EspOSNavTab { label: string; icon: string; }
+interface EspOSUi {
+  grid(items: EspOSGridItem[], onTap?: (i: number) => void, o?: {cols?: number; h?: number; gap?: number; onLong?: (i: number) => void; fill?: boolean}): EspOSNode;
+  rows(items: EspOSRowItem[], onTap?: (i: number) => void, o?: {thumb?: number; card?: boolean; gap?: number; onStep?: (code: number) => void}): EspOSNode;
+  image(src: string, o?: {w?: number; h?: number; radius?: number; band?: boolean; fallback?: {text?: string; bg?: EspOSColor2; fg?: EspOSColor2}}): EspOSNode;
+  split(a: EspOSNode, b: EspOSNode, o?: {w?: number; pad?: number; footL?: EspOSNode; footR?: EspOSNode; bgL?: EspOSColor2; bgR?: EspOSColor2; fill?: boolean;
+    /** each pane stays where it was scrolled when the screen is drawn again */ key?: string}): EspOSNode;
+  nav(tabs: EspOSNavTab[], sel: number, onPick: (i: number) => void, o?: {badges?: string[]; foot?: EspOSNode}): EspOSNode;
+  input(value: string, o?: {key?: string; hint?: string; mode?: 'text' | 'chat' | 'number' | 'decimal' | 'password' | 'search'; lines?: number; max?: number; w?: number;
+    onChange?: (text: string) => void; onSubmit?: (text: string) => void;
+    /** the keyboard's OK key (default "Done"); the keyboard opens when the field first shows */
+    ok?: string; focus?: boolean;
+    /** the keyboard opened on this field */
+    onFocus?: () => void;
+    /** a node (a ui.row of buttons) shown on top of the keyboard while this field has it, keysH px tall (default 40):
+     *  a terminal's Esc, Tab, arrows */
+    keys?: EspOSNode; keysH?: number;
+    /** typing calls onChange without drawing the screen again */
+    quiet?: boolean;
+    /** the app's value replaces the text even while someone types (a chat field emptied after Send) */
+    force?: boolean;
+    bg?: EspOSColor2; border?: EspOSColor2}): EspOSNode;
+  qr(text: string, o?: {size?: number}): EspOSNode;
+  line(left: string, right?: string, o?: {bold?: boolean; size?: number; color?: EspOSColor2; rcolor?: EspOSColor2; dim?: boolean}): EspOSNode;
+  sheet(children: (EspOSNode | null | false | undefined)[], o?: {onClose?: () => void; w?: number}): EspOSNode;
+}
+interface EspOSApp {
+  /** No nav bar: the body is the app's, edge to edge. */
+  full?: boolean;
+  /** The back gesture asks the app first; return true when it went back inside itself. */
+  onBack?: () => boolean;
+  /** The system theme is dark now. */
+  readonly dark: boolean;
+  /** true: network and voice answers do not draw the screen again by themselves (call refresh()); taps still do. */
+  selfDraw?: boolean;
+  /** The keyboard's height (with its key row) while it types into one of the app's fields, else 0. A full-screen
+   *  app's body is that much shorter while it is up; the app is drawn again when it changes. */
+  readonly kb: number;
+  /** Puts the keyboard away (when it types into one of the app's fields). The back gesture does it first, too. */
+  closeKeyboard(): void;
+}
+interface EspOSButtonOpts { w?: number; h?: number; onDown?: () => void; onUp?: () => void; fill?: boolean;
+  /** the tap does not draw the screen again by itself (a terminal's keys); call app.refresh() when it changes it */
+  quiet?: boolean; }
+interface EspOSBoxOpts {
+  fill?: boolean;
+  /** room inside, px */
+  pad?: number;
+  /** a column that scrolls (give it a height: fill or h) */
+  scroll?: boolean;
+  /** with scroll: it stays where it was scrolled when the screen is drawn again */
+  key?: string;
+  /** a column of a set height */
+  h?: number;
+}
+
+interface EspOSButtonOpts {
+  /** An OS glyph ("search", "plus"...) or a package .a8 icon, drawn instead of (or before) the text. */
+  icon?: string;
+}

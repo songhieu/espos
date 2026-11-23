@@ -19,6 +19,7 @@ extern std::string simDir;
 #include "art.h"
 #include "data.h"
 #include "desk.h"
+#include "slots.h"
 #include "fonts.h"
 #include "jpeg.h"
 #include "os.h"
@@ -386,11 +387,13 @@ uint32_t pageAt = 0, builtAt = 0, slide = 0;
 void reload() {
   if (loaded && seenSettings == desk::settingsVersion()) return;
   seenSettings = desk::settingsVersion();
-  const String raw = desk::setting("s3.saver_pages", "") + "|" + desk::setting("s3.saver_mode", "");
+  // The saver slot (slots.h): an app saver draws its own pages; "Clock and photos" (built in) the saver pages.
+  const char* app = slots::saverDoc();
+  const String raw = desk::setting("s3.saver_pages", "") + "|" + desk::setting("s3.saver_mode", "") + "|" + (app ? app : "");
   if (loaded && raw == curRaw) return;
   loaded = true;
   curRaw = raw;
-  parse(desk::setting("s3.saver_pages", ""), cur);
+  parse(app ? String(app) : desk::setting("s3.saver_pages", ""), cur);
   dirty = true;
 }
 

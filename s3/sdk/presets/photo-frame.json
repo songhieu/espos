@@ -1,0 +1,37 @@
+{
+ "preset": 1,
+ "id": "photo-frame",
+ "version": 1,
+ "name": "Photo frame",
+ "desc": "A sample preset: the saver is a full-screen slideshow of your photos, upright.",
+ "boards": [
+  "es3c35p",
+  "es3c28p"
+ ],
+ "packages": [],
+ "slots": {
+  "assistant": "none",
+  "saver": "builtin"
+ },
+ "settings": {
+  "s3.saver": "60",
+  "s3.theme": "photo"
+ },
+ "saver": {
+  "template": "frame_full"
+ },
+ "locale": {
+  "lang": "ask",
+  "timezone": "ask",
+  "city": "ask"
+ },
+ "orientation": "portrait",
+ "onboarding": {
+  "skip": [
+   "dog",
+   "name",
+   "call",
+   "tips"
+  ]
+ }
+}

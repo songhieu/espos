@@ -131,6 +131,26 @@
   },
   {
     "method": "GET",
+    "path": "/v1/dev/ai",
+    "auth": "public",
+    "guards": [
+      "require_dev_key"
+    ],
+    "workflow": "dev_ai_list",
+    "rate_limit_per_min": 60
+  },
+  {
+    "method": "POST",
+    "path": "/v1/dev/ai",
+    "auth": "public",
+    "guards": [
+      "require_dev_key"
+    ],
+    "workflow": "dev_ai_set",
+    "rate_limit_per_min": 20
+  },
+  {
+    "method": "GET",
     "path": "/v1/dev/me",
     "auth": "public",
     "guards": [
@@ -340,6 +360,16 @@
     ],
     "workflow": "device_sync",
     "rate_limit_per_min": 20
+  },
+  {
+    "method": "GET",
+    "path": "/v1/device/tts",
+    "auth": "public",
+    "guards": [
+      "require_device"
+    ],
+    "workflow": "device_tts",
+    "rate_limit_per_min": 10
   },
   {
     "method": "GET",

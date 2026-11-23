@@ -19,6 +19,16 @@ var voices = map[string]bool{"adam-bua": true, "truc-ly": true, "thien-minh": tr
 	"thuc-doan": true, "minh-triet": true, "my-duyen": true, "quynh-anh": true, "duc-tri": true, "kim-thanh": true,
 	"adam": true, "quoc-tuan": true}
 
+// ttsOf: the TTS model and voice of a turn's voice ("v"): "piper:<voice>" is tts.espos.dev's piper model (a dog
+// speaking another language than Vietnamese, assist_reply's dogVoices); any other is a vieneu-turbo voice, as before.
+// The same in device_assist/prep, device_assist_say/prep and say_device_dog/prep: change all three.
+func ttsOf(v string) (string, string) {
+	if strings.HasPrefix(v, "piper:") {
+		return "piper", strings.TrimPrefix(v, "piper:")
+	}
+	return "vieneu-turbo", v
+}
+
 func Run(wmIn, wmCtx map[string]any) map[string]any {
 	in := wmIn
 	uid := wm.Int(in["uid"])
@@ -31,7 +41,7 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 	if r, rerr := strconv.Atoi(wm.Str(q["rate"])); rerr == nil && rates[r] {
 		rate = r
 	}
-	no := map[string]any{"ok": false, "status": 404, "err": "not_found", "text": "", "voice": "", "rate": rate}
+	no := map[string]any{"ok": false, "status": 404, "err": "not_found", "text": "", "voice": "", "model": "vieneu-turbo", "rate": rate}
 	if uid == 0 || id == 0 || len(cid) != 16 || nerr != nil || n < 1 {
 		no["status"] = 422
 		no["err"] = "bad_request"
@@ -73,7 +83,8 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 		if text == "" || voice == "" {
 			return no
 		}
-		return map[string]any{"ok": true, "status": 200, "err": "", "text": text, "voice": voice, "rate": rate}
+		model, tv := ttsOf(voice)
+		return map[string]any{"ok": true, "status": 200, "err": "", "text": text, "voice": tv, "model": model, "rate": rate}
 	}
 	return no
 }

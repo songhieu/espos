@@ -88,6 +88,7 @@ class String {
     return String(s_.substr(a, b - a));
   }
   bool startsWith(const String& p) const { return s_.compare(0, p.s_.size(), p.s_) == 0; }
+  bool startsWith(const String& p, unsigned int off) const { return off <= s_.size() && s_.compare(off, p.s_.size(), p.s_) == 0; }
   bool endsWith(const String& p) const {
     return p.s_.size() <= s_.size() && s_.compare(s_.size() - p.s_.size(), p.s_.size(), p.s_) == 0;
   }

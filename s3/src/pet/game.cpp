@@ -126,6 +126,16 @@ void load() {
              st.need[1], st.need[2], st.need[3]);
 }
 
+void forget() {
+  Preferences p;
+  if (p.begin("pet", false)) p.clear(), p.end();  // her state, moments and the assistant's greeting days
+  st = State();
+  loaded = false;
+  dirtyAt = 0;
+  poweredAcc = 0;
+  moN = 0;
+}
+
 void save() {
   char b[200];
   snprintf(b, sizeof b, "1,%d,%d,%d,%d,%d,%d,%d,%lu,%lu,%lu,%lu,%d,%d,%d,%d,%lu,%d,%d,%d,%d", (int)(st.need[0] * 100),

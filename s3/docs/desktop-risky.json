@@ -1,0 +1,20 @@
+{
+  "v": 1,
+  "about": "Risky input to a Claude session from the S3 Sessions app (desktop-protocol.md §9.6). The server (sess_app) and the app embed this list; web/scripts/test-desktop.py checks the server copy matches. Patterns are RE2 and JavaScript compatible (no inline flags: \"i\": true = ignore case).",
+  "text": [
+    {"why": "shell", "re": "^\\s*!"},
+    {"why": "delete", "re": "\\brm\\s+-[A-Za-z]*[rRf]"},
+    {"why": "delete", "re": "\\bfind\\b.*\\s-delete\\b"},
+    {"why": "force", "re": "\\bgit\\s+push\\b.*(\\s-f\\b|\\s--force)"},
+    {"why": "force", "re": "\\bgit\\s+reset\\s+--hard\\b"},
+    {"why": "force", "re": "\\bgit\\s+clean\\s+-[A-Za-z]*f"},
+    {"why": "sudo", "re": "\\bsudo\\b"},
+    {"why": "pipe_shell", "re": "\\b(curl|wget)\\b[^|]*\\|\\s*(sudo\\s+)?(sh|bash|zsh)\\b"},
+    {"why": "database", "re": "\\b(drop\\s+(table|database|schema)|truncate\\s+table)\\b", "i": true},
+    {"why": "disk", "re": "\\b(mkfs(\\.[a-z0-9]+)?|dd\\s+if=)"},
+    {"why": "kill", "re": "\\bkill(all)?\\s+-9\\b"},
+    {"why": "perms", "re": "\\bchmod\\s+(-R\\s+)?777\\b"},
+    {"why": "session", "re": "^\\s*/(clear|exit|quit|logout)\\b"}
+  ],
+  "keys": {"esc": "interrupt", "ctrl_c": "interrupt"}
+}

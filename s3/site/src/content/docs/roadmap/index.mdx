@@ -12,10 +12,11 @@ The plan was agreed on 2026-11-17. Phase 0 is in progress; later phases are <Sta
 
 ## Shipped since the plan
 
-- **The name EspOS** (2026-11-18), with S3 firmware 0.5.0 and X4 firmware 0.4.0: `espos.dev`, `.espk` packages, `dev.espos.*` ids and the `espos` CLI.
+- **The name EspOS** (2026-11-18), with S3 firmware 0.5.0: `espos.dev`, `.espk` packages, `dev.espos.*` ids and the `espos` CLI.
 - **Languages:** English built in and ten more as packs from the store; `app.lang` and translated package names. See [Languages and translation](/guides/languages/).
 - **Landscape** on both S3 boards, with Home pages of its own; `app.screen` and half cards. See [Landscape and screen size](/guides/landscape/).
-- **Open source:** [github.com/songhieu/espos](https://github.com/songhieu/espos) holds the S3 firmware, the SDK, the simulator and these docs' sources in `s3/` (Apache-2.0), the self-hosted Go server in `server/` (AGPL-3.0), and the X4 firmware in `firmware/`. See [How to contribute](/contributing/) and [Self-hosting](/roadmap/self-hosting/).
+- **Open source:** [github.com/songhieu/espos](https://github.com/songhieu/espos) holds the firmware for the S3 desks and the EspOS Bot, the SDK, the simulators and these docs' sources in `s3/` (Apache-2.0), and the self-hosted Go server in `server/` (AGPL-3.0). See [How to contribute](/contributing/) and [Self-hosting](/roadmap/self-hosting/).
+- **The EspOS Bot:** the dog assistant on a small ESP32-S3 board with a 0.96" OLED, a microphone and a speaker, on the same server.
 
 ## The goal
 
@@ -43,9 +44,8 @@ EspOS becomes an open-source operating system for ESP32-class IoT devices:
 Added by the owner the same day:
 
 - EspOS will run on many chips and displays, and the community must be able to build the firmware for their own hardware while keeping the platform's skeleton. The board layer becomes a HAL with board support packages. <Status s="preview" label="In progress" /> See [Hardware and porting](/hardware/).
-- Devices fall into hardware profiles: **Full** (ESP32-S3, PSRAM, colour touch) and **Lite** (no PSRAM, e-ink, buttons). Lite runs data-only declarative faces, widgets and themes first. See [Hardware profiles](/hardware/profiles/).
+- Devices are described by their capabilities; common sets get a profile name. **Full** (ESP32-S3, PSRAM, colour touch) is the S3 desks'. A board with no PSRAM, an e-ink panel or buttons would run data-only declarative faces, widgets and themes first. See [Hardware profiles](/hardware/profiles/).
 - Packages say which capabilities they need, and the store filters by device. <Status s="planned" />
-- The Xteink X4 is the first Lite device, and it is done now rather than in phase 5. <Status s="preview" label="In progress" />
 
 ## Phases
 
@@ -73,7 +73,7 @@ The Java VM, MIDP, the `j2me` engine, the on-screen keypad and user jar uploads.
 
 ### Phase 3: Self-hosting and open source<Status s="planned" />
 
-Started: the sources are open (see above), and the open server runs the X4 today.
+Started: the sources are open (see above), and the open server pairs the S3 desks and the EspOS Bot.
 
 - The Go server with full support for these devices, and the conformance suite.
 - `/.well-known/espos.json` and a Server setting on the device.
@@ -93,7 +93,7 @@ Details: [Hardware and drivers](/roadmap/hardware/).
 
 ### Phase 5<Status s="planned" />
 
-Background services, WebAssembly AOT, a developer portal with review, a simulator in the browser, more boards, and a hosted tier that charges for running costs only. (The e-ink ESP32-C3 profile moved forward: see above.)
+Background services, WebAssembly AOT, a developer portal with review, a simulator in the browser, more boards and chips, and a hosted tier that charges for running costs only.
 
 ## How each phase is checked
 

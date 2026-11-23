@@ -1117,5 +1117,7 @@ void drawFrozen(const Tgt& t) {
   if (homeLine) rrect(t, (L.W - 110) / 2, L.H - 9, 110, 4, 2, 0xFFFF, 128);
 }
 
+void sleep() { hudFree(), sheetFree(), fzFree(); }
+
 }  // namespace ui
 }  // namespace tank

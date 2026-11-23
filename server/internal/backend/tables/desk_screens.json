@@ -266,6 +266,20 @@
       "required": false,
       "type": "integer",
       "unique": false
+    },
+    {
+      "code": "read_ms",
+      "default": null,
+      "help": "When the Mac read the newest frame (its clock, ms; kept within a minute of the server's)",
+      "indexed": false,
+      "label": "Mac read time",
+      "options": [],
+      "position": 20,
+      "read_only": false,
+      "ref_table": null,
+      "required": false,
+      "type": "integer",
+      "unique": false
     }
   ],
   "label": "Desktop screens",
