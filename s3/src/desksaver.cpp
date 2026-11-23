@@ -118,6 +118,8 @@ void readEl(JsonObjectConst o, El& e) {
     e.op = str(o, "op", "");
     e.sk = str(o, "sk", "");
     setWidgetSize(e, *str(o, "s", "S"));
+    const char* sp = str(o, "sp", "");  // a span other than S, M, L ("3x1", 0.6.3), when the kind draws it
+    if (strlen(sp) == 3 && sp[1] == 'x') setWidgetSpan(e, sp[0] - '0', sp[2] - '0');
   } else if (e.t == "photo") {
     for (JsonVariantConst v : o["ids"].as<JsonArrayConst>())
       if (v.as<int>() > 0 && e.ids.size() < 12) e.ids.push_back(v.as<int>());
@@ -139,7 +141,15 @@ void readEl(JsonObjectConst o, El& e) {
   }
 }
 
-void readPage(JsonObjectConst o, Page& pg) {
+// Inside the page (docs/saver.md §2): an element's box never leaves the screen, whatever wrote it (an older editor, a
+// widget grown in place, a page made for the other orientation): too far right or down, it moves back in.
+void inPage(El& e, bool land) {
+  const int pw = land ? PAGE_H : PAGE_W, ph = land ? PAGE_W : PAGE_H;
+  e.w = min<int>(e.w, pw), e.h = min<int>(e.h, ph);
+  e.x = constrain((int)e.x, 0, pw - e.w), e.y = constrain((int)e.y, 0, ph - e.h);
+}
+
+void readPage(JsonObjectConst o, Page& pg, bool land) {
   readBg(o["bg"], pg.bg);
   pg.e.clear();
   int shows = 0;
@@ -147,17 +157,18 @@ void readPage(JsonObjectConst o, Page& pg) {
     if (pg.e.size() >= 24) break;
     El e;
     readEl(eo, e);
+    inPage(e, land);
     if (e.slides() && ++shows > 3) e.ids.clear(), e.all = false;  // at most 3 slideshows a page (docs/saver.md §2)
     if (e.t.length()) pg.e.push_back(e);
   }
 }
 
-void readPages(JsonArrayConst a, std::vector<Page>& out) {
+void readPages(JsonArrayConst a, std::vector<Page>& out, bool land) {
   out.clear();
   for (JsonObjectConst o : a) {
     if (out.size() >= 3) break;
     out.emplace_back();
-    readPage(o, out.back());
+    readPage(o, out.back(), land);
   }
 }
 
@@ -171,6 +182,11 @@ void writeEl(JsonObject o, const El& e) {
   if (e.t == "w") {
     puts_(o, "k", e.k);
     puts_(o, "s", String(e.sz));
+    if (e.cw) {
+      const char sp[4] = {(char)('0' + e.cw), 'x', (char)('0' + e.ch), 0};
+      puts_(o, "sp", sp);
+    }
+    if (e.o != 100) put(o, "o", e.o);  // the whole element's opacity, widgets too (docs/saver.md §2)
     if (e.st.length()) puts_(o, "st", e.st);
     if (e.op.length()) puts_(o, "op", e.op);
     if (e.sk.length()) puts_(o, "sk", e.sk);
@@ -651,9 +667,9 @@ bool templates(const String& json, bool land, std::vector<Template>& out, std::v
     t.night = num(o, "night", 0, 0, 1) || t.group == "night";
     if (v.is<JsonObjectConst>()) {  // one page, not in a list
       t.pages.emplace_back();
-      readPage(v, t.pages.back());
+      readPage(v, t.pages.back(), land);
     } else {
-      readPages(v, t.pages);
+      readPages(v, t.pages, land);
     }
     if (t.night && t.pages.size() > 1) t.pages.resize(1);
     if (t.name.length() && !t.pages.empty()) out.push_back(t);
@@ -681,7 +697,20 @@ void widgetBox(char size, int16_t& w, int16_t& h) {
 
 void setWidgetSize(El& e, char size) {
   e.sz = size == 'M' || size == 'L' ? size : 'S';
+  e.cw = e.ch = 0;
   widgetBox(e.sz, e.w, e.h);
+}
+
+void setWidgetSpan(El& e, int cw, int ch) {
+  wid::Size l;
+  if (cw < 1 || ch < 1 || cw > 4 || ch > 4) return;
+  if (wid::legacy(cw, ch, &l)) return setWidgetSize(e, "SML"[l]);
+  if (!wid::draws(e.k, cw, ch)) return;
+  e.sz = "SML"[wid::letterOf(cw, ch)];
+  e.cw = cw, e.ch = ch;
+  int w, h;
+  wid::boxSpan(cw, ch, w, h);
+  e.w = w, e.h = h;
 }
 
 void parse(const String& json, Doc& d) {
@@ -692,18 +721,18 @@ void parse(const String& json, Doc& d) {
     d.cycle = j["cycle"] | 0;
     d.light = constrain((int)(j["light"] | 30), 5, 100);
     d.night = j["night"] | "page";
-    readPages(j["p"], d.p);
-    readPages(j["l"], d.l);
-    if ((d.hasNp = j["np"].is<JsonObjectConst>())) readPage(j["np"], d.np);
-    if ((d.hasNl = j["nl"].is<JsonObjectConst>())) readPage(j["nl"], d.nl);
+    readPages(j["p"], d.p, false);
+    readPages(j["l"], d.l, true);
+    if ((d.hasNp = j["np"].is<JsonObjectConst>())) readPage(j["np"], d.np, false);
+    if ((d.hasNl = j["nl"].is<JsonObjectConst>())) readPage(j["nl"], d.nl, true);
   }
   if (d.p.empty() || d.l.empty()) {  // the defaults, or the template of the old saver mode
     const String mode = desk::setting("s3.saver_mode", "desk");
     JsonDocument t(&spiram);
     const bool legacy = !json.length();  // only an empty setting follows the old mode
     deserializeJson(t, !legacy ? DEF : mode == "clock" ? MINIMAL : mode == "photo" ? FRAME : DEF);
-    if (d.p.empty()) readPages(t["p"], d.p);
-    if (d.l.empty()) readPages(t["l"], d.l);
+    if (d.p.empty()) readPages(t["p"], d.p, false);
+    if (d.l.empty()) readPages(t["l"], d.l, true);
   }
 }
 
@@ -747,7 +776,7 @@ Page& nightPage(Doc& d, bool land) {
   if (!has && pg.e.empty()) {
     JsonDocument t(&spiram);
     deserializeJson(t, land ? NIGHT_L : NIGHT_P);
-    readPage(t.as<JsonObjectConst>(), pg);
+    readPage(t.as<JsonObjectConst>(), pg, land);
   }
   return pg;
 }
@@ -1014,6 +1043,7 @@ void drawWid(lv_obj_t* c, const El& e) {
   wid::Item it;
   it.kind = e.k;
   it.size = e.sz == 'L' ? wid::L : e.sz == 'M' ? wid::M : wid::S;
+  it.cw = e.cw, it.ch = e.ch;
   it.style = e.st;
   it.opt = e.op;
   it.skin = e.sk;

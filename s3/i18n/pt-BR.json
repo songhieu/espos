@@ -724,7 +724,6 @@
  "None yet": "Nenhum ainda",
  "Normal": "Normal",
  "Northern Vietnam": "Norte do Vietnã",
- "Not done: ": "Não feito: ",
  "Not done: no connection": "Não feito: sem conexão",
  "Not enough memory to open PawBoop": "Memória insuficiente para abrir o PawBoop",
  "Not enough memory to open PawBoop Run": "Memória insuficiente para abrir o PawBoop Run",
@@ -1608,5 +1607,13 @@
  "How can I help?": "Como posso ajudar?",
  "Hold the button and speak": "Segure o botão e fale",
  "{0} stopped": "{0} parou",
- "The screen saver app stopped 3 times, so the built-in saver shows instead. Choose it again in Settings, Default apps.": "O app de protetor de tela parou 3 vezes, então o integrado aparece no lugar. Escolha-o de novo em Ajustes, Apps padrão."
+ "The screen saver app stopped 3 times, so the built-in saver shows instead. Choose it again in Settings, Default apps.": "O app de protetor de tela parou 3 vezes, então o integrado aparece no lugar. Escolha-o de novo em Ajustes, Apps padrão.",
+ "Not done": "Não feito",
+ "The Mac does not take commands from this device yet. On the Mac: EspOS Desktop > Settings > Devices, turn this device on.": "O Mac ainda não aceita comandos deste dispositivo. No Mac: EspOS Desktop > Settings > Devices, ative este dispositivo.",
+ "The Mac is offline. Nothing was sent.": "O Mac está offline. Nada foi enviado.",
+ "The Mac is in view-only mode. Nothing was sent.": "O Mac está no modo só visualização. Nada foi enviado.",
+ "This is turned off in EspOS Desktop on the Mac.": "Isso está desligado no EspOS Desktop do Mac.",
+ "The session is no longer waiting.": "A sessão não está mais esperando.",
+ "That question was already answered or has expired.": "Essa pergunta já foi respondida ou expirou.",
+ "Too many in a row. Wait a moment.": "Muitos envios seguidos. Espere um pouco."
 }

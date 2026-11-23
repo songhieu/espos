@@ -10,7 +10,8 @@ Scenes (POST /mock/scene {"name": ...} switches at run time): normal, fast (one 
 share_off, offline, view, estop, not_paired, disabled, empty, locked (AI routes 402), risky_perm,
 notallowed (every send 403 sender_not_allowed: the Mac's allow_from leaves this device out, macs[].allowed not sent),
 disallowed (the same with macs[].allowed false), allowed (macs[].allowed true), oddstatus (sends answer 503, no JSON code),
-turnedon (the first send 403 sender_not_allowed, then the person turns the device on at the Mac: macs[].allowed true).
+turnedon (the first send 403 sender_not_allowed, then the person turns the device on at the Mac: macs[].allowed true),
+reqgone (every send 200 refused req_gone: the question was already answered).
 GET /mock/log: what the app sent (sends, suggest, compose, dictate), newest last. Nothing here leaves the machine.
 """
 import argparse
@@ -387,6 +388,8 @@ class H(BaseHTTPRequestHandler):
                     state["rev"] += 1
                     lock.notify_all()
                 return self.answer(403, {"state": "refused", "err": "sender_not_allowed"})
+            if state["scene"] == "reqgone":
+                return self.answer(200, {"state": "refused", "err": "req_gone"})
             if state["scene"] == "oddstatus":
                 return self.answer(503, {"message": "upstream unavailable"})
             n = d.get("nonce", "")

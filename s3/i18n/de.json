@@ -724,7 +724,6 @@
  "None yet": "Noch keine",
  "Normal": "Normal",
  "Northern Vietnam": "Nordvietnam",
- "Not done: ": "Nicht erledigt: ",
  "Not done: no connection": "Nicht erledigt: keine Verbindung",
  "Not enough memory to open PawBoop": "Zu wenig Speicher, um PawBoop zu öffnen",
  "Not enough memory to open PawBoop Run": "Zu wenig Speicher, um PawBoop Run zu öffnen",
@@ -1608,5 +1607,13 @@
  "How can I help?": "Wie kann ich helfen?",
  "Hold the button and speak": "Taste halten und sprechen",
  "{0} stopped": "{0} wurde beendet",
- "The screen saver app stopped 3 times, so the built-in saver shows instead. Choose it again in Settings, Default apps.": "Die Bildschirmschoner-App wurde 3-mal beendet, daher läuft der eingebaute Schoner. Wähle sie in den Einstellungen unter Standard-Apps erneut."
+ "The screen saver app stopped 3 times, so the built-in saver shows instead. Choose it again in Settings, Default apps.": "Die Bildschirmschoner-App wurde 3-mal beendet, daher läuft der eingebaute Schoner. Wähle sie in den Einstellungen unter Standard-Apps erneut.",
+ "Not done": "Nicht erledigt",
+ "The Mac does not take commands from this device yet. On the Mac: EspOS Desktop > Settings > Devices, turn this device on.": "Der Mac nimmt noch keine Befehle von diesem Gerät an. Auf dem Mac: EspOS Desktop > Settings > Devices, dieses Gerät einschalten.",
+ "The Mac is offline. Nothing was sent.": "Der Mac ist offline. Es wurde nichts gesendet.",
+ "The Mac is in view-only mode. Nothing was sent.": "Der Mac ist im Nur-Ansehen-Modus. Es wurde nichts gesendet.",
+ "This is turned off in EspOS Desktop on the Mac.": "Das ist in EspOS Desktop auf dem Mac ausgeschaltet.",
+ "The session is no longer waiting.": "Die Sitzung wartet nicht mehr.",
+ "That question was already answered or has expired.": "Diese Frage wurde schon beantwortet oder ist abgelaufen.",
+ "Too many in a row. Wait a moment.": "Zu viele auf einmal. Warte kurz."
 }

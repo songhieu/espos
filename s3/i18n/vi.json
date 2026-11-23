@@ -726,7 +726,6 @@
  "None yet": "Chưa có",
  "Normal": "Vừa",
  "Northern Vietnam": "Miền Bắc",
- "Not done: ": "Chưa xong: ",
  "Not done: no connection": "Chưa xong: không có kết nối",
  "Not enough memory to open PawBoop": "Không đủ bộ nhớ để mở PawBoop",
  "Not enough memory to open PawBoop Run": "Không đủ bộ nhớ để mở PawBoop Chạy",
@@ -1610,5 +1609,13 @@
  "How can I help?": "Mình giúp gì được bạn?",
  "Hold the button and speak": "Giữ nút rồi nói",
  "{0} stopped": "{0} đã dừng",
- "The screen saver app stopped 3 times, so the built-in saver shows instead. Choose it again in Settings, Default apps.": "Ứng dụng màn chờ đã dừng 3 lần nên máy dùng màn chờ có sẵn. Hãy chọn lại trong Cài đặt, Ứng dụng mặc định."
+ "The screen saver app stopped 3 times, so the built-in saver shows instead. Choose it again in Settings, Default apps.": "Ứng dụng màn chờ đã dừng 3 lần nên máy dùng màn chờ có sẵn. Hãy chọn lại trong Cài đặt, Ứng dụng mặc định.",
+ "Not done": "Chưa xong",
+ "The Mac does not take commands from this device yet. On the Mac: EspOS Desktop > Settings > Devices, turn this device on.": "Mac chưa cho máy này ra lệnh. Trên Mac: EspOS Desktop > Cài đặt > Máy ra lệnh, bật máy này.",
+ "The Mac is offline. Nothing was sent.": "Mac đang ngoại tuyến. Chưa gửi gì cả.",
+ "The Mac is in view-only mode. Nothing was sent.": "Mac đang ở chế độ chỉ xem. Chưa gửi gì cả.",
+ "This is turned off in EspOS Desktop on the Mac.": "Tính năng này đang tắt trong EspOS Desktop trên Mac.",
+ "The session is no longer waiting.": "Phiên này không còn chờ nữa.",
+ "That question was already answered or has expired.": "Câu hỏi đó đã được trả lời hoặc đã hết hạn.",
+ "Too many in a row. Wait a moment.": "Bạn gửi liên tục quá nhiều. Đợi một chút nhé."
 }

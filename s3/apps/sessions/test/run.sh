@@ -99,15 +99,20 @@ lockcheck() {
   done
 }
 
-# tapat/downat labels in the language of the run: the app's own texts (i18n.json), else the OS's (i18n/<lang>.json)
+# tapat/downat labels in the language of the run: the app's own texts (i18n.json), else the OS's (i18n/<lang>.json);
+# "os:LABEL" takes the OS's (the pop-up card is the OS's: its Approve is not the app's in every language)
 localize() {  # localize LANG STEPS
-  [ "$1" = en ] && { echo "$2"; return; }
+  [ "$1" = en ] && { echo "$2" | sed -E 's/(tapat|downat) os:/\1 /g'; return; }
   python3 - "$1" "$2" <<'PY'
 import json, re, sys
 lang, steps = sys.argv[1], sys.argv[2]
 app = json.load(open("apps/sessions/i18n.json")).get(lang, {})
 os_ = json.load(open(f"i18n/{lang}.json"))
-print(re.sub(r"\b(tapat|downat) ([^;]+)", lambda m: m.group(1) + " " + (app.get(m.group(2)) or os_.get(m.group(2)) or m.group(2)), steps))
+def word(w):  # "os:Approve": the OS's own word (the pop-up card's buttons), else the app's first
+    if w.startswith("os:"):
+        return os_.get(w[3:]) or w[3:]
+    return app.get(w) or os_.get(w) or w
+print(re.sub(r"\b(tapat|downat) ([^;]+)", lambda m: m.group(1) + " " + word(m.group(2)), steps))
 PY
 }
 
@@ -129,16 +134,16 @@ overflow $n" || true
   done
 }
 
-ALL="authtest list term perm risky typing kb keys useanswer hold zoom offline view notallowed notallowedperm disallowed disallowedlist turnedon oddstatus estop notpaired disabled empty shareoff locked fast pophome popsaver popapp poprisky popquiet popcenter popapprove"
+ALL="authtest list term perm risky typing kb keys useanswer hold zoom offline view notallowed notallowedperm disallowed disallowedlist turnedon oddstatus estop notpaired disabled empty shareoff locked fast pophome popsaver popapp poprisky popquiet popcenter popapprove popnotallowed popodd popgone"
 # the prompt row's mic (an icon, no word to tap): its centre per turn (r1 landscape, r0 portrait)
 mic() { [ "$1" = 0 ] && echo "251 458" || echo "411 298"; }
 # A pop-up while the app is closed (NOTES: the server's notes in the dashboard, apps/sessions/test/notes.py).
-popup() {  # popup NAME NOTES STEPS [ROTATIONS]
+popup() {  # popup NAME NOTES STEPS [ROTATIONS]       POPSCENE: the mock's scene (normal)
   local name=$1 kind=$2 steps=$3 rots=${4:-${ROT:-1 0}}
   for lang in ${LANGS:-en}; do
     for r in $rots; do
       local n="$name-$lang-r$r"
-      scene normal
+      scene "${POPSCENE:-normal}"
       NOTES=$kind run "$n" "$lang" "rot $r
 wait 1500
 $(localize "$lang" "$steps" | tr ';' '\n')
@@ -294,10 +299,20 @@ s = [x.get('text') for x in l if x.get('route') == 'send']
 print('dictate', d, 'then sent', s[-1:] if s else 'nothing')")" ;;
     popsaver) popup popsaver perm "saver;wait 800" ;;
     popapp) popup popapp two "app weather;wait 800" ;;
-    poprisky) popup poprisky risky "wait 500;tapat Approve;wait 400" ;;
+    poprisky) popup poprisky risky "wait 500;tapat os:Approve;wait 400" ;;
     popquiet) popup popquiet perm "set s3.dnd 1;wait 800;home;wait 500" ;;
     popcenter) popup popcenter perm "set s3.dnd 1;wait 800;notif center;wait 800" ;;
-    popapprove) popup popapprove perm "wait 500;tapat Approve;wait 400;tapat Approve;realwait 2500"
+    popnotallowed|popodd|popgone)  # the pop-up's Approve refused (0.6.3, popnote refusal()): the reason on the card in
+                                   # words (403 sender_not_allowed, 200 refused req_gone), a 503 with no code only "Not done"
+      sc=notallowed want="not done (403 sender_not_allowed)"
+      [ $s = popodd ] && sc=oddstatus want="not done (503 -)"
+      [ $s = popgone ] && sc=reqgone want="not done (200 req_gone)"
+      POPSCENE=$sc popup $s perm "wait 500;tapat os:Approve;wait 400;tapat os:Approve;realwait 1200"
+      for f in "$OUT"/$s-*.log; do
+        ok=FAIL; grep -q "popnote: $want" "$f" && ! grep -q "AddressSanitizer\|App error" "$f" && ok=PASS
+        say "$ok $(basename "$f" .log): $(grep -o "popnote: not done ([^)]*)" "$f" | head -1)"
+      done ;;
+    popapprove) popup popapprove perm "wait 500;tapat os:Approve;wait 400;tapat os:Approve;realwait 2500"
                 say "approve from the pop-up: $(log | python3 -c "import json,sys; l=[x for x in json.load(sys.stdin)['log'] if x.get('route')=='send']; print(l[-1] if l else 'none')")" ;;
   esac
 done

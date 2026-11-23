@@ -498,12 +498,8 @@ void Scene::setView(bool l, float s) {
   const float kx = (float)vw / VW, ky = (float)vh / VH;
   VW = vw, VH = vh, land = l, SC = s, FW = (int)(VW * s + 0.5f), FH = (int)(VH * s + 0.5f);
   AC = (VW + 15) / 16, AR = (VH + 15) / 16;
-  heap_caps_free(bgRaw), heap_caps_free(bgc), heap_caps_free(filmW), heap_caps_free(filmT), filmT = nullptr;
-  bgRaw = (uint16_t*)heap_caps_malloc(FW * FH * 2, MALLOC_CAP_SPIRAM);
-  bgc = (uint16_t*)heap_caps_malloc(FW * FH * 2, MALLOC_CAP_SPIRAM);
-  filmW = (uint8_t*)heap_caps_calloc(1, FW * FH, MALLOC_CAP_SPIRAM);
-  bgLoad = bgBad = true, bgTint[0] = -1;
-  filmX0 = filmX1 = 0, filmSoft = false;  // (a part left from the other size: made again whole at the next prepare)
+  freeBg();  // (a part left from the other size: made again whole at the next prepare)
+  allocBg();
   free(rayFade);
   rayFade = (uint8_t*)malloc(FH);
   rayY0 = (int)(TOPY * 0.5f * SC), rayY1 = (int)(FH * 0.66f);
@@ -1086,19 +1082,26 @@ void boxOf(Item& it, float x0, float y0, float x1, float y1) {
 
 // The dog's pop-up over the tank (screen.cpp): its big pictures go, so the call has room to record (the 2.8" board,
 // 2026-11-21: "no room to record"); the next prepare() makes them again from the look's picture.
-void Scene::sleep() {
-  heap_caps_free(bgRaw), heap_caps_free(bgc), heap_caps_free(filmW), heap_caps_free(filmT);
-  bgRaw = bgc = nullptr, filmW = filmT = nullptr, filmX0 = filmX1 = 0, filmSoft = false;
+void Scene::sleep() { freeBg(); }
+void Scene::freeBg() {
+  if (bgc != bgRaw) heap_caps_free(bgc);
+  heap_caps_free(bgRaw), heap_caps_free(filmW), heap_caps_free(filmT);
+  bgRaw = bgc = nullptr, filmW = filmT = nullptr, filmX0 = filmX1 = 0, filmSoft = false, lite = false;
+}
+void Scene::allocBg() {
+  bgRaw = (uint16_t*)heap_caps_malloc(FW * FH * 2, MALLOC_CAP_SPIRAM);
+  bgc = bgRaw ? (uint16_t*)heap_caps_malloc(FW * FH * 2, MALLOC_CAP_SPIRAM) : nullptr;
+  filmW = bgc ? (uint8_t*)heap_caps_calloc(1, FW * FH, MALLOC_CAP_SPIRAM) : nullptr;
+#ifdef SIM
+  if (const char* e = getenv("SIM_TANK_LITE"); e && *e == '1') heap_caps_free(filmW), filmW = nullptr;  // (QA: the light water)
+#endif
+  if ((lite = bgRaw && !filmW)) heap_caps_free(bgc), bgc = bgRaw, bgCols = false;
+  bgLoad = bgBad = true, bgTint[0] = -1;
 }
 void Scene::prepare() {
   if (!fr || !geo) return;
   const uint32_t p0 = micros();
-  if (!bgRaw) {  // after sleep()
-    bgRaw = (uint16_t*)heap_caps_malloc(FW * FH * 2, MALLOC_CAP_SPIRAM);
-    bgc = (uint16_t*)heap_caps_malloc(FW * FH * 2, MALLOC_CAP_SPIRAM);
-    filmW = (uint8_t*)heap_caps_calloc(1, FW * FH, MALLOC_CAP_SPIRAM);
-    bgLoad = bgBad = true, bgTint[0] = -1;
-  }
+  if (!bgRaw) allocBg();  // after sleep()
   if (bgLoad && bgRaw) {
     if (!background(D.look[look].id, land, FW, FH, bgRaw)) memset(bgRaw, 0, FW * FH * 2);
     bgLoad = false, bgBad = true;
@@ -1106,7 +1109,7 @@ void Scene::prepare() {
   if (bgBad || fabsf(bgHaze - hazeNow) > 0.01f || fabsf(bgTint[0] - tintNow[0]) > 0.006f ||
       fabsf(bgTint[1] - tintNow[1]) > 0.006f || fabsf(bgTint[2] - tintNow[2]) > 0.006f)
     if (bgRaw && bgc) makeBg(*this);
-  if (bgColsWant != bgCols) bgCols = bgColsWant, filmDirty(0, 0, 1 << 14, 1 << 14), filmSoft = false;  // the other way round: all again, now
+  if (bgColsWant != bgCols && !lite) bgCols = bgColsWant, filmDirty(0, 0, 1 << 14, 1 << 14), filmSoft = false;  // the other way round: all again, now
   if (filmX0 < filmX1 && bgRaw && bgc && filmW) bake(*this);
   const uint32_t p1 = micros();
   prep[0] += p1 - p0;
@@ -1364,7 +1367,7 @@ HOT void Scene::draw(const Tgt& t, bool withRays) {
 
 void freeScene() {
   if (!sc) return;
-  heap_caps_free(sc->bgRaw), heap_caps_free(sc->bgc), heap_caps_free(sc->filmW), heap_caps_free(sc->filmT);
+  sc->freeBg();
   sc->~Scene();
   heap_caps_free(sc);
   sc = nullptr;

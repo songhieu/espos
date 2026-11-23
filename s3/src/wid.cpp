@@ -53,7 +53,8 @@ const std::vector<Kind>& kinds() {
       {"remind", N_("Reminders"), N_("Calendar"), 7, "remind", N_("to-dos"), 0xffffff, REMIND_STYLES, Opt::None, {}},
       {"notes", N_("Notes"), N_("News"), 3, "notes", N_("latest note"), 0xffe066, NOTES_STYLES, Opt::Note, {}},
       {"photo", N_("Photos"), N_("Photos"), 7, "photos", N_("your photos"), 0x5856d6, PHOTO_STYLES, Opt::Photo, {}},
-      {"my", N_("My widget"), N_("Custom"), 7, "", N_("made on the device"), 0xffe066, {}, Opt::Mine, {}},
+      {"my", N_("My widget"), N_("Custom"), 7, "", N_("made on the device"), 0xffe066, {}, Opt::Mine, {},
+       SPAN(3, 2) | SPAN(2, 3) | SPAN(3, 3) | SPAN(4, 3) | SPAN(2, 4) | SPAN(3, 4)},
 #ifndef NO_PET
       {"pet", "PawBoop", N_("Fun"), 7, "pet", N_("Biscuit and her needs"), 0xfff3df, {}, Opt::None, {}},
 #endif
@@ -153,6 +154,7 @@ bool draws(const String& k, int cw, int ch, const char* style) {
   if (!kd || cw < 1 || ch < 1 || cw > 4 || ch > 4) return false;
   Size l;
   if (legacy(cw, ch, &l)) return kd->sizes & (1 << l);
+  if (kd->styles.empty()) return kd->spans & SPAN(cw, ch);  // one look (my widgets)
   for (const Style& s : kd->styles)
     if ((!style || !strcmp(style, s.id)) && (s.spans & SPAN(cw, ch))) return true;
   return false;

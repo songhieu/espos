@@ -23,6 +23,7 @@ struct El {
   uint32_t c = 0xe8ecf2;     // text colour or box fill
   uint8_t o = 100, px = 0, r = 0;
   char a = 'c', sz = 'S';    // align l c r; widget size S M L
+  uint8_t cw = 0, ch = 0;    // a widget's span other than S, M, L ("sp", 0.6.3; sz = the largest of S, M, L inside)
   bool b = false;            // bold
   int id = 0;                // photo
   // Photo slideshows (docs/saver.md §2): the device's own pictures (all) or a set (ids, 2..12; id = the first),
@@ -38,7 +39,7 @@ struct El {
   uint8_t bo = 50;
   bool text() const;         // one of the text types
   bool slides() const { return t == "photo" && (all || ids.size() > 1); }
-  bool free() const { return t != "w"; }  // resizable by hand (widgets keep their size)
+  bool free() const { return t != "w"; }  // resizable by hand to any box (widgets: to the spans they draw)
 };
 struct Bg {
   String t = "black";        // black color grad wall photo
@@ -68,6 +69,8 @@ void save(const Doc& d);                 // desk::setSetting("s3.saver_pages") w
 Page& nightPage(Doc& d, bool land);      // makes the built-in one editable
 void widgetBox(char size, int16_t& w, int16_t& h);
 void setWidgetSize(El& e, char size);
+// A span of cells (docs/widgets.md §2b): S, M, L as their letter, another one when the kind draws it (else unchanged).
+void setWidgetSpan(El& e, int cw, int ch);
 
 // A page's bg object (docs/saver.md §2) as Home's s3.home "bg" entries use it too (docs/widgets.md §4).
 void readBg(JsonObjectConst o, Bg& bg);

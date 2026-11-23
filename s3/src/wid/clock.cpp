@@ -68,7 +68,24 @@ String dShort(const data::Day& d) { return i18n::date(N_("{w}, {M} {d}"), d.d, d
 String dLong(const data::Day& d) { return i18n::date(N_("{W}, {M} {d}"), d.d, d.m, d.y, d.wday); }   // Tuesday, Nov 18
 String dFull(const data::Day& d) { return i18n::date(N_("{W}, {MM} {d}"), d.d, d.m, d.y, d.wday); }  // Tuesday, November 18
 // i18n: a lunar date ("7/10" or "Full moon, month 10") with "lunar" (vi "{0} âm lịch")
-String lunarLine(const data::Day& d) { return i18n::fmt(N_("Lunar {0}"), data::lunarText(data::lunar(d))); }
+// The lunar date that fits w on one line at px, between pre and post: "Lunar Full moon, month 10", else without "Lunar",
+// else in numbers ("Lunar 15/10", "15/10"; a full or new moon's words are long in every language). word: with "Lunar".
+String lunarFit(const data::Day& d, int w, int px, bool bold = false, const String& pre = "", const String& post = "",
+                bool word = true) {
+  const data::Lunar l = data::lunar(d);
+  const String num = i18n::fmt(N_("{0}/{1}{2}"), String(l.d), String(l.m), l.leap ? T_(" leap") : "");
+  const String forms[4] = {i18n::fmt(N_("Lunar {0}"), data::lunarText(l)), data::lunarText(l), i18n::fmt(N_("Lunar {0}"), num), num};
+  for (int i = word ? 0 : 1; i < 4; i += word ? 1 : 2)
+    if (textW((pre + forms[i] + post).c_str(), px, bold) <= w) return pre + forms[i] + post;
+  return pre + forms[3] + post;
+}
+// "Lunar 8/10 · Fire Horse year", the lunar date in numbers when that is too long for w at px.
+String lunarYear(const data::Lunar& lu, int w, int px) {
+  const String a = i18n::fmt(N_("Lunar {0} · {1} year"), data::lunarText(lu), data::canChiYear(lu.y));
+  if (textW(a.c_str(), px, false) <= w) return a;
+  return i18n::fmt(N_("Lunar {0} · {1} year"), i18n::fmt(N_("{0}/{1}{2}"), String(lu.d), String(lu.m), lu.leap ? T_(" leap") : ""),
+                   data::canChiYear(lu.y));
+}
 
 // Letters in a UTF-8 string (for the letter spacing of a label's width).
 int glyphs(const String& s) {
@@ -430,7 +447,7 @@ void posterClock(Clk* k, bool stack, const tm& l, const data::Day& d, uint32_t f
   char date[48], hh[8], mm[4];
   // "Mon, Nov 16" (small) or "Monday, Nov 16", after "AM · " in 12 h.
   snprintf(date, sizeof date, "%s%s%s", k->h12 ? ampm(l) : "", k->h12 ? " · " : "", (sm ? dShort(d) : dLong(d)).c_str());
-  const String lun = lunarLine(d);
+  const String lun = lunarFit(d, k->W, 14);
   if (stack) snprintf(hh, sizeof hh, k->h12 ? "%d" : "%02d", k->h12 ? hour12(l.tm_hour) : l.tm_hour);
   else snprintf(hh, sizeof hh, k->h12 ? "%d:%02d" : "%02d:%02d", k->h12 ? hour12(l.tm_hour) : l.tm_hour, l.tm_min);
   snprintf(mm, sizeof mm, "%02d", l.tm_min);
@@ -481,7 +498,8 @@ void clockAt(Clk* k, int cw, int ch, const String& st, uint32_t fg, uint32_t dim
       const int x = dd + 6;
       if (cw == 2) {
         fit(b, time, x, 0, W - x, 24, 20, 12, true, fg, 0);
-        fit(b, dShort(d), x, 26, W - x, 18, 12, 12, false, dim, 0);
+        if (!fitIn(b, dShort(d), x, 26, W - x, 18, 12, 12, false, dim, 0))  // one line, else without the weekday
+          fit(b, i18n::date(N_("{M} {d}"), d.d, d.m), x, 26, W - x, 18, 12, 12, false, dim, 0);
         return;
       }
       const int rw = cw >= 4 ? 80 : 0;
@@ -496,8 +514,9 @@ void clockAt(Clk* k, int cw, int ch, const String& st, uint32_t fg, uint32_t dim
     const int x = dd + 6, w = W - x;
     const int y0 = ch == 2 ? 2 : 24;
     fit(b, WEEKDAY[d.wday], x, y0, w, 22, 16, 12, true, fg, 0);
-    fit(b, i18n::date(N_("{MM} {d}"), d.d, d.m), x, y0 + 24, w, 36, 14, 12, false, fg, 2);
-    fit(b, lunarLine(d), x, y0 + (ch == 2 ? 48 : 62), w, 34, 12, 12, false, dim, 2);
+    if (!fitIn(b, i18n::date(N_("{MM} {d}"), d.d, d.m), x, y0 + 24, w, 21, 14, 12, false, fg, 2))  // one line, else "Nov 23"
+      fit(b, i18n::date(N_("{M} {d}"), d.d, d.m), x, y0 + 24, w, 21, 14, 12, false, fg, 2);
+    fit(b, lunarFit(d, w, 12), x, y0 + (ch == 2 ? 48 : 62), w, 34, 12, 12, false, dim, 2);
     fit(b, time, x, H - (ch == 2 ? 24 : 32), w, ch == 2 ? 24 : 30, ch == 2 ? 18 : 22, 12, true, dim, 0);
     return;
   }
@@ -526,10 +545,9 @@ void clockAt(Clk* k, int cw, int ch, const String& st, uint32_t fg, uint32_t dim
     }
     const int x = used + 8;
     const int rw = cw >= 4 && wx ? 76 : 0;
-    fit(b, dLong(d), x, 2, W - x - rw, 20, 14, 12, true, fg, 0);
+    if (!fitIn(b, dLong(d), x, 2, W - x - rw, 21, 14, 12, true, fg, 0)) fit(b, dShort(d), x, 2, W - x - rw, 21, 14, 12, true, fg, 0);
     // the lunar date with "lunar" when that fits on the line, else without
-    if (!fitIn(b, lunarLine(d), x, 22, W - x - rw, 18, 12, 12, false, dim, 0))
-      fit(b, data::lunarText(data::lunar(d)), x, 22, W - x - rw, 18, 12, 12, false, dim, 0);
+    fit(b, lunarFit(d, W - x - rw, 12), x, 22, W - x - rw, 18, 12, 12, false, dim, 0);
     if (rw) {
       const String tp = String((int)(w["temp"] | 0)) + "°";
       right(b, tp, 6, 22, true, fg);
@@ -542,8 +560,8 @@ void clockAt(Clk* k, int cw, int ch, const String& st, uint32_t fg, uint32_t dim
     const int px = k->sec || k->h12 ? 34 : 44;
     timeRow(k, -2, 0, px, l, fg, dim, -1);
     const int lw = wx ? W - 72 : W, ty = lineH(px, true) + 2;
-    fit(b, dLong(d), 0, ty, lw, 20, 14, 12, true, fg, 0);
-    fit(b, lunarLine(d), 0, ty + 20, lw, 18, 13, 12, false, dim, 0);
+    if (!fitIn(b, dLong(d), 0, ty, lw, 21, 14, 12, true, fg, 0)) fit(b, dShort(d), 0, ty, lw, 21, 14, 12, true, fg, 0);
+    fit(b, lunarFit(d, lw, 12), 0, ty + 20, lw, 18, 13, 12, false, dim, 0);
     if (wx) {
       const int x = W - 58;
       lv_obj_t* r = box(b, dim, 0);
@@ -575,7 +593,7 @@ void clockAt(Clk* k, int cw, int ch, const String& st, uint32_t fg, uint32_t dim
   }
   const data::Lunar lu = data::lunar(d);
   fit(b, dFull(d), 0, 98, W, 22, 16, 12, true, fg, 0);
-  fit(b, i18n::fmt(N_("Lunar {0} · {1} year"), data::lunarText(lu), data::canChiYear(lu.y)), 0, 120, W, 18, 13, 12, false, dim, 0);
+  fit(b, lunarYear(lu, W, 12), 0, 120, W, 18, 13, 12, false, dim, 0);
   lv_obj_t* bar = box(b, 0xff9500, 2);
   lv_obj_set_size(bar, 4, 32);
   lv_obj_set_pos(bar, 0, 150);
@@ -610,12 +628,12 @@ void drawClock(Clk* k) {
       k->face = face(b, -2, H / 2 - 58, 116, look, k->sec, l);
       at(b, WEEKDAY[d.wday], 128, 8, 20, true, fg);
       at(b, i18n::date(N_("{MM} {d}"), d.d, d.m), 128, 36, 16, false, fg);  // November 18
-      fit(b, lunarLine(d), 128, 62, W - 128, 20, 13, 12, false, dim);
+      fit(b, lunarFit(d, W - 128, 12), 128, 62, W - 128, 20, 13, 12, false, dim);
       at(b, clockText(l, k->h12) + (k->h12 ? String(" ") + ampm(l) : String("")), 128, H - 30, 20, true, dim);
     } else {
       k->face = face(b, W / 2 - 98, 0, 196, look, k->sec, l);
       mid(b, dFull(d), W / 2, 206, 18, true, fg);
-      mid(b, lunarLine(d) + " · " + data::canChiYear(data::lunar(d).y), W / 2, 232, 13, false, dim);
+      mid(b, lunarFit(d, W, 13, false, "", String(" · ") + data::canChiYear(data::lunar(d).y)), W / 2, 232, 13, false, dim);
     }
     return;
   }
@@ -624,7 +642,7 @@ void drawClock(Clk* k) {
     const String hh = k->h12 ? String(hour12(l.tm_hour)) : two(l.tm_hour), mm = two(l.tm_min);
     if (it.size == M) {
       timeRow(k, -3, 8, 64, l, fg, dim, -2);
-      at(b, dLong(d) + " · " + lunarLine(d), 0, H - 18, 13, false, dim);
+      at(b, lunarFit(d, W, 13, false, dLong(d) + " · "), 0, H - 18, 13, false, dim);
       return;
     }
     const bool big = it.size == L;
@@ -635,7 +653,7 @@ void drawClock(Clk* k) {
     lv_obj_set_style_text_letter_space(m2, -2, 0);
     if (big) {
       at(b, dFull(d), 0, H - 44, 18, true, fg);
-      at(b, lunarLine(d), 0, H - 18, 13, false, dim);
+      at(b, lunarFit(d, W, 13), 0, H - 18, 13, false, dim);
       if (k->h12) right(b, ampm(l), 8, 18, true, dim);
       if (k->sec) k->secLabel = right(b, two(l.tm_sec), 34, 28, true, dim);
     } else {
@@ -669,7 +687,7 @@ void drawClock(Clk* k) {
     if (k->h12) right(b, ampm(l), ch + 6, 13, true, dim);
     if (it.size != M) {
       at(b, it.size == S ? dShort(d) : dFull(d), 0, ch + 8, it.size == S ? 14 : 18, true, fg);
-      if (it.size == L) at(b, lunarLine(d), 0, ch + 36, 13, false, dim);
+      if (it.size == L) at(b, lunarFit(d, W, 13), 0, ch + 36, 13, false, dim);
     }
     if (it.size == S && k->sec) k->secLabel = right(b, two(l.tm_sec), ch + 8, 14, true, dim, k->h12 ? -26 : 0);
     return;
@@ -684,7 +702,7 @@ void drawClock(Clk* k) {
     if (k->h12) at(panel, ampm(l), 6, 4, 12, true, LCD_ON);
     if (it.size != M) {
       at(b, it.size == S ? dShort(d) : dFull(d), 0, ph + 8, it.size == S ? 14 : 18, true, fg);
-      if (it.size == L) at(b, lunarLine(d), 0, ph + 36, 13, false, dim);
+      if (it.size == L) at(b, lunarFit(d, W, 13), 0, ph + 36, 13, false, dim);
     }
     return;
   }
@@ -698,9 +716,10 @@ void drawClock(Clk* k) {
     lv_obj_set_pos(wl, 0, it.size == L ? (bh - th) / 2 : 0);
     if (it.size == L) {
       at(b, dFull(d), 0, H - 44, 18, true, fg);
-      at(b, lunarLine(d), 0, H - 18, 13, false, dim);
+      at(b, lunarFit(d, W, 13), 0, H - 18, 13, false, dim);
     } else {
-      at(b, dShort(d) + " · " + data::lunarText(data::lunar(d)), 0, H - 18, 13, false, dim);
+      const String dl = lunarFit(d, W, 13, false, dShort(d) + " · ", "", false);
+      at(b, textW(dl.c_str(), 13, false) <= W ? dl : dShort(d), 0, H - 18, 13, false, dim);
     }
     return;
   }
@@ -712,14 +731,18 @@ void drawClock(Clk* k) {
       timeRow(k, -2, 0, 34, l, fg, dim, -1);
       cap(b, N_("Lunar"), red, 0, 42);
       at(b, lm, -1, 58, 34, true, red);
-      fit(b, i18n::fmt(N_("{0} year"), data::canChiYear(lu.y)), 0, H - 18, W, 18, 13, 12, false, dim);
+      const String yr = i18n::fmt(N_("{0} year"), data::canChiYear(lu.y));
+      fit(b, textW(yr.c_str(), 12, false) <= W ? yr : data::canChiYear(lu.y), 0, H - 18, W, 18, 13, 12, false, dim);
     } else if (it.size == M) {
       timeRow(k, -2, 6, 56, l, fg, dim, -2);
       at(b, dLong(d), 0, H - 18, 13, true, fg);
       const int rx = W - 104;
       cap(b, N_("Lunar"), red, rx, 4);
-      at(b, lm, rx - 1, 22, 44, true, red);
-      fit(b, i18n::fmt(N_("{0} year"), data::canChiYear(lu.y)), rx, H - 18, 104, 18, 13, 12, false, dim);
+      // "15/10" smaller when 44 px would run past the card
+      const int lpx = textW(lm.c_str(), 44, true) <= 104 ? 44 : textW(lm.c_str(), 34, true) <= 104 ? 34 : 28;
+      at(b, lm, rx - 1, 22 + (lineH(44, true) - lineH(lpx, true)) / 2, lpx, true, red);
+      const String yr = i18n::fmt(N_("{0} year"), data::canChiYear(lu.y));
+      fit(b, textW(yr.c_str(), 12, false) <= 104 ? yr : data::canChiYear(lu.y), rx, H - 18, 104, 18, 13, 12, false, dim);
     } else {
       timeRow(k, -3, 4, 64, l, fg, dim, -2);
       at(b, dFull(d), 0, 76, 18, true, fg);
@@ -740,8 +763,8 @@ void drawClock(Clk* k) {
   const bool atNight = data::night();
   if (it.size == S) {
     timeRow(k, -2, 0, k->sec ? 34 : 44, l, fg, dim, -1);
-    at(b, dLong(d), 0, 52, 14, true, fg);
-    at(b, lunarLine(d), 0, 72, 13, false, dim);
+    at(b, textW(dLong(d).c_str(), 14, true) <= W ? dLong(d) : dShort(d), 0, 52, 14, true, fg);
+    at(b, lunarFit(d, W, 13), 0, 72, 13, false, dim);
     if (wx) {
       lv_obj_t* i = img(b, data::wxIcon(w["icon"] | "cloud", 28, atNight));
       lv_obj_set_pos(i, -2, H - 28);
@@ -751,7 +774,7 @@ void drawClock(Clk* k) {
   }
   if (it.size == M) {
     timeRow(k, -2, 4, 56, l, fg, dim, -2);
-    at(b, dShort(d) + " · " + lunarLine(d), 0, H - 18, 13, false, dim);
+    at(b, lunarFit(d, W, 13, false, dShort(d) + " · "), 0, H - 18, 13, false, dim);
     if (wx) {
       const int rx = W - 112;
       const String city = upperVi(data::cityShort(w["city"] | ""));
@@ -776,7 +799,7 @@ void drawClock(Clk* k) {
   const data::Lunar lu = data::lunar(d);
   at(b, dFull(d), 0, 84, 18, true, fg);
   // i18n: a lunar date and the year's name (vi "{0} âm lịch · năm {1}")
-  at(b, i18n::fmt(N_("Lunar {0} · {1} year"), data::lunarText(lu), data::canChiYear(lu.y)), 0, 110, 13, false, dim);
+  at(b, lunarYear(lu, W, 13), 0, 110, 13, false, dim);
   int y = 138;
   if (wx && y + 40 <= H) {
     lv_obj_t* i = img(b, data::wxIcon(w["icon"] | "cloud", 40, atNight));

@@ -19,10 +19,15 @@ namespace wid {
 
 using namespace kit;
 
-const std::vector<Style> REMIND_STYLES = {{"open", N_("Open tasks")}, {"all", N_("All tasks")}};
-const std::vector<Style> NOTES_STYLES = {{"note", N_("Note")}};
-const std::vector<Style> PHOTO_STYLES = {{"cover", N_("Fill")}, {"fit", N_("Fit")}, {"frame", N_("Frame")}};
-const std::vector<Style> NOTIFY_STYLES = {{"latest", N_("Latest")}};
+// Free sizes (docs/widgets.md §2b): these lay out by their box, so they take the taller spans as they are; notes and
+// the photo also a one-row strip.
+constexpr uint16_t TALL = SPAN(3, 2) | SPAN(2, 3) | SPAN(3, 3) | SPAN(4, 3) | SPAN(2, 4) | SPAN(3, 4);
+constexpr uint16_t ROW = SPAN(2, 1) | SPAN(3, 1) | SPAN(4, 1);
+const std::vector<Style> REMIND_STYLES = {{"open", N_("Open tasks"), TALL}, {"all", N_("All tasks"), TALL}};
+const std::vector<Style> NOTES_STYLES = {{"note", N_("Note"), TALL | ROW}};
+const std::vector<Style> PHOTO_STYLES = {{"cover", N_("Fill"), TALL | ROW}, {"fit", N_("Fit"), TALL | ROW}, {"frame", N_("Frame"), TALL}};
+const std::vector<Style> NOTIFY_STYLES = {
+    {"latest", N_("Latest"), SPAN(3, 2) | SPAN(3, 3) | SPAN(4, 3) | SPAN(3, 4)}};  // its rows want three wide
 const std::vector<Style> SYSTEM_STYLES = {{"status", N_("Battery, WiFi, sync")}};
 
 namespace {
@@ -104,10 +109,24 @@ void wNotes(lv_obj_t*, const Item& it, Card c) {
     }
   // Its own look is a yellow note; a skin brings its colours.
   if (SKIN.own) lv_obj_set_style_bg_color(c.o, C(0xfff4b8), 0);
+  const uint32_t ink = SKIN.own ? 0x3b2f00 : INK;
+  const String title = n["title"] | "", body = n["body"] | "";
+  int cw, ch;
+  spanOf(it, cw, ch);
+  if (ch == 1) {
+    // One row: the heading over the note's first line; too long for that, the note alone on two lines.
+    const String head = n.isNull() ? String(T_("No notes yet. Tap to write one.")) : title.length() ? title : body;
+    if (measure(c.o, head, c.w, c.h - 21, 15, 13, true) >= 0) {
+      cap(c.o, N_("Notes"), SKIN.own ? 0xa16207 : GREY);
+      fit(c.o, head, 0, 21, c.w, c.h - 21, 15, 13, true, n.isNull() ? GREY : ink);
+    } else {
+      fit(c.o, head, 0, -1, c.w, c.h + 2, 14, 12, true, n.isNull() ? GREY : ink);
+    }
+    return;
+  }
   cap(c.o, N_("Notes"), SKIN.own ? 0xa16207 : GREY);
   if (n.isNull()) return empty(c, N_("No notes yet. Tap to write one."), SKIN.own ? 0x6b5a16 : GREY, 22);
-  const String title = n["title"] | "", body = n["body"] | "";
-  fit(c.o, title.length() ? title : body, 0, 22, c.w, 22, 15, 13, true, SKIN.own ? 0x3b2f00 : INK);
+  fit(c.o, title.length() ? title : body, 0, 22, c.w, 22, 15, 13, true, ink);
   if (title.length()) fit(c.o, body, 0, 46, c.w, c.h - 46, 14, 12, false, SKIN.own ? 0x5b4a10 : GREY, 2);
 }
 
@@ -327,7 +346,8 @@ void fillSystem(lv_obj_t* b, const tm&, bool) {
   if (small) {
     wifi(0, 79);
     fit(b, ssid, 26, 76, w - 26, 20, 13, 12, true, fg, 1);
-    fit(b, sync, 0, 99, w, 19, 12, 12, false, dim, 1);
+    // one line: "Synced 5 min ago", else (a longer language) only when
+    if (!fitIn(b, sync, 0, 99, w, 19, 12, 12, false, dim, 1)) fit(b, last ? ago(last, desk::nowMs()) : sync, 0, 99, w, 19, 12, 12, false, dim, 1);
     return;
   }
   at(b, usb ? (power::full() ? N_("Fully charged") : N_("Charging")) : N_("On battery"), 0, 86, 12, false, dim);

@@ -724,7 +724,6 @@
  "None yet": "Belum ada",
  "Normal": "Normal",
  "Northern Vietnam": "Vietnam Utara",
- "Not done: ": "Belum berhasil: ",
  "Not done: no connection": "Belum berhasil: tidak ada koneksi",
  "Not enough memory to open PawBoop": "Memori tidak cukup untuk membuka PawBoop",
  "Not enough memory to open PawBoop Run": "Memori tidak cukup untuk membuka PawBoop Run",
@@ -1608,5 +1607,13 @@
  "How can I help?": "Ada yang bisa dibantu?",
  "Hold the button and speak": "Tahan tombol lalu bicara",
  "{0} stopped": "{0} berhenti",
- "The screen saver app stopped 3 times, so the built-in saver shows instead. Choose it again in Settings, Default apps.": "App screensaver berhenti 3 kali, jadi screensaver bawaan yang tampil. Pilih lagi di Pengaturan, App default."
+ "The screen saver app stopped 3 times, so the built-in saver shows instead. Choose it again in Settings, Default apps.": "App screensaver berhenti 3 kali, jadi screensaver bawaan yang tampil. Pilih lagi di Pengaturan, App default.",
+ "Not done": "Belum berhasil",
+ "The Mac does not take commands from this device yet. On the Mac: EspOS Desktop > Settings > Devices, turn this device on.": "Mac belum menerima perintah dari perangkat ini. Di Mac: EspOS Desktop > Settings > Devices, nyalakan perangkat ini.",
+ "The Mac is offline. Nothing was sent.": "Mac sedang offline. Tidak ada yang terkirim.",
+ "The Mac is in view-only mode. Nothing was sent.": "Mac dalam mode hanya lihat. Tidak ada yang terkirim.",
+ "This is turned off in EspOS Desktop on the Mac.": "Fitur ini dimatikan di EspOS Desktop pada Mac.",
+ "The session is no longer waiting.": "Sesi ini sudah tidak menunggu.",
+ "That question was already answered or has expired.": "Pertanyaan itu sudah dijawab atau kedaluwarsa.",
+ "Too many in a row. Wait a moment.": "Terlalu banyak berturut-turut. Tunggu sebentar."
 }

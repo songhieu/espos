@@ -8,7 +8,8 @@ the web (Màn chính and Màn chờ) and on the device (Home edit mode and the s
 ## 2. The item
 
 Home (`s3.home`): `["w", kind, x, y, size, style, opt, open, skin]` (index 8 new, optional).
-Saver (`s3.saver_pages`): `{"t":"w","k":kind,"s":size,"st":style,"op":opt,"sk":skin}` (`sk` new, optional).
+Saver (`s3.saver_pages`): `{"t":"w","k":kind,"s":size,"st":style,"op":opt,"sk":skin}` (`sk` new, optional). Since 0.6.4 also `"sp":"3x1"`:
+a span other than S, M, L, as Home's index 9 (§2b; docs/saver.md §2).
 `wid::Item` gains `String skin`. Unknown style or option = the kind's default, never an error.
 
 `skin` (card look, every kind): `""` theme default, `dark`, `light`, `glass` (see-through over the wallpaper; costly on
@@ -36,15 +37,23 @@ same in both orientations and on the 2.8" (its grid sits in the middle).
   `stylesAt`, `styleAt`, `withSpan`, `boxOfSpan`.
 - Drawn so far (web os/wid and src/wid, line by line): claude (bars 2x1 3x1 4x1 3x2 2x3 4x3 2x4; ring 3x1 4x1 2x3
   2x4; today 3x1 4x1 4x3), clock (digital and the 17 dials: 1x1 2x1 3x1 4x1 3x2 4x3; dials under 80 px keep only the
-  hour marks and hands), cal (today 2x1, week 3x1 4x1, month 3x3), markets (list 2x1 3x1 4x1 3x2 2x3 2x4). Every other
-  kind and look keeps S, M, L.
+  hour marks and hands), cal (today 2x1, week 3x1 4x1, month 3x3), markets (list 2x1 3x1 4x1 3x2 2x3 2x4).
+  From 0.6.4 (0.6.3 is a hotfix of 0.6.2 without them): weather (now 1x1 2x1 3x1 4x1 3x2 4x3; hourly and days 3x1 4x1 3x2 4x3 2x3 2x4; detail 3x1 4x1 2x3; sun
+  3x1 4x1, the 4x1 with the sun's path): one cell and the one-row strips have layouts of their own (`weatherAt`), 3x2
+  draws the medium look in its box, 4x3 the large, the tall pairs the small (days: a list of its own); count (every look
+  1x1, the number alone, and 2x1 3x1 4x1: the number, the title over the unit and the date, the lines that fit:
+  `countAt`); the kinds that lay out by their box take the tall spans 3x2 2x3 3x3 4x3 2x4 3x4 as they are: remind,
+  my (a kind without looks: `Kind::spans`), photo and notes (also 2x1 3x1 4x1; the photo's frame only the tall ones;
+  notes in one row: heading over the first line, else the note alone), notify (only 3 and 4 wide: its rows need it).
+  Every other kind and look keeps S, M, L.
 - Placing: `findIn`/`findFree` step 1 cell for apps and odd-wide widgets, 2 for the others; portrait snaps only
   even-wide widgets to the halves. A resize (`resizePlan`, home.cpp and model.ts the same): the widget takes its new
   place and span, what it then covers moves to the first free places of the page in reading order; no room = refused.
 - Editors: Home's edit mode on the device (tap a widget: four corner handles instead of its "−", drag one to resize by
   cells, a "3 × 2" badge, red "No room on this page" when refused; tap it again: its sheet, whose Size row lists every
-  span its look draws) and the web's Màn chính (handles, a 4 x 4 size grid, Add widget's step 2). The web offers other
-  spans only to a device whose firmware is 0.6.2 or later (`fw_code` >= 602).
+  span its look draws) and the web's Màn chính (handles, a 4 x 4 size grid, Add widget's step 2). The web offers a
+  kind's other spans only to a device whose firmware draws them (model.ts `SPAN_FW`: claude, clock, cal, markets 602;
+  weather, count, remind, notes, photo, my, notify 604; the saver's spans 604 too).
 - Server: `checkHomeL` (save_device_settings and device_sync) reads index 9 for the 5 x 4 grid check.
 - Not yet: the saver's widgets (`s3.saver_pages` keeps S, M, L), the device's Add widget gallery (adds S, M, L; resize
   after), the X4.

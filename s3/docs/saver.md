@@ -45,7 +45,7 @@ EL   common keys: "t" type; "x","y" top left and "w","h" the box, in the page's 
 | `temp` | `f`: `t` 29°, `td` 29° Nắng nhẹ, `d` Nắng nhẹ | the weather now |
 | `box` | `r` corner radius | a filled rounded rectangle (`c` fill, `o` opacity); a line is a thin box |
 | `photo` | `id`, `r`; slideshow (2026-11-17): `all`, `ids`, `iv`, `ord`, `tr`, `of` (below) | the picture `id`, rendered by the server at exactly `w`x`h` (`photo::wanted()` adds it, p `cj50`); or a slideshow |
-| `w` | `k` kind, `s` S/M/L, `st` style, `op` option | a widget of `wid.cpp`; `w`,`h` follow its size: S 144x138, M 300x138, L 300x286 |
+| `w` | `k` kind, `s` S/M/L, `st` style, `op` option, `sp` span (0.6.4) | a widget of `wid.cpp`; `w`,`h` follow its size: S 144x138, M 300x138, L 300x286; with `sp` "WxH" (a span other than S, M, L that the kind draws, docs/widgets.md §2b) the card is W × 78 − 12 by H × 74 − 10 and `s` keeps the largest of S, M, L inside it (what firmware before 0.6.4 draws); a span the kind does not draw reads as `s` |
 
 Text rules (the web draws them exactly like this, with the device's fonts and sizes from `fonts.h`):
 - Fonts are Ubuntu: text sizes regular 12–16, 18, 20 and bold 12–18, 20, 22, 24; digits-only display sizes bold 28,
@@ -63,7 +63,8 @@ Text rules (the web draws them exactly like this, with the device's fonts and si
 - Words: months THÁNG MỘT … THÁNG MƯỜI HAI; `next` is today's first "HH:MM" event at or after now; `time` `12`
   adds SA/CH; `lunar` is data::lunarText plus " âm lịch".
 - `o` is the opacity of the whole element, widgets and photos included; widgets ignore `c`. Elements are clamped
-  inside the page. Web v47 and desksaver.cpp were checked against each other on 2026-11-16.
+  inside the page: whatever wrote them, the device (desksaver.cpp `inPage`) and the web (saver.ts `inPage`) move an
+  element that reaches past the right or bottom edge back in when they read the page (2026-11-23, 0.6.4). Web v47 and desksaver.cpp were checked against each other on 2026-11-16.
 - Colours of widgets are their own (as on Home). The dark/light card colours follow the theme as on Home.
 - Text over pictures (2026-11-17), on every text type (`time` `date` `lunar` `text` `next` `alarm` `temp`):
   - `bg` "rrggbb": a band behind the text, a filled rounded rect over the element's whole box, radius `r` (0..h/2),
@@ -118,9 +119,11 @@ the day pages when it is one's own), Xong. Bottom: + Thêm (Home's widget galler
 date, lunar, text, next, alarm, temp, box, photo), Mẫu (§5 file, drawn small by the device renderer), Cài đặt (Nền:
 Home's page-background sheet plus 'Lần lượt' photos; daytime backlight `light`; the night choices of §5; `cycle` with
 2+ pages). Drag to move (4 px steps, snaps to the centre and other elements' edges, always inside the screen); tap to
-select, tap again to let go: a corner handle resizes (widgets jump between their sizes), a sheet gives Lên trên /
+select, tap again to let go: a corner handle resizes (widgets jump between the spans their look draws, 0.6.4; before:
+S, M, L), a sheet gives Lên trên /
 Xuống dưới / Xoá and the options (free elements: format, size or 'Vừa khung', colour, Mảnh/Đậm, alignment; widgets:
-Home's rows). Xong, or 3 minutes untouched, saves `s3.saver_pages`.
+Home's rows, the Cỡ row with every span up to 4 × 4). The web editor the same: corner handles on widgets snap to the
+spans, the Cỡ grid of Màn chính; spans other than S, M, L only for fw_code ≥ 604 (0.6.3 is a hotfix of 0.6.2 without them; and the kind's own SPAN_FW). Xong, or 3 minutes untouched, saves `s3.saver_pages`.
 
 Speed (2026-11-23, the owner: "kéo widget Claude rất lag" on an aquarium page). The editor is a child of the top
 layer, over the saver, and LVGL draws the active screen and every child of the top layer for each piece it redraws:

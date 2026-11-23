@@ -19,9 +19,11 @@ const std::vector<Style> LUNAR_STYLES = {{"canchi", N_("Zodiac")},  // i18n: the
                                          {"detail", N_("Details")},
                                          {"month", N_("Lunar month")},
                                          {"big", N_("Big lunar day")}};
-const std::vector<Style> COUNT_STYLES = {{"tet", N_("New Year countdown")},  // i18n: days to the Lunar New Year (vi "Tết")
-                                         {"date", N_("Your date")},
-                                         {"holiday", N_("Next holiday")}};
+// Every look also as one cell and as a one-row strip (countAt).
+constexpr uint16_t COUNT_SPANS = SPAN(1, 1) | SPAN(2, 1) | SPAN(3, 1) | SPAN(4, 1);
+const std::vector<Style> COUNT_STYLES = {{"tet", N_("New Year countdown"), COUNT_SPANS},  // i18n: days to the Lunar New Year (vi "Tết")
+                                         {"date", N_("Your date"), COUNT_SPANS},
+                                         {"holiday", N_("Next holiday"), COUNT_SPANS}};
 const std::vector<Style> QUOTE_STYLES = {{"day", N_("A saying a day")}, {"big", N_("Big text")}};
 
 namespace {
@@ -119,6 +121,52 @@ String monthOf(const Lunar& l) { return i18n::fmt(N_("{0} month"), data::canChiM
 String dayOf(const Day& d) { return i18n::fmt(N_("{0} day"), data::canChiDay(d)); }
 // "in 5 days" (vi "còn 5 ngày").
 String inDays(int n) { return i18n::plural(n, NP_("in {n} day|in {n} days")); }
+// The lunar date that fits w on one line at px, between pre and post: "Full moon, month 10 (lunar)", else without
+// "(lunar)", else in numbers ("15/10 (lunar)", "15/10"): a full or new moon's words are long in every language.
+// longForm: "(lunar)" in its long form (vi "âm lịch").
+String lunarFit(const Lunar& l, int w, int px, bool longForm, const String& pre = "", const String& post = "") {
+  const String t = data::lunarText(l), n = lunarDM(l);
+  const String forms[4] = {longForm ? lunarLong(t) : lunarShort(t), t, longForm ? lunarLong(n) : lunarShort(n), n};
+  for (const String& f : forms)
+    if (textW((pre + f + post).c_str(), px, false) <= w) return pre + f + post;
+  return pre + forms[3] + post;
+}
+// The lucky hours' names in w on one line at px: all of them, else the first ones and "+N" (never cut).
+String goodFit(const Day& day, int w, int px, bool bold) {
+  const String all = goodNames(day);
+  if (textW(all.c_str(), px, bold) <= w) return all;
+  const uint16_t bits = data::goodHours(day);
+  int ids[12], n = 0;
+  for (int i = 0; i < 12; i++)
+    if (bits & (1 << i)) ids[n++] = i;
+  for (int k = n - 1; k >= 1; k--) {
+    String s;
+    for (int j = 0; j < k; j++) s += String(j ? ", " : "") + data::CHI[ids[j]];
+    s += " +" + String(n - k);
+    if (k == 1 || textW(s.c_str(), px, bold) <= w) return s;
+  }
+  return all;
+}
+// "Fire Horse year", else the can chi alone when that is too long for w at px.
+String yearFit(int y, int w, int px, bool bold) {
+  const String a = yearOf(y);
+  return textW(a.c_str(), px, bold) <= w ? a : data::canChiYear(y);
+}
+// A date with its weekday, the weekday shortened (then left out) when that is too long for w at px.
+String longDate(const Day& x, int w, int px, bool bold) {
+  const String a = i18n::date(N_("{W}, {M} {d}, {y}"), x.d, x.m, x.y, x.wday);
+  if (textW(a.c_str(), px, bold) <= w) return a;
+  const String b = i18n::date(N_("{w}, {M} {d}, {y}"), x.d, x.m, x.y, x.wday);
+  return textW(b.c_str(), px, bold) <= w ? b : dmy(x);
+}
+// The lunar day/month big ("15/10" at 44 px), smaller when it would run past w.
+void bigLunar(lv_obj_t* p, const Lunar& l, int w, uint32_t color) {
+  const String s = String(l.d) + "/" + l.m;
+  int px = 28;
+  for (int q : {44, 34})
+    if (px == 28 && textW(s.c_str(), q, true) <= w) px = q;
+  at(p, s, -1, 16 + (lineH(44, true) - lineH(px, true)) / 2, px, true, color);
+}
 int eventsOn(const std::vector<data::Event>& evs, const Day& x) {
   const String d = data::isoDate(x);
   int n = 0;
@@ -162,7 +210,7 @@ void sheet(Card c, Size size, const Day& day, const Lunar& l, const String& hol)
     mid(p, upperVi(i18n::MONTH[day.m - 1]), -12, -6, W, 13, true, head);
     mid(p, String(day.d), -12, 16, W, 64, true, dayCol);
     mid(p, upperVi(WEEKDAY[day.wday]), -12, 70, W, 13, true, dayCol);
-    midFit(p, lunarLong(data::lunarText(l)), -6, 88, W - 12, 16, 12, 12, false, grey);
+    midFit(p, lunarFit(l, W - 12, 12, true), -6, 88, W - 12, 16, 12, 12, false, grey);
     if (hol.length()) midFit(p, hol, -6, 104, W - 12, 17, 12, 12, true, SH_RED);
     else midFit(p, dayOf(day), -6, 104, W - 12, 17, 12, 12, false, grey);
     return;
@@ -172,7 +220,7 @@ void sheet(Card c, Size size, const Day& day, const Lunar& l, const String& hol)
     const String mh = upperVi(String(i18n::MONTH[day.m - 1]) + " · " + day.y);
     at(p, mh, 0, -6, 14, true, head);
     const int mw = textW(mh.c_str(), 14, true) + 10;
-    lv_obj_t* yl = fit(p, yearOf(l.y), 0, -5, c.w - mw, 18, 13, 12, false, headDim);
+    lv_obj_t* yl = fit(p, yearFit(l.y, c.w - mw, 12, false), 0, -5, c.w - mw, 18, 13, 12, false, headDim);
     lv_obj_align(yl, LV_ALIGN_TOP_RIGHT, 0, -5);
     mid(p, String(day.d), 0, 14, 124, 96, true, dayCol);
     mid(p, upperVi(WEEKDAY[day.wday]), 0, 92, 124, 15, true, dayCol);
@@ -219,7 +267,7 @@ void sheet(Card c, Size size, const Day& day, const Lunar& l, const String& hol)
   }
   at(p, N_("Lucky hours"), 0, 222, 12, true, SH_RED);
   const int gx = std::max(52, textW(N_("Lucky hours"), 12, true) + 8);
-  fit(p, goodNames(day), gx, 222, c.w - gx, 17, 12, 12, false, ink);
+  fit(p, goodFit(day, c.w - gx, 12, false), gx, 222, c.w - gx, 17, 12, 12, false, ink);
   midFit(p, data::quoteOfDay(day), 0, 240, c.w, 34, 13, 12, false, grey);
 }
 
@@ -231,7 +279,7 @@ void compact(Card c, Size size, const Day& day, const Lunar& l, const String& ho
   if (size == S) {
     at(p, String(day.d), -2, 12, 56, true, dayCol);
     fit(p, i18n::date(N_("{MM} {y}"), 1, day.m, day.y), 0, 62, c.w, 18, 13, 12, false, INK);
-    fit(p, lunarLong(data::lunarText(l)), 0, 82, c.w, 17, 12, 12, false, GREY);
+    fit(p, lunarFit(l, c.w, 12, true), 0, 82, c.w, 17, 12, 12, false, GREY);
     if (hol.length()) fit(p, hol, 0, 99, c.w, 19, 12, 12, true, col::RED);
     else fit(p, dayOf(day), 0, 99, c.w, 19, 12, 12, false, GREY);
     return;
@@ -241,7 +289,7 @@ void compact(Card c, Size size, const Day& day, const Lunar& l, const String& ho
   if (size == M) {
     at(p, String(day.d), -2, 12, 56, true, dayCol);
     fit(p, i18n::date(N_("{MM} {y}"), 1, day.m, day.y), 0, 64, 108, 18, 13, 12, false, INK);
-    fit(p, yearOf(l.y), 0, 82, 108, 17, 12, 12, false, GREY);
+    fit(p, yearFit(l.y, 108, 12, false), 0, 82, 108, 17, 12, 12, false, GREY);
     rect(p, 112, 0, 1, c.h, sep());
     const int x = 124;
     const char* const names[4] = {N_("Lunar"), N_("Day"), N_("Month"), hol.length() ? N_("Today") : N_("Solar term")};
@@ -267,7 +315,8 @@ void compact(Card c, Size size, const Day& day, const Lunar& l, const String& ho
                                 // i18n: a row label beside the next holiday's date and name (vi "Lễ tới")
                                 hol.length() ? N_("Today") : TC_("short", "Next holiday")};
   const String vals[7] = {ld, data::canChiYear(l.y), data::canChiMonth(l), data::canChiDay(day),
-                          data::SOLAR_TERM[data::solarTerm(day)], goodNames(day),
+                          data::SOLAR_TERM[data::solarTerm(day)],
+                          goodFit(day, c.w - textW(T_("Lucky hours"), 13, false) - 8, 12, true),
                           hol.length() ? hol : dm(nh.day) + " " + nh.name};
   for (int i = 0; i < 7; i++) {
     const int y = 92 + i * 25;
@@ -362,9 +411,9 @@ void calToday(Card c, Size size) {
     return;
   }
   if (size == M) {
-    cap(p, WEEKDAY[d.wday], col::RED);
+    cap(p, capFits(WEEKDAY[d.wday], 84) ? WEEKDAY[d.wday] : WD_SHORT[d.wday], col::RED, 0, 0, 84);  // the left column
     at(p, String(d.d), -2, 16, 40, false, INK);
-    fit(p, lunarShort(data::lunarText(data::lunar(d))), 0, c.h - 16, 84, 17, 12, 12, false, GREY);
+    fit(p, lunarFit(data::lunar(d), 84, 12, false), 0, c.h - 16, 84, 17, 12, 12, false, GREY);
     const int x = 96;
     rect(p, x - 12, 0, 1, c.h, PAPER == 0xffffff ? 0xe5e7eb : 0x2c313c);
     int y = 0, shown = 0;
@@ -498,7 +547,7 @@ void calWeek(Card c, Size size) {
       const bool two = line.length() && textW(line.c_str(), 12, true) > w;
       fit(p, line.length() ? line : String(T_("No events")), 44, y + 3, w, two ? rh - 4 : 18, 13, 12, line.length() > 0,
           line.length() ? INK : GREY);
-      if (!two) fit(p, lunarShort(data::lunarText(ln)) + (hol.length() ? " · " + hol : String()), 44, y + 20, w, 17, 12, 12, false,
+      if (!two) fit(p, lunarFit(ln, w, 12, false, "", hol.length() ? " · " + hol : String()), 44, y + 20, w, 17, 12, 12, false,
                     hol.length() ? col::RED : GREY);
     }
     return;
@@ -562,7 +611,7 @@ void calMonth(Card c, Size size) {
     at(p, String(day.m), -2, 12, 56, true, INK);
     at(p, String(day.y), 0, 64, 13, true, GREY);
     fit(p, lunarShort(lunarDM(l)), 0, 84, 96, 17, 12, 12, false, GREY);
-    fit(p, yearOf(l.y), 0, 100, 96, 17, 12, 12, false, GREY);
+    fit(p, yearFit(l.y, 96, 12, false), 0, 100, 96, 17, 12, 12, false, GREY);
     monthGrid(p, 100, 0, c.w - 100, c.h, day, 13, 20, false);
     return;
   }
@@ -612,8 +661,11 @@ void goodChips(Card c, const Day& day, int x, int y, int cols) {
       // i18n: an hour range like "23-1" (vi "{0} giờ")
       at(p, i18n::fmt(N_("{0}h"), data::hourRange(i)), cx + 8, cy + 21, 12, false, onOwn(PALE));
     } else {
-      fit(p, data::CHI[i], cx + 6, cy + 3, cw - 12 - textW(data::hourRange(i).c_str(), 12, false), 18, 13, 12, true, onOwn(WHITE));
-      at(p, data::hourRange(i), cx + cw - 6 - textW(data::hourRange(i).c_str(), 12, false), cy + 4, 12, false, onOwn(PALE));
+      // The branch and its hours on one row; a name too long for that (Russian "Лошадь") takes the row alone.
+      const int rw = textW(data::hourRange(i).c_str(), 12, false);
+      if (fitIn(p, data::CHI[i], cx + 6, cy + 3, cw - 12 - rw, 20, 13, 12, true, onOwn(WHITE)))  // one line (13 px: 20 tall)
+        at(p, data::hourRange(i), cx + cw - 6 - rw, cy + 4, 12, false, onOwn(PALE));
+      else fit(p, data::CHI[i], cx + 6, cy + 3, cw - 12, 18, 13, 12, true, onOwn(WHITE));
     }
     n++;
   }
@@ -622,8 +674,8 @@ void goodChips(Card c, const Day& day, int x, int y, int cols) {
 void lunarCanchi(Card c, Size size, const Day& day, const Lunar& l) {
   lv_obj_t* p = c.o;
   cap(p, N_("Lunar"), onOwn(GOLD));
-  at(p, String(l.d) + "/" + l.m, -1, 16, 44, true, onOwn(CREAM));
-  fit(p, yearOf(l.y), 0, 66, size == S ? c.w : 132, 18, 13, 12, true, onOwn(WHITE));
+  bigLunar(p, l, size == S ? c.w : 132, onOwn(CREAM));
+  fit(p, yearFit(l.y, size == S ? c.w : 132, 12, true), 0, 66, size == S ? c.w : 132, 18, 13, 12, true, onOwn(WHITE));
   const String hol = data::holiday(day, l);
   const int tet = data::daysToTet(day);
   const String foot = hol.length() ? hol
@@ -653,22 +705,29 @@ void lunarDetail(Card c, Size size, const Day& day, const Lunar& l) {
     cap(p, N_("Solar term"), onOwn(GOLD));
     fit(p, data::SOLAR_TERM[term], 0, 18, c.w, 24, 18, 13, true, onOwn(WHITE));
     // i18n: the next solar term and its date (vi "Tới {0} {1}")
-    fit(p, i18n::fmt(N_("Next: {0} {1}"), data::SOLAR_TERM[nt], dm(nd)), 0, 44, c.w, 17, 12, 12, false, onOwn(PALE));
+    if (!fitIn(p, i18n::fmt(N_("Next: {0} {1}"), data::SOLAR_TERM[nt], dm(nd)), 0, 44, c.w, 17, 12, 12, false, onOwn(PALE)))
+      fit(p, data::SOLAR_TERM[nt], 0, 44, c.w, 17, 12, 12, false, onOwn(PALE));  // the term alone (a longer language)
     cap(p, N_("Lucky hours"), onOwn(GOLD), 0, 66);
-    fit(p, goodNames(day), 0, 84, c.w, 36, 13, 12, false, onOwn(WHITE));
+    if (!fitIn(p, goodNames(day), 0, 84, c.w, 36, 13, 12, false, onOwn(WHITE)))
+      fit(p, goodFit(day, c.w, 12, false), 0, 84, c.w, 36, 13, 12, false, onOwn(WHITE));
     return;
   }
   cap(p, N_("Lunar"), onOwn(GOLD));
-  at(p, String(l.d) + "/" + l.m, -1, 16, 44, true, onOwn(CREAM));
+  bigLunar(p, l, size == M ? 104 : 112, onOwn(CREAM));
   if (size == M) {
-    fit(p, dayOf(day), 0, 64, 104, 18, 13, 12, true, onOwn(WHITE));
-    fit(p, i18n::fmt(TC_("term", "{0}"), data::SOLAR_TERM[term]), 0, 83, 104, 17, 12, 12, false, onOwn(PALE));
-    fit(p, dm(nd) + " " + data::SOLAR_TERM[nt], 0, 100, 104, 17, 12, 12, false, onOwn(PALE));
+    // One line each (longer languages: the day's can chi without its word, the next term without its date).
+    if (!fitIn(p, dayOf(day), 0, 64, 104, 20, 13, 12, true, onOwn(WHITE)))  // one line (13 px bold: 20 tall)
+      fit(p, data::canChiDay(day), 0, 64, 104, 18, 13, 12, true, onOwn(WHITE));
+    // the term (on two lines in a longer language: then without the next one); the next one on one line, else left out
+    const String tn = i18n::fmt(TC_("term", "{0}"), data::SOLAR_TERM[term]);
+    if (!fitIn(p, tn, 0, 83, 104, 17, 12, 12, false, onOwn(PALE))) fit(p, tn, 0, 83, 104, 36, 12, 12, false, onOwn(PALE));
+    else if (!fitIn(p, dm(nd) + " " + data::SOLAR_TERM[nt], 0, 100, 104, 17, 12, 12, false, onOwn(PALE)))
+      fitIn(p, data::SOLAR_TERM[nt], 0, 100, 104, 17, 12, 12, false, onOwn(PALE));
     cap(p, N_("Auspicious hours"), onOwn(GOLD), 108, 0);
     goodChips(c, day, 108, 22, 2);
     return;
   }
-  fit(p, yearOf(l.y), 116, 16, c.w - 116, 20, 14, 12, true, onOwn(WHITE));
+  fit(p, yearFit(l.y, c.w - 116, 12, true), 116, 16, c.w - 116, 20, 14, 12, true, onOwn(WHITE));
   fit(p, monthOf(l), 116, 38, c.w - 116, 18, 13, 12, false, onOwn(PALE));
   fit(p, dayOf(day), 116, 56, c.w - 116, 18, 13, 12, false, onOwn(PALE));
   cap(p, N_("Auspicious hours"), onOwn(GOLD), 0, 86);
@@ -712,15 +771,16 @@ void lunarMonth(Card c, Size size, const Day& day, const Lunar& l) {
   // i18n: a lunar month's title; {1} is " leap" or nothing (vi "Tháng {0}{1} âm")
   const String title = i18n::fmt(N_("Lunar month {0}{1}"), String(l.m), l.leap ? T_(" leap") : "");
   if (size == S) {
-    cap(p, title.c_str(), onOwn(GOLD));
+    cap(p, capFits(title.c_str(), c.w) ? title.c_str() : i18n::fmt(N_("Month {0}{1}"), String(l.m), l.leap ? T_(" leap") : "").c_str(), onOwn(GOLD));
     lunarGrid(p, l, first, n, -4, 19, c.w + 8, c.h - 17, 12, 17, false);
     return;
   }
   const Day full = plus(first, 14);
   if (size == M) {
-    cap(p, title.c_str(), onOwn(GOLD));
+    // beside the grid (108 px): "Month 10" when the title is longer
+    cap(p, capFits(title.c_str(), 108) ? title.c_str() : i18n::fmt(N_("Month {0}{1}"), String(l.m), l.leap ? T_(" leap") : "").c_str(), onOwn(GOLD), 0, 0, 108);
     fit(p, data::canChiMonth(l), 0, 18, 108, 24, 18, 13, true, onOwn(WHITE));
-    fit(p, yearOf(l.y), 0, 44, 108, 17, 12, 12, false, onOwn(PALE));
+    fit(p, yearFit(l.y, 108, 12, false), 0, 44, 108, 17, 12, 12, false, onOwn(PALE));
     // i18n: a lunar month of 30 days (vi "Tháng đủ") or 29 days (vi "Tháng thiếu")
     fit(p, n == 30 ? N_("Long month") : N_("Short month"), 0, 62, 108, 17, 12, 12, false, onOwn(PALE));
     // i18n: the solar date of the lunar month's first day (vi "Mùng 1: {0}")
@@ -730,11 +790,19 @@ void lunarMonth(Card c, Size size, const Day& day, const Lunar& l) {
     return;
   }
   // i18n: the same title where there is room (vi "Tháng {0}{1} âm lịch")
-  const String th = upperVi(i18n::fmt(TC_("long", "Lunar month {0}{1}"), String(l.m), l.leap ? T_(" leap") : ""));
+  // (shorter titles in a longer language; the can chi at the right only when it fits beside)
+  const String lp = l.leap ? T_(" leap") : "";
+  String th = upperVi(i18n::fmt(TC_("long", "Lunar month {0}{1}"), String(l.m), lp));
+  if (textW(th.c_str(), 16, true) > c.w) th = upperVi(i18n::fmt(N_("Lunar month {0}{1}"), String(l.m), lp));
+  if (textW(th.c_str(), 16, true) > c.w) th = upperVi(i18n::fmt(N_("Month {0}{1}"), String(l.m), lp));
   at(p, th, 0, -2, 16, true, onOwn(GOLD));
   const int tw = textW(th.c_str(), 16, true) + 10;
-  lv_obj_t* cm = fit(p, data::canChiMonth(l) + " · " + data::canChiYear(l.y), 0, 0, c.w - tw, 18, 13, 12, false, onOwn(PALE));
-  lv_obj_align(cm, LV_ALIGN_TOP_RIGHT, 0, 0);
+  String cc = data::canChiMonth(l) + " · " + data::canChiYear(l.y);
+  if (textW(cc.c_str(), 12, false) > c.w - tw) cc = data::canChiYear(l.y);
+  if (textW(cc.c_str(), 12, false) <= c.w - tw) {
+    lv_obj_t* cm = fit(p, cc, 0, 0, c.w - tw, 18, 13, 12, false, onOwn(PALE));
+    lv_obj_align(cm, LV_ALIGN_TOP_RIGHT, 0, 0);
+  }
   lunarGrid(p, l, first, n, 0, 26, c.w, 204, 15, 26, true);
   // i18n: {0} the first day's date, {1} the full moon's, {2} "Long month, 30 days" (vi "Mùng 1 là {0}, Rằm là {1}. {2}.")
   fit(p, i18n::fmt(N_("Starts {0}, full moon {1}. {2}."), dmy(first), dmy(full),
@@ -752,6 +820,36 @@ void countBig(Card c, int days, const String& unit, uint32_t fg) {
 // i18n: under a big number of days still to come (vi "ngày nữa")
 String daysToGo(int n) { return i18n::plural(n, NP_("day to go|days to go")); }
 
+// One cell and the one-row strips (web: cal.ts countAt): the number of days as big as fits (or "today"); in a row,
+// beside it the title over the unit and the date (the lines that fit).
+void countAt(Card c, int cw, const String& title, int days, const String& unit, const String& sub, uint32_t fg, uint32_t dim) {
+  lv_obj_t* p = c.o;
+  const int W = c.w, H = c.h;
+  const String n = data::num(abs(days), 0);
+  if (cw == 1) {
+    if (!days) {
+      lv_obj_t* l = label(p, "", 16, true, fg);
+      fitText(l, N_("Today"), W, H, 16, 12, true, 0);
+      lv_obj_set_style_text_align(l, LV_TEXT_ALIGN_CENTER, 0);
+      lv_obj_align(l, LV_ALIGN_TOP_MID, 0, (H - heightOf(l)) / 2);
+      return;
+    }
+    int px = 13;
+    for (int s : {24, 20, 16})
+      if (px == 13 && textW(n.c_str(), s, true) <= W) px = s;
+    at(p, n, W / 2 - textW(n.c_str(), px, true) / 2, (H - lineH(px, true)) / 2, px, true, fg);
+    return;
+  }
+  const int big = days ? (textW(n.c_str(), 34, true) <= W / 2 ? 34 : 24) : 20;
+  const String s = days ? n : String(T_("Today"));
+  at(p, s, -2, (H - lineH(big, true)) / 2, big, true, fg);
+  const int x = textW(s.c_str(), big, true) + 6;
+  const int y = fitIn(p, title, x, 0, W - x, 22, 14, 12, true, fg, 0) ? 22 : (H - lineH(13, false)) / 2;
+  const String both = unit.length() && sub.length() ? unit + " · " + sub : String();
+  for (const String* v : {&both, &unit, &sub})
+    if (v->length() && fitIn(p, *v, x, y, W - x, lineH(13, false), 13, 12, false, dim, 0)) break;
+}
+
 }  // namespace
 
 // ---------------------------------------------------------------- the kinds
@@ -764,7 +862,7 @@ void dateBlock(Card c, Size size, const Day& day, const Lunar& l, const String& 
   char dd[4];
   snprintf(dd, sizeof dd, "%d", day.d);
   const String mo = i18n::date(N_("{MM} {y}"), 1, day.m, day.y);
-  const String lu = h ? hol : lunarLong(data::lunarText(l));
+  const String lu = h ? hol : lunarFit(l, c.w, 13, true);
   // i18n: the day's and the year's stems and branches (vi "Ngày {0} · năm {1}")
   const String cc = i18n::fmt(N_("{0} day · {1} year"), data::canChiDay(day), data::canChiYear(l.y));
   const String wd = upperVi(WEEKDAY[day.wday]);
@@ -837,7 +935,7 @@ void calAt(Card c, const String& st) {
   const String n = String(day.d);
   at(p, n, -1, 0, 28, true, INK);
   const int x = textW(n.c_str(), 28, true) + 6;
-  cap(p, WEEKDAY[day.wday], col::RED, x, 0, c.w - x);
+  cap(p, capFits(WEEKDAY[day.wday], c.w - x) ? WEEKDAY[day.wday] : WD_SHORT[day.wday], col::RED, x, 0, c.w - x);
   const int now = data::nowMinutes();
   const String td = data::isoDate(day);
   const data::Event* next = nullptr;
@@ -880,7 +978,10 @@ void wLunar(lv_obj_t*, const Item& it, Card c) {
 void wCount(lv_obj_t*, const Item& it, Card c) {
   lv_obj_t* p = c.o;
   const Day day = data::today();
-  const String st = styleOf(it);
+  int cw, ch;
+  spanOf(it, cw, ch);
+  const bool own = !legacy(cw, ch);  // one cell or a strip
+  const String st = own ? styleAt(it) : styleOf(it);
   if (st == "date") {
     // A day of one's own: "YYYY-MM-DD|label" (days to it, or since it).
     if (SKIN.own) grad(p, 0x4f46e5, 0x7c3aed);
@@ -889,9 +990,20 @@ void wCount(lv_obj_t*, const Item& it, Card c) {
     const bool ok = parseIso(bar >= 0 ? it.opt.substring(0, bar) : it.opt, target);
     const String label = bar >= 0 ? it.opt.substring(bar + 1) : String();
     const uint32_t dim = onOwn(0xe0e7ff);
+    if (own && ok) {
+      const int days = data::julian(target) - data::julian(day);
+      return countAt(c, cw, label.length() ? label : String(T_("Chosen date")), days,
+                     days > 0 ? daysToGo(days) : days < 0 ? i18n::plural(-days, NP_("day ago|days ago")) : String(),
+                     i18n::date(N_("{W}, {M} {d}, {y}"), target.d, target.m, target.y, target.wday), onOwn(WHITE), dim);
+    }
+    if (own && cw == 1) {
+      at(p, "?", c.w / 2 - textW("?", 20, true) / 2, 8, 20, true, dim);
+      return;
+    }
     cap(p, label.length() ? label.c_str() : N_("Chosen date"), dim);
     if (!ok) {
-      empty(c, N_("Pick a date in the widget's settings"), dim, 24);
+      if (own) fit(p, N_("Pick a date in the widget's settings"), 0, 20, c.w, c.h - 20, 13, 12, false, dim);
+      else empty(c, N_("Pick a date in the widget's settings"), dim, 24);
       return;
     }
     const int days = data::julian(target) - data::julian(day);
@@ -904,7 +1016,7 @@ void wCount(lv_obj_t*, const Item& it, Card c) {
     }
     const Lunar tl = data::lunar(target);
     fit(p, label.length() ? label : dmy(target), 140, 20, c.w - 140, 44, 18, 13, true, onOwn(WHITE));
-    fit(p, i18n::date(N_("{W}, {M} {d}, {y}"), target.d, target.m, target.y, target.wday), 140, 66, c.w - 140, 18, 13, 12,
+    fit(p, longDate(target, c.w - 140, 12, false), 140, 66, c.w - 140, 18, 13, 12,
         false, dim);
     // i18n: a lunar date and its year's stems and branches (vi "Âm lịch {0}, {1}")
     fit(p, i18n::fmt(N_("Lunar {0}, {1}"), lunarDM(tl), data::canChiYear(tl.y)), 140, 86, c.w - 140, 17, 12, 12, false, dim);
@@ -914,6 +1026,9 @@ void wCount(lv_obj_t*, const Item& it, Card c) {
     if (SKIN.own) grad(p, 0x0f766e, 0x0d9488);
     const data::Holiday h = data::nextHoliday(day);
     const uint32_t dim = onOwn(0xccfbf1);
+    if (own)
+      return countAt(c, cw, h.name, h.days, h.days ? daysToGo(h.days) : String(),
+                     i18n::date(N_("{W}, {M} {d}, {y}"), h.day.d, h.day.m, h.day.y, h.day.wday), onOwn(WHITE), dim);
     cap(p, N_("Next holiday"), dim);
     countBig(c, h.days, daysToGo(h.days), onOwn(WHITE));
     if (it.size == S) {
@@ -921,17 +1036,25 @@ void wCount(lv_obj_t*, const Item& it, Card c) {
       return;
     }
     fit(p, h.name, 130, 18, c.w - 130, 48, 18, 13, true, onOwn(WHITE));
-    fit(p, i18n::date(N_("{W}, {M} {d}, {y}"), h.day.d, h.day.m, h.day.y, h.day.wday), 130, 68, c.w - 130, 18, 13, 12, false,
+    fit(p, longDate(h.day, c.w - 130, 12, false), 130, 68, c.w - 130, 18, 13, 12, false,
         dim);
-    fit(p, lunarLong(data::lunarText(data::lunar(h.day))), 130, 86, c.w - 130, 17, 12, 12, false, dim);
+    fit(p, lunarFit(data::lunar(h.day), c.w - 130, 12, true), 130, 86, c.w - 130, 17, 12, 12, false, dim);
     return;
   }
   // Tết (the first look): drawn like a my-widget countdown.
   if (SKIN.own) grad(p, 0xd7261e, 0xf97316);
   const Lunar l = data::lunar(day);
+  const int days = data::daysToTet(day);
+  if (own) {
+    bool ok;
+    Day tet = data::lunarToSolar({1, 1, l.y + 1, false}, ok);
+    if (!ok) tet = day;
+    return countAt(c, cw, i18n::fmt(TC_("tet", "{0} year"), data::canChiYear(l.y + 1)), days,
+                   days ? daysToGo(days) : String(T_("Happy New Year")),
+                   i18n::date(N_("{W}, {M} {d}, {y}"), tet.d, tet.m, tet.y, tet.wday), onOwn(WHITE), onOwn(PALE));
+  }
   // i18n: the coming Lunar New Year by its year's stems and branches (vi "Tết {0}")
   cap(p, i18n::fmt(TC_("tet", "{0} year"), data::canChiYear(l.y + 1)).c_str(), onOwn(CREAM));
-  const int days = data::daysToTet(day);
   at(p, String(days), -2, 22, 44, true, onOwn(WHITE));
   fit(p, days ? daysToGo(days) : String(T_("Happy New Year")), 0, 72, it.size == M ? 130 : c.w, 20, 14, 12, false, onOwn(WHITE));
   if (it.size == M) {
@@ -939,7 +1062,7 @@ void wCount(lv_obj_t*, const Item& it, Card c) {
     Day tet = data::lunarToSolar({1, 1, l.y + 1, false}, ok);
     if (!ok) tet = day;
     fit(p, N_("Lunar New Year's Day"), 140, 20, c.w - 140, 20, 14, 12, true, onOwn(WHITE));
-    fit(p, i18n::date(N_("{W}, {M} {d}, {y}"), tet.d, tet.m, tet.y, tet.wday), 140, 42, c.w - 140, 18, 13, 12, false,
+    fit(p, longDate(tet, c.w - 140, 12, false), 140, 42, c.w - 140, 18, 13, 12, false,
         onOwn(PALE));
     fit(p, yearOf(l.y + 1), 140, 62, c.w - 140, 18, 13, 12, false, onOwn(PALE));
     // i18n: Lunar New Year's Eve and its date (vi "Giao thừa {0}")
@@ -962,7 +1085,7 @@ void wQuote(lv_obj_t*, const Item& it, Card c) {
     midFit(p, q, 4, lg ? 34 : 0, c.w - 8, c.h - (lg ? 80 : 22), lg ? 24 : 22, 14, true, ink);
     if (lg) mid(p, "“", 0, -4, c.w, 24, true, SH_RED);
     rect(p, c.w / 2 - 16, c.h - 24, 32, 2, SH_RED, 1);
-    midFit(p, i18n::date(N_("{w}, {M} {d}"), day.d, day.m, day.y, day.wday) + " · " + lunarShort(data::lunarText(l)), 0, c.h - 16,
+    midFit(p, lunarFit(l, c.w, 12, false, i18n::date(N_("{w}, {M} {d}"), day.d, day.m, day.y, day.wday) + " · "), 0, c.h - 16,
            c.w, 16, 12, 12, false, grey);
     return;
   }
@@ -970,7 +1093,7 @@ void wQuote(lv_obj_t*, const Item& it, Card c) {
     at(p, "“", -2, -6, 24, true, SH_RED);
     cap(p, N_("Saying of the day"), grey, 18, 0);
     fitV(p, q, 0, 24, c.w, 70, 20, 13, false, ink);
-    fit(p, i18n::date(N_("{w}, {M} {d}"), day.d, day.m, day.y, day.wday) + " · " + lunarShort(data::lunarText(l)), 0, c.h - 16,
+    fit(p, lunarFit(l, c.w, 12, false, i18n::date(N_("{w}, {M} {d}"), day.d, day.m, day.y, day.wday) + " · "), 0, c.h - 16,
         c.w, 17, 12, 12, false, grey);
     return;
   }
@@ -981,7 +1104,8 @@ void wQuote(lv_obj_t*, const Item& it, Card c) {
   rect(p, c.w / 2 - 20, 210, 40, 2, SH_RED, 1);
   mid(p, i18n::date(N_("{W}, {M} {d}, {y}"), day.d, day.m, day.y, day.wday), 0, 222, c.w, 13, true, ink);
   // i18n: the lunar date and the day's stems and branches (vi "{0} âm lịch · ngày {1}")
-  midFit(p, i18n::fmt(N_("{0} (lunar) · {1} day"), data::lunarText(l), data::canChiDay(day)), 0, 242, c.w, 17, 12, 12, false,
+  const String ld = i18n::fmt(N_("{0} (lunar) · {1} day"), data::lunarText(l), data::canChiDay(day));
+  midFit(p, textW(ld.c_str(), 12, false) <= c.w ? ld : i18n::fmt(N_("{0} (lunar) · {1} day"), lunarDM(l), data::canChiDay(day)), 0, 242, c.w, 17, 12, 12, false,
          grey);
 }
 

@@ -334,6 +334,12 @@ struct Scene {
   float algaeLevel() const;
   void clearAlgae();
   void sleep();  // the big pictures freed (the dog's pop-up); prepare() makes them again
+  // The background's buffers (bgRaw, bgc, filmW). No room for all of them (a fragmented PSRAM, a test board
+  // 2026-11-23): `lite`, the light water: one layer, bgc is bgRaw (the look's picture as it is: no film, no tint or
+  // haze, by rows), instead of no water at all.
+  void allocBg();
+  void freeBg();
+  bool lite = false;
   float floorY(float z) const;
   float coinY(float z) const;
   Fish* fishAt(float x, float y);

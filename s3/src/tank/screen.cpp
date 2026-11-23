@@ -26,6 +26,9 @@
 #include "pkg/pkg.h"
 #include "assistant.h"
 #include "saveredit.h"
+#include "pet/dog.h"
+#include "pet/packs.h"
+#include "pet/pet.h"
 #include "tank_int.h"
 #include "trace.h"
 
@@ -104,6 +107,19 @@ void freeAll() {
   trace::add("tank: water and %d pictures freed (PSRAM %u KB free, largest %u KB)", n, (unsigned)(heap_caps_get_free_size(MALLOC_CAP_SPIRAM) / 1024),
              (unsigned)(heap_caps_get_largest_free_block(MALLOC_CAP_SPIRAM) / 1024));
 }
+// A line with what PSRAM has left: free, and the largest block.
+void memLine(const char* what) {
+  trace::add("tank: %s (PSRAM %u KB free, largest %u KB)", what, (unsigned)(heap_caps_get_free_size(MALLOC_CAP_SPIRAM) / 1024),
+             (unsigned)(heap_caps_get_largest_free_block(MALLOC_CAP_SPIRAM) / 1024));
+}
+// Room for the water: what is not on screen lets go of its pictures, made again when shown: Home's page pictures and
+// the dog's decoded ones (a test board, 0.6.2, 2026-11-23: after the dog's greeting they held ~2 MB of PSRAM, the
+// water did not fit and the saver showed the deep-water gradient).
+void room() {
+  home::releasePictures();
+  if (!pet::summoned()) pet::dog::release();
+  pet::pk::trim();
+}
 bool ensure(const char* id) {
   if (freeTimer) lv_timer_delete(freeTimer), freeTimer = nullptr;
   String err;
@@ -118,7 +134,10 @@ bool ensure(const char* id) {
     sc = new (m) Scene();
   }
   const float s = boardScale();
-  if (fresh || sc->land != os::landscape() || fabsf(sc->SC - s) > 0.001f || !sc->bgRaw) sc->setView(os::landscape(), s);
+  if (fresh || sc->land != os::landscape() || fabsf(sc->SC - s) > 0.001f || !sc->bgRaw) {
+    sc->setView(os::landscape(), s);
+    if (sc->lite) memLine("light water: no room for all of it (one layer, no film)");
+  }
   if (!sc->bgRaw || !sc->bgc) {
     freeScene();
     return false;
@@ -388,8 +407,7 @@ void sleepAll() {
   sc->sleep();
   heap_caps_free(nat), nat = nullptr;
   ui::sleep();
-  trace::add("tank: pictures let go for the dog (PSRAM %u KB free, largest %u KB)", (unsigned)(heap_caps_get_free_size(MALLOC_CAP_SPIRAM) / 1024),
-             (unsigned)(heap_caps_get_largest_free_block(MALLOC_CAP_SPIRAM) / 1024));
+  memLine("pictures let go for the dog");
 }
 
 void onTimer(lv_timer_t*) {
@@ -555,7 +573,7 @@ void open(const char* pkgId, const char* arg) {
 #ifndef SIM
   desk::releaseConnection();
 #endif
-  home::releasePictures();  // PSRAM for the water's pictures
+  room();  // PSRAM for the water's pictures
   users++;
   const char* id = pkgId && *pkgId ? pkgId : installedId();
   const int W = os::W(), H = os::H();
@@ -615,11 +633,13 @@ lv_obj_t* saverBg(lv_obj_t* parent, int w, int h) {
   const char* id = installedId();
   if (!id) return nullptr;
   if (sv) return stillOf(parent, w, h);
+  room();
   uint16_t* buf = (uint16_t*)heap_caps_malloc(w * h * 2, MALLOC_CAP_SPIRAM);
   users++;
   if (!buf || !ensure(id)) {
     heap_caps_free(buf);
     release();
+    memLine("no room for the saver's water");
     return nullptr;
   }
   sv = new SaverBg();

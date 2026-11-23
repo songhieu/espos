@@ -127,6 +127,17 @@ int innerW() { return (land ? 248 : os::W()) - 24; }
 // The page's own screen (desksaver::canvas): elements, the handle and the guides live in it, in its coordinates.
 int PW() { return land ? desksaver::PAGE_H : desksaver::PAGE_W; }
 int PH() { return land ? desksaver::PAGE_W : desksaver::PAGE_H; }
+// A widget element as Home's item (its span too).
+wid::Item itemOf(const El& e) {
+  wid::Item it;
+  it.kind = e.k;
+  it.size = e.sz == 'L' ? wid::L : e.sz == 'M' ? wid::M : wid::S;
+  it.cw = e.cw, it.ch = e.ch;
+  it.style = e.st;
+  it.opt = e.op;
+  it.skin = e.sk;
+  return it;
+}
 
 // A caption and a wrapping row of pills under it.
 lv_obj_t* row(lv_obj_t* parent, const char* caption) {
@@ -416,17 +427,20 @@ void onHandle(lv_event_t* ev) {
     lv_obj_set_size(boxes[sel], e->w, e->h);
     placeHandle();
   } else if (code == LV_EVENT_PRESSING) {
-    const wid::Kind* k = wid::kind(e->k);
-    char best = e->sz;
-    int bd = 1 << 20;
-    for (int s = 0; s < 3; s++) {
-      if (k && !(k->sizes & (1 << s))) continue;
-      int16_t bw, bh;
-      desksaver::widgetBox("SML"[s], bw, bh);
-      if (abs(bw - w) + abs(bh - h) < bd) bd = abs(bw - w) + abs(bh - h), best = "SML"[s];
-    }
-    if (best == e->sz) return;
-    desksaver::setWidgetSize(*e, best);
+    // A widget: the span nearest the dragged box among those its look draws (docs/widgets.md §2b; the web the same).
+    const String st = wid::styleOf(itemOf(*e));
+    int bcw = 0, bch = 0, bd = 1 << 20;
+    for (int b = 1; b <= 4; b++)
+      for (int a = 1; a <= 4; a++) {
+        if (!wid::draws(e->k, a, b, st.c_str())) continue;
+        int bw, bh;
+        wid::boxSpan(a, b, bw, bh);
+        if (abs(bw - w) + abs(bh - h) < bd) bd = abs(bw - w) + abs(bh - h), bcw = a, bch = b;
+      }
+    int cw0, ch0;
+    wid::spanOf(itemOf(*e), cw0, ch0);
+    if (!bcw || (bcw == cw0 && bch == ch0)) return;
+    desksaver::setWidgetSpan(*e, bcw, bch);
     e->x = constrain(e->x, 0, max(0, PW() - e->w));
     e->y = constrain(e->y, 0, max(0, PH() - e->h));
     refreshEl(sel);
@@ -682,26 +696,22 @@ void elementSheet(El& e) {
       if (El* el = selEl()) el->r = constrain(el->r + 4 * arg(ev), 0, 80);
       changed(DO_EL | DO_SHEET);
     });
-  } else {  // a widget: Style, Size, its options and Card, exactly Home's rows (widopts.h)
-    wid::Item it;
-    it.kind = e.k;
-    it.size = e.sz == 'L' ? wid::L : e.sz == 'M' ? wid::M : wid::S;
-    it.style = e.st;
-    it.opt = e.op;
-    it.skin = e.sk;
-    widopts::build(sheet, it, LOOK, innerW(), [](const wid::Item& it, bool sizeChanged) {
+  } else {  // a widget: Style, Size (every span its look draws, as Home's), its options and Card (widopts.h)
+    widopts::build(sheet, itemOf(e), LOOK, innerW(), [](const wid::Item& it, bool sizeChanged) {
       El* el = selEl();
       if (!el) return;
       el->st = it.style;
       el->op = it.opt;
       el->sk = it.skin;
       if (sizeChanged) {
-        desksaver::setWidgetSize(*el, "SML"[it.size]);
+        int a, b;
+        wid::spanOf(it, a, b);
+        desksaver::setWidgetSpan(*el, a, b);
         el->x = constrain(el->x, 0, max(0, PW() - el->w));
         el->y = constrain(el->y, 0, max(0, PH() - el->h));
       }
       changed(DO_EL | DO_SHEET);
-    });
+    }, true, 4, 4);  // the page is free: every span up to 4 x 4 fits in both orientations
   }
 }
 

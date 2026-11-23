@@ -1,0 +1,64 @@
+# Free widget sizes on the saver (docs/saver.md §2 "sp", §5; 0.6.4), on the device, 2.8" (a build with EXTRA=-DBOARD_ES3C28P).
+# Landscape: Claude M picks 3 x 1 in its sheet, the weather's corner is dragged from S to 1 x 1. Portrait: the
+# weather's corner from S to 4 x 1, Claude picks 2 x 3 in its sheet. Each: Done, s3.saver_pages dumped, the saver shot.
+# Expect: l = claude "sp":"3x1" + weather "sp":"1x1"; p = weather "sp":"4x1" + claude "sp":"2x3". Run from s3/:
+#   FIX_TIME=1795400460 DYLD_INSERT_LIBRARIES=../widtest/fixtime.dylib SIM_DATA=DATA sim/BUILD/espos-sim sim/scripts/saver-resize-28.sim OUT
+# (DATA: a copy of sim/data with python3 ../widtest/claude/states.py DATA full.) The web: the same pages in Màn chờ on fw_code 604.
+wait 6000
+set s3.saver 0
+rot 1
+wait 1500
+set s3.saver_pages {"v": 1, "p": [{"bg": {"t": "black"}, "e": [{"t": "w", "k": "weather", "s": "S", "st": "now", "x": 10, "y": 20}, {"t": "w", "k": "claude", "s": "M", "st": "ring", "x": 10, "y": 300}]}], "l": [{"bg": {"t": "tank"}, "e": [{"t": "w", "k": "claude", "s": "M", "st": "ring", "x": 16, "y": 16}, {"t": "w", "k": "weather", "s": "S", "st": "now", "x": 320, "y": 166}]}]}
+wait 300
+saveredit
+wait 1500
+shot l0
+tap 166 105
+wait 800
+tapat 3 × 1
+wait 900
+shot l1
+tap 100 310
+wait 600
+tap 392 255
+wait 800
+drag 464 324 386 250 900
+wait 900
+shot l2
+tapat Done
+wait 1500
+dumpset s3.saver_pages land
+saver
+wait 2500
+shot l3
+overflow saver-l
+wake
+wait 800
+rot 0
+wait 1500
+saveredit
+wait 1500
+shot p0
+tap 102 89
+wait 800
+drag 174 158 330 84 900
+wait 900
+shot p1
+tapat Done
+wait 1500
+saveredit
+wait 1500
+tap 180 369
+wait 800
+tapat 2 × 3
+wait 900
+shot p2
+tapat Done
+wait 1500
+dumpset s3.saver_pages port
+saver
+wait 2500
+shot p3
+overflow saver-p
+wake
+wait 800

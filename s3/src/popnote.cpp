@@ -55,6 +55,7 @@ String shownKey;
 int64_t shownExp = 0, shownStart = 0;
 bool confirming = false, sending = false;
 String confirmAct;
+const char* failWhy = nullptr;  // why the card's last answer was refused (refusal()), on the card until the next try
 
 bool hasPerm(const String& app, const char* perm) {
   const pkg::Package* p = pkg::find(app.c_str());
@@ -82,6 +83,26 @@ void closeCard() {
   card = countdown = bar = nullptr;
   shownKey = "";
   confirming = sending = false;
+  failWhy = nullptr;
+}
+
+// A refusal in words (0.6.3; it was "Not done: sender_not_allowed"): the codes the server's Sessions route answers with
+// (desktop-protocol.md §9.3: desk_queue's, through sess_app), in the Sessions app's own sentences (apps/sessions
+// REFUSED), so the translations are the same. Anything else: no sentence, the toast's "Not done" says it.
+const char* refusal(const char* code) {
+  static const char* const K[][2] = {
+      {"sender_not_allowed", N_("The Mac does not take commands from this device yet. On the Mac: EspOS Desktop > Settings > Devices, turn this device on.")},
+      {"desktop_offline", N_("The Mac is offline. Nothing was sent.")},
+      {"view_only", N_("The Mac is in view-only mode. Nothing was sent.")},
+      {"desktop_view_only", N_("The Mac is in view-only mode. Nothing was sent.")},
+      {"command_off", N_("This is turned off in EspOS Desktop on the Mac.")},
+      {"not_waiting", N_("The session is no longer waiting.")},
+      {"req_gone", N_("That question was already answered or has expired.")},
+      {"rate", N_("Too many in a row. Wait a moment.")},
+  };
+  for (const auto& k : K)
+    if (code && !strcmp(code, k[0])) return k[1];
+  return nullptr;
 }
 
 void build();
@@ -108,8 +129,12 @@ void onDone(void* ctx, int status, const char* err, const String& body) {
     if (n) n->done = true;
     closeCard();
   } else {
-    msg = String(T_("Not done: ")) + (d["err"] | (status ? String(status).c_str() : (err ? err : "?")));
-    if (n && shownKey == *key) sending = false, build();
+    const char* code = d["err"] | (d["error"] | "");
+    const char* why = status ? refusal(code) : nullptr;
+    trace::add("popnote: not done (%d %s)", status, *code ? code : err && *err ? err : "-");
+    // The reason on the card, which stays (a toast is gone in 2 s); the toast in short. No card: the toast says it.
+    msg = !status ? T_("Not done: no connection") : why && !(n && shownKey == *key) ? T_(why) : T_("Not done");
+    if (n && shownKey == *key) sending = false, failWhy = why, build();
   }
   os::toast(msg.c_str());
   delete key;
@@ -150,7 +175,7 @@ void act(const String& id) {
     os::toast(T_("Not done: no connection"));
     return;
   }
-  sending = true;
+  sending = true, failWhy = nullptr;
   build();
 }
 
@@ -244,6 +269,10 @@ void build() {
     lv_obj_t* why = label(card, "", 13, false, p.fg);
     wrapText(why, ("\xe2\x80\x9c" + n->text + "\xe2\x80\x9d").c_str(), iw, 13, false, 2);
   }
+  if (failWhy && !confirming) {  // the last answer's refusal, in words
+    lv_obj_t* why = label(card, "", 13, true, 0xe0383b);
+    wrapText(why, T_(failWhy), iw, 13, true, 2);
+  }
   if (n->exp) {
     lv_obj_t* row = clear(card);
     lv_obj_set_size(row, iw, 16);
@@ -296,7 +325,7 @@ void showNext() {
   if (card) closeCard();
   for (Note& n : notes)
     if (mayShow(n)) {
-      shownKey = n.key;
+      shownKey = n.key, failWhy = nullptr;
       shownExp = n.exp, shownStart = desk::nowMs();
       confirming = sending = false;
       build();

@@ -58,6 +58,7 @@ struct Kind {
   std::vector<Style> styles;  // the looks it draws (the first is the default); empty: one look
   Opt opt;                    // what Item::opt holds
   std::vector<Style> flags;   // on/off options, their ids joined by "," in Item::opt (clock: 12, sec)
+  uint16_t spans = 0;         // a kind with one look (no styles): the spans besides S, M, L it draws (SPAN bits)
 };
 const std::vector<Kind>& kinds();
 // The codes a gold, stocks, fx or crypto widget shows when its option is empty ("gold:SJC,gold:N24K"); "" for others.

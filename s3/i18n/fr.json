@@ -724,7 +724,6 @@
  "None yet": "Pas encore",
  "Normal": "Normal",
  "Northern Vietnam": "Nord du Vietnam",
- "Not done: ": "Pas fait : ",
  "Not done: no connection": "Pas fait : pas de connexion",
  "Not enough memory to open PawBoop": "Mémoire insuffisante pour ouvrir PawBoop",
  "Not enough memory to open PawBoop Run": "Mémoire insuffisante pour ouvrir PawBoop Run",
@@ -1608,5 +1607,13 @@
  "How can I help?": "Comment puis-je vous aider ?",
  "Hold the button and speak": "Maintenez le bouton et parlez",
  "{0} stopped": "{0} s'est arrêté",
- "The screen saver app stopped 3 times, so the built-in saver shows instead. Choose it again in Settings, Default apps.": "L'app d'écran de veille s'est arrêtée 3 fois, l'écran de veille intégré la remplace. Choisissez-la de nouveau dans Réglages, Apps par défaut."
+ "The screen saver app stopped 3 times, so the built-in saver shows instead. Choose it again in Settings, Default apps.": "L'app d'écran de veille s'est arrêtée 3 fois, l'écran de veille intégré la remplace. Choisissez-la de nouveau dans Réglages, Apps par défaut.",
+ "Not done": "Pas fait",
+ "The Mac does not take commands from this device yet. On the Mac: EspOS Desktop > Settings > Devices, turn this device on.": "Le Mac n'accepte pas encore les commandes de cet appareil. Sur le Mac : EspOS Desktop > Settings > Devices, activez cet appareil.",
+ "The Mac is offline. Nothing was sent.": "Le Mac est hors ligne. Rien n'a été envoyé.",
+ "The Mac is in view-only mode. Nothing was sent.": "Le Mac est en mode lecture seule. Rien n'a été envoyé.",
+ "This is turned off in EspOS Desktop on the Mac.": "Cette option est désactivée dans EspOS Desktop sur le Mac.",
+ "The session is no longer waiting.": "La session n'attend plus.",
+ "That question was already answered or has expired.": "Cette question a déjà reçu une réponse ou a expiré.",
+ "Too many in a row. Wait a moment.": "Trop d'envois d'affilée. Patientez un instant."
 }

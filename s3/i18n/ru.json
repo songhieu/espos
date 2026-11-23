@@ -724,7 +724,6 @@
  "None yet": "Пока нет",
  "Normal": "Обычно",
  "Northern Vietnam": "Северный Вьетнам",
- "Not done: ": "Не выполнено: ",
  "Not done: no connection": "Не выполнено: нет связи",
  "Not enough memory to open PawBoop": "Недостаточно памяти, чтобы открыть PawBoop",
  "Not enough memory to open PawBoop Run": "Недостаточно памяти, чтобы открыть PawBoop Run",
@@ -1608,5 +1607,13 @@
  "How can I help?": "Чем помочь?",
  "Hold the button and speak": "Удерживайте кнопку и говорите",
  "{0} stopped": "{0} остановлено",
- "The screen saver app stopped 3 times, so the built-in saver shows instead. Choose it again in Settings, Default apps.": "Приложение-заставка остановилось 3 раза, поэтому показывается встроенная заставка. Выберите его снова в разделе «Приложения по умолчанию» в Настройках."
+ "The screen saver app stopped 3 times, so the built-in saver shows instead. Choose it again in Settings, Default apps.": "Приложение-заставка остановилось 3 раза, поэтому показывается встроенная заставка. Выберите его снова в разделе «Приложения по умолчанию» в Настройках.",
+ "Not done": "Не выполнено",
+ "The Mac does not take commands from this device yet. On the Mac: EspOS Desktop > Settings > Devices, turn this device on.": "Mac пока не принимает команды с этого устройства. На Mac: EspOS Desktop > Settings > Devices, включите это устройство.",
+ "The Mac is offline. Nothing was sent.": "Mac не в сети. Ничего не отправлено.",
+ "The Mac is in view-only mode. Nothing was sent.": "Mac в режиме только просмотра. Ничего не отправлено.",
+ "This is turned off in EspOS Desktop on the Mac.": "Это отключено в EspOS Desktop на Mac.",
+ "The session is no longer waiting.": "Сессия больше не ждёт.",
+ "That question was already answered or has expired.": "На этот вопрос уже ответили, или он устарел.",
+ "Too many in a row. Wait a moment.": "Слишком много подряд. Подождите немного."
 }

@@ -13,8 +13,15 @@ namespace wid {
 
 using namespace kit;
 
-const std::vector<Style> WEATHER_STYLES = {{"now", N_("Current")},   {"hourly", N_("Hourly")}, {"days", N_("Daily")},
-                                           {"detail", N_("Details")}, {"sun", N_("Sun")},       {"big", N_("Big temperature")}};
+// The spans besides S, M, L (docs/widgets.md §2b): one cell and the one-row strips have layouts of their own (weatherAt),
+// the others draw the small (two wide), medium (three by two) or large (four by three) look in their box.
+const std::vector<Style> WEATHER_STYLES = {
+    {"now", N_("Current"), SPAN(1, 1) | SPAN(2, 1) | SPAN(3, 1) | SPAN(4, 1) | SPAN(3, 2) | SPAN(4, 3)},
+    {"hourly", N_("Hourly"), SPAN(3, 1) | SPAN(4, 1) | SPAN(3, 2) | SPAN(4, 3) | SPAN(2, 3) | SPAN(2, 4)},
+    {"days", N_("Daily"), SPAN(3, 1) | SPAN(4, 1) | SPAN(3, 2) | SPAN(4, 3) | SPAN(2, 3) | SPAN(2, 4)},
+    {"detail", N_("Details"), SPAN(3, 1) | SPAN(4, 1) | SPAN(2, 3)},
+    {"sun", N_("Sun"), SPAN(3, 1) | SPAN(4, 1)},
+    {"big", N_("Big temperature")}};
 
 namespace {
 
@@ -154,10 +161,133 @@ void sunArc(Card c, int cx, int cy, int r, int rise, int set, int now, uint32_t 
   lv_obj_set_pos(sun, cx + (int)lroundf(cosf(rad) * rc) - 9, cy + (int)lroundf(sinf(rad) * rc) - 9);
 }
 
+// One line centred in [x, x + w) (kit.ts Card.mid: as LV_ALIGN_TOP_MID in a column box).
+void mid(lv_obj_t* p, const String& text, int x, int y, int w, int px, bool bold, uint32_t color) {
+  const char* t = i18n::trl(text.c_str());
+  at(p, t, x + w / 2 - textW(t, px, bold) / 2, y, px, bold, color);
+}
+
+// ---------------------------------------------------------------- the spans with a layout of their own (web: weatherAt)
+void weatherAt(Card c, const String& st, int cw, JsonObjectConst w, bool atNight, uint32_t fg, uint32_t dim) {
+  const int W = c.w, H = c.h;
+  const String city = data::cityShort(w["city"] | "");
+  const String temp = String((int)(w["temp"] | 0)) + "°", rng = String((int)(w["min"] | 0)) + "–" + (int)(w["max"] | 0) + "°";
+  JsonArrayConst hours = w["hours"];
+  JsonArrayConst days = w["days"];
+  if (st == "days" && cw == 2) {
+    // Two wide and tall: the place, then a row a day (its name, sky, low and high) while they fit.
+    const int ex = heightOf(cap(c.o, city.c_str(), dim)) - lineH(12, true);
+    for (int i = 0; i < (int)days.size(); i++) {
+      JsonObjectConst x = days[i];
+      const int y = 24 + ex + i * 28;
+      if (y + 20 > H) break;
+      at(c.o, data::dayName(x, true), 0, y + 2, 13, true, fg);
+      lv_obj_set_pos(img(c.o, data::wxIcon(x["icon"] | "cloud", 20)), 40, y);
+      const String mx = String((int)(x["max"] | 0)) + "°";
+      right(c.o, mx, y + 2, 13, true, fg);
+      right(c.o, String((int)(x["min"] | 0)) + "°", y + 2, 13, false, dim, -(textW(mx.c_str(), 13, true) + 6));
+    }
+    return;
+  }
+  if (st == "hourly" || st == "days") {
+    // One row: the next hours (days), each its time (name) over its sky and temperature (high).
+    const bool hr = st == "hourly";
+    const int n = min<int>(hr ? hours.size() : days.size(), cw == 3 ? 4 : 5);
+    const int colW = W / max(n, 1);
+    for (int i = 0; i < n; i++) {
+      const int x0 = i * colW;
+      JsonObjectConst x = hr ? hours[i] : days[i];
+      mid(c.o, hr ? (i == 0 ? String(T_("Now")) : String(x["h"] | "")) : data::dayName(x, colW < 56), x0, -2, colW, 12, true,
+          dim);
+      const String v = String((int)((hr ? x["t"] : x["max"]) | 0)) + "°";
+      const int gx = x0 + (colW - 22 - textW(v.c_str(), 14, true)) / 2;
+      lv_obj_set_pos(img(c.o, data::wxIcon(x["icon"] | "cloud", 20, hr && data::hourIsNight(x["h"] | "12"))), gx, 19);
+      at(c.o, v, gx + 22, 19, 14, true, fg);
+    }
+    return;
+  }
+  if (st == "detail") {
+    // One row: the first stats, each its glyph and value over its name.
+    const auto sts = stats(w);
+    const int n = min<int>(sts.size(), cw == 3 ? 3 : 4);
+    const int colW = W / max(n, 1);
+    for (int i = 0; i < n; i++) {
+      const int x0 = i * colW;
+      lv_obj_set_pos(glyph(c.o, sts[i].g, dim), x0, 2);
+      at(c.o, sts[i].value, x0 + 20, -2, 16, true, fg);
+      fitIn(c.o, sts[i].name, x0, 22, colW - 6, H - 22, 12, 12, false, dim, 0);
+    }
+    return;
+  }
+  if (st == "sun") {
+    // One row: sunrise and sunset; four cells: the sun's path beside them.
+    const String sr = w["sunrise"] | "", ss = w["sunset"] | "";
+    const int rise = minutesOf(sr), set = minutesOf(ss);
+    lv_obj_set_pos(glyph(c.o, &gl_sunrise_16, dim), 0, 0);
+    if (rise < 0 || set < 0) {
+      fit(c.o, noData(), 22, 0, W - 22, H, 13, 12, false, dim);
+      return;
+    }
+    const int colW = W / (cw == 3 ? 2 : 3);
+    at(c.o, NC_("sun", "Sunrise"), 20, -1, 12, false, dim);
+    at(c.o, sr, 0, 17, 18, true, fg);
+    at(c.o, NC_("sun", "Sunset"), colW, -1, 12, false, dim);
+    at(c.o, ss, colW, 17, 18, true, fg);
+    if (cw > 3)
+      sunArc(c, 2 * colW + (W - 2 * colW) / 2, H - 2, min((W - 2 * colW) / 2 - 4, H - 6), rise, set, data::nowMinutes(),
+             SKIN.own ? 0xffffff : fg);
+    return;
+  }
+  // ---- now
+  if (cw == 1) {
+    // One cell: the sky over the temperature.
+    lv_obj_set_pos(img(c.o, data::wxIcon(w["icon"] | "cloud", 28, atNight)), (W - 28) / 2, -6);
+    mid(c.o, temp, 0, H - lineH(16, true) + 1, W, 16, true, fg);
+    return;
+  }
+  lv_obj_set_pos(img(c.o, data::wxIcon(w["icon"] | "cloud", 40, atNight)), -2, (H - 40) / 2);
+  if (cw == 2) {
+    // Two cells: the sky, the temperature over the conditions (or the day's range).
+    at(c.o, temp, 42, -4, 24, true, fg);
+    if (!fitIn(c.o, w["desc"] | "", 42, 26, W - 42, H - 26, 12, 12, false, dim, 0)) at(c.o, rng, 42, 26, 12, false, dim);
+    return;
+  }
+  // Three, four: the sky, the temperature, the place over the conditions (and the range); four: the range and the
+  // chance of rain at the right.
+  at(c.o, temp, 42, -3, 34, true, fg);
+  const int x = 42 + textW(temp.c_str(), 34, true) + 8;
+  int rw = 0;
+  const String rain = w["rain"].isNull() ? String() : i18n::fmt(N_("rain {0}%"), String((int)(w["rain"] | 0)));
+  if (cw >= 4) {
+    rw = max(textW(rng.c_str(), 13, true), rain.length() ? textW(rain.c_str(), 12, false) : 0) + 8;
+    right(c.o, rng, 0, 13, true, fg);
+    if (rain.length()) right(c.o, rain, 22, 12, false, dim);
+  }
+  const int room = W - x - rw;
+  const String desc = w["desc"] | "";
+  const int y = capFits(city.c_str(), room) ? 21 : 0;  // the place on one line, else the conditions alone (on two)
+  if (y) cap(c.o, city.c_str(), dim, x, 0, room);
+  if (rw) fitIn(c.o, desc, x, y, room, H - y, 13, 12, false, fg, 0);
+  else if (!fitIn(c.o, desc + " · " + rng, x, y, room, H - y, 13, 12, false, fg, 0))
+    fitIn(c.o, desc, x, y, room, H - y, 13, 12, false, fg, 0);
+}
+
 }  // namespace
 
 // ---------------------------------------------------------------- weather
 void wWeather(lv_obj_t* parent, const Item& it, Card c) {
+  int cw, ch;
+  spanOf(it, cw, ch);
+  String own;  // a span with a layout of its own (weatherAt): its look
+  if (!legacy(cw, ch)) {
+    own = styleAt(it);
+    // three by two, four by three and the tall pairs draw the medium, large and small look in their box
+    if (ch > 1 && !(own == "days" && cw == 2)) {
+      Item v = it;
+      v.style = own, v.size = cw == 2 ? S : ch == 2 ? M : L, v.cw = v.ch = 0;
+      return wWeather(parent, v, c);
+    }
+  }
   JsonObjectConst w = data::weather();
   const bool atNight = data::night();
   uint32_t top, bottom;
@@ -165,10 +295,16 @@ void wWeather(lv_obj_t* parent, const Item& it, Card c) {
   if (SKIN.own) grad(c.o, top, bottom);
   const uint32_t fg = onOwn(WHITE), dim = onOwnDim(0xdfe6ff);
   if (!data::hasWeather()) {
+    if (own.length() && measure(c.o, noData(), c.w, c.h - 20, 13, 12, false) < 0) {  // one cell
+      mid(c.o, "--°", 0, 8, c.w, 16, true, dim);
+      return;
+    }
     cap(c.o, N_("Weather"), dim);
-    empty(c, noData(), dim, 22);
+    if (own.length()) fit(c.o, noData(), 0, 20, c.w, c.h - 20, 13, 12, false, dim);
+    else empty(c, noData(), dim, 22);
     return;
   }
+  if (own.length()) return weatherAt(c, own, cw, w, atNight, fg, dim);
   const String st = styleOf(it);
   const String city = data::cityShort(w["city"] | "");
   const int temp = w["temp"] | 0;
@@ -192,9 +328,9 @@ void wWeather(lv_obj_t* parent, const Item& it, Card c) {
   if (st == "hourly") {
     if (it.size == S) {
       const int ex = cityRow(c, city, {String(temp) + "°"}, -2, 14, fg, dim);
-      for (int i = 0; i < (int)hours.size() && i < 3; i++) {
+      for (int i = 0; i < (int)hours.size(); i++) {
         JsonObjectConst h = hours[i];
-        const int y = 26 + ex + i * 31;
+        const int y = 26 + ex + i * 31;  // three in the small card, more in a tall one
         if (y + 20 > c.h) break;
         // i18n: the first hour of an hourly forecast (vi "Giờ tới"), at most ~55 px at 13 px bold
         fit(c.o, i == 0 ? TC_("hourly", "Next") : (h["h"] | ""), 0, y + 2, 56, 18, 13, 12, true, fg);
@@ -207,7 +343,7 @@ void wWeather(lv_obj_t* parent, const Item& it, Card c) {
     if (it.size == M) {
       const int ex = cityRow(c, city, {String(temp) + "° · " + (const char*)(w["desc"] | ""), String(temp) + "°"}, -1, 13, fg,
                              dim);
-      const int n = min<int>(hours.size(), 6);
+      const int n = min<int>(hours.size(), c.w < 250 ? 4 : 6);  // four in three by two
       for (int i = 0; i < n; i++) {
         JsonObjectConst h = hours[i];
         lv_obj_t* col_ = clear(c.o);
@@ -246,14 +382,15 @@ void wWeather(lv_obj_t* parent, const Item& it, Card c) {
     if (it.size != L) {
       const int ex = it.size == M ? cityRow(c, city, {String(temp) + "° · " + rng, String(temp) + "°"}, -1, 13, fg, dim)
                                   : heightOf(cap(c.o, city.c_str(), dim)) - lineH(12, true);
-      const int n = min<int>(days.size(), it.size == S ? 3 : 5);
+      const bool narrow = it.size == S || c.w < 250;  // the small card, three by two (four days)
+      const int n = min<int>(days.size(), it.size == S ? 3 : narrow ? 4 : 5);
       for (int i = 0; i < n; i++) {
         JsonObjectConst d = days[i];
         lv_obj_t* col_ = clear(c.o);
         lv_obj_set_size(col_, c.w / n, 98);
         lv_obj_set_pos(col_, i * (c.w / n), 22 + ex);
         // i18n: short (vi "Nay")
-        lv_obj_t* a = label(col_, data::dayName(d, it.size == S).c_str(), 12, true, fg);
+        lv_obj_t* a = label(col_, data::dayName(d, narrow).c_str(), 12, true, fg);
         lv_obj_align(a, LV_ALIGN_TOP_MID, 0, 0);
         lv_obj_t* ic = img(col_, data::wxIcon(d["icon"] | "cloud", 28));
         lv_obj_align(ic, LV_ALIGN_TOP_MID, 0, 18);
@@ -298,14 +435,16 @@ void wWeather(lv_obj_t* parent, const Item& it, Card c) {
     const auto sts = stats(w);
     if (it.size == S) {
       const int ex = cityRow(c, city, {String(temp) + "°"}, -2, 14, fg, dim);
-      for (int i = 0; i < (int)sts.size() && i < 4; i++) {
-        const int y = 24 + ex + i * 24;
+      for (int i = 0; i < (int)sts.size(); i++) {
+        const int y = 24 + ex + i * 24;  // four in the small card, all in a tall one
         if (y + 18 > c.h) break;
         lv_obj_t* g = glyph(c.o, sts[i].g, dim);
         lv_obj_set_pos(g, 0, y + 1);
-        String v = String(T_(sts[i].name)) + " " + sts[i].value;
-        if (sts[i].note.length() && sts[i].note != T_("today")) v += " " + sts[i].note;
-        fit(c.o, v, 22, y, c.w - 22, 18, 13, 12, false, fg);
+        const String v = String(T_(sts[i].name)) + " " + sts[i].value;
+        // the note too when the line holds it (a tall card lists the long ones)
+        if (!sts[i].note.length() || sts[i].note == T_("today") ||
+            !fitIn(c.o, v + " " + sts[i].note, 22, y, c.w - 22, 18, 13, 12, false, fg))
+          fit(c.o, v, 22, y, c.w - 22, 18, 13, 12, false, fg);
       }
       return;
     }

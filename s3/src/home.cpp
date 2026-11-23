@@ -1169,7 +1169,10 @@ void fillLibrary() {
   lv_obj_t* g = glyph(pill, &gl_search_16, theme::home().dim);
   lv_obj_align(g, LV_ALIGN_LEFT_MID, 12, 0);
   lv_obj_t* ph = label(pill, "", 15, false, theme::home().dim);
-  fitText(ph, N_("Search apps"), (land ? GX + COLS * CW - px : os::W() - 24) - 36 - 10, 20, 15, 12, false, 0);
+  // one line: "Search apps", else (a long title beside it in landscape, a longer language) "Search"
+  const int phw = (land ? GX + COLS * CW - px : os::W() - 24) - 36 - 10;
+  fitText(ph, N_("Search apps"), phw, 20, 15, 12, false, 0);
+  if (strchr(lv_label_get_text(ph), '\n')) fitText(ph, N_("Search"), phw, 20, 15, 12, false, 0);
   lv_obj_align(ph, LV_ALIGN_LEFT_MID, 36, 0);
   lv_obj_add_event_cb(pill, [](lv_event_t*) {
     if (!edit) search::open();
@@ -1792,7 +1795,8 @@ void openConfig(int pi, int idx) {
   Entry* e = cfgEntry();
   if (!e) return;
   const wid::Kind* k = wid::kind(e->w.kind);
-  const String title = i18n::fmt(N_("{0} widget"), k ? T_(k->name) : e->w.kind.c_str());
+  // a kind whose name says "widget" already ("My widget") is its own title (no "My widget widget")
+  const String title = k && strstr(k->name, "widget") ? String(T_(k->name)) : i18n::fmt(N_("{0} widget"), k ? T_(k->name) : e->w.kind.c_str());
   const int h = min(330, os::H() - 16);  // landscape: 304, the rows scroll
   lv_obj_t* s = openSheet(h, title.c_str());
   lv_obj_t* body = clear(s);

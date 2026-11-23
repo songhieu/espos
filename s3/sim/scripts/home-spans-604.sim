@@ -1,0 +1,56 @@
+# The 0.6.4 Home spans (docs/widgets.md §2b: weather, count, remind, notes, photo, my, notify), 7 portrait and 4
+# landscape pages, each shot and checked by `overflow`. Run from s3/ (3.5": sim/build-*; 2.8": a build with
+# EXTRA=-DBOARD_ES3C28P):
+#   FIX_TIME=1795400460 DYLD_INSERT_LIBRARIES=../widtest/fixtime.dylib SIM_DATA=DATA sim/BUILD/espos-sim sim/scripts/home-spans-604.sim OUT
+# The web draws the same pages (Màn chính, a device on fw_code 604): web/app src/os/model.ts SPAN_FW.
+wait 6000
+set s3.saver 0
+set s3.rot 0
+set s3.mywidgets [{"id": "m1", "t": "list", "title": "Chores", "bg": "a7d8ff", "fg": "0b3a63", "items": [["Dishes", 1], ["Floor", 0], ["Bins", 0], ["Laundry", 0]]}]
+set s3.home {"v": 2, "dock": ["clock", "notes", "markets", "settings"], "pages": [[["w", "weather", 0, 0, "s", "now", "", "", "", "1x1"], ["w", "count", 1, 0, "s", "tet", "", "", "", "1x1"], ["w", "weather", 2, 0, "s", "now", "", "", "", "2x1"], ["w", "weather", 0, 1, "s", "hourly", "", "", "", "4x1"], ["w", "count", 0, 2, "s", "tet", "", "", "", "3x1"], ["a", "news", 3, 2], ["w", "weather", 0, 3, "s", "days", "", "", "", "3x2"], ["a", "notes", 3, 3], ["a", "photos", 3, 4]], [["w", "weather", 0, 0, "s", "sun", "", "", "", "4x1"], ["w", "notes", 0, 1, "s", "note", "", "", "", "3x1"], ["a", "calc", 3, 1], ["w", "photo", 0, 2, "s", "cover", "", "", "", "3x2"], ["w", "count", 3, 2, "s", "holiday", "", "", "", "1x1"], ["w", "count", 3, 3, "s", "tet", "", "", "", "1x1"], ["w", "weather", 0, 4, "s", "detail", "", "", "", "4x1"]], [["w", "remind", 0, 0, "s", "open", "", "", "", "2x3"], ["w", "my", 2, 0, "s", "", "m1", "", "", "2x3"], ["w", "notify", 0, 3, "s", "latest", "", "", "", "3x2"], ["a", "cal", 3, 3], ["a", "weather", 3, 4]], [["w", "weather", 0, 0, "s", "now", "", "", "", "4x3"], ["w", "notes", 0, 3, "s", "note", "", "", "", "2x1"], ["w", "photo", 2, 3, "s", "fit", "", "", "", "2x1"], ["w", "count", 0, 4, "s", "holiday", "", "", "", "4x1"]], [["w", "weather", 0, 0, "s", "days", "", "", "", "2x4"], ["w", "remind", 2, 0, "s", "all", "", "", "", "2x4"], ["a", "news", 0, 4]], [["w", "notify", 0, 0, "s", "latest", "", "", "", "3x3"], ["a", "calc", 3, 0], ["w", "weather", 0, 3, "s", "detail", "", "", "", "3x1"], ["a", "notes", 3, 3], ["a", "photos", 0, 4]], [["w", "weather", 0, 0, "s", "detail", "", "", "", "2x3"], ["w", "photo", 2, 0, "s", "frame", "", "", "", "2x3"], ["w", "my", 0, 3, "s", "", "m1", "", "", "3x2"], ["a", "store", 3, 3]]]}
+set s3.home_l {"v": 1, "pages": [[["w", "weather", 0, 0, "s", "now", "", "", "", "1x1"], ["w", "count", 1, 0, "s", "tet", "", "", "", "1x1"], ["w", "weather", 2, 0, "s", "now", "", "", "", "3x1"], ["a", "cal", 4, 0], ["w", "weather", 0, 1, "s", "hourly", "", "", "", "4x1"], ["a", "news", 4, 1], ["w", "weather", 0, 2, "s", "days", "", "", "", "3x2"], ["w", "notes", 3, 2, "s", "note", "", "", "", "2x1"], ["a", "notes", 3, 3], ["a", "photos", 4, 3]], [["w", "weather", 0, 0, "s", "now", "", "", "", "4x3"], ["a", "cal", 4, 0], ["a", "weather", 4, 1], ["w", "count", 0, 3, "s", "tet", "", "", "", "4x1"], ["a", "photos", 4, 3]], [["w", "remind", 0, 0, "s", "open", "", "", "", "2x4"], ["w", "notify", 2, 0, "s", "latest", "", "", "", "3x3"], ["w", "photo", 2, 3, "s", "cover", "", "", "", "3x1"]], [["w", "my", 0, 0, "s", "", "m1", "", "", "3x2"], ["w", "weather", 3, 0, "s", "detail", "", "", "", "2x3"], ["w", "weather", 0, 2, "s", "sun", "", "", "", "3x1"], ["w", "count", 0, 3, "s", "holiday", "", "", "", "2x1"], ["a", "calc", 2, 3]]]}
+wait 2000
+shot p1
+overflow p1
+drag 300 240 30 240 300
+wait 900
+shot p2
+overflow p2
+drag 300 240 30 240 300
+wait 900
+shot p3
+overflow p3
+drag 300 240 30 240 300
+wait 900
+shot p4
+overflow p4
+drag 300 240 30 240 300
+wait 900
+shot p5
+overflow p5
+drag 300 240 30 240 300
+wait 900
+shot p6
+overflow p6
+drag 300 240 30 240 300
+wait 900
+shot p7
+overflow p7
+rot 1
+wait 2500
+shot l1
+overflow l1
+drag 360 200 20 200 250
+wait 900
+shot l2
+overflow l2
+drag 360 200 20 200 250
+wait 900
+shot l3
+overflow l3
+drag 360 200 20 200 250
+wait 900
+shot l4
+overflow l4
+rot 0
+wait 1000

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math"
 	"net/url"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -1727,8 +1728,8 @@ func claudePop(kind string, data map[string]any, lang string) (map[string]any, [
 	if t := wm.Str(data["mono"]); t != "" {
 		pop["mono"] = t
 	}
-	if t := wm.Str(data["text"]); t != "" {
-		pop["text"] = t
+	if t := plainMD(wm.Str(data["text"])); t != "" {
+		pop["text"] = t // Claude writes markdown; the S3 shows plain text (the command in mono stays as typed)
 	}
 	// what the S3 may speak for it, once (its announcement rules: one per 2 minutes, merged, none at night)
 	if head := wm.Str(data["head"]); head != "" && kind != "claude_status" {
@@ -1786,6 +1787,38 @@ func macAllows(macs *map[int]map[string]any, userID, mac, deviceID int) bool {
 		}
 	}
 	return false
+}
+
+// plainMD: markdown as plain text for the S3's cards (Claude's status reports and last lines came out as
+// "**Tài khoản:**", `Active`, "- item", 2026-11-23). Marks only, never words: headings, emphasis (** and __),
+// inline code, links and images ([x](y) → x), quotes and code fences go; list items become "• ". A single * or _ stays
+// (file_names, 2*3).
+var (
+	mdLink    = regexp.MustCompile(`!?\[([^\]\n]*)\]\([^)\n]*\)`)
+	mdHeading = regexp.MustCompile(`^#{1,6}\s+`)
+	mdBullet  = regexp.MustCompile(`^(\s*)[-*+]\s+`)
+	mdQuote   = regexp.MustCompile(`^>\s?`)
+	mdRule    = regexp.MustCompile(`^\s*(?:(?:-\s*){3,}|(?:\*\s*){3,}|(?:_\s*){3,})$`) // RE2: no back-references
+)
+
+func plainMD(s string) string {
+	if s == "" {
+		return s
+	}
+	lines := strings.Split(strings.ReplaceAll(s, "\r\n", "\n"), "\n")
+	out := make([]string, 0, len(lines))
+	for _, t := range lines {
+		if strings.HasPrefix(strings.TrimSpace(t), "```") || mdRule.MatchString(t) {
+			continue // a code fence or a horizontal rule: no words
+		}
+		t = mdQuote.ReplaceAllString(t, "")
+		t = mdHeading.ReplaceAllString(t, "")
+		t = mdBullet.ReplaceAllString(t, "$1• ")
+		t = mdLink.ReplaceAllString(t, "$1")
+		t = strings.NewReplacer("**", "", "__", "", "`", "").Replace(t)
+		out = append(out, t)
+	}
+	return strings.Trim(strings.Join(out, "\n"), "\n") // the words as they were, spaces too
 }
 
 // notAllowedHint: where to let this device answer the Mac's requests, in the device's language (">" not "›": the

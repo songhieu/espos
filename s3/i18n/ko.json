@@ -724,7 +724,6 @@
  "None yet": "아직 없음",
  "Normal": "보통",
  "Northern Vietnam": "베트남 북부",
- "Not done: ": "처리 안 됨: ",
  "Not done: no connection": "처리 안 됨: 연결 없음",
  "Not enough memory to open PawBoop": "메모리가 부족하여 PawBoop을 열 수 없음",
  "Not enough memory to open PawBoop Run": "메모리가 부족하여 PawBoop 런을 열 수 없음",
@@ -1608,5 +1607,13 @@
  "How can I help?": "무엇을 도와드릴까요?",
  "Hold the button and speak": "버튼을 누른 채 말하세요",
  "{0} stopped": "{0}이(가) 멈췄습니다",
- "The screen saver app stopped 3 times, so the built-in saver shows instead. Choose it again in Settings, Default apps.": "화면 보호기 앱이 3번 멈춰서 기본 화면 보호기를 대신 보여 줍니다. 설정의 기본 앱에서 다시 고르세요."
+ "The screen saver app stopped 3 times, so the built-in saver shows instead. Choose it again in Settings, Default apps.": "화면 보호기 앱이 3번 멈춰서 기본 화면 보호기를 대신 보여 줍니다. 설정의 기본 앱에서 다시 고르세요.",
+ "Not done": "처리 안 됨",
+ "The Mac does not take commands from this device yet. On the Mac: EspOS Desktop > Settings > Devices, turn this device on.": "Mac이 아직 이 기기의 명령을 받지 않습니다. Mac에서 EspOS Desktop > Settings > Devices로 가서 이 기기를 켜세요.",
+ "The Mac is offline. Nothing was sent.": "Mac이 오프라인이에요. 아무것도 보내지 않았어요.",
+ "The Mac is in view-only mode. Nothing was sent.": "Mac이 보기 전용 모드예요. 아무것도 보내지 않았어요.",
+ "This is turned off in EspOS Desktop on the Mac.": "Mac의 EspOS Desktop에서 꺼져 있어요.",
+ "The session is no longer waiting.": "세션이 더 이상 기다리지 않아요.",
+ "That question was already answered or has expired.": "이미 답했거나 만료된 질문이에요.",
+ "Too many in a row. Wait a moment.": "너무 연달아 보냈어요. 잠시 기다려 주세요."
 }

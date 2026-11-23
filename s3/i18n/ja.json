@@ -724,7 +724,6 @@
  "None yet": "まだなし",
  "Normal": "標準",
  "Northern Vietnam": "ベトナム北部",
- "Not done: ": "できませんでした: ",
  "Not done: no connection": "できませんでした: 接続がありません",
  "Not enough memory to open PawBoop": "メモリ不足のためPawBoopを開けません",
  "Not enough memory to open PawBoop Run": "メモリ不足のためPawBoopランを開けません",
@@ -1608,5 +1607,13 @@
  "How can I help?": "何かお手伝いしましょうか？",
  "Hold the button and speak": "ボタンを押しながら話してください",
  "{0} stopped": "{0} が停止しました",
- "The screen saver app stopped 3 times, so the built-in saver shows instead. Choose it again in Settings, Default apps.": "スクリーンセーバーのアプリが3回停止したため、内蔵のスクリーンセーバーを表示しています。設定の「デフォルトのアプリ」で選び直してください。"
+ "The screen saver app stopped 3 times, so the built-in saver shows instead. Choose it again in Settings, Default apps.": "スクリーンセーバーのアプリが3回停止したため、内蔵のスクリーンセーバーを表示しています。設定の「デフォルトのアプリ」で選び直してください。",
+ "Not done": "できませんでした",
+ "The Mac does not take commands from this device yet. On the Mac: EspOS Desktop > Settings > Devices, turn this device on.": "Mac はまだこのデバイスからの操作を受け付けていません。Mac で EspOS Desktop > Settings > Devices を開き、このデバイスをオンにしてください。",
+ "The Mac is offline. Nothing was sent.": "Mac がオフラインです。何も送信されていません。",
+ "The Mac is in view-only mode. Nothing was sent.": "Mac は閲覧のみモードです。何も送信されていません。",
+ "This is turned off in EspOS Desktop on the Mac.": "Mac の EspOS Desktop でオフになっています。",
+ "The session is no longer waiting.": "このセッションはもう待っていません。",
+ "That question was already answered or has expired.": "その質問は回答済みか、期限切れです。",
+ "Too many in a row. Wait a moment.": "連続で送りすぎです。少し待ってください。"
 }

@@ -724,7 +724,6 @@
  "None yet": "暂无",
  "Normal": "标准",
  "Northern Vietnam": "越南北部",
- "Not done: ": "未完成：",
  "Not done: no connection": "未完成：没有网络",
  "Not enough memory to open PawBoop": "内存不足，无法打开 PawBoop",
  "Not enough memory to open PawBoop Run": "内存不足，无法打开 PawBoop 跑酷",
@@ -1608,5 +1607,13 @@
  "How can I help?": "有什么可以帮你？",
  "Hold the button and speak": "按住按钮说话",
  "{0} stopped": "{0} 已停止",
- "The screen saver app stopped 3 times, so the built-in saver shows instead. Choose it again in Settings, Default apps.": "屏保应用已停止 3 次，所以改用内置屏保。可在“设置”的“默认应用”中重新选择。"
+ "The screen saver app stopped 3 times, so the built-in saver shows instead. Choose it again in Settings, Default apps.": "屏保应用已停止 3 次，所以改用内置屏保。可在“设置”的“默认应用”中重新选择。",
+ "Not done": "未完成",
+ "The Mac does not take commands from this device yet. On the Mac: EspOS Desktop > Settings > Devices, turn this device on.": "这台 Mac 还不接受此设备的指令。在 Mac 上：EspOS Desktop > Settings > Devices，打开此设备。",
+ "The Mac is offline. Nothing was sent.": "Mac 已离线，未发送任何内容。",
+ "The Mac is in view-only mode. Nothing was sent.": "Mac 处于仅查看模式，未发送任何内容。",
+ "This is turned off in EspOS Desktop on the Mac.": "此功能已在 Mac 上的 EspOS Desktop 中关闭。",
+ "The session is no longer waiting.": "该会话已不再等待。",
+ "That question was already answered or has expired.": "这个问题已回答或已过期。",
+ "Too many in a row. Wait a moment.": "操作太频繁，请稍等片刻。"
 }

@@ -103,6 +103,17 @@ Changes:
   after it closes goes on from there. The saver's tank background holds the same way.
 - **Under other OS overlays** (a lock sheet, a notification), LVGL draws the whole screen, so the water goes on at
   4 pictures a second there.
+- **Room for the saver's water** (0.6.2 hotfix, 2026-11-23). The owner's 3.5" lost the aquarium on its second saver.
+  After the dog's greeting, PSRAM was 1208 KB free with its largest block 847 KB. Home's 4 page pictures (~300 KB each)
+  and the dog's decoded pictures (3 slots, kept after the pop-up closed) held it. `ensure()` could not make the water,
+  said nothing, and the saver drew the deep-water gradient.
+  - `room()` runs before the saver's water (and the app) is made: `home::releasePictures()`, `pet::dog::release()`
+    when her pop-up is closed, and `pet::pk::trim()`. All are made again when shown.
+  - If the background's three buffers (bgRaw, bgc, film) still do not fit, `Scene::allocBg()` makes the light water:
+    one layer, bgc is bgRaw (the look's picture as it is: no film, no tint or haze, by rows). The line reads "tank:
+    light water: no room for all of it ...". Only with no room for even that is the gradient drawn, with "tank: no
+    room for the saver's water (PSRAM ...)".
+  - Simulator: `SIM_TANK_LITE=1` makes the light water.
 - **Under the saver's editor** (2026-11-23, the owner: dragging the Claude widget on an aquarium page lagged). The
   editor sits over the saver, and the saver's water kept making 5 pictures a second behind it. Each one is ~150 ms on
   the board and made LVGL redraw the whole editor, so a drag stopped 5 times a second. Now `onSaver` holds the water
