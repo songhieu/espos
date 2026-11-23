@@ -12,8 +12,9 @@ using namespace kit;
 
 // Style names (the gallery and the editors show them through the kit helpers, which translate them).
 const std::vector<Style> DATE_STYLES = {{"sheet", N_("Sheet")}, {"compact", N_("Compact")}, {"block", N_("Big day")}};
-const std::vector<Style> CAL_STYLES = {{"today", N_("Today")}, {"events", N_("Events")}, {"week", N_("Week")},
-                                       {"month", N_("Month")}};
+// Free sizes (docs/widgets.md §2b): today in 2x1, the week as a strip (3x1, 4x1), the month in 3x3.
+const std::vector<Style> CAL_STYLES = {{"today", N_("Today"), SPAN(2, 1)}, {"events", N_("Events")},
+                                       {"week", N_("Week"), SPAN(3, 1) | SPAN(4, 1)}, {"month", N_("Month"), SPAN(3, 3)}};
 const std::vector<Style> LUNAR_STYLES = {{"canchi", N_("Zodiac")},  // i18n: the stems and branches (Can chi) style
                                          {"detail", N_("Details")},
                                          {"month", N_("Lunar month")},
@@ -801,7 +802,63 @@ void wDate(lv_obj_t*, const Item& it, Card c) {
   else sheet(c, it.size, day, l, hol);
 }
 
+namespace {
+// ---------------------------------------------------------------- cal: the other spans (web: cal.ts calAt)
+void calAt(Card c, const String& st) {
+  lv_obj_t* p = c.o;
+  const Day day = data::today();
+  const auto evs = data::agenda();
+  if (st == "week") {
+    // A strip: this week on one row, today in a red disc, a dot under the days with events.
+    const Day mon = plus(day, -((day.wday + 6) % 7));
+    const int cwd = c.w / 7, disc = 24, px = 15, ny = 18, lh = lv_font_get_line_height(fonts::get(px, true));
+    for (int i = 0; i < 7; i++) {
+      const Day x = plus(mon, i);
+      const int cx = i * cwd;
+      const Lunar ln = data::lunar(x);
+      const String hol = data::holiday(x, ln);
+      const bool today = data::julian(x) == data::julian(day);
+      const bool red = i == 6 || hol.length();
+      mid(p, monFirst(i), cx, -2, cwd, 12, true, red ? col::RED : GREY);
+      if (today) rect(p, cx + (cwd - disc) / 2, ny + (lh - disc) / 2, disc, disc, col::RED, disc / 2);
+      mid(p, String(x.d), cx, ny, cwd, px, true, today ? WHITE : red ? col::RED : INK);
+      if (!today && eventsOn(evs, x)) rect(p, cx + cwd / 2 - 2, ny + lh + 1, 4, 4, EV_COL[0], 2);
+    }
+    return;
+  }
+  if (st == "month") {
+    // Three by three: the month with its lunar dates.
+    at(p, upperVi(i18n::MONTH[day.m - 1]), 0, 0, 12, true, col::RED);
+    right(p, String(day.y), 0, 12, true, GREY);
+    monthGrid(p, 0, 18, c.w, c.h - 18, day, 14, 22, true);
+    return;
+  }
+  // Today in two cells: the date big, the weekday and today's next event beside it.
+  const String n = String(day.d);
+  at(p, n, -1, 0, 28, true, INK);
+  const int x = textW(n.c_str(), 28, true) + 6;
+  cap(p, WEEKDAY[day.wday], col::RED, x, 0, c.w - x);
+  const int now = data::nowMinutes();
+  const String td = data::isoDate(day);
+  const data::Event* next = nullptr;
+  for (const auto& e : evs)
+    if (e.date == td && evMin(e, 24 * 60) >= now) {
+      next = &e;
+      break;
+    }
+  if (!next) {
+    fit(p, N_("Nothing today"), x, 16, c.w - x, c.h - 16, 13, 12, false, GREY, 0);
+    return;
+  }
+  if (!fitIn(p, eventLine(*next), x, 14, c.w - x, c.h - 14, 13, 12, false, INK, 0))
+    fit(p, next->time.length() ? next->time : eventLine(*next), x, 14, c.w - x, c.h - 14, 13, 12, true, INK, 0);
+}
+}  // namespace
+
 void wCal(lv_obj_t*, const Item& it, Card c) {
+  int cw, ch;
+  spanOf(it, cw, ch);
+  if (!legacy(cw, ch)) return calAt(c, styleAt(it));
   const String st = styleOf(it);
   if (st == "events") calEvents(c, it.size);
   else if (st == "week") calWeek(c, it.size);

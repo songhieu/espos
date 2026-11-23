@@ -7,7 +7,10 @@ the simulator's sync fetch the app's token (the package secret espos_token) from
     python3 apps/sessions/test/mock_server.py [--port 8790] [--scene normal]
 
 Scenes (POST /mock/scene {"name": ...} switches at run time): normal, fast (one session prints 50 lines a second),
-share_off, offline, view, estop, not_paired, disabled, empty, locked (AI routes 402), risky_perm.
+share_off, offline, view, estop, not_paired, disabled, empty, locked (AI routes 402), risky_perm,
+notallowed (every send 403 sender_not_allowed: the Mac's allow_from leaves this device out, macs[].allowed not sent),
+disallowed (the same with macs[].allowed false), allowed (macs[].allowed true), oddstatus (sends answer 503, no JSON code),
+turnedon (the first send 403 sender_not_allowed, then the person turns the device on at the Mac: macs[].allowed true).
 GET /mock/log: what the app sent (sends, suggest, compose, dictate), newest last. Nothing here leaves the machine.
 """
 import argparse
@@ -161,6 +164,7 @@ SCREENS = {}
 
 def reset(scene):
     state["scene"] = scene
+    state["turned_on"] = False
     state["sessions"] = [] if scene in ("empty", "estop") else sessions_for(scene)
     s1 = [x for x in state["sessions"] if x["id"] == "s-1"]
     SCREENS.clear()
@@ -187,6 +191,10 @@ def macs():
         m.update(mode="view", stream=True)
     if sc == "estop":
         m.update(mode="off", online=False, stream=False, stream_why="offline")
+    if sc in ("disallowed", "allowed"):  # the Mac's list of devices that may send commands (desktop's allow_from)
+        m["allowed"] = sc == "allowed"
+    if sc == "turnedon" and state.get("turned_on"):
+        m["allowed"] = True
     return [m]
 
 
@@ -371,6 +379,16 @@ class H(BaseHTTPRequestHandler):
         state["log"].append(dict(route=route, ms=now_ms(), **d))
         if route == "send":
             LAT["req"].append([now_ms(), "send", d.get("kind"), d.get("key") or d.get("keys")])
+            if state["scene"] in ("notallowed", "disallowed"):  # desk_queue refuse(403) as sess_app fin.go passes it on
+                return self.answer(403, {"state": "refused", "err": "sender_not_allowed"})
+            if state["scene"] == "turnedon" and not state.get("turned_on"):
+                with lock:
+                    state["turned_on"] = True
+                    state["rev"] += 1
+                    lock.notify_all()
+                return self.answer(403, {"state": "refused", "err": "sender_not_allowed"})
+            if state["scene"] == "oddstatus":
+                return self.answer(503, {"message": "upstream unavailable"})
             n = d.get("nonce", "")
             if n in state["nonces"]:
                 return self.answer(200, state["nonces"][n])

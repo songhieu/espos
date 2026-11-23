@@ -114,7 +114,8 @@
   "Not sent. Tap Send when it is right.": "Chưa gửi. Bấm Gửi khi đã đúng.",
   "Use Approve or Deny for this request": "Dùng nút Duyệt hoặc Từ chối cho yêu cầu này",
   "Hold {key} for a second to stop Claude": "Giữ {key} một giây để dừng Claude",
-  "Sent {key}": "Đã gửi {key}"
+  "Sent {key}": "Đã gửi {key}",
+  "The Mac does not take commands from this device yet. On the Mac: EspOS Desktop > Settings > Devices, turn this device on.": "Mac chưa cho máy này ra lệnh. Trên Mac: EspOS Desktop > Cài đặt > Máy ra lệnh, bật máy này."
  },
  "zh-Hans": {
   "In Claude Code, a line that starts with ! runs as a shell command at once, without Claude.": "在 Claude Code 中，以 ! 开头的一行会立即作为 shell 命令运行，不经过 Claude。",
@@ -231,7 +232,8 @@
   "Not sent. Tap Send when it is right.": "未发送。确认无误后点“发送”。",
   "Use Approve or Deny for this request": "请用“批准”或“拒绝”回复这个请求",
   "Hold {key} for a second to stop Claude": "按住 {key} 一秒以停止 Claude",
-  "Sent {key}": "已发送 {key}"
+  "Sent {key}": "已发送 {key}",
+  "The Mac does not take commands from this device yet. On the Mac: EspOS Desktop > Settings > Devices, turn this device on.": "这台 Mac 还不接受此设备的指令。在 Mac 上：EspOS Desktop > Settings > Devices，打开此设备。"
  },
  "es": {
   "In Claude Code, a line that starts with ! runs as a shell command at once, without Claude.": "En Claude Code, una línea que empieza por ! se ejecuta al instante como comando de shell, sin Claude.",
@@ -348,7 +350,8 @@
   "Not sent. Tap Send when it is right.": "No se envió. Toca Enviar cuando esté bien.",
   "Use Approve or Deny for this request": "Usa Aprobar o Rechazar para esta solicitud",
   "Hold {key} for a second to stop Claude": "Mantén {key} un segundo para detener a Claude",
-  "Sent {key}": "{key} enviado"
+  "Sent {key}": "{key} enviado",
+  "The Mac does not take commands from this device yet. On the Mac: EspOS Desktop > Settings > Devices, turn this device on.": "El Mac aún no acepta órdenes de este dispositivo. En el Mac: EspOS Desktop > Settings > Devices, activa este dispositivo."
  },
  "fr": {
   "In Claude Code, a line that starts with ! runs as a shell command at once, without Claude.": "Dans Claude Code, une ligne qui commence par ! s'exécute aussitôt comme commande shell, sans Claude.",
@@ -465,7 +468,8 @@
   "Not sent. Tap Send when it is right.": "Pas envoyé. Touchez Envoyer quand c'est bon.",
   "Use Approve or Deny for this request": "Utilisez Approuver ou Refuser pour cette demande",
   "Hold {key} for a second to stop Claude": "Maintenez {key} une seconde pour arrêter Claude",
-  "Sent {key}": "{key} envoyé"
+  "Sent {key}": "{key} envoyé",
+  "The Mac does not take commands from this device yet. On the Mac: EspOS Desktop > Settings > Devices, turn this device on.": "Le Mac n'accepte pas encore les commandes de cet appareil. Sur le Mac : EspOS Desktop > Settings > Devices, activez cet appareil."
  },
  "de": {
   "In Claude Code, a line that starts with ! runs as a shell command at once, without Claude.": "In Claude Code wird eine Zeile, die mit ! beginnt, sofort als Shell-Befehl ausgeführt, ohne Claude.",
@@ -582,7 +586,8 @@
   "Not sent. Tap Send when it is right.": "Nicht gesendet. Tippe auf Senden, wenn es passt.",
   "Use Approve or Deny for this request": "Nutze Erlauben oder Ablehnen für diese Anfrage",
   "Hold {key} for a second to stop Claude": "Halte {key} eine Sekunde, um Claude zu stoppen",
-  "Sent {key}": "{key} gesendet"
+  "Sent {key}": "{key} gesendet",
+  "The Mac does not take commands from this device yet. On the Mac: EspOS Desktop > Settings > Devices, turn this device on.": "Der Mac nimmt noch keine Befehle von diesem Gerät an. Auf dem Mac: EspOS Desktop > Settings > Devices, dieses Gerät einschalten."
  },
  "ja": {
   "In Claude Code, a line that starts with ! runs as a shell command at once, without Claude.": "Claude Code では、! で始まる行は Claude を通さず、すぐにシェルコマンドとして実行されます。",
@@ -699,7 +704,8 @@
   "Not sent. Tap Send when it is right.": "送信していません。正しければ送信をタップ。",
   "Use Approve or Deny for this request": "このリクエストには「承認」か「拒否」を使ってください",
   "Hold {key} for a second to stop Claude": "{key} を1秒押し続けると Claude を止めます",
-  "Sent {key}": "{key} を送信しました"
+  "Sent {key}": "{key} を送信しました",
+  "The Mac does not take commands from this device yet. On the Mac: EspOS Desktop > Settings > Devices, turn this device on.": "Mac はまだこのデバイスからの操作を受け付けていません。Mac で EspOS Desktop > Settings > Devices を開き、このデバイスをオンにしてください。"
  },
  "ko": {
   "In Claude Code, a line that starts with ! runs as a shell command at once, without Claude.": "Claude Code에서 !로 시작하는 줄은 Claude를 거치지 않고 바로 셸 명령으로 실행돼요.",
@@ -816,7 +822,8 @@
   "Not sent. Tap Send when it is right.": "보내지 않았어요. 맞으면 보내기를 누르세요.",
   "Use Approve or Deny for this request": "이 요청은 승인 또는 거부 버튼으로 답하세요",
   "Hold {key} for a second to stop Claude": "Claude를 멈추려면 {key}를 1초 누르세요",
-  "Sent {key}": "{key} 보냄"
+  "Sent {key}": "{key} 보냄",
+  "The Mac does not take commands from this device yet. On the Mac: EspOS Desktop > Settings > Devices, turn this device on.": "Mac이 아직 이 기기의 명령을 받지 않습니다. Mac에서 EspOS Desktop > Settings > Devices로 가서 이 기기를 켜세요."
  },
  "pt-BR": {
   "In Claude Code, a line that starts with ! runs as a shell command at once, without Claude.": "No Claude Code, uma linha que começa com ! é executada na hora como comando do shell, sem o Claude.",
@@ -933,7 +940,8 @@
   "Not sent. Tap Send when it is right.": "Não enviado. Toque em Enviar quando estiver certo.",
   "Use Approve or Deny for this request": "Use Aprovar ou Negar para este pedido",
   "Hold {key} for a second to stop Claude": "Segure {key} por um segundo para parar o Claude",
-  "Sent {key}": "{key} enviado"
+  "Sent {key}": "{key} enviado",
+  "The Mac does not take commands from this device yet. On the Mac: EspOS Desktop > Settings > Devices, turn this device on.": "O Mac ainda não aceita comandos deste dispositivo. No Mac: EspOS Desktop > Settings > Devices, ative este dispositivo."
  },
  "ru": {
   "In Claude Code, a line that starts with ! runs as a shell command at once, without Claude.": "В Claude Code строка, которая начинается с !, сразу выполняется как команда оболочки, без Claude.",
@@ -1050,7 +1058,8 @@
   "Not sent. Tap Send when it is right.": "Не отправлено. Нажмите «Отправить», когда всё верно.",
   "Use Approve or Deny for this request": "Ответьте на этот запрос кнопкой «Разрешить» или «Отклонить»",
   "Hold {key} for a second to stop Claude": "Удерживайте {key} секунду, чтобы остановить Claude",
-  "Sent {key}": "{key} отправлено"
+  "Sent {key}": "{key} отправлено",
+  "The Mac does not take commands from this device yet. On the Mac: EspOS Desktop > Settings > Devices, turn this device on.": "Mac пока не принимает команды с этого устройства. На Mac: EspOS Desktop > Settings > Devices, включите это устройство."
  },
  "id": {
   "In Claude Code, a line that starts with ! runs as a shell command at once, without Claude.": "Di Claude Code, baris yang diawali ! langsung dijalankan sebagai perintah shell, tanpa Claude.",
@@ -1167,6 +1176,7 @@
   "Not sent. Tap Send when it is right.": "Tidak dikirim. Ketuk Kirim jika sudah benar.",
   "Use Approve or Deny for this request": "Gunakan Setujui atau Tolak untuk permintaan ini",
   "Hold {key} for a second to stop Claude": "Tahan {key} sedetik untuk menghentikan Claude",
-  "Sent {key}": "{key} terkirim"
+  "Sent {key}": "{key} terkirim",
+  "The Mac does not take commands from this device yet. On the Mac: EspOS Desktop > Settings > Devices, turn this device on.": "Mac belum menerima perintah dari perangkat ini. Di Mac: EspOS Desktop > Settings > Devices, nyalakan perangkat ini."
  }
 }

@@ -20,6 +20,35 @@ the background; for the saver).
 descriptor (`opt`: none | codes | note | photo | mine | cities | section | date | todo) so the device can build its
 option sheets from the registry.
 
+## 2b. Free sizes (2026-11-23, owner: "tao muốn tự do điều chỉnh size của widget hơn")
+
+A widget takes a span of cells `cw x ch`, 1..4 each, in portrait (4 x 5) and landscape (5 x 4) alike. Its card is
+`cw * 78 - 12` by `ch * 74 - 10` (S 2 x 2 = 144 x 138, M 4 x 2 = 300 x 138, L 4 x 4 = 300 x 286 are three of them), the
+same in both orientations and on the 2.8" (its grid sits in the middle).
+
+- Stored: Home entries (`s3.home`, `s3.home_l`) get index 9, `"WxH"` ("3x2"), only for a span that is not S, M or L;
+  indexes 7 and 8 are then written too (empty when unset). Index 4 keeps the largest of S, M, L inside the span (else
+  "s"), for firmware before 0.6.2, which reads only that letter (and drops what then overlaps). Documents without a
+  span are byte for byte what they were. A span the kind does not draw is read as the letter.
+- Registry: `Style::spans` (bits `SPAN(cw, ch)` = 1 << ((ch - 1) * 4 + (cw - 1))) lists the spans a look draws besides
+  S, M, L; the kind draws their union (web `Kind.spans`, the same bits). `wid::draws`, `wid::styleAt` (the item's look
+  if it draws the span, else the first that does), `wid::spanOf`, `wid::boxOf`, `wid::setSpan`; web `spansOf`,
+  `stylesAt`, `styleAt`, `withSpan`, `boxOfSpan`.
+- Drawn so far (web os/wid and src/wid, line by line): claude (bars 2x1 3x1 4x1 3x2 2x3 4x3 2x4; ring 3x1 4x1 2x3
+  2x4; today 3x1 4x1 4x3), clock (digital and the 17 dials: 1x1 2x1 3x1 4x1 3x2 4x3; dials under 80 px keep only the
+  hour marks and hands), cal (today 2x1, week 3x1 4x1, month 3x3), markets (list 2x1 3x1 4x1 3x2 2x3 2x4). Every other
+  kind and look keeps S, M, L.
+- Placing: `findIn`/`findFree` step 1 cell for apps and odd-wide widgets, 2 for the others; portrait snaps only
+  even-wide widgets to the halves. A resize (`resizePlan`, home.cpp and model.ts the same): the widget takes its new
+  place and span, what it then covers moves to the first free places of the page in reading order; no room = refused.
+- Editors: Home's edit mode on the device (tap a widget: four corner handles instead of its "−", drag one to resize by
+  cells, a "3 × 2" badge, red "No room on this page" when refused; tap it again: its sheet, whose Size row lists every
+  span its look draws) and the web's Màn chính (handles, a 4 x 4 size grid, Add widget's step 2). The web offers other
+  spans only to a device whose firmware is 0.6.2 or later (`fw_code` >= 602).
+- Server: `checkHomeL` (save_device_settings and device_sync) reads index 9 for the 5 x 4 grid check.
+- Not yet: the saver's widgets (`s3.saver_pages` keeps S, M, L), the device's Add widget gallery (adds S, M, L; resize
+  after), the X4.
+
 ## 3. The set (style ids; first one is the default)
 
 | kind | name | sizes | styles | opt |

@@ -103,6 +103,14 @@ Changes:
   after it closes goes on from there. The saver's tank background holds the same way.
 - **Under other OS overlays** (a lock sheet, a notification), LVGL draws the whole screen, so the water goes on at
   4 pictures a second there.
+- **Under the saver's editor** (2026-11-23, the owner: dragging the Claude widget on an aquarium page lagged). The
+  editor sits over the saver, and the saver's water kept making 5 pictures a second behind it. Each one is ~150 ms on
+  the board and made LVGL redraw the whole editor, so a drag stopped 5 times a second. Now `onSaver` holds the water
+  (its clock too) while `saveredit::isOpen()` (the editor always opens over the saver, from a long press or from
+  Settings). LVGL redraws only what the finger moves, and the water swims on when the editor closes. The editor's
+  own page asks `saverBg` too while the saver's water exists. It gets `stillOf`: a copy of that last picture in
+  PSRAM, freed with its image, with the fish where they stopped. The editor also hides what it covers while open
+  (docs/saver.md §3, Speed: ~22 → ~60 redraws a second while dragging).
 - **The top bar, the dock and the fish card** (2026-11-20). They took 15–32 ms a picture on the board (0.5.6).
   - The main cost was not drawing. On its side the board asks for a picture in six pieces, and `ui::draw()` runs for
     each. Every piece read the game again: the comfort checks every fish, the jobs and the lamp read the clock
@@ -146,8 +154,8 @@ Changes:
 ## Dev
 
 Board: `TANK fps 20`, `TANK tear 1`, `TANK game`, `TANK save`, `TANK stats` (and the "tank: N fish ..." line every
-10 s with the draw parts). Simulator (or a board built with `-DTANK_QA=1`; left out of the release image since
-2026-11-19, the app slot is full): `tank <same>` plus `bench` (5, 12, 20 fish, 6 s each: pictures a second,
+10 s; its draw and prepare parts only with `-DTANK_QA=1` since 2026-11-23, flash for the saver fixes). Simulator (or
+a board built with `-DTANK_QA=1`; left out of the release image since 2026-11-19, the app slot is full): `tank <same>` plus `bench` (5, 12, 20 fish, 6 s each: pictures a second,
 move/prepare/draw/push ms; `bench 20`), `free planted neon*7,guppy*2`, `time 8`, `coins 500`, `xp 150`, `look reef`, `night 1|0|-`, `speed 4`, `reset` and the QA knobs
 (`add ID N`, `sick`, `algae N`, `clean N`, `fed N`, `card [sick]`, `tab N`, `food`, `sponge`, `scroll PX`,
 `say TEXT`, `shot FILE.ppm` = the panel's picture with its black bars).

@@ -44,6 +44,233 @@ var weekdays = []string{"CHỦ NHẬT", "THỨ HAI", "THỨ BA", "THỨ TƯ", "T
 var can = []string{"Giáp", "Ất", "Bính", "Đinh", "Mậu", "Kỷ", "Canh", "Tân", "Nhâm", "Quý"}
 var chi = []string{"Tý", "Sửu", "Dần", "Mão", "Thìn", "Tỵ", "Ngọ", "Mùi", "Thân", "Dậu", "Tuất", "Hợi"}
 
+// ---------- the server's own words, in the device's language (2026-11-23) ----------
+//
+// The dashboard's words (weather, days, the default city, calendar fallbacks, news sections, Claude cards, gold names)
+// were always Vietnamese; an English S3 showed "Nhiều mây". Now they follow the device's sys.lang, in the firmware's
+// languages (s3desk/i18n/languages.json). Each key is the Vietnamese text sent until now, so a Vietnamese device gets
+// exactly the same bytes; a language missing from an entry falls back to English, then to the key. Words the firmware
+// already has (news sections, Hanoi, Today, All day) are its own translations (scratch generator gen.py).
+
+// dashLang: the language the dashboard speaks to a device. The S3: its sys.lang (English built in, so English when
+// unset; an unknown tag → English). The EspOS Bot: English or Vietnamese, as its own screens (src/bot/app.cpp; it
+// starts in Vietnamese). The X4 and anything else: Vietnamese, as always.
+func dashLang(sysLang, kind string) string {
+	l := strings.TrimSpace(sysLang)
+	switch kind {
+	case "s3":
+		if l == "" {
+			return "en"
+		}
+		for _, t := range []string{"vi", "en", "de", "fr", "es", "pt-BR", "ru", "ja", "ko", "zh-Hans", "id"} {
+			if strings.EqualFold(l, t) {
+				return t
+			}
+		}
+		switch strings.ToLower(strings.SplitN(strings.ReplaceAll(l, "_", "-"), "-", 2)[0]) {
+		case "pt":
+			return "pt-BR"
+		case "zh":
+			return "zh-Hans"
+		case "vi", "en", "de", "fr", "es", "ru", "ja", "ko", "id":
+			return strings.ToLower(l[:2])
+		}
+		return "en"
+	case "bot":
+		if l == "en" {
+			return "en"
+		}
+		return "vi"
+	}
+	return "vi"
+}
+
+// tr: a word in the language (vi: the key itself).
+func tr(lang, vi string) string {
+	if lang == "vi" {
+		return vi
+	}
+	if row, ok := words[vi]; ok {
+		if v := row[lang]; v != "" {
+			return v
+		}
+		if v := row["en"]; v != "" {
+			return v
+		}
+	}
+	return vi
+}
+
+// lunarYear: the lunar year's name: Vietnamese "Giáp Thìn" (as always), the stem and branch characters in Chinese and
+// Japanese (甲辰) and Korean (갑진), the animal elsewhere ("Dragon").
+func lunarYear(lang string, stem, branch int) string {
+	switch lang {
+	case "vi":
+		return can[stem] + " " + chi[branch]
+	case "zh-Hans", "ja":
+		return string([]rune("甲乙丙丁戊己庚辛壬癸")[stem]) + string([]rune("子丑寅卯辰巳午未申酉戌亥")[branch])
+	case "ko":
+		return string([]rune("갑을병정무기경신임계")[stem]) + string([]rune("자축인묘진사오미신유술해")[branch])
+	}
+	if a, ok := animals[lang]; ok {
+		return a[branch]
+	}
+	return animals["en"][branch]
+}
+
+// trEvents: the calendar's two words in today's list and the agenda (built, and cached per device, in Vietnamese).
+func trEvents(lang string, list []any) {
+	if lang == "vi" {
+		return
+	}
+	for _, x := range list {
+		if m, ok := x.(map[string]any); ok {
+			if m["time"] == "Cả ngày" {
+				m["time"] = tr(lang, "Cả ngày")
+			}
+			if m["title"] == "(Không tiêu đề)" {
+				m["title"] = tr(lang, "(Không tiêu đề)")
+			}
+		}
+	}
+}
+
+// goldNames: market_tick's gold names in the language: "Vàng SJC", "Nhẫn 9999", "Nữ trang 999" by their pattern; a
+// brand ("Kim Bảo", "PNJ Phượng Hoàng") without its Vietnamese marks outside Vietnamese (the built-in fonts are
+// Latin-1). Copies, filled by index (applint -strict).
+func goldNames(lang string, items []any) []any {
+	if lang == "vi" {
+		return items
+	}
+	out := make([]any, len(items))
+	for i, x := range items {
+		m, ok := x.(map[string]any)
+		if !ok {
+			out[i] = x
+			continue
+		}
+		c := map[string]any{}
+		for k, v := range m {
+			c[k] = v
+		}
+		n := wm.Str(m["n"])
+		name := ""
+		for _, pre := range []string{"Vàng ", "Nhẫn ", "Nữ trang "} {
+			if strings.HasPrefix(n, pre) {
+				x := strings.TrimPrefix(n, pre)
+				if lang == "en" || lang == "ja" || lang == "ko" || lang == "zh-Hans" {
+					x = strings.ReplaceAll(x, ",", ".") // "16,3K" → "16.3K"
+				}
+				name = strings.ReplaceAll(tr(lang, pre+"{x}"), "{x}", foldVi(x))
+				break
+			}
+		}
+		if name == "" {
+			name = foldVi(n)
+		}
+		c["n"] = name
+		out[i] = c
+	}
+	return out
+}
+
+// foldVi: Vietnamese letters without their marks ("Phượng Hoàng" → "Phuong Hoang").
+func foldVi(s string) string {
+	var b strings.Builder
+	for _, r := range s {
+		if f, ok := viFold[r]; ok {
+			b.WriteRune(f)
+		} else {
+			b.WriteRune(r)
+		}
+	}
+	return b.String()
+}
+
+var viFold = func() map[rune]rune {
+	m := map[rune]rune{'đ': 'd', 'Đ': 'D'}
+	for base, set := range map[rune]string{
+		'a': "àáảãạăằắẳẵặâầấẩẫậ", 'e': "èéẻẽẹêềếểễệ", 'i': "ìíỉĩị", 'o': "òóỏõọôồốổỗộơờớởỡợ", 'u': "ùúủũụưừứửữự", 'y': "ỳýỷỹỵ",
+		'A': "ÀÁẢÃẠĂẰẮẲẴẶÂẦẤẨẪẬ", 'E': "ÈÉẺẼẸÊỀẾỂỄỆ", 'I': "ÌÍỈĨỊ", 'O': "ÒÓỎÕỌÔỒỐỔỖỘƠỜỚỞỠỢ", 'U': "ÙÚỦŨỤƯỪỨỬỮỰ", 'Y': "ỲÝỶỸỴ"} {
+		for _, r := range set {
+			m[r] = base
+		}
+	}
+	return m
+}()
+
+var words = map[string]map[string]string{
+	"Trời quang":           {"en": "Clear", "de": "Klar", "fr": "Dégagé", "es": "Despejado", "pt-BR": "Céu limpo", "ru": "Ясно", "ja": "快晴", "ko": "맑음", "zh-Hans": "晴", "id": "Cerah"},
+	"Ít mây":               {"en": "Mostly clear", "de": "Überwiegend klar", "fr": "Peu nuageux", "es": "Mayormente despejado", "pt-BR": "Poucas nuvens", "ru": "Малооблачно", "ja": "晴れ", "ko": "대체로 맑음", "zh-Hans": "少云", "id": "Sedikit berawan"},
+	"Mây rải rác":          {"en": "Partly cloudy", "de": "Teilweise bewölkt", "fr": "Partiellement nuageux", "es": "Parcialmente nublado", "pt-BR": "Parcialmente nublado", "ru": "Переменная облачность", "ja": "晴れ時々曇り", "ko": "구름 조금", "zh-Hans": "多云", "id": "Berawan sebagian"},
+	"Nhiều mây":            {"en": "Cloudy", "de": "Bewölkt", "fr": "Nuageux", "es": "Nublado", "pt-BR": "Nublado", "ru": "Пасмурно", "ja": "曇り", "ko": "흐림", "zh-Hans": "阴", "id": "Berawan"},
+	"Sương mù":             {"en": "Fog", "de": "Nebel", "fr": "Brouillard", "es": "Niebla", "pt-BR": "Neblina", "ru": "Туман", "ja": "霧", "ko": "안개", "zh-Hans": "雾", "id": "Kabut"},
+	"Mưa phùn":             {"en": "Drizzle", "de": "Nieselregen", "fr": "Bruine", "es": "Llovizna", "pt-BR": "Garoa", "ru": "Морось", "ja": "霧雨", "ko": "이슬비", "zh-Hans": "毛毛雨", "id": "Gerimis"},
+	"Mưa nhỏ":              {"en": "Light rain", "de": "Leichter Regen", "fr": "Pluie faible", "es": "Lluvia ligera", "pt-BR": "Chuva fraca", "ru": "Небольшой дождь", "ja": "小雨", "ko": "약한 비", "zh-Hans": "小雨", "id": "Hujan ringan"},
+	"Mưa vừa":              {"en": "Rain", "de": "Regen", "fr": "Pluie modérée", "es": "Lluvia moderada", "pt-BR": "Chuva moderada", "ru": "Дождь", "ja": "雨", "ko": "비", "zh-Hans": "中雨", "id": "Hujan sedang"},
+	"Mưa to":               {"en": "Heavy rain", "de": "Starker Regen", "fr": "Forte pluie", "es": "Lluvia fuerte", "pt-BR": "Chuva forte", "ru": "Сильный дождь", "ja": "大雨", "ko": "폭우", "zh-Hans": "大雨", "id": "Hujan lebat"},
+	"Tuyết":                {"en": "Snow", "de": "Schnee", "fr": "Neige", "es": "Nieve", "pt-BR": "Neve", "ru": "Снег", "ja": "雪", "ko": "눈", "zh-Hans": "雪", "id": "Salju"},
+	"Mưa rào":              {"en": "Showers", "de": "Schauer", "fr": "Averses", "es": "Chubascos", "pt-BR": "Pancadas de chuva", "ru": "Ливень", "ja": "にわか雨", "ko": "소나기", "zh-Hans": "阵雨", "id": "Hujan sesaat"},
+	"Dông":                 {"en": "Thunderstorm", "de": "Gewitter", "fr": "Orage", "es": "Tormenta", "pt-BR": "Trovoada", "ru": "Гроза", "ja": "雷雨", "ko": "뇌우", "zh-Hans": "雷阵雨", "id": "Badai petir"},
+	"Hà Nội":               {"en": "Hanoi", "de": "Hanoi", "fr": "Hanoï", "es": "Hanói", "pt-BR": "Hanoi", "ru": "Ханой", "ja": "ハノイ", "ko": "하노이", "zh-Hans": "河内", "id": "Hanoi"},
+	"Hôm nay":              {"en": "Today", "de": "Heute", "fr": "Aujourd'hui", "es": "Hoy", "pt-BR": "Hoje", "ru": "Сегодня", "ja": "今日", "ko": "오늘", "zh-Hans": "今天", "id": "Hari ini"},
+	"CN":                   {"en": "Sun", "de": "So", "fr": "Dim", "es": "Dom", "pt-BR": "Dom", "ru": "Вс", "ja": "日", "ko": "일", "zh-Hans": "周日", "id": "Min"},
+	"T2":                   {"en": "Mon", "de": "Mo", "fr": "Lun", "es": "Lun", "pt-BR": "Seg", "ru": "Пн", "ja": "月", "ko": "월", "zh-Hans": "周一", "id": "Sen"},
+	"T3":                   {"en": "Tue", "de": "Di", "fr": "Mar", "es": "Mar", "pt-BR": "Ter", "ru": "Вт", "ja": "火", "ko": "화", "zh-Hans": "周二", "id": "Sel"},
+	"T4":                   {"en": "Wed", "de": "Mi", "fr": "Mer", "es": "Mié", "pt-BR": "Qua", "ru": "Ср", "ja": "水", "ko": "수", "zh-Hans": "周三", "id": "Rab"},
+	"T5":                   {"en": "Thu", "de": "Do", "fr": "Jeu", "es": "Jue", "pt-BR": "Qui", "ru": "Чт", "ja": "木", "ko": "목", "zh-Hans": "周四", "id": "Kam"},
+	"T6":                   {"en": "Fri", "de": "Fr", "fr": "Ven", "es": "Vie", "pt-BR": "Sex", "ru": "Пт", "ja": "金", "ko": "금", "zh-Hans": "周五", "id": "Jum"},
+	"T7":                   {"en": "Sat", "de": "Sa", "fr": "Sam", "es": "Sáb", "pt-BR": "Sáb", "ru": "Сб", "ja": "土", "ko": "토", "zh-Hans": "周六", "id": "Sab"},
+	"CHỦ NHẬT":             {"en": "SUNDAY", "de": "SONNTAG", "fr": "DIMANCHE", "es": "DOMINGO", "pt-BR": "DOMINGO", "ru": "ВОСКРЕСЕНЬЕ", "ja": "日曜日", "ko": "일요일", "zh-Hans": "星期日", "id": "MINGGU"},
+	"THỨ HAI":              {"en": "MONDAY", "de": "MONTAG", "fr": "LUNDI", "es": "LUNES", "pt-BR": "SEGUNDA-FEIRA", "ru": "ПОНЕДЕЛЬНИК", "ja": "月曜日", "ko": "월요일", "zh-Hans": "星期一", "id": "SENIN"},
+	"THỨ BA":               {"en": "TUESDAY", "de": "DIENSTAG", "fr": "MARDI", "es": "MARTES", "pt-BR": "TERÇA-FEIRA", "ru": "ВТОРНИК", "ja": "火曜日", "ko": "화요일", "zh-Hans": "星期二", "id": "SELASA"},
+	"THỨ TƯ":               {"en": "WEDNESDAY", "de": "MITTWOCH", "fr": "MERCREDI", "es": "MIÉRCOLES", "pt-BR": "QUARTA-FEIRA", "ru": "СРЕДА", "ja": "水曜日", "ko": "수요일", "zh-Hans": "星期三", "id": "RABU"},
+	"THỨ NĂM":              {"en": "THURSDAY", "de": "DONNERSTAG", "fr": "JEUDI", "es": "JUEVES", "pt-BR": "QUINTA-FEIRA", "ru": "ЧЕТВЕРГ", "ja": "木曜日", "ko": "목요일", "zh-Hans": "星期四", "id": "KAMIS"},
+	"THỨ SÁU":              {"en": "FRIDAY", "de": "FREITAG", "fr": "VENDREDI", "es": "VIERNES", "pt-BR": "SEXTA-FEIRA", "ru": "ПЯТНИЦА", "ja": "金曜日", "ko": "금요일", "zh-Hans": "星期五", "id": "JUMAT"},
+	"THỨ BẢY":              {"en": "SATURDAY", "de": "SAMSTAG", "fr": "SAMEDI", "es": "SÁBADO", "pt-BR": "SÁBADO", "ru": "СУББОТА", "ja": "土曜日", "ko": "토요일", "zh-Hans": "星期六", "id": "SABTU"},
+	"Cả ngày":              {"en": "All day", "de": "Ganztägig", "fr": "Toute la journée", "es": "Todo el día", "pt-BR": "Dia inteiro", "ru": "Весь день", "ja": "終日", "ko": "하루 종일", "zh-Hans": "全天", "id": "Seharian"},
+	"(Không tiêu đề)":      {"en": "(No title)", "de": "(Ohne Titel)", "fr": "(Sans titre)", "es": "(Sin título)", "pt-BR": "(Sem título)", "ru": "(Без названия)", "ja": "(無題)", "ko": "(제목 없음)", "zh-Hans": "(无标题)", "id": "(Tanpa judul)"},
+	"Tin mới nhất":         {"en": "Latest news", "de": "Neueste", "fr": "Dernières infos", "es": "Últimas noticias", "pt-BR": "Últimas notícias", "ru": "Последние", "ja": "最新ニュース", "ko": "최신 뉴스", "zh-Hans": "最新新闻", "id": "Berita terbaru"},
+	"Tin nổi bật":          {"en": "Top stories", "de": "Top-Themen", "fr": "À la une", "es": "Destacadas", "pt-BR": "Destaques", "ru": "Главное", "ja": "トップニュース", "ko": "주요 기사", "zh-Hans": "要闻", "id": "Sorotan"},
+	"Thời sự":              {"en": "Current affairs", "de": "Aktuelles", "fr": "Actualité", "es": "Actualidad", "pt-BR": "Atualidades", "ru": "Актуальное", "ja": "時事", "ko": "시사", "zh-Hans": "时事", "id": "Terkini"},
+	"Thế giới":             {"en": "World", "de": "Welt", "fr": "Monde", "es": "Mundo", "pt-BR": "Mundo", "ru": "Мир", "ja": "世界", "ko": "세계", "zh-Hans": "国际", "id": "Dunia"},
+	"Kinh doanh":           {"en": "Business", "de": "Wirtschaft", "fr": "Économie", "es": "Negocios", "pt-BR": "Negócios", "ru": "Бизнес", "ja": "ビジネス", "ko": "경제", "zh-Hans": "财经", "id": "Bisnis"},
+	"Bất động sản":         {"en": "Real estate", "de": "Immobilien", "fr": "Immobilier", "es": "Inmobiliario", "pt-BR": "Imóveis", "ru": "Недвижимость", "ja": "不動産", "ko": "부동산", "zh-Hans": "房产", "id": "Properti"},
+	"Khoa học công nghệ":   {"en": "Science & tech", "de": "Wissen & Technik", "fr": "Sciences et tech", "es": "Ciencia y tecnología", "pt-BR": "Ciência e tecnologia", "ru": "Наука и техника", "ja": "科学・技術", "ko": "과학·기술", "zh-Hans": "科技", "id": "Sains & teknologi"},
+	"Sức khỏe":             {"en": "Health", "de": "Gesundheit", "fr": "Santé", "es": "Salud", "pt-BR": "Saúde", "ru": "Здоровье", "ja": "健康", "ko": "건강", "zh-Hans": "健康", "id": "Sehat"},
+	"Giáo dục":             {"en": "Education", "de": "Bildung", "fr": "Éducation", "es": "Educación", "pt-BR": "Educação", "ru": "Образование", "ja": "教育", "ko": "교육", "zh-Hans": "教育", "id": "Pendidikan"},
+	"Pháp luật":            {"en": "Law", "de": "Recht", "fr": "Justice", "es": "Justicia", "pt-BR": "Justiça", "ru": "Право", "ja": "法律", "ko": "법률", "zh-Hans": "法治", "id": "Hukum"},
+	"Đời sống":             {"en": "Life", "de": "Leben", "fr": "Société", "es": "Vida", "pt-BR": "Família", "ru": "Жизнь", "ja": "暮らし", "ko": "생활", "zh-Hans": "生活", "id": "Gaya hidup"},
+	"Du lịch":              {"en": "Travel", "de": "Reisen", "fr": "Voyage", "es": "Viajes", "pt-BR": "Viagem", "ru": "Путешествия", "ja": "旅行", "ko": "여행", "zh-Hans": "旅游", "id": "Wisata"},
+	"Giải trí":             {"en": "Entertainment", "de": "Unterhaltung", "fr": "Divertissement", "es": "Entretenimiento", "pt-BR": "Entretenimento", "ru": "Развлечения", "ja": "エンタメ", "ko": "연예", "zh-Hans": "娱乐", "id": "Hiburan"},
+	"Thể thao":             {"en": "Sports", "de": "Sport", "fr": "Sport", "es": "Deportes", "pt-BR": "Esportes", "ru": "Спорт", "ja": "スポーツ", "ko": "스포츠", "zh-Hans": "体育", "id": "Olahraga"},
+	"Xe":                   {"en": "Cars", "de": "Auto", "fr": "Auto", "es": "Motor", "pt-BR": "Carros", "ru": "Авто", "ja": "自動車", "ko": "자동차", "zh-Hans": "汽车", "id": "Otomotif"},
+	"Ý kiến":               {"en": "Opinion", "de": "Meinung", "fr": "Opinions", "es": "Opinión", "pt-BR": "Opinião", "ru": "Мнения", "ja": "オピニオン", "ko": "오피니언", "zh-Hans": "观点", "id": "Opini"},
+	"Claude báo tình hình": {"en": "Claude's status report", "de": "Claudes Statusbericht", "fr": "Point de Claude", "es": "Informe de Claude", "pt-BR": "Relatório do Claude", "ru": "Отчёт Claude", "ja": "Claudeの状況報告", "ko": "Claude 상황 보고", "zh-Hans": "Claude 状态报告", "id": "Laporan Claude"},
+	"Claude đang chờ bạn":  {"en": "Claude is waiting for you", "de": "Claude wartet auf dich", "fr": "Claude vous attend", "es": "Claude te espera", "pt-BR": "Claude está esperando você", "ru": "Claude ждёт вас", "ja": "Claudeが待っています", "ko": "Claude가 기다리고 있어요", "zh-Hans": "Claude 在等你", "id": "Claude menunggu Anda"},
+	"Claude xin chạy lệnh": {"en": "Claude wants to run a command", "de": "Claude möchte einen Befehl ausführen", "fr": "Claude veut lancer une commande", "es": "Claude quiere ejecutar un comando", "pt-BR": "Claude quer executar um comando", "ru": "Claude хочет выполнить команду", "ja": "Claudeがコマンドの実行を求めています", "ko": "Claude가 명령 실행을 요청해요", "zh-Hans": "Claude 请求运行命令", "id": "Claude ingin menjalankan perintah"},
+	"Claude xin sửa tệp":   {"en": "Claude wants to edit a file", "de": "Claude möchte eine Datei bearbeiten", "fr": "Claude veut modifier un fichier", "es": "Claude quiere editar un archivo", "pt-BR": "Claude quer editar um arquivo", "ru": "Claude хочет изменить файл", "ja": "Claudeがファイルの編集を求めています", "ko": "Claude가 파일 수정을 요청해요", "zh-Hans": "Claude 请求编辑文件", "id": "Claude ingin mengubah berkas"},
+	"Claude xin quyền":     {"en": "Claude asks for permission", "de": "Claude bittet um Erlaubnis", "fr": "Claude demande une autorisation", "es": "Claude pide permiso", "pt-BR": "Claude pede permissão", "ru": "Claude просит разрешения", "ja": "Claudeが許可を求めています", "ko": "Claude가 권한을 요청해요", "zh-Hans": "Claude 请求权限", "id": "Claude meminta izin"},
+	"{head} chờ bạn duyệt": {"en": "{head} is waiting for your OK", "de": "{head} wartet auf dein OK", "fr": "{head} attend votre accord", "es": "{head} espera tu aprobación", "pt-BR": "{head} aguarda sua aprovação", "ru": "{head} ждёт вашего одобрения", "ja": "{head}が承認を待っています", "ko": "{head}: 승인을 기다리고 있어요", "zh-Hans": "{head} 等你批准", "id": "{head} menunggu persetujuan Anda"},
+	"{head} đang chờ bạn":  {"en": "{head} is waiting for you", "de": "{head} wartet auf dich", "fr": "{head} vous attend", "es": "{head} te espera", "pt-BR": "{head} está esperando você", "ru": "{head} ждёт вас", "ja": "{head}が待っています", "ko": "{head}: 기다리고 있어요", "zh-Hans": "{head} 在等你", "id": "{head} menunggu Anda"},
+	"Bật máy này trong EspOS Desktop > Cài đặt > Máy ra lệnh": {"en": "Turn this device on in EspOS Desktop > Settings > Devices", "de": "Dieses Gerät in EspOS Desktop > Settings > Devices einschalten", "fr": "Activez cet appareil dans EspOS Desktop > Settings > Devices", "es": "Activa este dispositivo en EspOS Desktop > Settings > Devices", "pt-BR": "Ative este dispositivo no EspOS Desktop > Settings > Devices", "ru": "Включите это устройство в EspOS Desktop > Settings > Devices", "ja": "EspOS Desktop > Settings > Devices でこのデバイスをオンにしてください", "ko": "EspOS Desktop > Settings > Devices에서 이 기기를 켜세요", "zh-Hans": "在 EspOS Desktop > Settings > Devices 中开启此设备", "id": "Aktifkan perangkat ini di EspOS Desktop > Settings > Devices"},
+	"Vàng {x}":     {"en": "{x} gold", "de": "Gold {x}", "fr": "Or {x}", "es": "Oro {x}", "pt-BR": "Ouro {x}", "ru": "Золото {x}", "ja": "金 {x}", "ko": "금 {x}", "zh-Hans": "黄金 {x}", "id": "Emas {x}"},
+	"Nhẫn {x}":     {"en": "{x} ring", "de": "Ring {x}", "fr": "Bague {x}", "es": "Anillo {x}", "pt-BR": "Anel {x}", "ru": "Кольцо {x}", "ja": "指輪 {x}", "ko": "반지 {x}", "zh-Hans": "金戒指 {x}", "id": "Cincin {x}"},
+	"Nữ trang {x}": {"en": "{x} jewelry", "de": "Schmuck {x}", "fr": "Bijoux {x}", "es": "Joyería {x}", "pt-BR": "Joias {x}", "ru": "Украшения {x}", "ja": "宝飾品 {x}", "ko": "장신구 {x}", "zh-Hans": "首饰 {x}", "id": "Perhiasan {x}"},
+}
+
+// animals: the lunar year's animal (Tý..Hợi order) where the language names the year by it; zh-Hans, ja and ko use
+// the stem and branch characters instead (lunarYear).
+var animals = map[string][]string{
+	"en":    {"Rat", "Ox", "Tiger", "Rabbit", "Dragon", "Snake", "Horse", "Goat", "Monkey", "Rooster", "Dog", "Pig"},
+	"de":    {"Ratte", "Ochse", "Tiger", "Hase", "Drache", "Schlange", "Pferd", "Ziege", "Affe", "Hahn", "Hund", "Schwein"},
+	"fr":    {"Rat", "Buffle", "Tigre", "Lapin", "Dragon", "Serpent", "Cheval", "Chèvre", "Singe", "Coq", "Chien", "Cochon"},
+	"es":    {"Rata", "Buey", "Tigre", "Conejo", "Dragón", "Serpiente", "Caballo", "Cabra", "Mono", "Gallo", "Perro", "Cerdo"},
+	"pt-BR": {"Rato", "Boi", "Tigre", "Coelho", "Dragão", "Serpente", "Cavalo", "Cabra", "Macaco", "Galo", "Cão", "Porco"},
+	"ru":    {"Крыса", "Бык", "Тигр", "Кролик", "Дракон", "Змея", "Лошадь", "Коза", "Обезьяна", "Петух", "Собака", "Свинья"},
+	"id":    {"Tikus", "Kerbau", "Macan", "Kelinci", "Naga", "Ular", "Kuda", "Kambing", "Monyet", "Ayam", "Anjing", "Babi"},
+}
+
 func Run(wmIn, wmCtx map[string]any) map[string]any {
 	in := wmIn
 	deviceID := wm.Int(in["device_id"])
@@ -70,14 +297,6 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 	if leap {
 		lunar += "N"
 	}
-	d := map[string]any{
-		"now_ms":  now.UnixMilli(),
-		"tz_min":  tzMin,
-		"date":    local.Format("02.01.2006"),
-		"weekday": weekdays[int(local.Weekday())],
-		"layout":  orDefault(st["dash.layout"], "desk"),
-		"next_s":  nextRefresh(st, local),
-	}
 	// The board: the colour desk (kind s3) runs apps (weather, calendar, markets, news) that
 	// need more than the X4's dashboard, whatever dash.blocks says. An X4 gets what it always got.
 	kind := ""
@@ -85,16 +304,25 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 		{"column": "id", "op": "eq", "value": deviceID}}, "limit": 1}); derr == nil && len(devs) == 1 {
 		kind = wm.Str(devs[0]["kind"])
 	}
+	lang := dashLang(st["sys.lang"], kind)
+	d := map[string]any{
+		"now_ms":  now.UnixMilli(),
+		"tz_min":  tzMin,
+		"date":    local.Format("02.01.2006"),
+		"weekday": tr(lang, weekdays[int(local.Weekday())]),
+		"layout":  orDefault(st["dash.layout"], "desk"),
+		"next_s":  nextRefresh(st, local),
+	}
 	s3 := kind == "s3"
 	if kind == "bot" {
 		blocks = "weather,lunar" // the EspOS Bot's standby screens: weather and the date (solar and lunar)
 	}
 	if on("lunar") {
 		d["lunar"] = lunar
-		d["lunar_year"] = can[(ly+6)%10] + " " + chi[(ly+8)%12]
+		d["lunar_year"] = lunarYear(lang, (ly+6)%10, (ly+8)%12)
 	}
 	if on("weather") || s3 {
-		w, werr := weather(st, now, local, s3)
+		w, werr := weather(st, now, local, s3, lang)
 		if werr != nil {
 			wm.Log("weather: ", werr.Error())
 		} else {
@@ -112,14 +340,16 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 		if eerr != nil {
 			wm.Log("calendar: ", eerr.Error())
 		} else {
+			trEvents(lang, ev) // "Cả ngày", "(Không tiêu đề)": made (and cached per device) in Vietnamese
 			d["events"] = ev
 			if s3 {
+				trEvents(lang, ag)
 				d["agenda"] = ag
 			}
 		}
 	}
 	if on("notes") {
-		n, nerr := notes(userID, now, loc, st["sys.lang"])
+		n, nerr := notes(userID, deviceID, now, loc, lang)
 		if nerr != nil {
 			return wm.Fail(nerr)
 		}
@@ -134,7 +364,7 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 			return wm.Fail(gerr)
 		}
 		if g != nil {
-			d["gold"] = map[string]any{"src": g["src"], "at": g["at"], "items": pick(g["items"], "c", mk.gold)}
+			d["gold"] = map[string]any{"src": g["src"], "at": g["at"], "items": goldNames(lang, pick(g["items"], "c", mk.gold))}
 		}
 	}
 	if len(mk.fx) > 0 {
@@ -147,7 +377,7 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 		}
 	}
 	if mk.news {
-		n, nerr := newsTop(userID, s3, s3WidgetOpts(st, "news"))
+		n, nerr := newsTop(userID, s3, s3WidgetOpts(st, "news"), lang)
 		if nerr != nil {
 			return wm.Fail(nerr)
 		}
@@ -495,10 +725,10 @@ func fullForecast(body map[string]any) bool {
 	return a && b && e
 }
 
-func weather(st map[string]string, now time.Time, local time.Time, s3 bool) (map[string]any, error) {
+func weather(st map[string]string, now time.Time, local time.Time, s3 bool, lang string) (map[string]any, error) {
 	lat := orDefault(st["dash.lat"], "21.0245")
 	lon := orDefault(st["dash.lon"], "105.8412")
-	city := orDefault(st["dash.city"], "Hà Nội")
+	city := orDefault(st["dash.city"], tr(lang, "Hà Nội"))
 	_, offSec := local.Zone()
 	zone := tzName(offSec / 60)
 	locKey := lat + "," + lon + "|" + zone
@@ -540,7 +770,7 @@ func weather(st map[string]string, now time.Time, local time.Time, s3 bool) (map
 	w := map[string]any{
 		"city": city,
 		"temp": int(math.Round(wm.Num(cur["temperature_2m"]))),
-		"desc": desc,
+		"desc": tr(lang, desc),
 		"icon": icon,
 	}
 	if v := cur["relative_humidity_2m"]; v != nil {
@@ -591,13 +821,13 @@ func weather(st map[string]string, now time.Time, local time.Time, s3 bool) (map
 				continue
 			}
 			ic, _ := wmo(wm.Int(codes[i]), true)
-			days = append(days, map[string]any{"d": shortDays[int(ts.Weekday())], "min": int(math.Round(wm.Num(mins[i]))),
+			days = append(days, map[string]any{"d": tr(lang, shortDays[int(ts.Weekday())]), "min": int(math.Round(wm.Num(mins[i]))),
 				"max": int(math.Round(wm.Num(maxs[i]))), "icon": ic})
 		}
 	}
 	w["days"] = days
 	if s3 {
-		s3Weather(w, body, local)
+		s3Weather(w, body, local, lang)
 		// The air quality is a second, optional call: never worth failing (or slowing) the dashboard.
 		if time.Since(now) < 8*time.Second {
 			if aqi, ok := airQuality(lat, lon, zone, now); ok {
@@ -633,7 +863,7 @@ func clockOf(v any) string {
 // s3Weather adds the colour desk's Weather app data: now (humidity, feels-like, wind), today
 // (UV, sunrise, sunset), 8 steps of 3 hours from the current hour and 6 days from today.
 // Its "hours" and "days" replace the X4-sized ones.
-func s3Weather(w map[string]any, body map[string]any, local time.Time) {
+func s3Weather(w map[string]any, body map[string]any, local time.Time, lang string) {
 	cur, _ := body["current"].(map[string]any)
 	daily, _ := body["daily"].(map[string]any)
 	hourly, _ := body["hourly"].(map[string]any)
@@ -682,9 +912,9 @@ func s3Weather(w map[string]any, body map[string]any, local time.Time) {
 			if perr != nil {
 				continue
 			}
-			label := shortDays[int(ts.Weekday())]
+			label := tr(lang, shortDays[int(ts.Weekday())])
 			if ds == today {
-				label = "Hôm nay"
+				label = tr(lang, "Hôm nay")
 				w["uv"] = roundOf(at(daily["uv_index_max"], i))
 				w["sunrise"] = clockOf(at(daily["sunrise"], i))
 				w["sunset"] = clockOf(at(daily["sunset"], i))
@@ -1024,7 +1254,7 @@ var sectionNames = map[string]string{
 // The colour desk also gets up to 12 stories with their cache id, section, time and picture
 // flag (its News app), and the sections the reader follows; plus the sections its news widgets
 // pick (`picked`, their slugs), with a few stories of each.
-func newsTop(userID int, s3 bool, picked []string) (map[string]any, error) {
+func newsTop(userID int, s3 bool, picked []string, lang string) (map[string]any, error) {
 	sections := []string{"tin-moi-nhat", "thoi-su", "the-gioi"}
 	if s3 {
 		// The web's (and the news worker's) default choice.
@@ -1038,7 +1268,7 @@ func newsTop(userID int, s3 bool, picked []string) (map[string]any, error) {
 		sections = strings.Split(wm.Str(prefs[0]["sections"]), ",")
 	}
 	if s3 {
-		return newsS3(sections, picked)
+		return newsS3(sections, picked, lang)
 	}
 	rows, err := wm.QueryOpts("news_cache", map[string]any{"limit": 40})
 	if err != nil {
@@ -1071,7 +1301,7 @@ func newsTop(userID int, s3 bool, picked []string) (map[string]any, error) {
 // newsS3: the first story of each followed section, then the second ones…: 3 titles in `top`,
 // up to 12 distinct stories in `items`; then, for each section a news widget picks, its first
 // stories until it has 4 (up to 24 stories in all). `sections` lists both, followed ones first.
-func newsS3(sections []string, picked []string) (map[string]any, error) {
+func newsS3(sections []string, picked []string, lang string) (map[string]any, error) {
 	rows, err := wm.QueryOpts("news_cache", map[string]any{"limit": 40})
 	if err != nil {
 		return nil, err
@@ -1086,7 +1316,7 @@ func newsS3(sections []string, picked []string) (map[string]any, error) {
 	for _, s := range sections {
 		s = strings.TrimSpace(s)
 		if name, ok := sectionNames[s]; ok {
-			followed = append(followed, map[string]any{"slug": s, "name": name})
+			followed = append(followed, map[string]any{"slug": s, "name": tr(lang, name)})
 			slugs = append(slugs, s)
 		}
 	}
@@ -1104,7 +1334,7 @@ func newsS3(sections []string, picked []string) (map[string]any, error) {
 			top = append(top, clip(wm.Str(m["title"]), 120))
 		}
 		it := map[string]any{"id": wm.Str(m["id"]), "title": clip(wm.Str(m["title"]), 120),
-			"lead": clip(wm.Str(m["lead"]), 400), "sec": sectionNames[s], "pub_ms": int64(wm.Num(m["pub_ms"])), "img": m["img"] == true}
+			"lead": clip(wm.Str(m["lead"]), 400), "sec": tr(lang, sectionNames[s]), "pub_ms": int64(wm.Num(m["pub_ms"])), "img": m["img"] == true}
 		// The thumbnail's signed storage address, only while it has 2 hours left (the dashboard is kept that long).
 		if u := wm.Str(m["thumb"]); u != "" && int64(wm.Num(m["thumb_exp"])) >= soon {
 			it["thumb"] = u
@@ -1134,6 +1364,7 @@ func newsS3(sections []string, picked []string) (map[string]any, error) {
 		if !ok {
 			continue
 		}
+		name = tr(lang, name)
 		if !listed[s] {
 			listed[s] = true
 			followed = append(followed, map[string]any{"slug": s, "name": name})
@@ -1473,30 +1704,19 @@ func ruleHits(rule string, sday, today time.Time, loc *time.Location) bool {
 
 // ---------- notes ----------
 
-// popTitle: a Claude pop-up's title in the device's language (Vietnamese or English; the OS translates the buttons).
+// popTitle: a Claude pop-up's title in the device's language (words; the OS translates the buttons).
 func popTitle(kind, tool, lang string) string {
-	vi := strings.HasPrefix(lang, "vi")
 	switch {
-	case kind == "claude_status" && vi:
-		return "Claude báo tình hình"
 	case kind == "claude_status":
-		return "Claude's status report"
-	case kind == "claude_wait" && vi:
-		return "Claude đang chờ bạn"
+		return tr(lang, "Claude báo tình hình")
 	case kind == "claude_wait":
-		return "Claude is waiting for you"
-	case tool == "Bash" && vi:
-		return "Claude xin chạy lệnh"
+		return tr(lang, "Claude đang chờ bạn")
 	case tool == "Bash":
-		return "Claude wants to run a command"
-	case (tool == "Edit" || tool == "Write" || tool == "MultiEdit" || tool == "NotebookEdit") && vi:
-		return "Claude xin sửa tệp"
+		return tr(lang, "Claude xin chạy lệnh")
 	case tool == "Edit" || tool == "Write" || tool == "MultiEdit" || tool == "NotebookEdit":
-		return "Claude wants to edit a file"
-	case vi:
-		return "Claude xin quyền"
+		return tr(lang, "Claude xin sửa tệp")
 	}
-	return "Claude asks for permission"
+	return tr(lang, "Claude xin quyền")
 }
 
 // claudePop: the pop-up card of a Claude note (desktop-protocol §9.6): what it shows, and the buttons the OS posts to the
@@ -1512,15 +1732,9 @@ func claudePop(kind string, data map[string]any, lang string) (map[string]any, [
 	}
 	// what the S3 may speak for it, once (its announcement rules: one per 2 minutes, merged, none at night)
 	if head := wm.Str(data["head"]); head != "" && kind != "claude_status" {
-		vi := strings.HasPrefix(lang, "vi")
-		say := head + " is waiting for you"
-		switch {
-		case kind == "claude_perm" && vi:
-			say = head + " chờ bạn duyệt"
-		case kind == "claude_perm":
-			say = head + " is waiting for your OK"
-		case vi:
-			say = head + " đang chờ bạn"
+		say := strings.ReplaceAll(tr(lang, "{head} đang chờ bạn"), "{head}", head)
+		if kind == "claude_perm" {
+			say = strings.ReplaceAll(tr(lang, "{head} chờ bạn duyệt"), "{head}", head)
 		}
 		if r := []rune(say); len(r) > 80 {
 			say = string(r[:80])
@@ -1538,11 +1752,53 @@ func claudePop(kind string, data map[string]any, lang string) (map[string]any, [
 	return pop, acts
 }
 
+// macAllows: whether the Mac (desktop id) takes commands from this device, by its allow_from (none = every device of
+// the account), as desk_queue checks it (403 sender_not_allowed). The person's desktop states are read on first use;
+// an unknown Mac or a read error counts as allowed (desk_queue still decides).
+func macAllows(macs *map[int]map[string]any, userID, mac, deviceID int) bool {
+	if *macs == nil {
+		*macs = map[int]map[string]any{}
+		rows, err := wm.QueryOpts("desk_state", map[string]any{"filters": []map[string]any{{"column": "user_id", "op": "eq", "value": userID}}, "limit": 20})
+		if err != nil {
+			wm.Log("desk_state: ", err.Error())
+		}
+		for _, r := range rows {
+			st, _ := r["state"].(map[string]any)
+			if raw, isStr := r["state"].(string); isStr && raw != "" {
+				_ = json.Unmarshal([]byte(raw), &st)
+			}
+			if st != nil {
+				(*macs)[wm.Int(r["device_id"])] = st
+			}
+		}
+	}
+	st := (*macs)[mac]
+	if st == nil {
+		return true
+	}
+	allow, isList := st["allow_from"].([]any)
+	if !isList {
+		return true
+	}
+	for _, x := range allow {
+		if deviceID > 0 && wm.Int(x) == deviceID {
+			return true
+		}
+	}
+	return false
+}
+
+// notAllowedHint: where to let this device answer the Mac's requests, in the device's language (">" not "›": the
+// S3's built-in fonts are Latin-1).
+func notAllowedHint(lang string) string {
+	return tr(lang, "Bật máy này trong EspOS Desktop > Cài đặt > Máy ra lệnh")
+}
+
 // notes: the newest 2 plain notes of 24 h (what the dashboard always showed), and every live note of an app (a Claude
 // permission request, a waiting session, a status report: up to 10), which the S3 turns into that app's
 // notifications and pop-up cards (s3desk src/popnote.cpp: app, arg, ref, kind, exp_ms, pop, acts). An app note never
 // pushes a plain one out, nor the other way round.
-func notes(userID int, now time.Time, loc *time.Location, lang string) ([]any, error) {
+func notes(userID, deviceID int, now time.Time, loc *time.Location, lang string) ([]any, error) {
 	rows, err := wm.QueryOpts("notifications", map[string]any{
 		"filters":  []map[string]any{{"column": "user_id", "op": "eq", "value": userID}, {"column": "created_at", "op": "gte", "value": now.Add(-24 * time.Hour).UTC().Format(time.RFC3339)}},
 		"order_by": "created_at", "desc": true, "limit": 40,
@@ -1552,6 +1808,7 @@ func notes(userID int, now time.Time, loc *time.Location, lang string) ([]any, e
 	}
 	out := []any{}
 	plain, apps := 0, 0
+	var macs map[int]map[string]any // the person's desktops' states, read once, only for a card with buttons
 	for _, r := range rows {
 		k := wm.Str(r["kind"])
 		exp := int64(wm.Num(r["exp_ms"]))
@@ -1568,6 +1825,21 @@ func notes(userID int, now time.Time, loc *time.Location, lang string) ([]any, e
 		n := map[string]any{"title": cut(wm.Str(r["title"]), 60), "time": t}
 		if k == "" {
 			plain++
+			// a note made for every device of the account in each language (desk_queue's "Bấm để xác nhận: …" keeps
+			// data.titles): this device's; the stored (Vietnamese) title otherwise
+			if lang != "vi" {
+				data, _ := r["data"].(map[string]any)
+				if str, isText := r["data"].(string); isText && str != "" {
+					json.Unmarshal([]byte(str), &data)
+				}
+				if ts, _ := data["titles"].(map[string]any); ts != nil {
+					if v := wm.Str(ts[lang]); v != "" {
+						n["title"] = cut(v, 60)
+					} else if v := wm.Str(ts["en"]); v != "" {
+						n["title"] = cut(v, 60)
+					}
+				}
+			}
 		} else {
 			apps++
 			n["kind"] = k
@@ -1579,8 +1851,21 @@ func notes(userID int, now time.Time, loc *time.Location, lang string) ([]any, e
 			if str, isText := r["data"].(string); isText && str != "" {
 				json.Unmarshal([]byte(str), &data) // a json column read back as text
 			}
+			// desktop_sync stores these titles in Vietnamese ("Claude (web) đang chờ bạn", "Claude báo tình hình các
+			// phiên"); a permission request's "Claude (espos): Bash git push" needs no words
+			if t := wm.Str(r["title"]); lang != "vi" && k == "claude_wait" && strings.HasPrefix(t, "Claude (") && strings.HasSuffix(t, ") đang chờ bạn") {
+				n["title"] = cut(strings.ReplaceAll(tr(lang, "{head} đang chờ bạn"), "{head}", strings.TrimSuffix(t, " đang chờ bạn")), 60)
+			} else if lang != "vi" && k == "claude_status" {
+				n["title"] = tr(lang, "Claude báo tình hình")
+			}
 			if data != nil && (k == "claude_perm" || k == "claude_wait" || k == "claude_status") {
 				pop, acts := claudePop(k, data, lang)
+				if len(acts) > 0 && !macAllows(&macs, userID, wm.Int(data["mac"]), deviceID) {
+					// the Mac takes no commands from this device (its allow_from): Approve / Deny would come back
+					// 403 sender_not_allowed, so the card only tells, and says where to turn this device on
+					acts = []any{}
+					pop["text"] = notAllowedHint(lang)
+				}
 				n["pop"] = pop
 				n["acts"] = acts
 			}

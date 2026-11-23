@@ -79,6 +79,25 @@ open(sys.argv[1], 'wb').write(b''.join(struct.pack('<h', int(6000 * math.sin(i *
   return 0
 }
 log() { curl -s "$API/mock/log"; }
+# sends [FROM]: how many /send requests reached the mock since the FROM-th one, and what they were
+sends() { log | python3 -c "
+import json, sys
+l = [x for x in json.load(sys.stdin)['log'] if x.get('route') == 'send'][int(sys.argv[1]):]
+print(len(l), [(x.get('kind'), x.get('key') or x.get('keys') or '') for x in l])" "${1:-0}"; }
+# lockcheck NAME SCENE ARG STEPS MIN MAX WANT [NOT]: per turn, MIN..MAX sends, WANT (a regex) in the run's log, NOT absent
+lockcheck() {
+  local name=$1 sc=$2 arg=$3 steps=$4 lo=$5 hi=$6 want=$7 not=${8:-}
+  for r in ${ROT:-1 0}; do
+    local a b n ok=PASS
+    a=$(sends | cut -d' ' -f1)
+    LANGS=en shot "$name" "$sc" "$arg" "$steps" "$r"
+    b=$(sends "$a"); n=${b%% *}
+    { [ "$n" -ge "$lo" ] && [ "$n" -le "$hi" ]; } || ok=FAIL
+    grep -Eq "$want" "$OUT/$name-en-r$r.log" || ok=FAIL
+    [ -z "$not" ] || ! grep -Eq "$not" "$OUT/$name-en-r$r.log" || ok=FAIL
+    say "$ok $name r$r: sends $b; $(grep -Eo "$want" "$OUT/$name-en-r$r.log" | sort | uniq -c | tr -s ' ' | tr '\n' ' ')"
+  done
+}
 
 # tapat/downat labels in the language of the run: the app's own texts (i18n.json), else the OS's (i18n/<lang>.json)
 localize() {  # localize LANG STEPS
@@ -110,7 +129,7 @@ overflow $n" || true
   done
 }
 
-ALL="authtest list term perm risky typing kb keys useanswer hold zoom offline view estop notpaired disabled empty shareoff locked fast pophome popsaver popapp poprisky popquiet popcenter popapprove"
+ALL="authtest list term perm risky typing kb keys useanswer hold zoom offline view notallowed notallowedperm disallowed disallowedlist turnedon oddstatus estop notpaired disabled empty shareoff locked fast pophome popsaver popapp poprisky popquiet popcenter popapprove"
 # the prompt row's mic (an icon, no word to tap): its centre per turn (r1 landscape, r0 portrait)
 mic() { [ "$1" = 0 ] && echo "251 458" || echo "411 298"; }
 # A pop-up while the app is closed (NOTES: the server's notes in the dashboard, apps/sessions/test/notes.py).
@@ -174,6 +193,26 @@ print([(x.get('key'), x.get('ack_risky')) for x in json.load(sys.stdin)['log'] i
     zoom) shot zoom normal 900:s-3 "tapat A+;realwait 400;tapat A+;realwait 800" ;;
     offline) shot offline offline "" "" ;;
     view) shot view view 900:s-1 "" ;;
+    notallowed)  # keys refused by the Mac's device list (403 sender_not_allowed): one clear reason, the waiting keys
+                 # dropped, the key row and the prompt gone (a tap on Tab finds none), no retries for 6 s
+          lockcheck notallowed notallowed 900:s-3 "tapat Message Claude;realwait 900;tapat Tab;tapat Tab;tapat Mode;tapat Enter;realwait 2000;tapat Tab;realwait 6000" \
+            1 2 'refused 403 sender_not_allowed|tapat: no "Tab" on screen' ;;
+    notallowedperm)  # Approve refused the same way: Approve/Deny give way to the reason; "Try again" lets one more go
+          lockcheck notallowedperm notallowed 900:s-1 "tapat Approve;realwait 3000" 1 1 'refused 403 sender_not_allowed'
+          lockcheck tryagain notallowed 900:s-1 "tapat Approve;realwait 2500;tapat Try again;realwait 800;tapat Approve;realwait 2500" \
+            2 2 'refused 403 sender_not_allowed' ;;
+    disallowed)  # the server says macs[].allowed false: locked from the start, nothing sent, no Try again
+          lockcheck disallowed disallowed 900:s-1 "tapat Approve;realwait 1500;tapat Try again;realwait 800" \
+            0 0 'tapat: no "Approve" on screen' 'tapat "Try again" wall' ;;
+    disallowedlist) lockcheck disallowedlist disallowed "" "tapat Approve;realwait 1000" 0 0 'tapat: no "Approve" on screen' ;;
+    turnedon)  # refused once, then turned on at the Mac (macs[].allowed true): Approve is back by itself and goes
+          lockcheck turnedon turnedon 900:s-1 "tapat Approve;realwait 4000;tapat Approve;realwait 2500" 2 2 'refused 403 sender_not_allowed' ;;
+    lockshots)  # the two locked screens in LANGS (the pictures only): after a refused Approve, and the list with allowed false
+          shot lockperm notallowed 900:s-1 "tapat Approve;realwait 3000"
+          shot locklist disallowed "" "" ;;
+    oddstatus)  # an answer with no known code (503): "Not sent (503).", the waiting keys dropped, not locked
+          lockcheck oddstatus oddstatus 900:s-3 "tapat Message Claude;realwait 900;tapat Tab;tapat Tab;tapat Mode;realwait 2500;tapat Tab;realwait 700" \
+            2 3 'refused 503 -' 'tapat: no "Tab" on screen' ;;
     estop) shot estop estop "" "" ;;
     notpaired) shot notpaired not_paired "" "" ;;
     disabled) shot disabled disabled "" "" ;;

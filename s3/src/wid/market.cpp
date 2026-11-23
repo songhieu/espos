@@ -11,7 +11,10 @@ namespace wid {
 
 using namespace kit;
 
-const std::vector<Style> MARKETS_STYLES = {{"list", N_("List")}, {"big", N_("One big quote")}};
+// Free sizes (docs/widgets.md §2b): the list in 2x1 (the first code), strips (a ticker), 3x2 (with values), tall 2x3, 2x4.
+const std::vector<Style> MARKETS_STYLES = {
+    {"list", N_("List"), SPAN(2, 1) | SPAN(3, 1) | SPAN(4, 1) | SPAN(3, 2) | SPAN(2, 3) | SPAN(2, 4)},
+    {"big", N_("One big quote")}};
 const std::vector<Style> PRICE_STYLES = {{"table", N_("Price table")}, {"tiles", N_("Big tiles")}};
 
 namespace {
@@ -56,9 +59,14 @@ void wMarkets(lv_obj_t* parent, const Item& it, Card c) {
   const bool onDark = SKIN.own || ((SKIN.fg >> 16) & 255) > 128;
   const uint32_t fg = onOwn(WHITE), dim = onOwnDim(0x94a3b8), val = onOwnDim(0xcbd5e1), line = onOwnDim(0x1f2937);
   const auto rows_ = marketRows(it.opt, onDark);
-  const bool big = styleOf(it) == "big";
+  int cw, ch;
+  spanOf(it, cw, ch);
+  const bool leg = legacy(cw, ch);
+  // (the other spans draw the list look; a one-row card has no heading)
+  const bool big = leg && styleOf(it) == "big";
+  if (!leg && ch == 1 && rows_.empty()) return empty(c, desk::dash().isNull() ? noData() : N_("No prices yet"), dim, 0);
   // The big look's heading is its first code's full name.
-  if (!big || rows_.empty()) cap(c.o, N_("Markets"), dim);
+  if ((!big || rows_.empty()) && (leg || ch > 1)) cap(c.o, N_("Markets"), dim);
   if (rows_.empty()) return empty(c, desk::dash().isNull() ? noData() : N_("No prices yet"), dim, 22);
   if (big) {
     // The first code big: its full name, value, change and unit.
@@ -100,7 +108,46 @@ void wMarkets(lv_obj_t* parent, const Item& it, Card c) {
     }
     return;
   }
-  if (it.size == S) {
+  if (!leg && ch == 1 && cw == 2) {
+    // Two cells: the first code alone, its full name, change and value.
+    const Row& q = rows_[0];
+    const int cwd = q.change.length() ? textW(q.change.c_str(), 12, true) : 0;
+    lv_obj_t* hd = label(c.o, "", 12, true, dim);
+    fitText(hd, upperVi(q.full).c_str(), c.w - cwd - 6, 16, 12, 12, true);
+    lv_obj_set_style_text_letter_space(hd, 1, 0);
+    lv_obj_set_pos(hd, 0, 0);
+    if (q.change.length()) at(c.o, q.change, c.w - cwd, 0, 12, true, q.color);
+    fit(c.o, q.value, 0, 18, c.w, c.h - 18, 20, 14, true, fg, 0);
+    return;
+  }
+  if (!leg && ch == 1) {
+    // A strip: a ticker, each code's name and change over its value.
+    const int n = cw >= 4 ? 3 : 2, colW = (c.w - (n - 1) * 12) / n;
+    for (int i = 0; i < n && i < (int)rows_.size(); i++) {
+      const Row& q = rows_[i];
+      const int x = i * (colW + 12);
+      if (i) rule(c.o, line, x - 7, 2, 1, c.h - 4);
+      at(c.o, q.name, x, 0, 12, true, dim);
+      if (q.change.length()) at(c.o, q.change, x + colW - textW(q.change.c_str(), 12, true), 0, 12, true, q.color);
+      fit(c.o, q.value, x, 18, colW, c.h - 18, 18, 14, true, fg, 0);
+    }
+    return;
+  }
+  if (!leg && cw == 3) {
+    // Three by two: the list with each code's value between its name and its change.
+    int y = 24;
+    for (const Row& q : rows_) {
+      if (y + 18 > c.h) break;
+      at(c.o, q.name, 0, y, 14, true, fg);
+      lv_obj_t* v = label(c.o, q.value.c_str(), 14, false, onOwnDim(0xe2e8f0));
+      lv_obj_align(v, LV_ALIGN_TOP_RIGHT, -64, y);
+      right(c.o, q.change.length() ? q.change : String("·"), y, 14, true, q.change.length() ? q.color : dim);
+      y += 24;
+    }
+    return;
+  }
+  if (it.size == S || cw == 2) {
+    // (2 x 3, 2 x 4: the small look's rows, as many as the card holds)
     int y = 24;
     for (const Row& r : rows_) {
       if (y + 18 > c.h) break;

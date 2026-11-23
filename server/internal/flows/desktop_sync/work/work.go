@@ -243,7 +243,9 @@ func claudeNotes(deskID, userID int, st map[string]any, have []map[string]any, n
 	return ops
 }
 
-// usageSig: what the S3's Claude widget shows, coarsely (see the stamp in Run).
+// usageSig: what the S3's Claude widget shows, coarsely (see the stamp in Run): the 5-hour and weekly percentages in
+// whole points (1 % steps since 2026-11-23, owner: "about once a minute"; they were 5 % steps, so the widget waited for
+// the device's 15-minute refresh between them), the sessions open and waiting, the mode.
 func usageSig(st map[string]any, mode string) string {
 	bucket := func(k string) int {
 		u, _ := st["usage"].(map[string]any)
@@ -251,7 +253,7 @@ func usageSig(st map[string]any, mode string) string {
 		if w == nil || w["pct"] == nil {
 			return -1
 		}
-		return int(wm.Num(w["pct"])) / 5
+		return int(wm.Num(w["pct"]))
 	}
 	open, waiting := 0, 0
 	if ss, ok := st["sessions"].([]any); ok {

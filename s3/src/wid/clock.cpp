@@ -27,10 +27,12 @@ struct Look {
 #include "faces.h"
 }  // namespace
 
+// The spans besides S, M, L the digital look and the dials draw (docs/widgets.md §2b): 1x1, the strips, 3x2, 4x3.
+constexpr uint16_t CLOCK_SPANS = SPAN(1, 1) | SPAN(2, 1) | SPAN(3, 1) | SPAN(4, 1) | SPAN(3, 2) | SPAN(4, 3);
 const std::vector<Style> CLOCK_STYLES = [] {
-  std::vector<Style> v = {{"digital", N_("Digital")}, {"big", N_("Big digits")}, {"center", N_("Centered")},
+  std::vector<Style> v = {{"digital", N_("Digital"), CLOCK_SPANS}, {"big", N_("Big digits")}, {"center", N_("Centered")},
                           {"stack", N_("Stacked")}, {"flip", N_("Flip")}};
-  for (int i = 0; i < FACE_COUNT; i++) v.push_back({FACE_IDS[i], FACE_NAMES[i]});
+  for (int i = 0; i < FACE_COUNT; i++) v.push_back({FACE_IDS[i], FACE_NAMES[i], CLOCK_SPANS});
   v.insert(v.end(), {{"words", N_("Words")}, {"lcd", N_("LCD")}, {"lunar", N_("With lunar date")}});
   return v;
 }();
@@ -166,6 +168,8 @@ Face* face(lv_obj_t* p, int x, int y, int size, const Look& k, bool sec, const t
   f->r = size / 2.0f;
   f->bars = k.handKind == 1;
   const float r = f->r;
+  // A dial under 80 px (a strip, one cell): the twelve hour marks and the hands only.
+  const bool tiny = size < 80;
   if (k.rimW && k.rim != NO) {  // a ring child, so the children keep the face's own coordinates
     lv_obj_t* ring = box(fo, 0, size / 2);
     lv_obj_set_size(ring, size, size);
@@ -173,13 +177,13 @@ Face* face(lv_obj_t* p, int x, int y, int size, const Look& k, bool sec, const t
     lv_obj_set_style_border_width(ring, max(2, size / k.rimW), 0);
     lv_obj_set_style_border_color(ring, C(k.rim), 0);
   }
-  const int n = k.ticks % 100;
+  const int n = tiny ? 12 : k.ticks % 100;
   f->ticks = new lv_point_precise_t[(n + 11) * 2];  // the ticks, then the diver's 11 bezel marks
   for (int i = 0; i < n; i++) {
     const bool hour = n == 12 || i % 5 == 0;
     const bool quarter = hour && (n == 60 ? (i / 5) % 3 == 0 : i % 3 == 0);
     const float a = i / (float)n * 2 * PI;
-    if (k.ticks > 100) {
+    if (k.ticks > 100 && !tiny) {
       const int d = quarter ? max(4, size / 22) : max(3, size / 34);
       const float rr = r - size * k.inset / 1000.0f;
       lv_obj_t* dot = box(fo, quarter ? k.tick : k.minor, d / 2);
@@ -194,7 +198,7 @@ Face* face(lv_obj_t* p, int x, int y, int size, const Look& k, bool sec, const t
     lv_obj_t* tl = line(fo, hour ? max(2, size / k.tickW) : max(1, size / 110), hour ? k.tick : k.minor, !f->bars);
     lv_line_set_points(tl, pt, 2);
   }
-  if (k.extra & 8) {
+  if ((k.extra & 8) && !tiny) {
     // The diver's bezel: a mark each hour on the rim, a bright dot at 12.
     for (int i = 1; i < 12; i++) {
       const float a = i / 12.0f * 2 * PI, ro = r - size * 0.02f, ri = r - size * 0.08f;
@@ -209,7 +213,7 @@ Face* face(lv_obj_t* p, int x, int y, int size, const Look& k, bool sec, const t
     lv_obj_set_pos(dot, size / 2 - d / 2, (int)lroundf(size * 0.05f) - d / 2);
   }
   // Numerals: 12 3 6 9 or all twelve (not where a window or a sub-dial sits), Arabic or Roman, in the device fonts.
-  const int nums = k.numKind == 1 && size < 170 ? 4 : k.nums;
+  const int nums = tiny ? 0 : k.numKind == 1 && size < 170 ? 4 : k.nums;
   if (nums) {
     const int px = size >= 170 ? k.numPx : size >= 100 ? k.numPxM : 12;
     const float rr = r - size * k.numR / 100.0f;
@@ -225,7 +229,7 @@ Face* face(lv_obj_t* p, int x, int y, int size, const Look& k, bool sec, const t
   const bool big = size >= 170;
   const data::Day day = data::today();
   char b[8];
-  if (k.extra & 1) {
+  if ((k.extra & 1) && !tiny) {
     // The date window at 3.
     const int ww = max(18, size / 5), wh = max(14, size / 8), wx = (int)lroundf(r * 1.56f) - ww / 2, wy = size / 2 - wh / 2;
     lv_obj_t* win = box(fo, 0xffffff, 3);
@@ -237,7 +241,7 @@ Face* face(lv_obj_t* p, int x, int y, int size, const Look& k, bool sec, const t
     const int px = big ? 15 : 12;
     at(fo, b, wx + ww / 2 - textW(b, px, true) / 2, wy + wh / 2 - lineH(px, true) / 2, px, true, 0x16181d);
   }
-  if ((k.extra & 2) && data::hasWeather()) {
+  if ((k.extra & 2) && data::hasWeather() && !tiny) {
     // The weather at 6: its picture and the temperature.
     JsonObjectConst w = data::weather();
     const int ip = big ? 28 : 20, tp = big ? 16 : 12;
@@ -247,7 +251,7 @@ Face* face(lv_obj_t* p, int x, int y, int size, const Look& k, bool sec, const t
     lv_obj_set_pos(ic, x0, cy - ip / 2);
     at(fo, b, x0 + ip + 2, cy - lineH(tp, true) / 2, tp, true, k.num);
   }
-  if (k.extra & 4) {
+  if ((k.extra & 4) && !tiny) {
     // Sub-dials at 9 and 3: a 24-hour hand, the day of the month.
     const int sd = size / 4, bw = max(1, size / 100);
     for (int side = -1; side <= 1; side += 2) {
@@ -436,6 +440,150 @@ void posterClock(Clk* k, bool stack, const tm& l, const data::Day& d, uint32_t f
 }
 #pragma GCC pop_options
 
+// How wide timeRow() draws at px (the digits, then the seconds and "AM"/"PM" beside them).
+int timeWidth(Clk* k, int px, const tm& l, int ls) {
+  const String s = clockText(l, k->h12);
+  const int small = px >= 56 ? 18 : px >= 40 ? 14 : 12;
+  int end = textW(s.c_str(), px, true) + ls * ((int)s.length() - 1);
+  int ex = end + 4;
+  if (k->sec) {
+    end = ex + textW("00", small, true);
+    ex += textW("00", small, true) + 4;
+  }
+  if (k->h12) end = ex + textW(ampm(l), small, true);
+  return end;
+}
+// The large look's next event today ("14:00 Meeting"), else that none is left.
+String nextToday(const data::Day& d) {
+  const int now = data::nowMinutes();
+  for (const auto& e : data::eventsOn(d)) {
+    const int m = e.time.length() ? e.time.substring(0, 2).toInt() * 60 + e.time.substring(3, 5).toInt() : -1;
+    if (m < 0 || m >= now) return (e.time.length() ? e.time + " " : "") + e.title;
+  }
+  return T_("No more events today");
+}
+
+#pragma GCC push_options
+#pragma GCC optimize("Os")  // built once a minute
+// ---- the other spans (docs/widgets.md §2b; web: clock.ts clockAt): the digital look and the dials.
+void clockAt(Clk* k, int cw, int ch, const String& st, uint32_t fg, uint32_t dim, bool dark, const tm& l, const data::Day& d) {
+  lv_obj_t* b = k->body;
+  const int W = k->W, H = k->H;
+  const String time = clockText(l, k->h12) + (k->h12 ? String(" ") + ampm(l) : String(""));
+  if (faceIndex(st) >= 0) {
+    const Look look = lookOf(st, dark, fg, dim);
+    if (ch == 1) {
+      // One row: the dial as tall as the card; beside it the time (two cells) or the day (three, four), the time at
+      // the right of four.
+      const int dd = cw == 1 ? min(W, H) : H;
+      k->face = face(b, cw == 1 ? (W - dd) / 2 : -2, (H - dd) / 2, dd, look, k->sec, l);
+      if (cw == 1) return;
+      const int x = dd + 6;
+      if (cw == 2) {
+        fit(b, time, x, 0, W - x, 24, 20, 12, true, fg, 0);
+        fit(b, dShort(d), x, 26, W - x, 18, 12, 12, false, dim, 0);
+        return;
+      }
+      const int rw = cw >= 4 ? 80 : 0;
+      fit(b, WEEKDAY[d.wday], x, 0, W - x - rw, 20, 16, 12, true, fg, 0);
+      fit(b, i18n::date(N_("{MM} {d}"), d.d, d.m), x, 22, W - x - rw, 20, 13, 12, false, dim, 0);
+      if (rw) right(b, time, 8, textW(time.c_str(), 22, true) <= rw ? 22 : 16, true, dim);
+      return;
+    }
+    // Three by two, four by three: the dial at the left, the day, the lunar date and the time beside it.
+    const int dd = ch == 2 ? 116 : min(H, 188);
+    k->face = face(b, -2, (H - dd) / 2, dd, look, k->sec, l);
+    const int x = dd + 6, w = W - x;
+    const int y0 = ch == 2 ? 2 : 24;
+    fit(b, WEEKDAY[d.wday], x, y0, w, 22, 16, 12, true, fg, 0);
+    fit(b, i18n::date(N_("{MM} {d}"), d.d, d.m), x, y0 + 24, w, 36, 14, 12, false, fg, 2);
+    fit(b, lunarLine(d), x, y0 + (ch == 2 ? 48 : 62), w, 34, 12, 12, false, dim, 2);
+    fit(b, time, x, H - (ch == 2 ? 24 : 32), w, ch == 2 ? 24 : 30, ch == 2 ? 18 : 22, 12, true, dim, 0);
+    return;
+  }
+  // digital: the time, the date, the lunar date and the weather, as much as the span holds
+  JsonObjectConst w = data::weather();
+  const bool wx = data::hasWeather();
+  const bool night = data::night();
+  if (cw == 1) {
+    // One cell: the hours over the minutes.
+    mid(b, k->h12 ? String(hour12(l.tm_hour)) : two(l.tm_hour), W / 2, -2, 20, true, fg);
+    mid(b, two(l.tm_min), W / 2, 20, 20, true, dim);
+    return;
+  }
+  if (ch == 1) {
+    // One row: the time; the temperature (two cells), or the day and its lunar date, the weather at the right of four.
+    const int px = cw == 2 ? 28 : 34;
+    timeRow(k, -1, cw == 2 ? 0 : -2, px, l, fg, dim, -1);
+    const int used = timeWidth(k, px, l, -1);
+    if (cw == 2) {
+      if (wx && used + 34 <= W) {
+        lv_obj_set_pos(img(b, data::wxIcon(w["icon"] | "cloud", 26, night)), W - 26, -4);
+        const String tp = String((int)(w["temp"] | 0)) + "°";
+        at(b, tp, W - textW(tp.c_str(), 14, true), H - lineH(14, true) + 2, 14, true, fg);
+      }
+      return;
+    }
+    const int x = used + 8;
+    const int rw = cw >= 4 && wx ? 76 : 0;
+    fit(b, dLong(d), x, 2, W - x - rw, 20, 14, 12, true, fg, 0);
+    // the lunar date with "lunar" when that fits on the line, else without
+    if (!fitIn(b, lunarLine(d), x, 22, W - x - rw, 18, 12, 12, false, dim, 0))
+      fit(b, data::lunarText(data::lunar(d)), x, 22, W - x - rw, 18, 12, 12, false, dim, 0);
+    if (rw) {
+      const String tp = String((int)(w["temp"] | 0)) + "°";
+      right(b, tp, 6, 22, true, fg);
+      lv_obj_set_pos(img(b, data::wxIcon(w["icon"] | "cloud", 32, night)), W - textW(tp.c_str(), 22, true) - 34, 2);
+    }
+    return;
+  }
+  if (ch == 2) {
+    // Three by two: the small look with the weather in its own column.
+    const int px = k->sec || k->h12 ? 34 : 44;
+    timeRow(k, -2, 0, px, l, fg, dim, -1);
+    const int lw = wx ? W - 72 : W, ty = lineH(px, true) + 2;
+    fit(b, dLong(d), 0, ty, lw, 20, 14, 12, true, fg, 0);
+    fit(b, lunarLine(d), 0, ty + 20, lw, 18, 13, 12, false, dim, 0);
+    if (wx) {
+      const int x = W - 58;
+      lv_obj_t* r = box(b, dim, 0);
+      lv_obj_set_size(r, 1, 86);
+      lv_obj_set_pos(r, x - 10, 4);
+      lv_obj_set_style_bg_opa(r, 89, 0);
+      lv_obj_set_pos(img(b, data::wxIcon(w["icon"] | "cloud", 36, night)), x + 6, 0);
+      mid(b, String((int)(w["temp"] | 0)) + "°", x + 29, 40, 22, true, fg);
+      mid(b, String((int)(w["min"] | 0)) + "–" + (int)(w["max"] | 0) + "°", x + 29, 68, 12, false, dim);
+      String desc = w["desc"] | "";
+      if (!w["rain"].isNull()) desc += String(" · ") + i18n::fmt(N_("rain {0}%"), String((int)(w["rain"] | 0)));
+      fit(b, desc, 0, H - lineH(12, false), W, lineH(12, false), 12, 12, false, dim, 0);
+    }
+    return;
+  }
+  // Four by three: the medium look, the full date, then the next event.
+  timeRow(k, -2, 4, 56, l, fg, dim, -2);
+  if (wx) {
+    const int rx = W - 112;
+    const String city = upperVi(data::cityShort(w["city"] | ""));
+    lv_obj_set_style_text_letter_space(at(b, city, rx + 112 - textW(city.c_str(), 12, true) - (glyphs(city) - 1), 4, 12, true, dim), 1, 0);
+    const String temp = String((int)(w["temp"] | 0)) + "°";
+    const int tx = rx + 112 - textW(temp.c_str(), 28, true);
+    at(b, temp, tx, 22, 28, true, fg);
+    lv_obj_set_pos(img(b, data::wxIcon(w["icon"] | "cloud", 40, night)), tx - 42, 22 + lineH(28, true) / 2 - 20);
+    lv_obj_t* ds = label(b, "", 13, false, fg);
+    const int dpx = fitText(ds, w["desc"] | "", 112, 18, 13, 12);
+    lv_obj_set_pos(ds, rx + 112 - textW(lv_label_get_text(ds), dpx, false), 62);
+  }
+  const data::Lunar lu = data::lunar(d);
+  fit(b, dFull(d), 0, 98, W, 22, 16, 12, true, fg, 0);
+  fit(b, i18n::fmt(N_("Lunar {0} · {1} year"), data::lunarText(lu), data::canChiYear(lu.y)), 0, 120, W, 18, 13, 12, false, dim, 0);
+  lv_obj_t* bar = box(b, 0xff9500, 2);
+  lv_obj_set_size(bar, 4, 32);
+  lv_obj_set_pos(bar, 0, 150);
+  at(b, NC_("upcoming", "Next"), 12, 148, 12, true, dim);
+  fit(b, nextToday(d), 12, 164, W - 12, 20, 14, 12, false, fg);
+}
+#pragma GCC pop_options
+
 void drawClock(Clk* k) {
   lv_obj_t* b = k->body;
   lv_obj_clean(b);
@@ -449,6 +597,10 @@ void drawClock(Clk* k) {
   k->lastMin = l.tm_min;
   const data::Day d = data::today();
   const String st = styleOf(it);
+  int cw, ch;
+  spanOf(it, cw, ch);
+  // A span other than S, M, L: the digital look or a dial (the others draw only S, M, L).
+  if (!legacy(cw, ch)) return clockAt(k, cw, ch, faceIndex(st) >= 0 ? st : String("digital"), fg, dim, dark, l, d);
   if (faceIndex(st) >= 0) {
     const Look look = lookOf(st, dark, fg, dim);
     if (it.size == S) {
@@ -635,16 +787,7 @@ void drawClock(Clk* k) {
     y += 44;
   }
   if (y + 36 <= H) {
-    const int now = data::nowMinutes();
-    String next;
-    for (const auto& e : data::eventsOn(d)) {
-      const int m = e.time.length() ? e.time.substring(0, 2).toInt() * 60 + e.time.substring(3, 5).toInt() : -1;
-      if (m < 0 || m >= now) {
-        next = (e.time.length() ? e.time + " " : "") + e.title;
-        break;
-      }
-    }
-    if (!next.length()) next = T_("No more events today");
+    const String next = nextToday(d);
     lv_obj_t* bar = box(b, 0xff9500, 2);
     lv_obj_set_size(bar, 4, 32);
     lv_obj_set_pos(bar, 0, y + 2);

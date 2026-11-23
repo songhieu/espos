@@ -1,0 +1,21 @@
+# Resizing on the device, 3.5" landscape: Claude 2x2 dragged to 4x1, Weather moves to (0,1); s3.home_l dumped.
+wait 6000
+set s3.saver 0
+set s3.rot 1
+set s3.home_l {"v":1,"pages":[[["w","claude",0,0,"s","bars",""],["a","news",4,0],["a","weather",2,0],["a","notes",3,3]]]}
+wait 2500
+long 300 250
+wait 600
+tap 80 90
+wait 600
+shot d1
+down 154 165
+move 316 96
+wait 300
+shot d2
+up
+wait 900
+shot d3
+tapat Done
+wait 1500
+dumpset s3.home_l

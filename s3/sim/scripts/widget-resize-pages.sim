@@ -1,0 +1,35 @@
+# Free widget sizes (docs/widgets.md §2b): pages of resized Claude, Clock, Calendar and Markets widgets, then the
+# same S/M/L pages as before (pages 5 and 6 must look exactly as on 0.6.1), in portrait then landscape. Run from s3/
+# with a copy of sim/data that has the Claude fixture: python3 ../widtest/claude/states.py DATA full; then
+#   FIX_TIME=1794795660 DYLD_INSERT_LIBRARIES=../widtest/fixtime.dylib SIM_DATA=DATA sim/BUILD/espos-sim sim/scripts/widget-resize-pages.sim OUT
+wait 6000
+set s3.saver 0
+set s3.rot 0
+set s3.home {"v":2,"dock":["clock","notes","markets","settings"],"pages":[[["w","claude",0,0,"m","bars","","","","4x1"],["w","clock",0,1,"s","digital","","","","2x1"],["w","markets",2,1,"s","list","","","","2x1"],["w","cal",0,2,"s","week","","","","4x1"],["w","markets",0,3,"s","list","","","","3x2"],["a","news",3,3],["a","photos",3,4]],[["w","claude",0,0,"s","ring","","","","2x4"],["w","clock",2,0,"s","analog","","","","2x1"],["w","cal",2,1,"s","today","","","","2x1"],["w","clock",2,2,"s","digital","","","","1x1"],["w","clock",3,2,"s","roman","","","","1x1"],["a","weather",2,3],["a","notes",3,3],["w","claude",0,4,"m","today","","","","4x1"]],[["w","clock",0,0,"s","digital","","","","3x2"],["a","cal",3,0],["a","calc",3,1],["w","claude",0,2,"m","bars","","","","4x3"]],[["w","cal",0,0,"s","month","","","","3x3"],["a","news",3,0],["a","weather",3,1],["a","photos",3,2],["w","clock",0,3,"m","chrono","","","","4x1"],["w","claude",0,4,"s","bars","","","","2x1"],["w","markets",2,4,"s","list","","","","2x1"]],[["w","clock",0,0,"m","digital",""],["w","cal",0,2,"s","today",""],["w","markets",2,2,"s","list",""],["a","news",0,4],["a","weather",1,4],["a","cal",2,4],["a","photos",3,4]],[["w","claude",0,0,"l","bars",""],["a","store",0,4]]]}
+set s3.home_l {"v":1,"pages":[[["w","claude",0,0,"m","bars","","","","4x1"],["w","clock",0,1,"s","digital","","","","2x1"],["w","markets",2,1,"s","list","","","","2x1"],["w","clock",0,2,"m","digital","","","","4x2"],["a","news",4,0],["a","weather",4,1],["a","photos",4,2],["a","notes",4,3]],[["w","clock",0,0,"s","digital","","","","3x2"],["w","clock",3,0,"s","digital","","","","1x1"],["w","clock",4,0,"s","analog","","","","1x1"],["w","claude",0,2,"s","ring","","","","3x1"],["w","cal",0,3,"s","week","","","","4x1"],["a","cal",4,3]],[["w","cal",0,0,"s","month","","","","3x3"],["w","claude",3,0,"s","bars","","","","2x3"],["w","markets",0,3,"s","list","","","","3x1"],["a","calc",3,3]]]}
+wait 2000
+shot p1
+drag 300 240 30 240 300
+wait 900
+shot p2
+drag 300 240 30 240 300
+wait 900
+shot p3
+drag 300 240 30 240 300
+wait 900
+shot p4
+drag 300 240 30 240 300
+wait 900
+shot p5
+drag 300 240 30 240 300
+wait 900
+shot p6
+rot 1
+wait 2500
+shot l1
+drag 300 240 30 240 300
+wait 900
+shot l2
+drag 300 240 30 240 300
+wait 900
+shot l3

@@ -43,9 +43,9 @@ for d in sorted(p for p in Path(__file__).parent.iterdir() if (p / "manifest.jso
           "perms": m.get("perms", m.get("permissions", [])), "part": "core"}
     if m.get("i18n"):  # names and descriptions in other languages (docs/i18n.md)
         pm["i18n"] = m["i18n"]
-    for k in ("settings", "auth", "api"):  # the settings form and its secrets' bindings (app-slots.md §15.1): the device
-        if m.get(k):                      # reads them from the installed package
-            pm[k] = m[k]
+    for k in ("settings", "auth", "api", "requires"):  # the settings form and its secrets' bindings (app-slots.md
+        if m.get(k):                                  # §15.1), read from the installed package; the API level and
+            pm[k] = m[k]                              # what the device needs (touch, a colour screen) as for natives
     with tempfile.TemporaryDirectory() as tmp:
         t = Path(tmp)
         (t / "manifest.json").write_text(json.dumps(pm, ensure_ascii=False))
@@ -58,7 +58,7 @@ for d in sorted(p for p in Path(__file__).parent.iterdir() if (p / "manifest.jso
         f = espk.build(t, out / f"{m['id']}-{m['version']}-core.espk")
     b = f.read_bytes()
     e = {k: pm[k] for k in ("id", "name", "version", "code", "kind", "engine", "min_fw", "category", "author", "desc",
-                            "icon", "perms", "i18n") if k in pm}
+                            "icon", "perms", "api", "requires", "i18n") if k in pm}  # api, requires: as espk.entry
     if (out / f"{m['id']}-{m['version']}.jpg").exists():
         e["icon_url"] = f"{base}/{m['id']}-{m['version']}.jpg"
     e["parts"] = [{"id": "core", "req": True, "url": f"{base}/{f.name}", "size": len(b),

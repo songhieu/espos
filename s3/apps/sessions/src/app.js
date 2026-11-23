@@ -141,9 +141,9 @@ function listError(r) {
 }
 
 function sigOf() {
-  if (S.view !== 'term') return JSON.stringify([S.listErr, S.macs, S.sessions]);
+  if (S.view !== 'term') return JSON.stringify([S.listErr, S.macs, S.sessions, denied]);
   const x = cur(), m = x && macOf(x.mac);
-  return JSON.stringify([S.listErr, x && [x.name, x.state, x.req], m && [m.online, m.mode, m.stream, m.stream_why]]);
+  return JSON.stringify([S.listErr, x && [x.name, x.state, x.req], m && [m.online, m.mode, m.stream, m.stream_why, lockOf(m)]]);
 }
 
 function pollList(wait) {
@@ -155,6 +155,7 @@ function pollList(wait) {
     if (r.status === 200) {
       const d = json(r);
       S.macs = d.macs || [], S.sessions = d.sessions || [], S.rev = d.rev || 0;
+      for (const m of S.macs) if (m.allowed === true) delete denied[m.id];  // turned on at the Mac
       S.loaded = true, S.listErr = '', S.failures = 0;
       schedule(S.view === 'term' ? 50 : 300);
     } else {
@@ -236,16 +237,42 @@ function note(text, tone, ms) {
 }
 
 const SENT = () => ({done: t('Sent'), sent: t('Sent to the Mac'), confirm_mac: t('Waiting for you to confirm it on the Mac (60 s)')});
+const NOT_ALLOWED = () => t('The Mac does not take commands from this device yet. On the Mac: EspOS Desktop > Settings > Devices, turn this device on.');
 const REFUSED = () => ({
   desktop_offline: t('The Mac is offline. Nothing was sent.'), command_off: t('This is turned off in EspOS Desktop on the Mac.'),
-  view_only: t('The Mac is in view-only mode. Nothing was sent.'), not_waiting: t('The session is no longer waiting.'),
-  req_gone: t('That question was already answered or has expired.'), rate: t('Too many in a row. Wait a moment.'),
+  view_only: t('The Mac is in view-only mode. Nothing was sent.'), desktop_view_only: t('The Mac is in view-only mode. Nothing was sent.'),
+  not_waiting: t('The session is no longer waiting.'), req_gone: t('That question was already answered or has expired.'),
+  rate: t('Too many in a row. Wait a moment.'), sender_not_allowed: NOT_ALLOWED(),
 });
+
+// What the Mac lets this device do. 'denied': nothing is sent (the Mac's list of devices that may send commands says no:
+// macs[].allowed false, or a "sender_not_allowed" seen here); 'view': the Mac's view-only mode; '' when it may send.
+const denied = {};  // mac id -> true after a "sender_not_allowed"; ends when the server says allowed, or "Try again"
+function lockOf(mac) {
+  if (!mac) return '';
+  if (mac.allowed === false || denied[mac.id]) return 'denied';
+  return mac.mode === 'view' ? 'view' : '';
+}
+// Any answer that is not a success, in words: never silent, never a bare status. A "sender_not_allowed" locks the keys
+// and Approve/Deny for that Mac (no retries), drops the keys still waiting, and the reason takes the prompt's place
+// (the list: under the Mac's name), where it stays.
+function notSent(r, d, mac) {
+  const code = d.err || d.error || '';
+  log('refused ' + (r.status || 0) + ' ' + (code || '-'));  // on the serial line too
+  if (code === 'sender_not_allowed' && mac) {
+    denied[mac.id] = true, KQ.q = [], S.sig = '';
+    if (app.kb > 0) app.closeKeyboard();
+    return;
+  }
+  note(!r.status ? t('No connection. Nothing was sent.') : REFUSED()[code] || (code || d.state ? t('Not sent: {why}', {why: code || d.state})
+    : t('Not sent ({code}).', {code: r.status})), 'bad', 8000);
+}
 
 // kind: text | key | approve | deny. ack: the person already said yes to a risky one.
 function send(kind, extra, ack, n) {
   const s = extra.session || cur();
   if (!s || S.sending) return;
+  if (lockOf(macOf(s.mac)) === 'denied') return note(NOT_ALLOWED(), 'bad', 8000), app.refresh();
   const body = Object.assign({mac: s.mac, s: s.id, nonce: n || nonce(), kind}, extra.body);
   if (ack) body.ack_risky = true;
   S.sending = true;
@@ -257,7 +284,7 @@ function send(kind, extra, ack, n) {
       S.sheet = {kind: 'risky', why: d.why || 'shell', what: extra.what, go: () => send(kind, extra, true)};
     } else if (r.status === 200 || r.status === 409) {
       const st = d.state || (r.status === 200 ? 'sent' : 'refused');
-      if (st === 'refused' || st === 'failed') note(REFUSED()[d.err] || t('Not sent: {why}', {why: d.err || st}), 'bad', 6000);
+      if (st === 'refused' || st === 'failed') notSent(r, Object.assign({state: st}, d), macOf(s.mac));
       else {
         note(d.text || SENT()[st] || t('Sent'), st === 'confirm_mac' ? 'wait' : 'ok', st === 'confirm_mac' ? 60000 : 3000);
         if (extra.after) extra.after();
@@ -269,7 +296,7 @@ function send(kind, extra, ack, n) {
     } else if (r.status === 402) {
       note(t('This needs EspOS AI.'), 'bad', 6000);
     } else {
-      note(r.status ? t('Not sent ({code}).', {code: d.error || r.status}) : t('No connection. Nothing was sent.'), 'bad', 6000);
+      notSent(r, d, macOf(s.mac));
     }
     app.refresh();
   });
@@ -296,7 +323,9 @@ const KQ = {q: [], busy: false, single: false};
 function pressKey(k, ack) {
   const s = cur(), mac = s && macOf(s.mac);
   if (!s || !mac || !mac.online) return toast(t('Nothing can be sent while the Mac is offline'));
-  if (mac.mode === 'view') return toast(t('View only: answer it in iTerm on the Mac.'));
+  const lock = lockOf(mac);
+  if (lock === 'denied') return toast(NOT_ALLOWED());
+  if (lock === 'view') return toast(t('View only: answer it in iTerm on the Mac.'));
   S.touchAt = Date.now();
   if (s.state === 'perm' && s.req) {  // Claude's own 1/2/3 dialog: the request's path, never "don't ask again"
     if (k === '1') return answer(s, true);
@@ -334,8 +363,8 @@ function flushKeys(again) {
     else if (r.status === 428) toast(t('Hold {key} for a second to stop Claude', {key: KEYS_LABEL[keys.find((k) => k === 'esc' || k === 'ctrl_c')] || 'Esc'}));
     else if (r.status === 200 || r.status === 409) {
       const st = d.state || (r.status === 200 ? 'sent' : 'refused');
-      if (st === 'refused' || st === 'failed') note(REFUSED()[d.err] || t('Not sent: {why}', {why: d.err || st}), 'bad', 6000), app.refresh();
-    } else note(r.status ? t('Not sent ({code}).', {code: d.error || r.status}) : t('No connection. Nothing was sent.'), 'bad', 6000), app.refresh();
+      if (st === 'refused' || st === 'failed') KQ.q = [], notSent(r, Object.assign({state: st}, d), m), app.refresh();
+    } else KQ.q = [], notSent(r, d, m), app.refresh();
     S.fastUntil = Date.now() + 4000;
     if (!polling && S.view === 'term') schedule(0);  // its effect, as soon as the Mac draws it
     flushKeys();
@@ -467,7 +496,7 @@ function permStrip(s, mac) {
   const req = s.req || {};
   const what = req.cmd || req.file || req.desc || '';
   const title = ui.text((req.file && !req.cmd ? t('Claude wants to edit a file') : t('Claude wants to run a command')) + ': ' + what, {size: 13, bold: true});
-  if (mac && mac.mode === 'view') return ui.column([title], {gap: 3, pad: 6});  // the prompt's line says view only
+  if (lockOf(mac)) return ui.column([title], {gap: 3, pad: 6});  // the prompt's line says why nothing can be answered
   const deny = ui.button(t('Deny'), () => answer(s, false), {bg: C.chip, color: C.bad, h: 34, fill: !LAND, w: LAND ? 88 : 0});
   const ok = ui.button(t('Approve'), () => answer(s, true), {bg: C.ok, h: 34, fill: !LAND, w: LAND ? 104 : 0});
   if (LAND) return ui.row([deny, ok, ui.column([title], {fill: true, gap: 0})], {gap: 8, pad: 5});  // fill goes last (it takes what is left)
@@ -495,7 +524,14 @@ function keysRow() {
 
 // The prompt, like Claude Code's own: type, Enter on the keyboard sends; the terminal keys sit on the keyboard.
 function promptRow(s, mac) {
-  if (mac && mac.mode === 'view') return ui.column([ui.text(t('View only. Turned on in EspOS Desktop on the Mac: you can watch, not type or approve.'), {size: 12, dim: true, center: true})], {pad: 6});
+  const lock = lockOf(mac);
+  if (lock === 'view') return ui.column([ui.text(t('View only. Turned on in EspOS Desktop on the Mac: you can watch, not type or approve.'), {size: 12, dim: true, center: true})], {pad: 6});
+  if (lock === 'denied') {  // from the start when the server says so; after a refusal, "Try again" once it is turned on
+    const why = ui.text(NOT_ALLOWED(), {size: 12, color: C.wait});
+    if (mac.allowed === false) return ui.column([why], {pad: 6});
+    return ui.row([ui.button(t('Try again'), () => { delete denied[mac.id]; S.sig = ''; app.refresh(); }, {h: 32, bg: C.chip, color: C.chipFg}),
+      ui.column([why], {fill: true, gap: 0})], {gap: 8, pad: 5});  // fill goes last (it takes what is left)
+  }
   const off = !mac || !mac.online;
   const clear = S.clearField;
   S.clearField = false;
@@ -591,14 +627,16 @@ function listBody() {
   if (!S.macs.length) return emptyState(t('Connect your Mac'), t('No computer is paired with this account yet. Install EspOS Desktop from espos.dev/desktop.'));
   for (const m of S.macs) {
     const mine = sorted().filter((x) => x.mac === m.id);
-    const status = m.mode === 'off' ? t('emergency stop') : !m.online ? t('offline since {t}', {t: ago(m.seen_ms)}) : m.mode === 'view' ? t('view only') : t('online');
-    parts.push(ui.text(m.name + ' · ' + status, {size: 12, bold: true, color: m.online && m.mode !== 'off' ? C.ok : C.faint}));
+    const lock = lockOf(m);
+    const status = m.mode === 'off' ? t('emergency stop') : !m.online ? t('offline since {t}', {t: ago(m.seen_ms)}) : lock ? t('view only') : t('online');
+    parts.push(ui.text(m.name + ' · ' + status, {size: 12, bold: true, color: !m.online || m.mode === 'off' ? C.faint : lock ? C.wait : C.ok}));
     if (m.mode === 'off') {
       parts.push(ui.card([ui.text(t('Emergency stop on {mac}', {mac: m.name}), {bold: true, color: C.bad}),
         ui.text(t('EspOS Desktop disconnected itself. Nothing is shown or sent until someone turns it back on at the Mac.'), {size: 13})]));
       continue;
     }
     if (!m.online) parts.push(ui.text(t('Your Mac is offline. This is what it sent last; nothing can be sent until it is back.'), {size: 12, dim: true}));
+    else if (lock === 'denied') parts.push(ui.text(NOT_ALLOWED(), {size: 12, color: C.wait}));
     if (!mine.length) {
       parts.push(ui.card([ui.text(t('No Claude sessions right now'), {bold: true}),
         ui.text(t('Start claude in iTerm2 on your Mac and it shows up here within seconds.'), {size: 13, dim: true})], {half: true}));
@@ -611,7 +649,7 @@ function listBody() {
       else if (x.last) kids.push(ui.text(x.last, {size: 13}));
       if (x.state === 'perm' && x.req && m.online) {
         kids.push(ui.card([ui.text(x.req.cmd || x.req.file || x.req.desc || '', {size: 13})], {bg: C.cmd, gap: 2}));
-        if (m.mode !== 'view') kids.push(ui.row([
+        if (!lock) kids.push(ui.row([
           ui.button(t('Deny'), () => answer(x, false), {bg: C.chip, color: C.bad, h: 32, fill: true}),
           ui.button(t('Approve'), () => answer(x, true), {bg: C.ok, h: 32, fill: true}),
         ], {gap: 8}));

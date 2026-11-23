@@ -311,6 +311,18 @@ void simSync() {
     trace::add("sim sync: setting %s = %s (from the server)", k.c_str(), v.c_str());
   }
   if (any) settingsVer++;
+  if (a["dashboard"].is<JsonObjectConst>()) {  // as desk.cpp applySync: a different dashboard (dashSig: now_ms and
+    auto sig = [](JsonObjectConst d) {         // next_s aside) moves dashVersion()
+      JsonDocument c;
+      c.set(d), c.remove("now_ms"), c.remove("next_s");
+      std::string s;
+      serializeJson(c, s);
+      return s;
+    };
+    const std::string now = sig(a["dashboard"]);
+    if (sig(dashDoc.as<JsonObjectConst>()) != now)
+      dashDoc.set(a["dashboard"]), dashVer++, trace::add("sim sync: a new dashboard (%u bytes)", (unsigned)now.size());
+  }
   if (a["preset"].is<JsonObjectConst>()) preset::fromSync(a["preset"]);  // as desk.cpp applySync
   appset::fromSync(a.as<JsonObjectConst>());
   trace::add("sim sync: ok, %u settings up, %u down", (unsigned)sent.size(), (unsigned)a["settings"].size());

@@ -1,0 +1,20 @@
+# Resizing on the device, 2.8" (build with EXTRA=-DBOARD_ES3C28P; grid 20 px further right): Claude 2x2 -> 4x1.
+wait 6000
+set s3.saver 0
+set s3.home {"v": 2, "dock": ["clock", "notes", "markets", "settings"], "pages": [[["w", "claude", 0, 0, "s", "bars", ""], ["a", "news", 2, 0], ["a", "weather", 3, 0], ["a", "cal", 2, 1], ["a", "photos", 3, 1], ["w", "cal", 0, 2, "s", "today", ""], ["w", "markets", 2, 2, "s", "list", ""], ["a", "notes", 0, 4], ["a", "calc", 1, 4]]]}
+wait 1500
+long 297 361
+wait 600
+tap 100 100
+wait 600
+shot e1
+down 174 170
+move 336 102
+wait 300
+shot e2
+up
+wait 800
+shot e3
+tapat Done
+wait 1500
+dumpset s3.home

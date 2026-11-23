@@ -37,6 +37,7 @@ extern "C" uint32_t lv_text_get_next_line(const char* txt, const lv_font_t* font
                                           int32_t max_width, int32_t* used_width, lv_text_flag_t flag);
 
 namespace desksaver {
+void drawWid(lv_obj_t* c, const El& e);  // a widget element's card (drawEl; refreshWidgets draws it again)
 namespace {
 
 using namespace kit;
@@ -378,6 +379,7 @@ Doc cur;
 String curRaw;
 bool loaded = false;
 uint32_t seenSettings = 0;
+uint32_t seenDash = 0, widAt = 0;  // the dashboard the page's widgets were drawn with, and when (refreshWidgets)
 
 lv_obj_t *root, *bgBox, *layer;
 std::vector<lv_obj_t*> boxes;  // the elements of the page shown, in its order
@@ -407,6 +409,22 @@ const Page& pageOf(bool land, bool night, int idx) {
   return v[idx % v.size()];
 }
 
+// A new dashboard (a sync brought one, 0.6.2): the page's widgets drawn again with it, in their places, while the
+// saver stays up; the background (the aquarium, a photo) and the rest of the page stay as they are. The dog (pet) is
+// no dashboard widget: it keeps going.
+void refreshWidgets() {
+  seenDash = desk::dashVersion(), widAt = millis();
+  const Page& pg = pageOf(pageLand, pageNight, pageIdx);
+  int n = 0;
+  for (size_t i = 0; i < boxes.size() && i < pg.e.size(); i++) {
+    if (pg.e[i].t != "w" || pg.e[i].k == "pet" || !boxes[i]) continue;
+    lv_obj_clean(boxes[i]);
+    drawWid(boxes[i], pg.e[i]);
+    n++;
+  }
+  if (n) trace::add("saver: %d widget%s drawn with the new dashboard", n, n == 1 ? "" : "s");
+}
+
 void render() {
   if (!root) return;
   lv_obj_clean(root);
@@ -415,7 +433,8 @@ void render() {
   bgBox = drawBg(root, pg.bg, os::W(), os::H());
   keep(&layer, canvas(root, pageLand));
   for (const El& e : pg.e) boxes.push_back(drawEl(layer, e));
-  builtAt = millis();
+  builtAt = widAt = millis();
+  seenDash = desk::dashVersion();
   dirty = false;
   lastMin = -1;  // text and place now
   trace::add("saver page %s %d%s, %u elements", pageLand ? "land" : "port", pageIdx + 1, pageNight ? " night" : "",
@@ -991,6 +1010,16 @@ lv_obj_t* canvas(lv_obj_t* parent, bool land) {
   return c;
 }
 
+void drawWid(lv_obj_t* c, const El& e) {
+  wid::Item it;
+  it.kind = e.k;
+  it.size = e.sz == 'L' ? wid::L : e.sz == 'M' ? wid::M : wid::S;
+  it.style = e.st;
+  it.opt = e.op;
+  it.skin = e.sk;
+  wid::create(c, it, e.w, e.h, false);
+}
+
 lv_obj_t* drawEl(lv_obj_t* parent, const El& e) {
   lv_obj_t* c = kit::clear(parent);
   lv_obj_set_pos(c, e.x, e.y);
@@ -1016,13 +1045,7 @@ lv_obj_t* drawEl(lv_obj_t* parent, const El& e) {
 #endif
     if (!got) lv_obj_center(glyph(c, &gl_photo_22, 0x6b7380));
   } else if (e.t == "w") {
-    wid::Item it;
-    it.kind = e.k;
-    it.size = e.sz == 'L' ? wid::L : e.sz == 'M' ? wid::M : wid::S;
-    it.style = e.st;
-    it.opt = e.op;
-    it.skin = e.sk;
-    wid::create(c, it, e.w, e.h, false);
+    drawWid(c, e);
   } else if (e.text()) {
     // Text over pictures (docs/saver.md §2): a band behind it (its opacity set by fill), a soft shadow under it.
     if (e.band) {
@@ -1118,6 +1141,8 @@ void update(const tm& t, bool night) {
     pageNight = n;
     pageLand = land;
     render();
+  } else if (seenDash != desk::dashVersion() && millis() - widAt > 15000) {
+    refreshWidgets();
   }
   wid::tick();  // clocks on the page: minutes, seconds hands
   const int m = t.tm_hour * 60 + t.tm_min;

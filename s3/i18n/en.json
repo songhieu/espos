@@ -2,19 +2,19 @@
  " (not inserted)": {
   "kind": "text",
   "where": [
-   "src/app_more.cpp:1250"
+   "src/app_more.cpp:1253"
   ]
  },
  " leap": {
   "kind": "text",
   "where": [
    "src/data.cpp:303",
-   "src/desksaver.cpp:250",
-   "src/wid/cal.cpp:110",
-   "src/wid/cal.cpp:207",
-   "src/wid/cal.cpp:239",
-   "src/wid/cal.cpp:712",
-   "src/wid/cal.cpp:732"
+   "src/desksaver.cpp:251",
+   "src/wid/cal.cpp:111",
+   "src/wid/cal.cpp:208",
+   "src/wid/cal.cpp:240",
+   "src/wid/cal.cpp:713",
+   "src/wid/cal.cpp:733"
   ],
   "notes": [
    "a lunar day/month; {2} is \" leap\" for a leap month (vi \"{0}/{1}{2}\")",
@@ -28,13 +28,13 @@
  " · card {0}": {
   "kind": "text",
   "where": [
-   "src/app_more.cpp:697"
+   "src/app_more.cpp:699"
   ]
  },
  " · leap month": {
   "kind": "text",
   "where": [
-   "src/app_more.cpp:201"
+   "src/app_more.cpp:203"
   ]
  },
  " · version {0}": {
@@ -150,14 +150,14 @@
  "%u KB/s · %u min left": {
   "kind": "text",
   "where": [
-   "src/app_more.cpp:1352",
+   "src/app_more.cpp:1355",
    "src/ota.cpp:319"
   ]
  },
  "%u KB/s · %u s left": {
   "kind": "text",
   "where": [
-   "src/app_more.cpp:1353",
+   "src/app_more.cpp:1356",
    "src/ota.cpp:320"
   ]
  },
@@ -218,7 +218,7 @@
  "08:30 Meeting": {
   "kind": "text",
   "where": [
-   "src/home.cpp:1369"
+   "src/home.cpp:1585"
   ],
   "notes": [
    "a sample event"
@@ -247,7 +247,7 @@
  "12-hour": {
   "kind": "text",
   "where": [
-   "src/wid/clock.cpp:37"
+   "src/wid/clock.cpp:39"
   ]
  },
  "15 min": {
@@ -272,7 +272,7 @@
  "29° Sunny": {
   "kind": "text",
   "where": [
-   "src/home.cpp:1371"
+   "src/home.cpp:1587"
   ]
  },
  "30 sec": {
@@ -292,16 +292,18 @@
  "5-hour": {
   "kind": "text",
   "where": [
-   "src/wid/claude.cpp:228",
-   "src/wid/claude.cpp:289",
-   "src/wid/claude.cpp:301",
-   "src/wid/claude.cpp:320"
+   "src/wid/claude.cpp:233",
+   "src/wid/claude.cpp:294",
+   "src/wid/claude.cpp:306",
+   "src/wid/claude.cpp:325",
+   "src/wid/claude.cpp:475",
+   "src/wid/claude.cpp:504"
   ]
  },
  "5-hour resets": {
   "kind": "text",
   "where": [
-   "src/wid/claude.cpp:306"
+   "src/wid/claude.cpp:311"
   ]
  },
  "60 min": {
@@ -326,7 +328,7 @@
  "8 pages is the most": {
   "kind": "text",
   "where": [
-   "src/home.cpp:2132"
+   "src/home.cpp:2347"
   ]
  },
  "@branches": {
@@ -359,7 +361,7 @@
  "@months_spelled": {
   "kind": "list",
   "where": [
-   "src/desksaver.cpp:217"
+   "src/desksaver.cpp:218"
   ],
   "notes": [
    "month names as the screen saver's month line spells them (vi \"Tháng Một\", \"Tháng Hai\"... \"Tháng Mười Hai\")"
@@ -378,7 +380,7 @@
  "@number_words": {
   "kind": "list",
   "where": [
-   "src/wid/clock.cpp:353"
+   "src/wid/clock.cpp:357"
   ],
   "notes": [
    "the numbers 0 to 59 in words, for the clock telling the time in words (\"seven twenty-one\"); 0 to 23 are also the hours"
@@ -439,7 +441,7 @@
   "kind": "list",
   "where": [
    "src/app_calendar.cpp:24",
-   "src/wid/cal.cpp:35"
+   "src/wid/cal.cpp:36"
   ],
   "notes": [
    "the shortest weekday names, Sunday first, heading the columns of month grids (one or two letters)"
@@ -491,7 +493,7 @@
  "a new one each day": {
   "kind": "text",
   "where": [
-   "src/home.cpp:1466"
+   "src/home.cpp:1682"
   ]
  },
  "a newer package format: update the software": {
@@ -509,7 +511,7 @@
  "A saying a day": {
   "kind": "text",
   "where": [
-   "src/wid/cal.cpp:24"
+   "src/wid/cal.cpp:25"
   ]
  },
  "a saying a day": {
@@ -597,7 +599,7 @@
    "src/app_notes.cpp:294",
    "src/appset.cpp:519",
    "src/appset.cpp:540",
-   "src/home.cpp:1538",
+   "src/home.cpp:1754",
    "src/mywid.cpp:175",
    "src/widopts.cpp:269"
   ]
@@ -647,7 +649,7 @@
  "Add photos on the EspOS web, under Photos": {
   "kind": "text",
   "where": [
-   "src/home.cpp:1879",
+   "src/home.cpp:2094",
    "src/saveredit.cpp:507"
   ]
  },
@@ -678,19 +680,19 @@
  "Add widget": {
   "kind": "text",
   "where": [
-   "src/home.cpp:1553"
+   "src/home.cpp:1769"
   ]
  },
  "Add-ons": {
   "kind": "text",
   "where": [
-   "src/app_more.cpp:1228"
+   "src/app_more.cpp:1231"
   ]
  },
  "Added to Home": {
   "kind": "text",
   "where": [
-   "src/home.cpp:2142"
+   "src/home.cpp:2357"
   ]
  },
  "Added, hidden: 5 calendars are shown already": {
@@ -726,18 +728,18 @@
    "src/alarm.cpp:187",
    "src/alarm.cpp:231",
    "src/app_clock.cpp:469",
-   "src/home.cpp:1370",
+   "src/home.cpp:1586",
    "src/os.cpp:568",
    "src/os.cpp:601",
    "src/saveredit.cpp:426",
-   "src/wid/clock.cpp:724",
+   "src/wid/clock.cpp:867",
    "src/wid.cpp:51"
   ]
  },
  "Alarm {0}": {
   "kind": "text",
   "where": [
-   "src/desksaver.cpp:258"
+   "src/desksaver.cpp:259"
   ]
  },
  "Alarm {0} · {1}": {
@@ -768,9 +770,9 @@
   "kind": "text",
   "where": [
    "src/app_markets.cpp:23",
-   "src/app_more.cpp:423",
+   "src/app_more.cpp:425",
    "src/app_news.cpp:329",
-   "src/wid/clock.cpp:39",
+   "src/wid/clock.cpp:41",
    "src/widopts.cpp:418"
   ],
   "notes": [
@@ -781,9 +783,9 @@
   "kind": "text",
   "where": [
    "src/app_calendar.cpp:102",
-   "src/wid/cal.cpp:128",
-   "src/wid/cal.cpp:422",
-   "src/wid/cal.cpp:453",
+   "src/wid/cal.cpp:129",
+   "src/wid/cal.cpp:423",
+   "src/wid/cal.cpp:454",
    "src/wid/read.cpp:557"
   ]
  },
@@ -846,7 +848,7 @@
  "Also remove {0}": {
   "kind": "text",
   "where": [
-   "src/app_more.cpp:1185",
+   "src/app_more.cpp:1188",
    "src/pkg/storage_ui.cpp:418"
   ]
  },
@@ -863,8 +865,8 @@
  "AM": {
   "kind": "text",
   "where": [
-   "src/desksaver.cpp:227",
-   "src/wid/clock.cpp:58"
+   "src/desksaver.cpp:228",
+   "src/wid/clock.cpp:60"
   ]
  },
  "An app you remove, or one that stops working, hands its place back to the built-in one.": {
@@ -882,7 +884,7 @@
  "any date": {
   "kind": "text",
   "where": [
-   "src/home.cpp:1465"
+   "src/home.cpp:1681"
   ]
  },
  "Anyone with this link can see your calendar, so it only shows when you tap Show link.": {
@@ -913,7 +915,7 @@
  "App Library": {
   "kind": "text",
   "where": [
-   "src/home.cpp:943"
+   "src/home.cpp:1158"
   ]
  },
  "Appearance": {
@@ -964,9 +966,9 @@
  "Aquarium": {
   "kind": "text",
   "where": [
-   "src/home.cpp:1888",
+   "src/home.cpp:2103",
    "src/saveredit.cpp:1057",
-   "src/tank/screen.cpp:566"
+   "src/tank/screen.cpp:572"
   ]
  },
  "Aquarium: every fish, tank look and the sea tank": {
@@ -1042,19 +1044,20 @@
  "Assistants": {
   "kind": "text",
   "where": [
-   "src/app_more.cpp:425"
+   "src/app_more.cpp:427"
   ]
  },
  "At API prices": {
   "kind": "text",
   "where": [
-   "src/wid/claude.cpp:366"
+   "src/wid/claude.cpp:371",
+   "src/wid/claude.cpp:540"
   ]
  },
  "at API prices": {
   "kind": "text",
   "where": [
-   "src/wid/claude.cpp:352"
+   "src/wid/claude.cpp:357"
   ]
  },
  "At least {0}": {
@@ -1147,9 +1150,9 @@
  "Auspicious hours": {
   "kind": "text",
   "where": [
-   "src/wid/cal.cpp:641",
-   "src/wid/cal.cpp:666",
-   "src/wid/cal.cpp:673"
+   "src/wid/cal.cpp:642",
+   "src/wid/cal.cpp:667",
+   "src/wid/cal.cpp:674"
   ]
  },
  "Back home": {
@@ -1201,19 +1204,19 @@
   "kind": "text",
   "where": [
    "src/app_clock.cpp:379",
-   "src/wid/clock.cpp:668"
+   "src/wid/clock.cpp:811"
   ]
  },
  "Bars": {
   "kind": "text",
   "where": [
-   "src/wid/claude.cpp:19"
+   "src/wid/claude.cpp:22"
   ]
  },
  "Basic": {
   "kind": "text",
   "where": [
-   "src/home.cpp:1362"
+   "src/home.cpp:1578"
   ]
  },
  "Battery, WiFi, sync": {
@@ -1250,14 +1253,14 @@
   "kind": "text",
   "where": [
    "src/app_clock.cpp:378",
-   "src/wid/clock.cpp:663"
+   "src/wid/clock.cpp:806"
   ]
  },
  "Berlin": {
   "kind": "text",
   "where": [
    "src/app_clock.cpp:382",
-   "src/wid/clock.cpp:666"
+   "src/wid/clock.cpp:809"
   ]
  },
  "Best": {
@@ -1296,13 +1299,13 @@
  "Big digits": {
   "kind": "text",
   "where": [
-   "src/wid/clock.cpp:31"
+   "src/wid/clock.cpp:33"
   ]
  },
  "Big lunar day": {
   "kind": "text",
   "where": [
-   "src/wid/cal.cpp:20"
+   "src/wid/cal.cpp:21"
   ]
  },
  "Big temperature": {
@@ -1314,19 +1317,19 @@
  "Big text": {
   "kind": "text",
   "where": [
-   "src/wid/cal.cpp:24"
+   "src/wid/cal.cpp:25"
   ]
  },
  "Big tiles": {
   "kind": "text",
   "where": [
-   "src/wid/market.cpp:15"
+   "src/wid/market.cpp:18"
   ]
  },
  "Big time": {
   "kind": "text",
   "where": [
-   "src/wid/clock.cpp:38"
+   "src/wid/clock.cpp:40"
   ]
  },
  "Biscuit and her needs": {
@@ -1438,7 +1441,7 @@
  "Built-in wallpapers": {
   "kind": "text",
   "where": [
-   "src/home.cpp:1869"
+   "src/home.cpp:2084"
   ]
  },
  "Business": {
@@ -1450,8 +1453,8 @@
  "Buy": {
   "kind": "text",
   "where": [
-   "src/wid/market.cpp:223",
-   "src/wid/market.cpp:224"
+   "src/wid/market.cpp:270",
+   "src/wid/market.cpp:271"
   ],
   "notes": [
    "Buy, Sell, Price: column headings of a price table (short)"
@@ -1460,7 +1463,7 @@
  "Buy {0}": {
   "kind": "text",
   "where": [
-   "src/wid/market.cpp:244"
+   "src/wid/market.cpp:291"
   ]
  },
  "Buy · {0}": {
@@ -1479,13 +1482,13 @@
  "bytes\u0004Size": {
   "kind": "text",
   "where": [
-   "src/app_more.cpp:1277"
+   "src/app_more.cpp:1280"
   ]
  },
  "Calculator": {
   "kind": "text",
   "where": [
-   "src/app_more.cpp:365",
+   "src/app_more.cpp:367",
    "src/apps.cpp:43"
   ]
  },
@@ -1495,7 +1498,7 @@
    "src/app_calendar.cpp:212",
    "src/app_calendar.cpp:407",
    "src/apps.cpp:36",
-   "src/home.cpp:1363",
+   "src/home.cpp:1579",
    "src/wid.cpp:37",
    "src/wid.cpp:39",
    "src/wid.cpp:40",
@@ -1583,8 +1586,8 @@
   "kind": "text",
   "where": [
    "src/app_clock.cpp:257",
-   "src/app_more.cpp:951",
-   "src/home.cpp:1747",
+   "src/app_more.cpp:954",
+   "src/home.cpp:1962",
    "src/popnote.cpp:269",
    "src/saveredit.cpp:1283",
    "src/search.cpp:309"
@@ -1713,7 +1716,7 @@
  "Card": {
   "kind": "text",
   "where": [
-   "src/widopts.cpp:493"
+   "src/widopts.cpp:517"
   ],
   "notes": [
    "the look of a widget's card (Thẻ)"
@@ -1756,7 +1759,7 @@
  "Category": {
   "kind": "text",
   "where": [
-   "src/app_more.cpp:1281"
+   "src/app_more.cpp:1284"
   ]
  },
  "cc\u0004Do Not Disturb": {
@@ -1795,7 +1798,7 @@
  "Centered": {
   "kind": "text",
   "where": [
-   "src/wid/clock.cpp:31"
+   "src/wid/clock.cpp:33"
   ]
  },
  "Central Vietnam & Highlands": {
@@ -1862,7 +1865,7 @@
  "Checking": {
   "kind": "text",
   "where": [
-   "src/app_more.cpp:955",
+   "src/app_more.cpp:958",
    "src/app_settings.cpp:803",
    "src/ota.cpp:309",
    "src/pkg/store.cpp:1424"
@@ -1920,7 +1923,7 @@
  "Choose a pack: {0}": {
   "kind": "text",
   "where": [
-   "src/app_more.cpp:1063"
+   "src/app_more.cpp:1066"
   ]
  },
  "Choose a time first": {
@@ -1938,7 +1941,7 @@
  "Choose what to download": {
   "kind": "text",
   "where": [
-   "src/app_more.cpp:1063"
+   "src/app_more.cpp:1066"
   ]
  },
  "Choose WiFi": {
@@ -1968,7 +1971,7 @@
  "Chosen date": {
   "kind": "text",
   "where": [
-   "src/wid/cal.cpp:835"
+   "src/wid/cal.cpp:892"
   ]
  },
  "Chosen on the web": {
@@ -2026,14 +2029,16 @@
  "Claude today": {
   "kind": "text",
   "where": [
-   "src/wid/claude.cpp:340",
-   "src/wid/claude.cpp:349"
+   "src/wid/claude.cpp:345",
+   "src/wid/claude.cpp:354",
+   "src/wid/claude.cpp:529"
   ]
  },
  "Claude · 7 days": {
   "kind": "text",
   "where": [
-   "src/wid/claude.cpp:358"
+   "src/wid/claude.cpp:363",
+   "src/wid/claude.cpp:535"
   ]
  },
  "Clean": {
@@ -2062,7 +2067,7 @@
   "where": [
    "src/app_clock.cpp:477",
    "src/apps.cpp:38",
-   "src/home.cpp:1362",
+   "src/home.cpp:1578",
    "src/wid.cpp:36",
    "src/wid.cpp:51",
    "src/wid.cpp:52",
@@ -2136,7 +2141,7 @@
  "Coming up": {
   "kind": "text",
   "where": [
-   "src/app_more.cpp:277"
+   "src/app_more.cpp:279"
   ]
  },
  "Command not received. Please repeat.": {
@@ -2260,7 +2265,7 @@
  "Could not load the list of apps, try again later.": {
   "kind": "text",
   "where": [
-   "src/app_more.cpp:724"
+   "src/app_more.cpp:726"
   ]
  },
  "Could not move {0}: {1}": {
@@ -2296,7 +2301,7 @@
  "Couldn't get a code, trying again in a few seconds": {
   "kind": "text",
   "where": [
-   "src/desk.cpp:775"
+   "src/desk.cpp:791"
   ]
  },
  "Couldn't install {0}": {
@@ -2320,7 +2325,7 @@
  "Couldn't reach the server": {
   "kind": "text",
   "where": [
-   "src/desk.cpp:853"
+   "src/desk.cpp:869"
   ]
  },
  "Count down to": {
@@ -2332,7 +2337,7 @@
  "Countdown": {
   "kind": "text",
   "where": [
-   "src/home.cpp:1465",
+   "src/home.cpp:1681",
    "src/mywid.cpp:247",
    "src/wid.cpp:42"
   ]
@@ -2340,7 +2345,7 @@
  "countdown": {
   "kind": "text",
   "where": [
-   "src/home.cpp:1474"
+   "src/home.cpp:1690"
   ],
   "notes": [
    "the kind of a widget made on the device, small under its name"
@@ -2357,7 +2362,7 @@
   "kind": "text",
   "where": [
    "src/app_markets.cpp:23",
-   "src/wid/market.cpp:209",
+   "src/wid/market.cpp:256",
    "src/wid.cpp:70",
    "src/widopts.cpp:146",
    "src/widopts.cpp:225",
@@ -2388,7 +2393,7 @@
  "Custom": {
   "kind": "text",
   "where": [
-   "src/home.cpp:1362",
+   "src/home.cpp:1578",
    "src/wid.cpp:56"
   ]
  },
@@ -2440,7 +2445,7 @@
  "Darken for easier reading: {0}%": {
   "kind": "text",
   "where": [
-   "src/home.cpp:1924"
+   "src/home.cpp:2139"
   ]
  },
  "Darling, our free talks are over. Scan this code so the princess can keep chatting!": {
@@ -2458,7 +2463,7 @@
  "Date": {
   "kind": "text",
   "where": [
-   "src/home.cpp:1366",
+   "src/home.cpp:1582",
    "src/mywid.cpp:133",
    "src/saveredit.cpp:425"
   ],
@@ -2475,9 +2480,9 @@
  "Day": {
   "kind": "text",
   "where": [
-   "src/wid/cal.cpp:209",
-   "src/wid/cal.cpp:246",
-   "src/wid/cal.cpp:264"
+   "src/wid/cal.cpp:210",
+   "src/wid/cal.cpp:247",
+   "src/wid/cal.cpp:265"
   ],
   "notes": [
    "\"Season\" is the solar term (vi \"Tiết\")"
@@ -2486,7 +2491,7 @@
  "day ago|days ago": {
   "kind": "plural",
   "where": [
-   "src/wid/cal.cpp:842",
+   "src/wid/cal.cpp:899",
    "src/wid/misc.cpp:196"
   ],
   "notes": [
@@ -2508,7 +2513,7 @@
  "day to go|days to go": {
   "kind": "plural",
   "where": [
-   "src/wid/cal.cpp:752",
+   "src/wid/cal.cpp:753",
    "src/wid/misc.cpp:195"
   ],
   "notes": [
@@ -2519,7 +2524,7 @@
  "Day {0}, month {1}{2}": {
   "kind": "text",
   "where": [
-   "src/wid/cal.cpp:239"
+   "src/wid/cal.cpp:240"
   ],
   "notes": [
    "a lunar date in words: day, month, \" leap\" or nothing (vi \"{0} tháng {1}{2}\")"
@@ -2592,13 +2597,13 @@
  "Desk": {
   "kind": "text",
   "where": [
-   "src/desksaver.cpp:606"
+   "src/desksaver.cpp:625"
   ]
  },
  "Details": {
   "kind": "text",
   "where": [
-   "src/wid/cal.cpp:18",
+   "src/wid/cal.cpp:19",
    "src/wid/weather.cpp:17"
   ]
  },
@@ -2636,7 +2641,7 @@
  "Device: {0} free": {
   "kind": "text",
   "where": [
-   "src/app_more.cpp:695"
+   "src/app_more.cpp:697"
   ]
  },
  "Dictation": {
@@ -2672,7 +2677,7 @@
  "Digital": {
   "kind": "text",
   "where": [
-   "src/wid/clock.cpp:31"
+   "src/wid/clock.cpp:33"
   ]
  },
  "Dim red clock": {
@@ -2690,7 +2695,7 @@
  "dim red time, alarm": {
   "kind": "text",
   "where": [
-   "src/desksaver.cpp:609"
+   "src/desksaver.cpp:628"
   ]
  },
  "Discard": {
@@ -2758,7 +2763,7 @@
  "Dogs": {
   "kind": "text",
   "where": [
-   "src/app_more.cpp:1228"
+   "src/app_more.cpp:1231"
   ]
  },
  "Dogs: {0}": {
@@ -2784,7 +2789,7 @@
   "where": [
    "src/app_notes.cpp:85",
    "src/claim.cpp:334",
-   "src/home.cpp:1284",
+   "src/home.cpp:1499",
    "src/keyboard.h:13",
    "src/onboard.cpp:800",
    "src/pkg/store.cpp:1425",
@@ -2802,7 +2807,7 @@
  "Dong, Vietcombank rates": {
   "kind": "text",
   "where": [
-   "src/wid/market.cpp:214"
+   "src/wid/market.cpp:261"
   ]
  },
  "Download": {
@@ -2839,7 +2844,7 @@
  "Downloading": {
   "kind": "text",
   "where": [
-   "src/app_more.cpp:955",
+   "src/app_more.cpp:958",
    "src/langui.cpp:107",
    "src/ota.cpp:309",
    "src/pet/book.cpp:218",
@@ -2884,7 +2889,7 @@
   "where": [
    "src/app_clock.cpp:380",
    "src/app_settings.cpp:979",
-   "src/wid/clock.cpp:665"
+   "src/wid/clock.cpp:808"
   ]
  },
  "Duplicate this page": {
@@ -2940,7 +2945,7 @@
  "Edit content": {
   "kind": "text",
   "where": [
-   "src/home.cpp:1612"
+   "src/home.cpp:1827"
   ]
  },
  "Edit text": {
@@ -2995,7 +3000,7 @@
  "Error": {
   "kind": "text",
   "where": [
-   "src/app_more.cpp:302",
+   "src/app_more.cpp:304",
    "src/pkg/store.cpp:1426"
   ]
  },
@@ -3010,7 +3015,7 @@
  "Eve: {0}": {
   "kind": "text",
   "where": [
-   "src/wid/cal.cpp:889"
+   "src/wid/cal.cpp:946"
   ],
   "notes": [
    "Lunar New Year's Eve and its date (vi \"Giao thừa {0}\")"
@@ -3019,7 +3024,7 @@
  "Events": {
   "kind": "text",
   "where": [
-   "src/wid/cal.cpp:15"
+   "src/wid/cal.cpp:16"
   ]
  },
  "Every call you turn on is one more way to wake it by mistake. The calls after \"Gâu gâu\" need the newest listener.": {
@@ -3046,7 +3051,7 @@
  "Exchange rates": {
   "kind": "text",
   "where": [
-   "src/wid/market.cpp:209",
+   "src/wid/market.cpp:256",
    "src/wid.cpp:68",
    "src/widopts.cpp:145",
    "src/widopts.cpp:224",
@@ -3173,7 +3178,7 @@
  "Flip": {
   "kind": "text",
   "where": [
-   "src/wid/clock.cpp:32"
+   "src/wid/clock.cpp:34"
   ]
  },
  "Followed codes": {
@@ -3227,7 +3232,7 @@
  "frames, lines": {
   "kind": "text",
   "where": [
-   "src/home.cpp:1372"
+   "src/home.cpp:1588"
   ]
  },
  "France, Germany, Italy (winter)": {
@@ -3251,7 +3256,7 @@
  "Free this week": {
   "kind": "text",
   "where": [
-   "src/wid/cal.cpp:538"
+   "src/wid/cal.cpp:539"
   ]
  },
  "French": {
@@ -3282,14 +3287,14 @@
  "From the theme": {
   "kind": "text",
   "where": [
-   "src/home.cpp:1867",
+   "src/home.cpp:2082",
    "src/saveredit.cpp:1055"
   ]
  },
  "from {0}": {
   "kind": "text",
   "where": [
-   "src/wid/cal.cpp:678"
+   "src/wid/cal.cpp:679"
   ],
   "notes": [
    "the day the current solar term began (vi \"từ {0}\")"
@@ -3327,7 +3332,7 @@
  "Full moon: {0}": {
   "kind": "text",
   "where": [
-   "src/wid/cal.cpp:727"
+   "src/wid/cal.cpp:728"
   ]
  },
  "Fully charged": {
@@ -3357,7 +3362,7 @@
  "Games": {
   "kind": "text",
   "where": [
-   "src/app_more.cpp:423",
+   "src/app_more.cpp:425",
    "src/pkg/storage_ui.cpp:76",
    "src/pkg/storage_ui.cpp:204"
   ]
@@ -3365,13 +3370,13 @@
  "Games to try": {
   "kind": "text",
   "where": [
-   "src/app_more.cpp:660"
+   "src/app_more.cpp:662"
   ]
  },
  "Gauge": {
   "kind": "text",
   "where": [
-   "src/wid/claude.cpp:19"
+   "src/wid/claude.cpp:23"
   ]
  },
  "German": {
@@ -3396,8 +3401,8 @@
  "Getting a code": {
   "kind": "text",
   "where": [
-   "src/desk.cpp:583",
-   "src/desk.cpp:1032"
+   "src/desk.cpp:596",
+   "src/desk.cpp:1049"
   ]
  },
  "Getting around": {
@@ -3499,7 +3504,7 @@
  "Gold prices": {
   "kind": "text",
   "where": [
-   "src/wid/market.cpp:209"
+   "src/wid/market.cpp:256"
   ]
  },
  "gold stocks exchange rates crypto codes": {
@@ -3542,7 +3547,7 @@
  "Gradient": {
   "kind": "text",
   "where": [
-   "src/home.cpp:1912",
+   "src/home.cpp:2127",
    "src/saveredit.cpp:1058"
   ]
  },
@@ -3577,7 +3582,7 @@
   "kind": "text",
   "where": [
    "src/app_clock.cpp:377",
-   "src/wid/clock.cpp:662"
+   "src/wid/clock.cpp:805"
   ]
  },
  "Happy": {
@@ -3589,7 +3594,7 @@
  "Happy New Year": {
   "kind": "text",
   "where": [
-   "src/wid/cal.cpp:879"
+   "src/wid/cal.cpp:936"
   ]
  },
  "Hawaii": {
@@ -3614,7 +3619,7 @@
  "Health": {
   "kind": "text",
   "where": [
-   "src/app_more.cpp:424",
+   "src/app_more.cpp:426",
    "src/app_news.cpp:214",
    "src/pet/book.cpp:228",
    "src/pkg/storage_ui.cpp:78"
@@ -3873,13 +3878,13 @@
  "in {n} day|in {n} days": {
   "kind": "plural",
   "where": [
-   "src/wid/cal.cpp:120"
+   "src/wid/cal.cpp:121"
   ]
  },
  "Indexes in points, shares in thousand dong": {
   "kind": "text",
   "where": [
-   "src/wid/market.cpp:213"
+   "src/wid/market.cpp:260"
   ]
  },
  "indexes, shares": {
@@ -3909,13 +3914,13 @@
  "Insert a memory card to add {0}.": {
   "kind": "text",
   "where": [
-   "src/app_more.cpp:1003"
+   "src/app_more.cpp:1006"
   ]
  },
  "Insert a memory card to install it.": {
   "kind": "text",
   "where": [
-   "src/app_more.cpp:1008"
+   "src/app_more.cpp:1011"
   ]
  },
  "Insert the memory card with this app to remove it": {
@@ -3928,8 +3933,8 @@
  "Install": {
   "kind": "text",
   "where": [
-   "src/app_more.cpp:628",
-   "src/app_more.cpp:1261"
+   "src/app_more.cpp:630",
+   "src/app_more.cpp:1264"
   ]
  },
  "Install of {0} cancelled": {
@@ -3941,14 +3946,14 @@
  "Install on": {
   "kind": "text",
   "where": [
-   "src/app_more.cpp:1105"
+   "src/app_more.cpp:1108"
   ]
  },
  "Install on the memory card.": {
   "kind": "text",
   "where": [
-   "src/app_more.cpp:1007",
-   "src/app_more.cpp:1022"
+   "src/app_more.cpp:1010",
+   "src/app_more.cpp:1025"
   ]
  },
  "Install PawBoop again from the Store.": {
@@ -3974,13 +3979,13 @@
  "Install {0} first.": {
   "kind": "text",
   "where": [
-   "src/app_more.cpp:1286"
+   "src/app_more.cpp:1289"
   ]
  },
  "Install {0} on the memory card.": {
   "kind": "text",
   "where": [
-   "src/app_more.cpp:1002"
+   "src/app_more.cpp:1005"
   ]
  },
  "Installed apps": {
@@ -3992,7 +3997,7 @@
  "Installed on the device": {
   "kind": "text",
   "where": [
-   "src/app_more.cpp:744"
+   "src/app_more.cpp:747"
   ]
  },
  "Installed {0}": {
@@ -4004,14 +4009,14 @@
  "Installing": {
   "kind": "text",
   "where": [
-   "src/app_more.cpp:955",
-   "src/app_more.cpp:1343"
+   "src/app_more.cpp:958",
+   "src/app_more.cpp:1346"
   ]
  },
  "Installing on {0}": {
   "kind": "text",
   "where": [
-   "src/app_more.cpp:975"
+   "src/app_more.cpp:978"
   ]
  },
  "Internal RAM": {
@@ -4045,7 +4050,7 @@
  "It can't be cancelled now": {
   "kind": "text",
   "where": [
-   "src/app_more.cpp:924"
+   "src/app_more.cpp:927"
   ]
  },
  "It is already there": {
@@ -4212,13 +4217,14 @@
  "Large": {
   "kind": "text",
   "where": [
-   "src/widopts.cpp:472"
+   "src/widopts.cpp:477",
+   "src/widopts.cpp:496"
   ]
  },
  "Large 4×4": {
   "kind": "text",
   "where": [
-   "src/home.cpp:1522"
+   "src/home.cpp:1738"
   ]
  },
  "Last 7 days": {
@@ -4302,7 +4308,7 @@
  "LCD": {
   "kind": "text",
   "where": [
-   "src/wid/clock.cpp:34"
+   "src/wid/clock.cpp:36"
   ]
  },
  "Leaf didn't hear that. Say it again, please.": {
@@ -4314,7 +4320,7 @@
  "leap": {
   "kind": "text",
   "where": [
-   "src/wid/cal.cpp:183"
+   "src/wid/cal.cpp:184"
   ]
  },
  "led\u0004Off": {
@@ -4430,14 +4436,16 @@
  "Limits unknown": {
   "kind": "text",
   "where": [
-   "src/wid/claude.cpp:214",
-   "src/wid/claude.cpp:292"
+   "src/wid/claude.cpp:219",
+   "src/wid/claude.cpp:297",
+   "src/wid/claude.cpp:401",
+   "src/wid/claude.cpp:505"
   ]
  },
  "Limits unknown: add the status line helper on your Mac": {
   "kind": "text",
   "where": [
-   "src/wid/claude.cpp:213"
+   "src/wid/claude.cpp:218"
   ]
  },
  "Link a Google, iCloud or Outlook calendar to see the next 7 days here.": {
@@ -4499,7 +4507,7 @@
  "Link to EspOS to install more apps.": {
   "kind": "text",
   "where": [
-   "src/app_more.cpp:725"
+   "src/app_more.cpp:727"
   ]
  },
  "link web sync account": {
@@ -4529,10 +4537,10 @@
  "List": {
   "kind": "text",
   "where": [
-   "src/home.cpp:1467",
+   "src/home.cpp:1683",
    "src/mywid.cpp:248",
-   "src/wid/clock.cpp:38",
-   "src/wid/market.cpp:14",
+   "src/wid/clock.cpp:40",
+   "src/wid/market.cpp:16",
    "src/wid/misc.cpp:222",
    "src/wid/read.cpp:21"
   ]
@@ -4540,7 +4548,7 @@
  "list": {
   "kind": "text",
   "where": [
-   "src/home.cpp:1474"
+   "src/home.cpp:1690"
   ],
   "notes": [
    "the kind of a widget made on the device, small under its name"
@@ -4596,7 +4604,7 @@
  "Locked now": {
   "kind": "text",
   "where": [
-   "src/app_more.cpp:1252",
+   "src/app_more.cpp:1255",
    "src/lock.cpp:631",
    "src/pet/chooser.cpp:123",
    "src/pet/chooser.cpp:394",
@@ -4613,13 +4621,13 @@
   "kind": "text",
   "where": [
    "src/app_clock.cpp:382",
-   "src/wid/clock.cpp:666"
+   "src/wid/clock.cpp:809"
   ]
  },
  "long\u0004Lunar month {0}{1}": {
   "kind": "text",
   "where": [
-   "src/wid/cal.cpp:732"
+   "src/wid/cal.cpp:733"
   ],
   "notes": [
    "the same title where there is room (vi \"Tháng {0}{1} âm lịch\")"
@@ -4628,9 +4636,9 @@
  "long\u0004{0} (lunar)": {
   "kind": "text",
   "where": [
-   "src/desksaver.cpp:242",
-   "src/desksaver.cpp:252",
-   "src/wid/cal.cpp:114"
+   "src/desksaver.cpp:243",
+   "src/desksaver.cpp:253",
+   "src/wid/cal.cpp:115"
   ],
   "notes": [
    "the same as \"{0} (lunar)\" where there is room for a longer form"
@@ -4648,7 +4656,7 @@
  "Long month": {
   "kind": "text",
   "where": [
-   "src/wid/cal.cpp:724"
+   "src/wid/cal.cpp:725"
   ],
   "notes": [
    "a lunar month of 30 days (vi \"Tháng đủ\") or 29 days (vi \"Tháng thiếu\")"
@@ -4657,7 +4665,7 @@
  "Long month, 30 days": {
   "kind": "text",
   "where": [
-   "src/wid/cal.cpp:740"
+   "src/wid/cal.cpp:741"
   ]
  },
  "Looking for networks": {
@@ -4670,7 +4678,7 @@
   "kind": "text",
   "where": [
    "src/app_clock.cpp:383",
-   "src/wid/clock.cpp:667"
+   "src/wid/clock.cpp:810"
   ]
  },
  "Los Angeles (summer), Denver (winter), Arizona": {
@@ -4696,41 +4704,41 @@
  "lower\u0004today": {
   "kind": "text",
   "where": [
-   "src/app_more.cpp:244"
+   "src/app_more.cpp:246"
   ]
  },
  "lower\u0004tomorrow": {
   "kind": "text",
   "where": [
-   "src/app_more.cpp:245"
+   "src/app_more.cpp:247"
   ]
  },
  "Lucky hours": {
   "kind": "text",
   "where": [
-   "src/wid/cal.cpp:219",
    "src/wid/cal.cpp:220",
-   "src/wid/cal.cpp:265",
-   "src/wid/cal.cpp:656"
+   "src/wid/cal.cpp:221",
+   "src/wid/cal.cpp:266",
+   "src/wid/cal.cpp:657"
   ]
  },
  "Lunar": {
   "kind": "text",
   "where": [
-   "src/app_more.cpp:263",
+   "src/app_more.cpp:265",
    "src/apps.cpp:42",
-   "src/home.cpp:1367",
+   "src/home.cpp:1583",
    "src/saveredit.cpp:425",
-   "src/wid/cal.cpp:180",
-   "src/wid/cal.cpp:204",
-   "src/wid/cal.cpp:246",
-   "src/wid/cal.cpp:264",
-   "src/wid/cal.cpp:623",
-   "src/wid/cal.cpp:660",
-   "src/wid/cal.cpp:782",
-   "src/wid/clock.cpp:561",
-   "src/wid/clock.cpp:568",
-   "src/wid/clock.cpp:577",
+   "src/wid/cal.cpp:181",
+   "src/wid/cal.cpp:205",
+   "src/wid/cal.cpp:247",
+   "src/wid/cal.cpp:265",
+   "src/wid/cal.cpp:624",
+   "src/wid/cal.cpp:661",
+   "src/wid/cal.cpp:783",
+   "src/wid/clock.cpp:713",
+   "src/wid/clock.cpp:720",
+   "src/wid/clock.cpp:729",
    "src/wid.cpp:40"
   ],
   "notes": [
@@ -4740,7 +4748,7 @@
  "Lunar 9/10": {
   "kind": "text",
   "where": [
-   "src/home.cpp:1367"
+   "src/home.cpp:1583"
   ],
   "notes": [
    "a sample lunar date"
@@ -4749,13 +4757,13 @@
  "Lunar month": {
   "kind": "text",
   "where": [
-   "src/wid/cal.cpp:19"
+   "src/wid/cal.cpp:20"
   ]
  },
  "Lunar month {0}{1}": {
   "kind": "text",
   "where": [
-   "src/wid/cal.cpp:712"
+   "src/wid/cal.cpp:713"
   ],
   "notes": [
    "a lunar month's title; {1} is \" leap\" or nothing (vi \"Tháng {0}{1} âm\")"
@@ -4774,7 +4782,7 @@
  "Lunar New Year ({0}) in {n} day.|Lunar New Year ({0}) in {n} days.": {
   "kind": "plural",
   "where": [
-   "src/app_more.cpp:253"
+   "src/app_more.cpp:255"
   ],
   "notes": [
    "{0} the coming lunar year's name (\"Fire Horse\")"
@@ -4783,8 +4791,8 @@
  "Lunar New Year's Day": {
   "kind": "text",
   "where": [
-   "src/wid/cal.cpp:629",
-   "src/wid/cal.cpp:884"
+   "src/wid/cal.cpp:630",
+   "src/wid/cal.cpp:941"
   ]
  },
  "Lunar New Year's Eve": {
@@ -4803,8 +4811,8 @@
  "Lunar {0}": {
   "kind": "text",
   "where": [
-   "src/home.cpp:826",
-   "src/wid/clock.cpp:69"
+   "src/home.cpp:1041",
+   "src/wid/clock.cpp:71"
   ],
   "notes": [
    "the lunar date beside today's date (vi \"{0} âm\"); \"{0}\" alone on the 1st and 15th, already worded",
@@ -4823,7 +4831,8 @@
  "Lunar {0} · {1} year": {
   "kind": "text",
   "where": [
-   "src/wid/clock.cpp:627"
+   "src/wid/clock.cpp:578",
+   "src/wid/clock.cpp:779"
   ],
   "notes": [
    "a lunar date and the year's name (vi \"{0} âm lịch · năm {1}\")"
@@ -4832,7 +4841,7 @@
  "Lunar {0}, {1}": {
   "kind": "text",
   "where": [
-   "src/wid/cal.cpp:853"
+   "src/wid/cal.cpp:910"
   ],
   "notes": [
    "a lunar date and its year's stems and branches (vi \"Âm lịch {0}, {1}\")"
@@ -4841,7 +4850,7 @@
  "lunar-day\u0004{0}": {
   "kind": "text",
   "where": [
-   "src/home.cpp:826"
+   "src/home.cpp:1041"
   ],
   "notes": [
    "the lunar date beside today's date (vi \"{0} âm\"); \"{0}\" alone on the 1st and 15th, already worded"
@@ -4850,15 +4859,15 @@
  "Mac offline": {
   "kind": "text",
   "where": [
-   "src/wid/claude.cpp:131",
-   "src/wid/claude.cpp:154",
-   "src/wid/claude.cpp:161"
+   "src/wid/claude.cpp:136",
+   "src/wid/claude.cpp:159",
+   "src/wid/claude.cpp:166"
   ]
  },
  "Mac offline since {0}": {
   "kind": "text",
   "where": [
-   "src/wid/claude.cpp:131"
+   "src/wid/claude.cpp:136"
   ]
  },
  "made on the device": {
@@ -4870,7 +4879,7 @@
  "Make your widget on Home (+ Widget, Custom), then add it here.": {
   "kind": "text",
   "where": [
-   "src/home.cpp:1469"
+   "src/home.cpp:1685"
   ]
  },
  "Market codes": {
@@ -4885,8 +4894,8 @@
    "src/app_markets.cpp:114",
    "src/app_settings.cpp:1289",
    "src/apps.cpp:40",
-   "src/home.cpp:1363",
-   "src/wid/market.cpp:61",
+   "src/home.cpp:1579",
+   "src/wid/market.cpp:69",
    "src/wid.cpp:47",
    "src/wid.cpp:65",
    "src/wid.cpp:66",
@@ -4909,13 +4918,14 @@
  "Medium": {
   "kind": "text",
   "where": [
-   "src/widopts.cpp:472"
+   "src/widopts.cpp:477",
+   "src/widopts.cpp:496"
   ]
  },
  "Medium 4×2": {
   "kind": "text",
   "where": [
-   "src/home.cpp:1522"
+   "src/home.cpp:1738"
   ]
  },
  "Memory card": {
@@ -4944,7 +4954,7 @@
  "Million dong per tael": {
   "kind": "text",
   "where": [
-   "src/wid/market.cpp:212"
+   "src/wid/market.cpp:259"
   ]
  },
  "million/tael": {
@@ -4973,7 +4983,7 @@
  "Minimal": {
   "kind": "text",
   "where": [
-   "src/desksaver.cpp:607"
+   "src/desksaver.cpp:626"
   ]
  },
  "minutes read, streak": {
@@ -5030,11 +5040,11 @@
   "kind": "text",
   "where": [
    "src/saveredit.cpp:442",
-   "src/wid/cal.cpp:16",
-   "src/wid/cal.cpp:209",
-   "src/wid/cal.cpp:246",
-   "src/wid/cal.cpp:264",
-   "src/wid/cal.cpp:560"
+   "src/wid/cal.cpp:17",
+   "src/wid/cal.cpp:210",
+   "src/wid/cal.cpp:247",
+   "src/wid/cal.cpp:265",
+   "src/wid/cal.cpp:561"
   ],
   "notes": [
    "\"Season\" is the solar term (vi \"Tiết\")"
@@ -5043,7 +5053,7 @@
  "Month {0}{1}": {
   "kind": "text",
   "where": [
-   "src/wid/cal.cpp:207"
+   "src/wid/cal.cpp:208"
   ],
   "notes": [
    "a lunar month under its day number; {1} is \" leap\" or nothing (vi \"Tháng {0}{1}\")"
@@ -5063,7 +5073,7 @@
   "kind": "text",
   "where": [
    "src/app_clock.cpp:381",
-   "src/wid/clock.cpp:668"
+   "src/wid/clock.cpp:811"
   ]
  },
  "Moscow, Saudi Arabia, Turkey": {
@@ -5075,27 +5085,27 @@
  "Move": {
   "kind": "text",
   "where": [
-   "src/app_more.cpp:1049"
+   "src/app_more.cpp:1052"
   ]
  },
  "Move to card": {
   "kind": "text",
   "where": [
-   "src/app_more.cpp:1142"
+   "src/app_more.cpp:1145"
   ]
  },
  "Move to device": {
   "kind": "text",
   "where": [
-   "src/app_more.cpp:973",
-   "src/app_more.cpp:1142",
+   "src/app_more.cpp:976",
+   "src/app_more.cpp:1145",
    "src/pkg/storage_ui.cpp:367"
   ]
  },
  "Move to memory card": {
   "kind": "text",
   "where": [
-   "src/app_more.cpp:973",
+   "src/app_more.cpp:976",
    "src/pkg/storage_ui.cpp:367"
   ]
  },
@@ -5164,8 +5174,8 @@
  "Needs a software update": {
   "kind": "text",
   "where": [
-   "src/app_more.cpp:623",
-   "src/app_more.cpp:1261",
+   "src/app_more.cpp:625",
+   "src/app_more.cpp:1264",
    "src/pkg/pkg.cpp:53",
    "src/pkg/pkg.cpp:640",
    "src/pkg/store.cpp:274",
@@ -5273,7 +5283,7 @@
  "New Year countdown": {
   "kind": "text",
   "where": [
-   "src/wid/cal.cpp:21"
+   "src/wid/cal.cpp:22"
   ],
   "notes": [
    "days to the Lunar New Year (vi \"Tết\")"
@@ -5289,7 +5299,7 @@
   "kind": "text",
   "where": [
    "src/app_clock.cpp:383",
-   "src/wid/clock.cpp:667"
+   "src/wid/clock.cpp:810"
   ]
  },
  "New York (winter), Chicago (summer)": {
@@ -5317,7 +5327,7 @@
    "src/app_news.cpp:320",
    "src/app_settings.cpp:1287",
    "src/apps.cpp:34",
-   "src/home.cpp:1363",
+   "src/home.cpp:1579",
    "src/wid.cpp:49",
    "src/wid.cpp:54"
   ]
@@ -5357,19 +5367,19 @@
  "Next %s · %s": {
   "kind": "text",
   "where": [
-   "src/desksaver.cpp:275"
+   "src/desksaver.cpp:276"
   ]
  },
  "Next 7 days": {
   "kind": "text",
   "where": [
-   "src/wid/cal.cpp:434"
+   "src/wid/cal.cpp:435"
   ]
  },
  "Next alarm": {
   "kind": "text",
   "where": [
-   "src/wid/clock.cpp:39"
+   "src/wid/clock.cpp:41"
   ]
  },
  "next alarm": {
@@ -5381,7 +5391,7 @@
  "Next event": {
   "kind": "text",
   "where": [
-   "src/home.cpp:1369",
+   "src/home.cpp:1585",
    "src/saveredit.cpp:426"
   ],
   "notes": [
@@ -5391,8 +5401,8 @@
  "Next holiday": {
   "kind": "text",
   "where": [
-   "src/wid/cal.cpp:23",
-   "src/wid/cal.cpp:860"
+   "src/wid/cal.cpp:24",
+   "src/wid/cal.cpp:917"
   ]
  },
  "next hours, next days": {
@@ -5404,7 +5414,7 @@
  "Next: {0} {1}": {
   "kind": "text",
   "where": [
-   "src/wid/cal.cpp:655"
+   "src/wid/cal.cpp:656"
   ],
   "notes": [
    "the next solar term and its date (vi \"Tới {0} {1}\")"
@@ -5413,7 +5423,7 @@
  "Next: {0} {1}, {2}": {
   "kind": "text",
   "where": [
-   "src/wid/cal.cpp:680"
+   "src/wid/cal.cpp:681"
   ],
   "notes": [
    "the next solar term, its date, \"in 5 days\" (vi \"Tiếp theo: {0} {1}, {2}\")"
@@ -5472,14 +5482,14 @@
  "No alarms. Tap to set one.": {
   "kind": "text",
   "where": [
-   "src/wid/clock.cpp:728",
-   "src/wid/clock.cpp:746"
+   "src/wid/clock.cpp:871",
+   "src/wid/clock.cpp:889"
   ]
  },
  "No apps in this category yet.": {
   "kind": "text",
   "where": [
-   "src/app_more.cpp:737"
+   "src/app_more.cpp:739"
   ]
  },
  "No apps installed yet. Open the Store to get some.": {
@@ -5546,21 +5556,21 @@
   "kind": "text",
   "where": [
    "src/app_calendar.cpp:128",
-   "src/wid/cal.cpp:498"
+   "src/wid/cal.cpp:499"
   ]
  },
  "No events in the next 7 days": {
   "kind": "text",
   "where": [
-   "src/wid/cal.cpp:387",
-   "src/wid/cal.cpp:428",
-   "src/wid/cal.cpp:460"
+   "src/wid/cal.cpp:388",
+   "src/wid/cal.cpp:429",
+   "src/wid/cal.cpp:461"
   ]
  },
  "No events this week": {
   "kind": "text",
   "where": [
-   "src/wid/cal.cpp:538"
+   "src/wid/cal.cpp:539"
   ]
  },
  "No hourly weather yet": {
@@ -5598,7 +5608,7 @@
  "No more events today": {
   "kind": "text",
   "where": [
-   "src/wid/clock.cpp:647"
+   "src/wid/clock.cpp:463"
   ]
  },
  "No networks found": {
@@ -5677,14 +5687,15 @@
  "No photos on the device yet. Add them on the EspOS web (Devices, pick the S3, Photos); the device downloads them when it syncs. Photos are used by this app, the Photos widget, the \"Your photos\" wallpaper and the slideshow saver.": {
   "kind": "text",
   "where": [
-   "src/app_more.cpp:128"
+   "src/app_more.cpp:130"
   ]
  },
  "No prices yet": {
   "kind": "text",
   "where": [
-   "src/wid/market.cpp:62",
-   "src/wid/market.cpp:284"
+   "src/wid/market.cpp:67",
+   "src/wid/market.cpp:70",
+   "src/wid/market.cpp:331"
   ]
  },
  "No prices yet; waiting for the next sync.": {
@@ -5710,19 +5721,27 @@
  "No room on that page": {
   "kind": "text",
   "where": [
-   "src/home.cpp:697"
+   "src/home.cpp:770"
+  ]
+ },
+ "No room on this page": {
+  "kind": "text",
+  "where": [
+   "src/home.cpp:916"
   ]
  },
  "No room on this page for that size": {
   "kind": "text",
   "where": [
-   "src/home.cpp:1601"
+   "src/home.cpp:971",
+   "src/home.cpp:1815"
   ]
  },
  "No session": {
   "kind": "text",
   "where": [
-   "src/wid/claude.cpp:305"
+   "src/wid/claude.cpp:310",
+   "src/wid/claude.cpp:513"
   ]
  },
  "No spaces at the start or the end": {
@@ -5758,7 +5777,7 @@
  "No upcoming events": {
   "kind": "text",
   "where": [
-   "src/wid/cal.cpp:403",
+   "src/wid/cal.cpp:404",
    "src/wid/read.cpp:568",
    "src/wid/read.cpp:602"
   ]
@@ -5870,7 +5889,7 @@
  "Not enough memory to open the aquarium": {
   "kind": "text",
   "where": [
-   "src/tank/screen.cpp:560"
+   "src/tank/screen.cpp:566"
   ]
  },
  "Not enough memory to open the game": {
@@ -5977,7 +5996,7 @@
  "note": {
   "kind": "text",
   "where": [
-   "src/home.cpp:1474"
+   "src/home.cpp:1690"
   ],
   "notes": [
    "the kind of a widget made on the device, small under its name"
@@ -6002,7 +6021,7 @@
  "Nothing": {
   "kind": "text",
   "where": [
-   "src/home.cpp:1623"
+   "src/home.cpp:1838"
   ]
  },
  "Nothing here yet.": {
@@ -6014,7 +6033,8 @@
  "Nothing today": {
   "kind": "text",
   "where": [
-   "src/wid/cal.cpp:352"
+   "src/wid/cal.cpp:353",
+   "src/wid/cal.cpp:850"
   ]
  },
  "Nothing you made is lost: buy it and everything comes back just as it was.": {
@@ -6101,7 +6121,8 @@
    "src/onboard.cpp:528",
    "src/onboard.cpp:840",
    "src/pet/book.cpp:125",
-   "src/wid/claude.cpp:331"
+   "src/wid/claude.cpp:336",
+   "src/wid/claude.cpp:480"
   ],
   "notes": [
    "chips, short"
@@ -6143,7 +6164,7 @@
  "on a blurred band": {
   "kind": "text",
   "where": [
-   "src/home.cpp:1374"
+   "src/home.cpp:1590"
   ]
  },
  "On a computer or phone on this Wi-Fi, scan the code or open the address, then type the PIN.": {
@@ -6183,7 +6204,7 @@
  "on {0}": {
   "kind": "text",
   "where": [
-   "src/app_more.cpp:1249"
+   "src/app_more.cpp:1252"
   ]
  },
  "Once": {
@@ -6201,7 +6222,7 @@
  "One big quote": {
   "kind": "text",
   "where": [
-   "src/wid/market.cpp:14"
+   "src/wid/market.cpp:17"
   ]
  },
  "One big story": {
@@ -6219,7 +6240,7 @@
  "one or more photos": {
   "kind": "text",
   "where": [
-   "src/home.cpp:1373"
+   "src/home.cpp:1589"
   ]
  },
  "One per line; a new one each day": {
@@ -6243,7 +6264,7 @@
  "only the time and date": {
   "kind": "text",
   "where": [
-   "src/desksaver.cpp:607"
+   "src/desksaver.cpp:626"
   ]
  },
  "Opacity": {
@@ -6255,8 +6276,8 @@
  "Open": {
   "kind": "text",
   "where": [
-   "src/app_more.cpp:620",
-   "src/app_more.cpp:1260",
+   "src/app_more.cpp:622",
+   "src/app_more.cpp:1263",
    "src/popnote.cpp:215"
   ],
   "notes": [
@@ -6296,7 +6317,7 @@
  "Options": {
   "kind": "text",
   "where": [
-   "src/widopts.cpp:484"
+   "src/widopts.cpp:508"
   ]
  },
  "Or plug the USB cable into a computer, open the EspOS website, Devices, Add device. The code changes every 10 minutes.": {
@@ -6363,13 +6384,13 @@
  "Owned": {
   "kind": "text",
   "where": [
-   "src/app_more.cpp:1251"
+   "src/app_more.cpp:1254"
   ]
  },
  "Owned · {0}": {
   "kind": "text",
   "where": [
-   "src/app_more.cpp:634"
+   "src/app_more.cpp:636"
   ]
  },
  "Page {0} of {1}": {
@@ -6381,7 +6402,7 @@
  "Page {0} wallpaper": {
   "kind": "text",
   "where": [
-   "src/home.cpp:1983"
+   "src/home.cpp:2198"
   ]
  },
  "Page {0}/{1}": {
@@ -6393,7 +6414,7 @@
  "Pair EspOS Desktop on your Mac to see Claude usage": {
   "kind": "text",
   "where": [
-   "src/wid/claude.cpp:382"
+   "src/wid/claude.cpp:555"
   ]
  },
  "Pair this device again in Settings": {
@@ -6406,7 +6427,7 @@
   "kind": "text",
   "where": [
    "src/app_clock.cpp:381",
-   "src/wid/clock.cpp:665"
+   "src/wid/clock.cpp:808"
   ]
  },
  "Password": {
@@ -6450,20 +6471,20 @@
  "Permissions": {
   "kind": "text",
   "where": [
-   "src/app_more.cpp:1304"
+   "src/app_more.cpp:1307"
   ]
  },
  "Permissions of {0}": {
   "kind": "text",
   "where": [
-   "src/app_more.cpp:1304"
+   "src/app_more.cpp:1307"
   ]
  },
  "Photo": {
   "kind": "text",
   "where": [
    "src/app_settings.cpp:1272",
-   "src/home.cpp:1373",
+   "src/home.cpp:1589",
    "src/saveredit.cpp:427",
    "src/saveredit.cpp:1058",
    "src/widopts.cpp:387"
@@ -6472,7 +6493,7 @@
  "Photo frame": {
   "kind": "text",
   "where": [
-   "src/desksaver.cpp:608"
+   "src/desksaver.cpp:627"
   ]
  },
  "Photo removed from the device": {
@@ -6490,9 +6511,9 @@
  "Photos": {
   "kind": "text",
   "where": [
-   "src/app_more.cpp:125",
+   "src/app_more.cpp:127",
    "src/apps.cpp:37",
-   "src/home.cpp:1363",
+   "src/home.cpp:1579",
    "src/wid/misc.cpp:144",
    "src/wid.cpp:55"
   ]
@@ -6514,7 +6535,7 @@
   "where": [
    "src/app_settings.cpp:1190",
    "src/app_settings.cpp:1292",
-   "src/home.cpp:1878"
+   "src/home.cpp:2093"
   ]
  },
  "photos pictures": {
@@ -6532,7 +6553,7 @@
  "Pick a date in the widget's settings": {
   "kind": "text",
   "where": [
-   "src/wid/cal.cpp:837"
+   "src/wid/cal.cpp:894"
   ]
  },
  "Pick a photo": {
@@ -6590,8 +6611,8 @@
  "PM": {
   "kind": "text",
   "where": [
-   "src/desksaver.cpp:227",
-   "src/wid/clock.cpp:58"
+   "src/desksaver.cpp:228",
+   "src/wid/clock.cpp:60"
   ]
  },
  "Point your phone's camera at the code to open the page.": {
@@ -6664,13 +6685,13 @@
  "Price": {
   "kind": "text",
   "where": [
-   "src/wid/market.cpp:225"
+   "src/wid/market.cpp:272"
   ]
  },
  "Price table": {
   "kind": "text",
   "where": [
-   "src/wid/market.cpp:15"
+   "src/wid/market.cpp:18"
   ]
  },
  "Prices update every 15 minutes through the EspOS server (gold from PNJ, VPS, Vietcombank, CoinGecko).": {
@@ -6720,7 +6741,7 @@
  "Quotes": {
   "kind": "text",
   "where": [
-   "src/home.cpp:1466",
+   "src/home.cpp:1682",
    "src/mywid.cpp:247",
    "src/mywid.cpp:281"
   ]
@@ -6728,7 +6749,7 @@
  "quotes": {
   "kind": "text",
   "where": [
-   "src/home.cpp:1474"
+   "src/home.cpp:1690"
   ],
   "notes": [
    "the kind of a widget made on the device, small under its name"
@@ -6743,7 +6764,8 @@
  "rain {0}%": {
   "kind": "text",
   "where": [
-   "src/wid/clock.cpp:616",
+   "src/wid/clock.cpp:557",
+   "src/wid/clock.cpp:768",
    "src/wid/weather.cpp:238"
   ]
  },
@@ -6765,7 +6787,7 @@
  "Reading": {
   "kind": "text",
   "where": [
-   "src/home.cpp:1363",
+   "src/home.cpp:1579",
    "src/wid/read.cpp:315",
    "src/wid.cpp:71",
    "src/wid.cpp:73",
@@ -6787,8 +6809,8 @@
  "Really remove?": {
   "kind": "text",
   "where": [
-   "src/app_more.cpp:1044",
-   "src/app_more.cpp:1170"
+   "src/app_more.cpp:1047",
+   "src/app_more.cpp:1173"
   ]
  },
  "recently read books": {
@@ -6800,7 +6822,7 @@
  "Red clock": {
   "kind": "text",
   "where": [
-   "src/desksaver.cpp:609"
+   "src/desksaver.cpp:628"
   ]
  },
  "Red night": {
@@ -6847,8 +6869,8 @@
  "Remove": {
   "kind": "text",
   "where": [
-   "src/app_more.cpp:1044",
-   "src/app_more.cpp:1170",
+   "src/app_more.cpp:1047",
+   "src/app_more.cpp:1173",
    "src/appset.cpp:534"
   ]
  },
@@ -6861,19 +6883,19 @@
  "Remove from Home": {
   "kind": "text",
   "where": [
-   "src/home.cpp:1747"
+   "src/home.cpp:1962"
   ]
  },
  "Remove only the app": {
   "kind": "text",
   "where": [
-   "src/app_more.cpp:1169"
+   "src/app_more.cpp:1172"
   ]
  },
  "Remove only {0}": {
   "kind": "text",
   "where": [
-   "src/app_more.cpp:1169"
+   "src/app_more.cpp:1172"
   ]
  },
  "Remove photo": {
@@ -6885,25 +6907,25 @@
  "Remove some of the apps below, or install on the memory card.": {
   "kind": "text",
   "where": [
-   "src/app_more.cpp:1020"
+   "src/app_more.cpp:1023"
   ]
  },
  "Remove some of the apps below.": {
   "kind": "text",
   "where": [
-   "src/app_more.cpp:1020"
+   "src/app_more.cpp:1023"
   ]
  },
  "Remove the app": {
   "kind": "text",
   "where": [
-   "src/home.cpp:1738"
+   "src/home.cpp:1953"
   ]
  },
  "Remove the app and add-ons": {
   "kind": "text",
   "where": [
-   "src/home.cpp:1738"
+   "src/home.cpp:1953"
   ]
  },
  "Remove the night page": {
@@ -6921,37 +6943,37 @@
  "Remove widget": {
   "kind": "text",
   "where": [
-   "src/home.cpp:1633"
+   "src/home.cpp:1848"
   ]
  },
  "Remove {0}": {
   "kind": "text",
   "where": [
-   "src/home.cpp:1744"
+   "src/home.cpp:1959"
   ]
  },
  "Remove {0} ({1}) and restart the device to make room, or install on the memory card.": {
   "kind": "text",
   "where": [
-   "src/app_more.cpp:1016"
+   "src/app_more.cpp:1019"
   ]
  },
  "Remove {0} ({1}) and restart the device to make room.": {
   "kind": "text",
   "where": [
-   "src/app_more.cpp:1015"
+   "src/app_more.cpp:1018"
   ]
  },
  "Remove {0} ({1}) to make room, or install on the memory card.": {
   "kind": "text",
   "where": [
-   "src/app_more.cpp:1014"
+   "src/app_more.cpp:1017"
   ]
  },
  "Remove {0} ({1}) to make room.": {
   "kind": "text",
   "where": [
-   "src/app_more.cpp:1013"
+   "src/app_more.cpp:1016"
   ],
   "notes": [
    "{0} an app, {1} its size"
@@ -6972,32 +6994,32 @@
  "Removing an app keeps its data (levels, coins, notes) on the device; install it again to carry on.": {
   "kind": "text",
   "where": [
-   "src/app_more.cpp:1189",
+   "src/app_more.cpp:1192",
    "src/pkg/storage_ui.cpp:425"
   ]
  },
  "Removing deletes the app's data on this device. Anything you bought stays yours: install it again from the Store.": {
   "kind": "text",
   "where": [
-   "src/home.cpp:1754"
+   "src/home.cpp:1969"
   ]
  },
  "Removing from the device": {
   "kind": "text",
   "where": [
-   "src/app_more.cpp:972"
+   "src/app_more.cpp:975"
   ]
  },
  "Removing the add-on": {
   "kind": "text",
   "where": [
-   "src/home.cpp:1692"
+   "src/home.cpp:1907"
   ]
  },
  "Removing the app": {
   "kind": "text",
   "where": [
-   "src/home.cpp:1692"
+   "src/home.cpp:1907"
   ]
  },
  "Repeat": {
@@ -7033,8 +7055,8 @@
  "Resets {0}": {
   "kind": "text",
   "where": [
-   "src/wid/claude.cpp:127",
-   "src/wid/claude.cpp:326"
+   "src/wid/claude.cpp:132",
+   "src/wid/claude.cpp:331"
   ]
  },
  "Rest your eyes (every hour)": {
@@ -7046,7 +7068,7 @@
  "Restart": {
   "kind": "text",
   "where": [
-   "src/app_more.cpp:1027",
+   "src/app_more.cpp:1030",
    "src/ota.cpp:404",
    "src/pkg/storage_ui.cpp:249"
   ]
@@ -7060,7 +7082,7 @@
  "Restart the device to use the room of the apps just removed.": {
   "kind": "text",
   "where": [
-   "src/app_more.cpp:1010"
+   "src/app_more.cpp:1013"
   ]
  },
  "Restarting": {
@@ -7108,7 +7130,7 @@
  "Ring": {
   "kind": "text",
   "where": [
-   "src/wid/market.cpp:45"
+   "src/wid/market.cpp:48"
   ],
   "notes": [
    "ring gold (short, a column)"
@@ -7126,7 +7148,7 @@
  "Ring 9999": {
   "kind": "text",
   "where": [
-   "src/wid/market.cpp:181",
+   "src/wid/market.cpp:228",
    "src/widopts.cpp:193"
   ],
   "notes": [
@@ -7149,7 +7171,7 @@
  "Run maps": {
   "kind": "text",
   "where": [
-   "src/app_more.cpp:1228"
+   "src/app_more.cpp:1231"
   ]
  },
  "Run when closed": {
@@ -7179,7 +7201,7 @@
  "same time": {
   "kind": "text",
   "where": [
-   "src/wid/clock.cpp:694"
+   "src/wid/clock.cpp:837"
   ],
   "notes": [
    "the difference with Vietnam's time in hours, e.g. \"+2 h\" (vi \"{0} giờ\")"
@@ -7241,7 +7263,7 @@
  "saver\u0004Day {0}, month {1}{2}": {
   "kind": "text",
   "where": [
-   "src/desksaver.cpp:250"
+   "src/desksaver.cpp:251"
   ],
   "notes": [
    "a lunar day and month in words; {2} is \" leap\" or nothing (vi \"Ngày {0} tháng {1}{2}\")"
@@ -7289,7 +7311,7 @@
  "Saying of the day": {
   "kind": "text",
   "where": [
-   "src/wid/cal.cpp:914"
+   "src/wid/cal.cpp:971"
   ]
  },
  "Sayings": {
@@ -7363,7 +7385,7 @@
  "Screen savers": {
   "kind": "text",
   "where": [
-   "src/app_more.cpp:425"
+   "src/app_more.cpp:427"
   ]
  },
  "Sea": {
@@ -7382,7 +7404,7 @@
  "Search apps": {
   "kind": "text",
   "where": [
-   "src/home.cpp:956"
+   "src/home.cpp:1171"
   ]
  },
  "Search cities": {
@@ -7394,7 +7416,7 @@
  "Season": {
   "kind": "text",
   "where": [
-   "src/wid/cal.cpp:209"
+   "src/wid/cal.cpp:210"
   ],
   "notes": [
    "\"Season\" is the solar term (vi \"Tiết\")"
@@ -7403,7 +7425,7 @@
  "Seconds": {
   "kind": "text",
   "where": [
-   "src/wid/clock.cpp:37"
+   "src/wid/clock.cpp:39"
   ]
  },
  "secret state\u0004Set": {
@@ -7439,8 +7461,8 @@
  "Sell": {
   "kind": "text",
   "where": [
-   "src/wid/market.cpp:223",
-   "src/wid/market.cpp:224"
+   "src/wid/market.cpp:270",
+   "src/wid/market.cpp:271"
   ],
   "notes": [
    "Buy, Sell, Price: column headings of a price table (short)"
@@ -7479,33 +7501,35 @@
  "sentences\u0004{0} {1}": {
   "kind": "text",
   "where": [
-   "src/app_more.cpp:997"
+   "src/app_more.cpp:1000"
   ]
  },
  "Seoul": {
   "kind": "text",
   "where": [
    "src/app_clock.cpp:378",
-   "src/wid/clock.cpp:663"
+   "src/wid/clock.cpp:806"
   ]
  },
  "Server error {0}": {
   "kind": "text",
   "where": [
-   "src/desk.cpp:853"
+   "src/desk.cpp:869"
   ]
  },
  "Sessions": {
   "kind": "text",
   "where": [
-   "src/wid/claude.cpp:306",
-   "src/wid/claude.cpp:367"
+   "src/wid/claude.cpp:311",
+   "src/wid/claude.cpp:372",
+   "src/wid/claude.cpp:482",
+   "src/wid/claude.cpp:513"
   ]
  },
  "sessions": {
   "kind": "text",
   "where": [
-   "src/wid/claude.cpp:330"
+   "src/wid/claude.cpp:335"
   ]
  },
  "Set": {
@@ -7579,7 +7603,7 @@
  "Shapes": {
   "kind": "text",
   "where": [
-   "src/home.cpp:1372",
+   "src/home.cpp:1588",
    "src/saveredit.cpp:427"
   ]
  },
@@ -7604,7 +7628,7 @@
  "short\u0004Next holiday": {
   "kind": "text",
   "where": [
-   "src/wid/cal.cpp:267"
+   "src/wid/cal.cpp:268"
   ],
   "notes": [
    "a row label beside the next holiday's date and name (vi \"Lễ tới\")"
@@ -7637,7 +7661,7 @@
  "Short month": {
   "kind": "text",
   "where": [
-   "src/wid/cal.cpp:724"
+   "src/wid/cal.cpp:725"
   ],
   "notes": [
    "a lunar month of 30 days (vi \"Tháng đủ\") or 29 days (vi \"Tháng thiếu\")"
@@ -7646,7 +7670,7 @@
  "Short month, 29 days": {
   "kind": "text",
   "where": [
-   "src/wid/cal.cpp:740"
+   "src/wid/cal.cpp:741"
   ]
  },
  "Show": {
@@ -7705,7 +7729,7 @@
   "kind": "text",
   "where": [
    "src/app_clock.cpp:379",
-   "src/wid/clock.cpp:664"
+   "src/wid/clock.cpp:807"
   ]
  },
  "Singapore, Malaysia, Philippines, China, Taiwan, Hong Kong, Perth": {
@@ -7717,8 +7741,9 @@
  "Size": {
   "kind": "text",
   "where": [
-   "src/home.cpp:1516",
-   "src/widopts.cpp:470"
+   "src/home.cpp:1732",
+   "src/widopts.cpp:474",
+   "src/widopts.cpp:494"
   ]
  },
  "Skip the book being read": {
@@ -7736,7 +7761,7 @@
  "Slide\nshow": {
   "kind": "text",
   "where": [
-   "src/home.cpp:1881"
+   "src/home.cpp:2096"
   ],
   "notes": [
    "all photos in turn, two short lines in a 44 px tile"
@@ -7745,19 +7770,20 @@
  "Small": {
   "kind": "text",
   "where": [
-   "src/widopts.cpp:472"
+   "src/widopts.cpp:477",
+   "src/widopts.cpp:496"
   ]
  },
  "Small 2×2": {
   "kind": "text",
   "where": [
-   "src/home.cpp:1522"
+   "src/home.cpp:1738"
   ]
  },
  "Small faces": {
   "kind": "text",
   "where": [
-   "src/wid/clock.cpp:38"
+   "src/wid/clock.cpp:40"
   ]
  },
  "Snooze 9 min": {
@@ -7787,16 +7813,16 @@
  "Solar term": {
   "kind": "text",
   "where": [
-   "src/wid/cal.cpp:246",
-   "src/wid/cal.cpp:265",
-   "src/wid/cal.cpp:652",
-   "src/wid/cal.cpp:675"
+   "src/wid/cal.cpp:247",
+   "src/wid/cal.cpp:266",
+   "src/wid/cal.cpp:653",
+   "src/wid/cal.cpp:676"
   ]
  },
  "Solid colour": {
   "kind": "text",
   "where": [
-   "src/home.cpp:1898",
+   "src/home.cpp:2113",
    "src/saveredit.cpp:1059"
   ]
  },
@@ -7874,7 +7900,7 @@
  "Stacked": {
   "kind": "text",
   "where": [
-   "src/wid/clock.cpp:32"
+   "src/wid/clock.cpp:34"
   ]
  },
  "Stand up and move (every 90 minutes)": {
@@ -7918,7 +7944,7 @@
  "Starts {0}, full moon {1}. {2}.": {
   "kind": "text",
   "where": [
-   "src/wid/cal.cpp:739"
+   "src/wid/cal.cpp:740"
   ],
   "notes": [
    "{0} the first day's date, {1} the full moon's, {2} \"Long month, 30 days\" (vi \"Mùng 1 là {0}, Rằm là {1}. {2}.\")"
@@ -7927,7 +7953,7 @@
  "Starts: {0}": {
   "kind": "text",
   "where": [
-   "src/wid/cal.cpp:726"
+   "src/wid/cal.cpp:727"
   ],
   "notes": [
    "the solar date of the lunar month's first day (vi \"Mùng 1: {0}\")"
@@ -7954,7 +7980,7 @@
  "Sticky note": {
   "kind": "text",
   "where": [
-   "src/home.cpp:1464",
+   "src/home.cpp:1680",
    "src/mywid.cpp:247",
    "src/wid/misc.cpp:236"
   ]
@@ -7969,7 +7995,7 @@
   "kind": "text",
   "where": [
    "src/app_markets.cpp:23",
-   "src/wid/market.cpp:209",
+   "src/wid/market.cpp:256",
    "src/wid.cpp:66",
    "src/widopts.cpp:144"
   ],
@@ -8006,7 +8032,7 @@
  "Storage": {
   "kind": "text",
   "where": [
-   "src/app_more.cpp:693",
+   "src/app_more.cpp:695",
    "src/app_settings.cpp:1295",
    "src/pkg/storage_ui.cpp:444",
    "src/search.cpp:81"
@@ -8015,7 +8041,7 @@
  "Store": {
   "kind": "text",
   "where": [
-   "src/app_more.cpp:1401",
+   "src/app_more.cpp:1404",
    "src/apps.cpp:44",
    "src/assistant.cpp:399"
   ]
@@ -8023,8 +8049,8 @@
  "store\u0004Buy": {
   "kind": "text",
   "where": [
-   "src/app_more.cpp:616",
-   "src/app_more.cpp:1259",
+   "src/app_more.cpp:618",
+   "src/app_more.cpp:1262",
    "src/pet/chooser.cpp:123",
    "src/pet/chooser.cpp:394"
   ]
@@ -8051,7 +8077,7 @@
  "Study": {
   "kind": "text",
   "where": [
-   "src/app_more.cpp:424",
+   "src/app_more.cpp:426",
    "src/pkg/storage_ui.cpp:77"
   ]
  },
@@ -8060,13 +8086,13 @@
   "where": [
    "src/app_settings.cpp:500",
    "src/saveredit.cpp:447",
-   "src/widopts.cpp:460"
+   "src/widopts.cpp:463"
   ]
  },
  "Suggested": {
   "kind": "text",
   "where": [
-   "src/home.cpp:1362"
+   "src/home.cpp:1578"
   ]
  },
  "Suggestions": {
@@ -8147,7 +8173,7 @@
   "kind": "text",
   "where": [
    "src/app_clock.cpp:380",
-   "src/wid/clock.cpp:664"
+   "src/wid/clock.cpp:807"
   ]
  },
  "Sync": {
@@ -8239,7 +8265,7 @@
   "kind": "text",
   "where": [
    "src/app_calendar.cpp:318",
-   "src/home.cpp:1680",
+   "src/home.cpp:1895",
    "src/pkg/storage_ui.cpp:381"
   ]
  },
@@ -8252,7 +8278,7 @@
  "Tap opens": {
   "kind": "text",
   "where": [
-   "src/home.cpp:1623"
+   "src/home.cpp:1838"
   ]
  },
  "Tap to choose": {
@@ -8302,7 +8328,7 @@
  "Temperature": {
   "kind": "text",
   "where": [
-   "src/home.cpp:1371",
+   "src/home.cpp:1587",
    "src/saveredit.cpp:427"
   ]
  },
@@ -8315,8 +8341,8 @@
  "term\u0004{0}": {
   "kind": "text",
   "where": [
-   "src/wid/cal.cpp:188",
-   "src/wid/cal.cpp:664"
+   "src/wid/cal.cpp:189",
+   "src/wid/cal.cpp:665"
   ],
   "notes": [
    "the solar term the day is in (vi \"Tiết {0}\"); English shows the name alone"
@@ -8337,7 +8363,7 @@
  "tet\u0004{0} year": {
   "kind": "text",
   "where": [
-   "src/wid/cal.cpp:876"
+   "src/wid/cal.cpp:933"
   ],
   "notes": [
    "the coming Lunar New Year by its year's stems and branches (vi \"Tết {0}\")"
@@ -8352,13 +8378,13 @@
  "text and colour": {
   "kind": "text",
   "where": [
-   "src/home.cpp:1464"
+   "src/home.cpp:1680"
   ]
  },
  "Text on photo": {
   "kind": "text",
   "where": [
-   "src/home.cpp:1374"
+   "src/home.cpp:1590"
   ]
  },
  "Text only": {
@@ -8408,7 +8434,7 @@
  "The App Library uses the theme's wallpaper": {
   "kind": "text",
   "where": [
-   "src/home.cpp:1281"
+   "src/home.cpp:1496"
   ]
  },
  "The assistant calls you by this name; change it on the web.": {
@@ -8788,7 +8814,7 @@
  "There are no apps here to remove.": {
   "kind": "text",
   "where": [
-   "src/app_more.cpp:1022"
+   "src/app_more.cpp:1025"
   ]
  },
  "There is no tilt sensor: the screen turns when you pick a way up here, with Rotate in the Control Center (touch and hold it to flip the screen over), or on the EspOS web.": {
@@ -8826,7 +8852,7 @@
  "This app is being installed, removed or moved. Please wait until that is done.": {
   "kind": "text",
   "where": [
-   "src/home.cpp:1736"
+   "src/home.cpp:1951"
   ]
  },
  "This app is being installed, removed or moved. Please wait.": {
@@ -8994,7 +9020,7 @@
  "Time": {
   "kind": "text",
   "where": [
-   "src/home.cpp:1365",
+   "src/home.cpp:1581",
    "src/saveredit.cpp:425"
   ]
  },
@@ -9015,7 +9041,7 @@
  "time in words\u0004{0} {1}": {
   "kind": "text",
   "where": [
-   "src/wid/clock.cpp:361"
+   "src/wid/clock.cpp:365"
   ],
   "notes": [
    "hour and minute 10-59"
@@ -9055,7 +9081,7 @@
  "time, weather, calendar": {
   "kind": "text",
   "where": [
-   "src/desksaver.cpp:606"
+   "src/desksaver.cpp:625"
   ]
  },
  "Timer": {
@@ -9074,7 +9100,7 @@
  "title\u0004Saying of the day": {
   "kind": "text",
   "where": [
-   "src/wid/cal.cpp:921"
+   "src/wid/cal.cpp:978"
   ],
   "notes": [
    "the large card's heading (vi \"Ca dao · tục ngữ\")"
@@ -9096,27 +9122,31 @@
  "to-dos, shopping": {
   "kind": "text",
   "where": [
-   "src/home.cpp:1467"
+   "src/home.cpp:1683"
   ]
  },
  "Today": {
   "kind": "text",
   "where": [
    "src/alarm.cpp:144",
-   "src/app_more.cpp:223",
+   "src/app_more.cpp:225",
    "src/data.cpp:84",
    "src/data.cpp:145",
-   "src/home.cpp:821",
-   "src/wid/cal.cpp:15",
-   "src/wid/cal.cpp:105",
-   "src/wid/cal.cpp:246",
-   "src/wid/cal.cpp:267",
-   "src/wid/cal.cpp:376",
-   "src/wid/cal.cpp:747",
-   "src/wid/claude.cpp:19",
-   "src/wid/claude.cpp:271",
-   "src/wid/claude.cpp:329",
-   "src/wid/claude.cpp:365",
+   "src/home.cpp:1036",
+   "src/wid/cal.cpp:16",
+   "src/wid/cal.cpp:106",
+   "src/wid/cal.cpp:247",
+   "src/wid/cal.cpp:268",
+   "src/wid/cal.cpp:377",
+   "src/wid/cal.cpp:748",
+   "src/wid/claude.cpp:24",
+   "src/wid/claude.cpp:276",
+   "src/wid/claude.cpp:334",
+   "src/wid/claude.cpp:370",
+   "src/wid/claude.cpp:446",
+   "src/wid/claude.cpp:512",
+   "src/wid/claude.cpp:529",
+   "src/wid/claude.cpp:540",
    "src/wid/read.cpp:358"
   ],
   "notes": [
@@ -9140,7 +9170,7 @@
  "Today is Lunar New Year's Day.": {
   "kind": "text",
   "where": [
-   "src/app_more.cpp:255"
+   "src/app_more.cpp:257"
   ]
  },
  "Today's news": {
@@ -9155,22 +9185,22 @@
  "tokens": {
   "kind": "text",
   "where": [
-   "src/wid/claude.cpp:329",
-   "src/wid/claude.cpp:342",
-   "src/wid/claude.cpp:351"
+   "src/wid/claude.cpp:334",
+   "src/wid/claude.cpp:347",
+   "src/wid/claude.cpp:356"
   ]
  },
  "tokens today": {
   "kind": "text",
   "where": [
-   "src/wid/claude.cpp:210"
+   "src/wid/claude.cpp:215"
   ]
  },
  "Tokyo": {
   "kind": "text",
   "where": [
    "src/app_clock.cpp:377",
-   "src/wid/clock.cpp:662"
+   "src/wid/clock.cpp:805"
   ]
  },
  "Tomorrow": {
@@ -9178,14 +9208,14 @@
   "where": [
    "src/alarm.cpp:144",
    "src/data.cpp:147",
-   "src/wid/cal.cpp:106",
-   "src/wid/cal.cpp:376"
+   "src/wid/cal.cpp:107",
+   "src/wid/cal.cpp:377"
   ]
  },
  "Tomorrow {0}": {
   "kind": "text",
   "where": [
-   "src/wid/cal.cpp:355"
+   "src/wid/cal.cpp:356"
   ],
   "notes": [
    "tomorrow's first event time (vi \"Mai {0}\")"
@@ -9206,13 +9236,13 @@
  "Too much on the screen saver: remove something to save": {
   "kind": "text",
   "where": [
-   "src/desksaver.cpp:716"
+   "src/desksaver.cpp:735"
   ]
  },
  "Tools": {
   "kind": "text",
   "where": [
-   "src/app_more.cpp:423",
+   "src/app_more.cpp:425",
    "src/pkg/storage_ui.cpp:80",
    "src/wid.cpp:60",
    "src/wid.cpp:62",
@@ -9271,8 +9301,8 @@
  "Try": {
   "kind": "text",
   "where": [
-   "src/app_more.cpp:626",
-   "src/app_more.cpp:1261"
+   "src/app_more.cpp:628",
+   "src/app_more.cpp:1264"
   ]
  },
  "Try again": {
@@ -9300,7 +9330,7 @@
  "Tue, Nov 17": {
   "kind": "text",
   "where": [
-   "src/home.cpp:1366"
+   "src/home.cpp:1582"
   ],
   "notes": [
    "a sample date"
@@ -9436,8 +9466,10 @@
  "Unknown": {
   "kind": "text",
   "where": [
-   "src/wid/claude.cpp:303",
-   "src/wid/claude.cpp:328"
+   "src/wid/claude.cpp:308",
+   "src/wid/claude.cpp:333",
+   "src/wid/claude.cpp:475",
+   "src/wid/claude.cpp:507"
   ]
  },
  "Unknown language": {
@@ -9467,14 +9499,15 @@
  "upcoming\u0004Next": {
   "kind": "text",
   "where": [
-   "src/wid/clock.cpp:651"
+   "src/wid/clock.cpp:582",
+   "src/wid/clock.cpp:794"
   ]
  },
  "Update": {
   "kind": "text",
   "where": [
-   "src/app_more.cpp:618",
-   "src/app_more.cpp:1260",
+   "src/app_more.cpp:620",
+   "src/app_more.cpp:1263",
    "src/app_settings.cpp:822",
    "src/app_settings.cpp:1296"
   ]
@@ -9500,7 +9533,7 @@
  "Update the device's software first (Settings, Software update)": {
   "kind": "text",
   "where": [
-   "src/app_more.cpp:889"
+   "src/app_more.cpp:892"
   ]
  },
  "Uptime": {
@@ -9512,7 +9545,7 @@
  "US dollars, and in dong": {
   "kind": "text",
   "where": [
-   "src/wid/market.cpp:215"
+   "src/wid/market.cpp:262"
   ]
  },
  "usage from your Mac": {
@@ -9530,13 +9563,13 @@
  "Use this wallpaper on the {n} page|Use this wallpaper on all {n} pages": {
   "kind": "plural",
   "where": [
-   "src/home.cpp:1943"
+   "src/home.cpp:2158"
   ]
  },
  "Used on every page": {
   "kind": "text",
   "where": [
-   "src/home.cpp:1951"
+   "src/home.cpp:2166"
   ]
  },
  "UV index": {
@@ -9555,7 +9588,7 @@
  "Version": {
   "kind": "text",
   "where": [
-   "src/app_more.cpp:1280",
+   "src/app_more.cpp:1283",
    "src/appset.cpp:921",
    "src/wid/misc.cpp:344"
   ]
@@ -9641,7 +9674,7 @@
  "View": {
   "kind": "text",
   "where": [
-   "src/app_more.cpp:669"
+   "src/app_more.cpp:671"
   ]
  },
  "Volume": {
@@ -9675,15 +9708,16 @@
  "Waiting": {
   "kind": "text",
   "where": [
-   "src/app_more.cpp:610",
+   "src/app_more.cpp:612",
    "src/pkg/store.cpp:1418",
-   "src/wid/claude.cpp:330"
+   "src/wid/claude.cpp:335",
+   "src/wid/claude.cpp:481"
   ]
  },
  "Waiting for the job before it": {
   "kind": "text",
   "where": [
-   "src/app_more.cpp:972"
+   "src/app_more.cpp:975"
   ]
  },
  "waiting for the network": {
@@ -9707,7 +9741,7 @@
  "Waiting for you to confirm on the web": {
   "kind": "text",
   "where": [
-   "src/desk.cpp:771"
+   "src/desk.cpp:787"
   ]
  },
  "Waiting for you to enter the code": {
@@ -9720,7 +9754,7 @@
   "kind": "text",
   "where": [
    "src/app_settings.cpp:529",
-   "src/home.cpp:1278"
+   "src/home.cpp:1493"
   ]
  },
  "Wallpaper changed": {
@@ -9756,7 +9790,7 @@
    "src/app_settings.cpp:1284",
    "src/app_weather.cpp:268",
    "src/apps.cpp:35",
-   "src/home.cpp:1362",
+   "src/home.cpp:1578",
    "src/wid/weather.cpp:168",
    "src/wid.cpp:45"
   ]
@@ -9797,11 +9831,13 @@
  "Week": {
   "kind": "text",
   "where": [
-   "src/wid/cal.cpp:15",
-   "src/wid/claude.cpp:229",
-   "src/wid/claude.cpp:306",
-   "src/wid/claude.cpp:327",
-   "src/wid/claude.cpp:328"
+   "src/wid/cal.cpp:17",
+   "src/wid/claude.cpp:234",
+   "src/wid/claude.cpp:311",
+   "src/wid/claude.cpp:332",
+   "src/wid/claude.cpp:333",
+   "src/wid/claude.cpp:475",
+   "src/wid/claude.cpp:507"
   ]
  },
  "week, month": {
@@ -9909,7 +9945,7 @@
  "Widget added": {
   "kind": "text",
   "where": [
-   "src/home.cpp:2158"
+   "src/home.cpp:2373"
   ]
  },
  "Widget not found": {
@@ -9921,7 +9957,7 @@
  "Widgets": {
   "kind": "text",
   "where": [
-   "src/app_more.cpp:424",
+   "src/app_more.cpp:426",
    "src/pkg/storage_ui.cpp:79"
   ]
  },
@@ -9981,7 +10017,7 @@
  "With lunar date": {
   "kind": "text",
   "where": [
-   "src/wid/clock.cpp:34"
+   "src/wid/clock.cpp:36"
   ]
  },
  "With photos": {
@@ -10017,7 +10053,7 @@
  "Words": {
   "kind": "text",
   "where": [
-   "src/wid/clock.cpp:34"
+   "src/wid/clock.cpp:36"
   ]
  },
  "World": {
@@ -10031,14 +10067,14 @@
   "kind": "text",
   "where": [
    "src/app_clock.cpp:469",
-   "src/wid/clock.cpp:677",
+   "src/wid/clock.cpp:820",
    "src/wid.cpp:52"
   ]
  },
  "Worth a try": {
   "kind": "text",
   "where": [
-   "src/app_more.cpp:660"
+   "src/app_more.cpp:662"
   ]
  },
  "Write a few sayings, one per line": {
@@ -10115,8 +10151,8 @@
  "Year": {
   "kind": "text",
   "where": [
-   "src/wid/cal.cpp:209",
-   "src/wid/cal.cpp:264"
+   "src/wid/cal.cpp:210",
+   "src/wid/cal.cpp:265"
   ],
   "notes": [
    "\"Season\" is the solar term (vi \"Tiết\")"
@@ -10125,13 +10161,13 @@
  "Year of the {0}": {
   "kind": "text",
   "where": [
-   "src/wid/clock.cpp:581"
+   "src/wid/clock.cpp:733"
   ]
  },
  "Year of the {0}{1}": {
   "kind": "text",
   "where": [
-   "src/app_more.cpp:201"
+   "src/app_more.cpp:203"
   ]
  },
  "Yesterday": {
@@ -10149,7 +10185,7 @@
  "Your account is locked": {
   "kind": "text",
   "where": [
-   "src/desk.cpp:849",
+   "src/desk.cpp:865",
    "src/lock.cpp:654",
    "src/turn.cpp:726",
    "src/turn.cpp:949",
@@ -10163,7 +10199,7 @@
  "Your date": {
   "kind": "text",
   "where": [
-   "src/wid/cal.cpp:22"
+   "src/wid/cal.cpp:23"
   ]
  },
  "Your dog": {
@@ -10213,7 +10249,7 @@
  "your photos, the time in a corner": {
   "kind": "text",
   "where": [
-   "src/desksaver.cpp:608"
+   "src/desksaver.cpp:627"
   ]
  },
  "Your subscription has ended": {
@@ -10225,7 +10261,7 @@
  "Your text": {
   "kind": "text",
   "where": [
-   "src/home.cpp:1368",
+   "src/home.cpp:1584",
    "src/saveredit.cpp:426"
   ]
  },
@@ -10251,7 +10287,7 @@
   "kind": "text",
   "where": [
    "src/saveredit.cpp:443",
-   "src/wid/cal.cpp:17"
+   "src/wid/cal.cpp:18"
   ],
   "notes": [
    "Zodiac = the stem-branch name (Can chi, \"Fire Horse\")",
@@ -10268,14 +10304,14 @@
   "kind": "text",
   "where": [
    "src/app_calendar.cpp:116",
-   "src/wid/cal.cpp:112",
+   "src/wid/cal.cpp:113",
    "src/wid/kit.cpp:261"
   ]
  },
  "{0} (lunar) · {1} day": {
   "kind": "text",
   "where": [
-   "src/wid/cal.cpp:927"
+   "src/wid/cal.cpp:984"
   ],
   "notes": [
    "the lunar date and the day's stems and branches (vi \"{0} âm lịch · ngày {1}\")"
@@ -10284,19 +10320,19 @@
  "{0} at midday": {
   "kind": "text",
   "where": [
-   "src/wid/clock.cpp:364"
+   "src/wid/clock.cpp:368"
   ]
  },
  "{0} available": {
   "kind": "text",
   "where": [
-   "src/app_more.cpp:1279"
+   "src/app_more.cpp:1282"
   ]
  },
  "{0} bn": {
   "kind": "text",
   "where": [
-   "src/wid/market.cpp:162"
+   "src/wid/market.cpp:209"
   ],
   "notes": [
    "billion (đồng), short"
@@ -10311,15 +10347,15 @@
  "{0} day": {
   "kind": "text",
   "where": [
-   "src/wid/cal.cpp:118"
+   "src/wid/cal.cpp:119"
   ]
  },
  "{0} day · {1} month": {
   "kind": "text",
   "where": [
-   "src/app_more.cpp:206",
-   "src/wid/cal.cpp:784",
-   "src/wid/clock.cpp:579"
+   "src/app_more.cpp:208",
+   "src/wid/cal.cpp:785",
+   "src/wid/clock.cpp:731"
   ],
   "notes": [
    "the day's and the month's stems and branches (vi \"Ngày {0} · tháng {1}\")"
@@ -10328,7 +10364,7 @@
  "{0} day · {1} year": {
   "kind": "text",
   "where": [
-   "src/wid/cal.cpp:768"
+   "src/wid/cal.cpp:769"
   ],
   "notes": [
    "the day's and the year's stems and branches (vi \"Ngày {0} · năm {1}\")"
@@ -10370,7 +10406,7 @@
  "{0} h": {
   "kind": "text",
   "where": [
-   "src/wid/clock.cpp:694",
+   "src/wid/clock.cpp:837",
    "src/wid/weather.cpp:38"
   ],
   "notes": [
@@ -10386,13 +10422,13 @@
  "{0} has only {1} for apps; this one needs {2}.": {
   "kind": "text",
   "where": [
-   "src/app_more.cpp:1005"
+   "src/app_more.cpp:1008"
   ]
  },
  "{0} hundred": {
   "kind": "text",
   "where": [
-   "src/wid/clock.cpp:359"
+   "src/wid/clock.cpp:363"
   ],
   "notes": [
    "the hour on the dot"
@@ -10401,19 +10437,19 @@
  "{0} in the afternoon": {
   "kind": "text",
   "where": [
-   "src/wid/clock.cpp:364"
+   "src/wid/clock.cpp:368"
   ]
  },
  "{0} in the evening": {
   "kind": "text",
   "where": [
-   "src/wid/clock.cpp:365"
+   "src/wid/clock.cpp:369"
   ]
  },
  "{0} in the morning": {
   "kind": "text",
   "where": [
-   "src/wid/clock.cpp:364"
+   "src/wid/clock.cpp:368"
   ]
  },
  "{0} is bored, wants to play": {
@@ -10471,7 +10507,7 @@
  "{0} is {1} short.": {
   "kind": "text",
   "where": [
-   "src/app_more.cpp:998"
+   "src/app_more.cpp:1001"
   ]
  },
  "{0} min": {
@@ -10483,7 +10519,7 @@
  "{0} mn": {
   "kind": "text",
   "where": [
-   "src/wid/market.cpp:163"
+   "src/wid/market.cpp:210"
   ],
   "notes": [
    "million (đồng), short"
@@ -10492,7 +10528,7 @@
  "{0} month": {
   "kind": "text",
   "where": [
-   "src/wid/cal.cpp:117"
+   "src/wid/cal.cpp:118"
   ]
  },
  "{0} more waiting": {
@@ -10510,7 +10546,7 @@
  "{0} o'clock": {
   "kind": "text",
   "where": [
-   "src/wid/clock.cpp:359"
+   "src/wid/clock.cpp:363"
   ],
   "notes": [
    "the hour on the dot"
@@ -10525,13 +10561,13 @@
  "{0} of the {1} year": {
   "kind": "text",
   "where": [
-   "src/desksaver.cpp:248"
+   "src/desksaver.cpp:249"
   ]
  },
  "{0} oh {1}": {
   "kind": "text",
   "where": [
-   "src/wid/clock.cpp:360"
+   "src/wid/clock.cpp:364"
   ],
   "notes": [
    "hour and minute 1-9"
@@ -10540,7 +10576,7 @@
  "{0} on the device · {1} on the card": {
   "kind": "text",
   "where": [
-   "src/home.cpp:1729"
+   "src/home.cpp:1944"
   ]
  },
  "{0} requests are waiting for you": {
@@ -10558,8 +10594,12 @@
  "{0} tokens": {
   "kind": "text",
   "where": [
-   "src/wid/claude.cpp:273",
-   "src/wid/claude.cpp:364"
+   "src/wid/claude.cpp:278",
+   "src/wid/claude.cpp:369",
+   "src/wid/claude.cpp:458",
+   "src/wid/claude.cpp:512",
+   "src/wid/claude.cpp:530",
+   "src/wid/claude.cpp:539"
   ]
  },
  "{0} updated to {1}": {
@@ -10571,7 +10611,7 @@
  "{0} uses nearly all of the device's room.": {
   "kind": "text",
   "where": [
-   "src/app_more.cpp:1001"
+   "src/app_more.cpp:1004"
   ]
  },
  "{0} was removed. Choose another one in Default apps, in Settings.": {
@@ -10589,15 +10629,15 @@
  "{0} widget": {
   "kind": "text",
   "where": [
-   "src/home.cpp:1578"
+   "src/home.cpp:1794"
   ]
  },
  "{0} year": {
   "kind": "text",
   "where": [
-   "src/wid/cal.cpp:116",
-   "src/wid/clock.cpp:563",
-   "src/wid/clock.cpp:570"
+   "src/wid/cal.cpp:117",
+   "src/wid/clock.cpp:715",
+   "src/wid/clock.cpp:722"
   ]
  },
  "{0} · H {1}° L {2}°": {
@@ -10618,13 +10658,13 @@
  "{0} · on the device": {
   "kind": "text",
   "where": [
-   "src/home.cpp:1731"
+   "src/home.cpp:1946"
   ]
  },
  "{0} · on the memory card": {
   "kind": "text",
   "where": [
-   "src/home.cpp:1731"
+   "src/home.cpp:1946"
   ]
  },
  "{0} · on {1}": {
@@ -10636,7 +10676,7 @@
  "{0} · {1} free": {
   "kind": "text",
   "where": [
-   "src/app_more.cpp:1119"
+   "src/app_more.cpp:1122"
   ]
  },
  "{0}'s book": {
@@ -10679,7 +10719,7 @@
   "kind": "text",
   "where": [
    "src/data.cpp:303",
-   "src/wid/cal.cpp:110"
+   "src/wid/cal.cpp:111"
   ],
   "notes": [
    "a lunar day/month; {2} is \" leap\" for a leap month (vi \"{0}/{1}{2}\")"
@@ -10694,13 +10734,13 @@
  "{0}B": {
   "kind": "text",
   "where": [
-   "src/wid/claude.cpp:124"
+   "src/wid/claude.cpp:129"
   ]
  },
  "{0}h": {
   "kind": "text",
   "where": [
-   "src/wid/cal.cpp:612"
+   "src/wid/cal.cpp:613"
   ],
   "notes": [
    "an hour range like \"23-1\" (vi \"{0} giờ\")"
@@ -10709,37 +10749,39 @@
  "{0}K": {
   "kind": "text",
   "where": [
-   "src/wid/claude.cpp:122"
+   "src/wid/claude.cpp:127"
   ]
  },
  "{0}M": {
   "kind": "text",
   "where": [
-   "src/wid/claude.cpp:123"
+   "src/wid/claude.cpp:128"
   ]
  },
  "{MM} {d}": {
   "kind": "text",
   "where": [
-   "src/wid/clock.cpp:460"
+   "src/wid/clock.cpp:489",
+   "src/wid/clock.cpp:499",
+   "src/wid/clock.cpp:612"
   ]
  },
  "{MM} {y}": {
   "kind": "text",
   "where": [
    "src/app_calendar.cpp:41",
-   "src/wid/cal.cpp:232",
-   "src/wid/cal.cpp:242",
-   "src/wid/cal.cpp:765"
+   "src/wid/cal.cpp:233",
+   "src/wid/cal.cpp:243",
+   "src/wid/cal.cpp:766"
   ]
  },
  "{M} {d}": {
   "kind": "text",
   "where": [
-   "src/app_more.cpp:246",
-   "src/desksaver.cpp:232",
+   "src/app_more.cpp:248",
+   "src/desksaver.cpp:233",
    "src/notif.cpp:338",
-   "src/wid/cal.cpp:42",
+   "src/wid/cal.cpp:43",
    "src/wid/read.cpp:538",
    "src/wid/read.cpp:556"
   ]
@@ -10749,7 +10791,7 @@
   "where": [
    "src/appset.cpp:360",
    "src/mywid.cpp:118",
-   "src/wid/cal.cpp:41",
+   "src/wid/cal.cpp:42",
    "src/wid/read.cpp:535"
   ]
  },
@@ -10774,13 +10816,13 @@
  "{n} day to Lunar New Year|{n} days to Lunar New Year": {
   "kind": "plural",
   "where": [
-   "src/wid/cal.cpp:630"
+   "src/wid/cal.cpp:631"
   ]
  },
  "{n} day|{n} days": {
   "kind": "plural",
   "where": [
-   "src/app_more.cpp:246",
+   "src/app_more.cpp:248",
    "src/pet/book.cpp:358",
    "src/wid/read.cpp:357"
   ]
@@ -10874,14 +10916,14 @@
  "{n} session open|{n} sessions open": {
   "kind": "plural",
   "where": [
-   "src/wid/claude.cpp:136",
-   "src/wid/claude.cpp:362"
+   "src/wid/claude.cpp:141",
+   "src/wid/claude.cpp:367"
   ]
  },
  "{n} session waiting|{n} sessions waiting": {
   "kind": "plural",
   "where": [
-   "src/wid/claude.cpp:134"
+   "src/wid/claude.cpp:139"
   ]
  },
  "{n} step left|{n} steps left": {
@@ -10903,14 +10945,14 @@
  "{n} waiting|{n} waiting": {
   "kind": "plural",
   "where": [
-   "src/wid/claude.cpp:363"
+   "src/wid/claude.cpp:368"
   ]
  },
  "{W}, {MM} {d}": {
   "kind": "text",
   "where": [
-   "src/desksaver.cpp:236",
-   "src/wid/clock.cpp:67"
+   "src/desksaver.cpp:237",
+   "src/wid/clock.cpp:69"
   ]
  },
  "{W}, {M} {d}": {
@@ -10918,49 +10960,49 @@
   "where": [
    "src/app_calendar.cpp:115",
    "src/data.cpp:148",
-   "src/desksaver.cpp:241",
-   "src/desksaver.cpp:243",
+   "src/desksaver.cpp:242",
+   "src/desksaver.cpp:244",
    "src/standby.cpp:31",
-   "src/wid/cal.cpp:447",
-   "src/wid/clock.cpp:66"
+   "src/wid/cal.cpp:448",
+   "src/wid/clock.cpp:68"
   ]
  },
  "{w}, {M} {d}": {
   "kind": "text",
   "where": [
-   "src/home.cpp:827",
-   "src/wid/cal.cpp:107",
-   "src/wid/cal.cpp:413",
-   "src/wid/cal.cpp:435",
-   "src/wid/cal.cpp:446",
-   "src/wid/cal.cpp:908",
-   "src/wid/cal.cpp:916",
-   "src/wid/clock.cpp:65",
+   "src/home.cpp:1042",
+   "src/wid/cal.cpp:108",
+   "src/wid/cal.cpp:414",
+   "src/wid/cal.cpp:436",
+   "src/wid/cal.cpp:447",
+   "src/wid/cal.cpp:965",
+   "src/wid/cal.cpp:973",
+   "src/wid/clock.cpp:67",
    "src/wid/kit.cpp:260"
   ]
  },
  "{W}, {M} {d}, {y}": {
   "kind": "text",
   "where": [
-   "src/app_more.cpp:194",
-   "src/desksaver.cpp:239",
-   "src/wid/cal.cpp:639",
-   "src/wid/cal.cpp:850",
-   "src/wid/cal.cpp:867",
-   "src/wid/cal.cpp:885",
-   "src/wid/cal.cpp:925"
+   "src/app_more.cpp:196",
+   "src/desksaver.cpp:240",
+   "src/wid/cal.cpp:640",
+   "src/wid/cal.cpp:907",
+   "src/wid/cal.cpp:924",
+   "src/wid/cal.cpp:942",
+   "src/wid/cal.cpp:982"
   ]
  },
  "{w}, {M} {d}, {y}": {
   "kind": "text",
   "where": [
-   "src/wid/cal.cpp:844"
+   "src/wid/cal.cpp:901"
   ]
  },
  "~{0} dong": {
   "kind": "text",
   "where": [
-   "src/wid/market.cpp:245"
+   "src/wid/market.cpp:292"
   ]
  }
 }

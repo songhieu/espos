@@ -1,0 +1,31 @@
+# Resizing on the device (docs/widgets.md §2b), 3.5" portrait: edit mode, pick Claude, drag its corner to 4x3
+# (red: no room), release (reverted), open its sheet, pick 2 x 1 in Size, Done; s3.home dumped. English UI.
+wait 6000
+set s3.saver 0
+set s3.home {"v": 2, "dock": ["clock", "notes", "markets", "settings"], "pages": [[["w", "claude", 0, 0, "m", "bars", "", "", "", "4x1"], ["a", "news", 0, 1], ["a", "weather", 1, 1], ["a", "cal", 2, 1], ["a", "photos", 3, 1], ["w", "cal", 0, 2, "s", "today", ""], ["w", "markets", 2, 2, "s", "list", ""], ["a", "notes", 0, 4], ["a", "calc", 1, 4]], [["a", "store", 0, 0]]]}
+wait 1500
+shot b0-home
+long 277 361
+wait 600
+tap 160 60
+wait 600
+shot b1-picked
+down 310 96
+move 310 250
+wait 300
+shot b2-red
+up
+wait 800
+shot b3-after
+tap 160 60
+wait 1000
+shot b4-config
+tapat 2 × 1
+wait 1200
+shot b5-config-2x1
+tapat Done
+wait 1500
+tapat Done
+wait 1500
+shot b6-done
+dumpset s3.home

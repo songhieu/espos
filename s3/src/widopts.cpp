@@ -447,7 +447,7 @@ void codes(lv_obj_t* parent, const String& value, const Look& look, int width, v
   storeCtx(pool->ctx);
 }
 
-void build(lv_obj_t* parent, const wid::Item& it, const Look& look, int width, Changed cb, bool sizes) {
+void build(lv_obj_t* parent, const wid::Item& it, const Look& look, int width, Changed cb, bool sizes, int cols, int rows) {
   cur = it;
   lk = look;
   onChanged = cb;
@@ -456,17 +456,41 @@ void build(lv_obj_t* parent, const wid::Item& it, const Look& look, int width, C
   newPool(parent);
   const wid::Kind* k = wid::kind(it.kind);
   if (!k) return;
+  int cw, ch;
+  wid::spanOf(it, cw, ch);
+  const bool other = !wid::legacy(cw, ch);
   if (!k->styles.empty()) {
     caption(parent, N_("Style"));
     lv_obj_t* r = row(parent);
-    const String st = wid::styleOf(it);
+    const String st = other ? wid::styleAt(it) : wid::styleOf(it);
     for (const wid::Style& s : k->styles)
-      pill(r, s.name, st == s.id, [](lv_event_t* e) {
-        cur.style = arg(e);
-        changed(false);
-      }, s.id);
+      if (!other || (s.spans & wid::SPAN(cw, ch)))
+        pill(r, s.name, st == s.id, [](lv_event_t* e) {
+          cur.style = arg(e);
+          changed(false);
+        }, s.id);
   }
-  if (sizes && (k->sizes & (k->sizes - 1))) {  // more than one size
+  if (sizes && cols > 0) {  // Home: every span the look draws ("Small", "3 × 1"...)
+    caption(parent, N_("Size"));
+    lv_obj_t* r = row(parent);
+    const String st = wid::styleOf(it);
+    static const char* const SZ[3] = {N_("Small"), N_("Medium"), N_("Large")};
+    for (int b = 1; b <= 4 && b <= rows; b++)
+      for (int a = 1; a <= 4 && a <= cols; a++) {
+        if (!wid::draws(it.kind, a, b, st.c_str())) continue;
+        wid::Size l;
+        const char id[3] = {(char)('0' + a), (char)('0' + b), 0};
+        const String name = wid::legacy(a, b, &l) ? String(i18n::trl(SZ[l])) : String(a) + " × " + b;
+        pill(r, name, a == cw && b == ch, [](lv_event_t* e) {
+          const char* v = arg(e);
+          int a0, b0;
+          wid::spanOf(cur, a0, b0);
+          if (v[0] - '0' == a0 && v[1] - '0' == b0) return;
+          wid::setSpan(cur, v[0] - '0', v[1] - '0');
+          changed(true);
+        }, id);
+      }
+  } else if (sizes && (k->sizes & (k->sizes - 1))) {  // more than one size
     caption(parent, N_("Size"));
     lv_obj_t* r = row(parent);
     static const char* const SZ[3] = {N_("Small"), N_("Medium"), N_("Large")};

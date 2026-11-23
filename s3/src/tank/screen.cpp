@@ -25,6 +25,7 @@
 #include "os.h"
 #include "pkg/pkg.h"
 #include "assistant.h"
+#include "saveredit.h"
 #include "tank_int.h"
 #include "trace.h"
 
@@ -264,16 +265,16 @@ void report(const char* tag, Stats& s, int nfish) {
            tag, nfish, sc->land ? "side " : "", sc->FW, sc->FH, n * 1000 / ms, s.move / n / 1000, s.prep / n / 1000, s.comp / n / 1000,
            s.push / n / 1000, s.maxFrame / 1000.0f, (long)(s.px / n), s.via);
   trace::add("%s", b);
+#if TANK_QA  // the parts: QA builds only (the release image keeps their sums; flash for the saver's speed fixes, 11-23)
   char q[160];
   const uint32_t* P = sc->prof;
-  snprintf(q, sizeof q, "  draw parts ms: bg %.2f, plants %.2f, fish %.2f, food %.2f, specks %.2f, beams %.2f, algae %.2f, screens %.2f",
+  snprintf(q, sizeof q, "  draw ms: bg %.2f, plants %.2f, fish %.2f, food %.2f, specks %.2f, beams %.2f, algae %.2f, screens %.2f",
            P[0] / n / 1000, P[1] / n / 1000, P[2] / n / 1000, P[3] / n / 1000, P[4] / n / 1000, P[5] / n / 1000, P[6] / n / 1000, P[7] / n / 1000);
   memset(sc->prof, 0, sizeof sc->prof);
   char r[96];
-  snprintf(r, sizeof r, "  prepare parts ms: background %.2f, fish %.2f, beams %.2f", sc->prep[0] / n / 1000, sc->prep[1] / n / 1000,
+  snprintf(r, sizeof r, "  prepare ms: bg %.2f, fish %.2f, beams %.2f", sc->prep[0] / n / 1000, sc->prep[1] / n / 1000,
            sc->prep[2] / n / 1000);
   memset(sc->prep, 0, sizeof sc->prep);
-#if TANK_QA
   char u[260];
   const uint32_t* U = ui::prof;
   int made, noRoom;
@@ -297,9 +298,9 @@ void report(const char* tag, Stats& s, int nfish) {
 #endif
 #else
 #ifdef SIM
-  fprintf(stderr, "%s\n%s\n%s\n", b, q, r);
+  fprintf(stderr, "%s\n", b);
 #else
-  Serial.println(b), Serial.println(q), Serial.println(r);
+  Serial.println(b);
 #endif
 #endif
 }
@@ -451,6 +452,11 @@ void onSaver(lv_timer_t*) {
     sleepAll();
     return;
   }
+  // Under the saver's editor (saveredit, always opened over the saver: a long press, or Settings) the water holds
+  // still, its clock held. A picture with the page on top is ~150 ms on the board, and each one made LVGL redraw
+  // the whole editor over it, so a widget dragged there stuttered 5 times a second (the owner, 2026-11-23). Now
+  // LVGL redraws only what the finger moves; the water swims on when the editor closes.
+  if (saveredit::isOpen()) return (void)(sv->last = now);
   if (now - sv->lastPic + 1 < 1000u / saverFps) return;
   if (onScreen()) return;  // the app draws
   const float dt = std::min(0.25f, (now - sv->last) / 1000.0f);
@@ -465,7 +471,7 @@ void onSaver(lv_timer_t*) {
   static uint32_t n = 0, us = 0, at = 0;
   n++, us += nowUs() - t0;
   if (now - at > 10000) {  // what the saver's pictures cost (LVGL's own drawing of the page comes on top)
-    if (at) trace::add("tank: saver %.1f pics/s, %.1f ms a picture", n * 1000.0f / (now - at), us / 1000.0f / n);
+    if (at) trace::add("tank: saver %.1f pics/s, %.1f ms each", n * 1000.0f / (now - at), us / 1000.0f / n);
     n = us = 0, at = now;
   }
 }
@@ -585,9 +591,30 @@ void open(const char* pkgId, const char* arg) {
   if (arg && *arg) dev(arg);
 }
 
+// The saver's editor, over the saver, draws the page's aquarium as a copy of the saver's last picture: its water holds
+// still while the editor is open (onSaver), and the copy is its own (the saver under it may be rebuilt). Freed with
+// its image.
+static lv_obj_t* stillOf(lv_obj_t* parent, int w, int h) {
+  const lv_image_dsc_t& from = sv->dsc;
+  const size_t n = w * h * 2;
+  uint8_t* m = from.header.w == w && from.header.h == h ? (uint8_t*)heap_caps_malloc(sizeof(lv_image_dsc_t) + n, MALLOC_CAP_SPIRAM) : nullptr;
+  if (!m) return nullptr;
+  lv_image_dsc_t* d = (lv_image_dsc_t*)m;
+  *d = from;
+  d->data = (const uint8_t*)memcpy(m + sizeof(lv_image_dsc_t), sv->buf, n);
+  lv_obj_t* img = lv_image_create(parent);
+  lv_image_set_src(img, d);
+  lv_obj_add_event_cb(img, [](lv_event_t* e) {
+    lv_image_cache_drop(lv_event_get_user_data(e));
+    heap_caps_free(lv_event_get_user_data(e));
+  }, LV_EVENT_DELETE, d);
+  return img;
+}
+
 lv_obj_t* saverBg(lv_obj_t* parent, int w, int h) {
   const char* id = installedId();
-  if (!id || sv) return nullptr;
+  if (!id) return nullptr;
+  if (sv) return stillOf(parent, w, h);
   uint16_t* buf = (uint16_t*)heap_caps_malloc(w * h * 2, MALLOC_CAP_SPIRAM);
   users++;
   if (!buf || !ensure(id)) {

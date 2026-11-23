@@ -59,8 +59,19 @@ struct Entry {
   String id;     // app id
   wid::Item w;   // widget
   int x = 0, y = 0;
-  int cw() const { return app ? 1 : wid::cols(w.size); }
-  int ch() const { return app ? 1 : wid::rows(w.size); }
+  // cells across and down: an app 1 x 1, a widget its span (docs/widgets.md §2b)
+  int cw() const {
+    if (app) return 1;
+    int a, b;
+    wid::spanOf(w, a, b);
+    return a;
+  }
+  int ch() const {
+    if (app) return 1;
+    int a, b;
+    wid::spanOf(w, a, b);
+    return b;
+  }
 };
 using Page = std::vector<Entry>;
 struct Model {
@@ -126,16 +137,38 @@ bool fitsIn(const Page& p, const Entry& e, int skip, int cols, int rows) {
 }
 bool fits(const Page& p, const Entry& e, int skip) { return fitsIn(p, e, skip, COLS, ROWS); }
 
-// The first free place row by row; apps step 1 cell, widgets 2 (SEED's FIND).
+// The first free place row by row; apps and odd-wide widgets step 1 cell, the others 2 (SEED's FIND).
 bool findIn(const Page& p, Entry& e, int cols, int rows) {
   for (int y = 0; y + e.ch() <= rows; y++)
-    for (int x = 0; x + e.cw() <= cols; x += (e.app ? 1 : 2)) {
+    for (int x = 0; x + e.cw() <= cols; x += (e.app || e.cw() % 2 ? 1 : 2)) {
       e.x = x, e.y = y;
       if (fitsIn(p, e, -1, cols, rows)) return true;
     }
   return false;
 }
 bool findFree(const Page& p, Entry& e) { return findIn(p, e, COLS, ROWS); }
+
+// Item i of page p with a new place and span `at`; what it then covers moves to the first free places of the page,
+// in reading order (the resized item stays). false when `at` leaves the grid or they do not all fit. The web
+// (web/app/src/os/model.ts resizePlan) places them the same way.
+bool resizePlan(const Page& p, int i, const Entry& at, Page& out) {
+  if (!fitsIn(Page(), at, -1, COLS, ROWS)) return false;
+  out = p;
+  out[i] = at;
+  std::vector<int> moved;
+  Page placed;
+  for (int j = 0; j < (int)out.size(); j++)
+    if (j != i && overlaps(out[j], at)) moved.push_back(j);
+    else placed.push_back(out[j]);
+  std::stable_sort(moved.begin(), moved.end(), [&](int a, int b) { return out[a].y != out[b].y ? out[a].y < out[b].y : out[a].x < out[b].x; });
+  for (int j : moved) {
+    Entry e = out[j];
+    if (!findIn(placed, e, COLS, ROWS)) return false;
+    out[j] = e;
+    placed.push_back(e);
+  }
+  return true;
+}
 
 Entry appEntry(const char* id, int x, int y) {
   Entry e;
@@ -178,6 +211,11 @@ void readPages(JsonDocument& d, int cols, int rows, std::vector<Page>& pages, st
         en.w.opt = e[6] | "";
         en.w.open = e[7] | "";
         en.w.skin = e[8] | "";
+        // index 9: a span other than S, M, L ("3x2"), kept when the kind draws it (docs/widgets.md §2b)
+        const char* sp = e[9] | "";
+        if (sp[0] >= '1' && sp[0] <= '4' && sp[1] == 'x' && sp[2] >= '1' && sp[2] <= '4' && !sp[3] &&
+            wid::draws(en.w.kind, sp[0] - '0', sp[2] - '0'))
+          wid::setSpan(en.w, sp[0] - '0', sp[2] - '0');
         if (!wid::kind(en.w.kind)) continue;
       }
       if (fitsIn(p, en, -1, cols, rows)) p.push_back(en);
@@ -220,8 +258,10 @@ void writePages(JsonDocument& d, const std::vector<Page>& list, const std::vecto
       } else {
         a.add("w"), a.add(e.w.kind), a.add(e.x), a.add(e.y), a.add(sizeName(e.w.size)), a.add(e.w.style),
             a.add(e.w.opt);
-        if (e.w.open.length() || e.w.skin.length()) a.add(e.w.open);
-        if (e.w.skin.length()) a.add(e.w.skin);  // index 8 (docs/widgets.md §2)
+        const bool sp = e.w.cw && e.w.ch;  // a span other than S, M, L: index 9 (7 and 8 written before it)
+        if (e.w.open.length() || e.w.skin.length() || sp) a.add(e.w.open);
+        if (e.w.skin.length() || sp) a.add(e.w.skin);  // index 8 (docs/widgets.md §2)
+        if (sp) a.add(String((int)e.w.cw) + "x" + (int)e.w.ch);
       }
     }
   }
@@ -509,6 +549,22 @@ struct Drag {
 } drag;
 int pendA = -1, pendB = -1;  // pages to redraw after a drop
 
+// ---- free sizes (docs/widgets.md §2b, mockups/widget-resize): in edit mode a tap picks a widget (its "−" makes way for
+// four corner handles), a second tap opens its settings; dragging a handle resizes it by cells, the outline and a
+// "3 × 2" badge show the new span, what it would cover moves to free places (shown as it would land), and when the page
+// has no room the outline turns red and the release puts nothing.
+struct Sel {
+  int page = -1, index = -1;
+} sel;
+struct Rz {
+  int corner = -1;  // 0 nw, 1 ne, 2 sw, 3 se (bit 0: east, bit 1: south)
+  int key = -1;     // the place and span shown now
+  bool ok = false;
+  Entry at;
+} rz;
+lv_obj_t *rzBox = nullptr, *rzBadge = nullptr;
+constexpr intptr_t MARK = -1;  // user data of the handles, the outline and the badge (no entry)
+
 int tileOfPage(int pi) { return pi + 1; }
 
 void setTile(int idx, bool anim) {
@@ -612,6 +668,13 @@ void onItem(lv_event_t* e) {
     const int dx = p.x - drag.start.x, dy = p.y - drag.start.y;
     if (!drag.moving && abs(dx) + abs(dy) > 8) {
       drag.moving = true;
+      if (sel.page >= 0) {  // the page is drawn again after the drop, without handles; they go now
+        lv_obj_t* t = liveOf(pageTiles[sel.page]);
+        for (int k = (int)lv_obj_get_child_count(t) - 1; k >= 0; k--)
+          if ((intptr_t)lv_obj_get_user_data(lv_obj_get_child(t, k)) == MARK) lv_obj_delete(lv_obj_get_child(t, k));
+        rzBox = rzBadge = nullptr;
+        sel = {};
+      }
       lv_obj_move_foreground(o);
       lv_obj_set_style_opa(o, LV_OPA_90, 0);
     }
@@ -665,16 +728,26 @@ void onItem(lv_event_t* e) {
   if (code == LV_EVENT_RELEASED || code == LV_EVENT_PRESS_LOST) {
     if (!drag.moving) {
       Entry& en = model.pages[drag.page][drag.index];
+      const int pg = drag.page, ix = drag.index;
       drag.obj = nullptr;
-      if (!en.app) openConfig(drag.page, drag.index);
+      if (en.app) return;
+      // The first tap picks the widget (corner handles), the second opens its settings.
+      if (sel.page == pg && sel.index == ix) return openConfig(pg, ix);
+      const int old = sel.page;
+      sel = {pg, ix};
+      pendA = pg, pendB = old;
+      later([] {
+        renderPage(pendA);
+        if (pendB >= 0 && pendB != pendA) renderPage(pendB);
+      });
       return;
     }
     Entry en = model.pages[drag.page][drag.index];
     const int px = lv_obj_get_x(o) - (en.app ? 0 : 6) - GX, py = lv_obj_get_y(o) - (en.app ? 0 : WY) - GY;
     Entry moved = en;
     moved.x = constrain((px + CW / 2) / CW, 0, COLS - en.cw());
-    // Portrait: widgets snap to the left or right half. Landscape (5 wide): any column that fits.
-    if (!en.app && !land) moved.x = moved.x >= 1 && en.cw() == 2 ? (moved.x >= 2 ? 2 : (px + CW) / (2 * CW) * 2) : 0;
+    // Portrait: even-wide widgets snap to the left or right half. Landscape (5 wide), odd widths: any column that fits.
+    if (!en.app && !land && en.cw() % 2 == 0) moved.x = moved.x >= 1 && en.cw() == 2 ? (moved.x >= 2 ? 2 : (px + CW) / (2 * CW) * 2) : 0;
     moved.y = constrain((py + CH / 2) / CH, 0, ROWS - en.ch());
     Page plan;
     if (en.app && planDrop(en, moved.x, moved.y, plan)) {
@@ -717,6 +790,11 @@ void onTileBg(lv_event_t* e) {
     const int dx = p.x - bgStart.x;
     if (dx < -50 && curIndex <= (int)pageTiles.size()) setTile(curIndex + 1, true);
     else if (dx > 50 && curIndex > 1) setTile(curIndex - 1, true);
+    else if (abs(dx) < 10 && abs(p.y - bgStart.y) < 10 && sel.page >= 0) {  // a tap beside the widgets: none picked
+      pendA = sel.page;
+      sel = {};
+      later([] { renderPage(pendA); });
+    }
     updateDots();
   }
 }
@@ -751,7 +829,7 @@ lv_obj_t* makeEntry(lv_obj_t* tile, int pi, int i) {
     if (!edit) lv_obj_add_event_cb(o, openApp, LV_EVENT_SHORT_CLICKED, (void*)apps::find(e.id.c_str())->id);
   } else {
     int w, h;
-    wid::boxSize(e.w.size, w, h);
+    wid::boxOf(e.w, w, h);
     o = wid::create(tile, e.w, w, h, !edit);
     lv_obj_set_pos(o, GX + e.x * CW + 6, GY + e.y * CH + WY);
     lv_obj_add_flag(o, LV_OBJ_FLAG_CLICKABLE);
@@ -761,6 +839,7 @@ lv_obj_t* makeEntry(lv_obj_t* tile, int pi, int i) {
   if (edit) {
     for (lv_event_code_t c : {LV_EVENT_PRESSED, LV_EVENT_PRESSING, LV_EVENT_RELEASED, LV_EVENT_PRESS_LOST})
       lv_obj_add_event_cb(o, onItem, c, nullptr);
+    if (pi == sel.page && i == sel.index) return o;  // the picked widget: its corner handles instead of "−"
     lv_obj_t* m = minusBadge(o, e.app ? 4 : -6, e.app ? -6 : -6);
     lv_obj_add_event_cb(m, [](lv_event_t* ev) {
       lv_obj_t* item = lv_obj_get_parent((lv_obj_t*)lv_event_get_current_target(ev));
@@ -783,11 +862,148 @@ lv_obj_t* makeEntry(lv_obj_t* tile, int pi, int i) {
   return o;
 }
 
+// A widget's box on its page (tile coordinates).
+lv_area_t boxAt(const Entry& e) {
+  int w, h;
+  wid::boxOf(e.w, w, h);
+  const int x = GX + e.x * CW + 6, y = GY + e.y * CH + WY;
+  return {x, y, x + w, y + h};
+}
+
+// The span a corner drag asks for, made one the widget draws with its look: the nearest by cells, the corner opposite
+// the dragged one staying put (moved back inside the grid when needed). The web's spanFromDrag does the same.
+Entry spanFromDrag(const Entry& en, int corner, int cx, int cy) {
+  const int x1 = en.x + en.cw(), y1 = en.y + en.ch();
+  const bool e = corner & 1, s = corner & 2;
+  const int wx = e ? cx - en.x : x1 - cx, wy = s ? cy - en.y : y1 - cy;
+  const String st = wid::styleOf(en.w);
+  int bw = en.cw(), bh = en.ch(), bd = 1 << 30;
+  for (int b = 1; b <= 4; b++)
+    for (int a = 1; a <= 4; a++) {
+      if (a > COLS || b > ROWS || !wid::draws(en.w.kind, a, b, st.c_str())) continue;
+      const int d = abs(a - wx) + abs(b - wy);
+      if (d < bd) bw = a, bh = b, bd = d;
+    }
+  Entry at = en;
+  wid::setSpan(at.w, bw, bh);
+  at.x = constrain(e ? en.x : x1 - bw, 0, COLS - bw);
+  at.y = constrain(s ? en.y : y1 - bh, 0, ROWS - bh);
+  return at;
+}
+
+// The outline and the badge of a resize, and the page's other entries where they would land (back home without a plan).
+void showResize(lv_obj_t* t, const Entry& at, bool ok, const Page* plan) {
+  const lv_area_t a = boxAt(at);
+  const uint32_t c = ok ? 0x4cd28a : 0xff5a4f;
+  if (!rzBox) {
+    rzBox = box(t, 0, 22);
+    lv_obj_set_style_bg_opa(rzBox, LV_OPA_TRANSP, 0);
+    lv_obj_set_style_border_width(rzBox, 3, 0);
+    lv_obj_remove_flag(rzBox, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_set_user_data(rzBox, (void*)MARK);
+    rzBadge = box(t, 0, 13);
+    lv_obj_set_size(rzBadge, LV_SIZE_CONTENT, 26);
+    lv_obj_set_style_pad_hor(rzBadge, 10, 0);
+    lv_obj_remove_flag(rzBadge, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_set_user_data(rzBadge, (void*)MARK);
+    lv_obj_center(label(rzBadge, "", 14, true, 0xffffff));
+  }
+  lv_obj_set_pos(rzBox, a.x1 - 5, a.y1 - 5);
+  lv_obj_set_size(rzBox, a.x2 - a.x1 + 10, a.y2 - a.y1 + 10);
+  lv_obj_set_style_border_color(rzBox, C(c), 0);
+  lv_obj_set_style_bg_color(rzBadge, C(ok ? 0x16181d : 0xb42318), 0);
+  String txt = String(at.cw()) + " × " + at.ch();
+  if (!ok) txt += String(" · ") + T_("No room on this page");
+  lv_obj_t* l = lv_obj_get_child(rzBadge, 0);
+  setText(l, txt.c_str());
+  lv_obj_update_layout(rzBadge);
+  const int bw = lv_obj_get_width(rzBadge);
+  const bool below = a.y2 + 8 + 26 <= GY + ROWS * CH;
+  const int bx = (rz.corner & 1) ? (int)a.x2 - bw : (int)a.x1;
+  lv_obj_set_pos(rzBadge, constrain(bx, 4, os::W() - 4 - bw), below ? (int)a.y2 + 8 : max(GY, (int)a.y1 - 34));
+  lv_obj_move_foreground(rzBox);
+  lv_obj_move_foreground(rzBadge);
+  // the others: where the plan puts them, else where they are
+  const Page& to = plan ? *plan : model.pages[sel.page];
+  for (uint32_t k = 0; k < lv_obj_get_child_count(t); k++) {
+    lv_obj_t* o = lv_obj_get_child(t, k);
+    const intptr_t tag = (intptr_t)lv_obj_get_user_data(o);
+    if (tag < 0 || (tag >> 8) != sel.page) continue;
+    const int i = tag & 0xff;
+    if (i == sel.index || i >= (int)to.size()) continue;
+    const Entry& e = to[i];
+    slideTo(o, GX + e.x * CW + (e.app ? 0 : 6), GY + e.y * CH + (e.app ? 0 : WY));
+  }
+}
+
+void onHandle(lv_event_t* ev) {
+  const lv_event_code_t code = lv_event_get_code(ev);
+  if (sel.page < 0 || sel.page >= (int)model.pages.size() || sel.index >= (int)model.pages[sel.page].size()) return;
+  Page& p = model.pages[sel.page];
+  const Entry en = p[sel.index];
+  lv_obj_t* t = liveOf(pageTiles[sel.page]);
+  if (code == LV_EVENT_PRESSED) {
+    rz = {};
+    rz.corner = (int)(intptr_t)lv_event_get_user_data(ev);
+    return;
+  }
+  if (rz.corner < 0) return;
+  if (code == LV_EVENT_PRESSING) {
+    lv_point_t pt;
+    lv_indev_get_point(lv_indev_active(), &pt);
+    lv_area_t a;
+    lv_obj_get_coords(t, &a);
+    const int cx = (int)lroundf((pt.x - a.x1 - GX) / (float)CW), cy = (int)lroundf((pt.y - a.y1 - GY) / (float)CH);
+    const Entry at = spanFromDrag(en, rz.corner, cx, cy);
+    const int key = at.x | at.y << 4 | at.cw() << 8 | at.ch() << 12;
+    if (key == rz.key) return;  // the same cells: nothing moves
+    rz.key = key;
+    rz.at = at;
+    Page plan;
+    rz.ok = resizePlan(p, sel.index, at, plan);
+    showResize(t, at, rz.ok, rz.ok ? &plan : nullptr);
+    return;
+  }
+  if (code == LV_EVENT_RELEASED || code == LV_EVENT_PRESS_LOST) {
+    const bool shown = rz.key >= 0;
+    const bool moved = shown && (rz.at.x != en.x || rz.at.y != en.y || rz.at.cw() != en.cw() || rz.at.ch() != en.ch());
+    Page plan;
+    if (moved && rz.ok && resizePlan(p, sel.index, rz.at, plan)) p = plan;
+    else if (moved) os::toast(N_("No room on this page for that size"));
+    rz = {};
+    if (!shown) return;
+    pendA = sel.page;
+    later([] { renderPage(pendA); });
+  }
+}
+
+// The four corner handles of the picked widget: drawn 22 px, touched in about 50.
+void addHandles(lv_obj_t* t, int pi) {
+  const lv_area_t a = boxAt(model.pages[pi][sel.index]);
+  for (int c = 0; c < 4; c++) {
+    lv_obj_t* h = box(t, 0xffffff, 11);
+    lv_obj_set_size(h, 22, 22);
+    lv_obj_set_style_border_width(h, 3, 0);
+    lv_obj_set_style_border_color(h, C(0xffb547), 0);
+    lv_obj_set_style_shadow_width(h, 6, 0);
+    lv_obj_set_style_shadow_opa(h, LV_OPA_40, 0);
+    lv_obj_set_pos(h, ((c & 1) ? a.x2 : a.x1) - 11, ((c & 2) ? a.y2 : a.y1) - 11);
+    lv_obj_add_flag(h, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_set_ext_click_area(h, 14);
+    lv_obj_set_user_data(h, (void*)MARK);
+    for (lv_event_code_t k : {LV_EVENT_PRESSED, LV_EVENT_PRESSING, LV_EVENT_RELEASED, LV_EVENT_PRESS_LOST})
+      lv_obj_add_event_cb(h, onHandle, k, (void*)(intptr_t)c);
+  }
+}
+
 void renderPage(int pi) {
   if (pi < 0 || pi >= (int)pageTiles.size()) return;
   lv_obj_t* t = liveOf(pageTiles[pi]);
+  if (sel.page == pi) rzBox = rzBadge = nullptr;  // cleaned with the page
   lv_obj_clean(t);
+  if (sel.page == pi && (!edit || sel.index >= (int)model.pages[pi].size() || model.pages[pi][sel.index].app)) sel = {};
   for (int i = 0; i < (int)model.pages[pi].size(); i++) makeEntry(t, pi, i);
+  if (sel.page == pi) addHandles(t, pi);
   dirtyTile(pi + 1);
 }
 
@@ -1243,7 +1459,7 @@ void wiggleStep(lv_timer_t*) {
   lv_obj_t* t = liveOf(pageTiles[curIndex - 1]);
   for (uint32_t i = 0; i < lv_obj_get_child_count(t); i++) {
     lv_obj_t* o = lv_obj_get_child(t, i);
-    if (o == drag.obj) continue;
+    if (o == drag.obj || (intptr_t)lv_obj_get_user_data(o) == MARK) continue;
     const bool odd = (i & 1) ^ phase;
     lv_obj_set_style_translate_x(o, odd ? 1 : -1, 0);
     lv_obj_set_style_translate_y(o, odd ? -1 : 1, 0);
@@ -1290,6 +1506,7 @@ void enterEdit() {
 void exitEdit() {
   if (!edit) return;
   edit = false;
+  sel = {};
   if (wiggle) lv_timer_delete(wiggle), wiggle = nullptr;
   if (editBar) lv_obj_delete(editBar);
   os::setStatusHidden(false);
@@ -1592,22 +1809,21 @@ void openConfig(int pi, int idx) {
     if (!e) return;
     Entry moved = *e;
     moved.w = it;
-    if (sizeChanged) {  // the page must have room for the new size
-      Page& p = model.pages[cfg.page];
-      if (!fits(p, moved, cfg.index)) {
-        Page rest = p;
-        rest.erase(rest.begin() + cfg.index);
-        if (!findFree(rest, moved)) {
-          os::toast(N_("No room on this page for that size"));
-          later(reopenConfig);
-          return;
-        }
+    if (sizeChanged) {  // as a corner drag: what the new span covers moves to free places of the page
+      moved.x = min(moved.x, COLS - moved.cw()), moved.y = min(moved.y, ROWS - moved.ch());
+      Page plan;
+      if (!resizePlan(model.pages[cfg.page], cfg.index, moved, plan)) {
+        os::toast(N_("No room on this page for that size"));
+        later(reopenConfig);
+        return;
       }
+      model.pages[cfg.page] = plan;
+    } else {
+      *e = moved;
     }
-    *e = moved;
     renderPage(cfg.page);
     later(reopenConfig);
-  });
+  }, true, COLS, ROWS);
   if (e->w.kind == "my") {
     cfgRow(body, N_("Edit content"), "", [](lv_event_t*) {
       Entry* e = cfgEntry();

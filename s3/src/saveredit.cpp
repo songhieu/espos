@@ -309,6 +309,24 @@ void chrome(bool shown) {
     if (o) shown && (o == sheet || sel < 0) ? lv_obj_remove_flag(o, LV_OBJ_FLAG_HIDDEN) : lv_obj_add_flag(o, LV_OBJ_FLAG_HIDDEN);
 }
 
+// LVGL draws the screen under the top layer, and every child of the top layer, for each piece of the editor it
+// draws again: Home, then the saver (its aquarium and widgets), then the editor. While the editor is open what it
+// covers is hidden (the screen, and the top layer's children under it), and shown again when it closes. Dragging a
+// widget on an aquarium page went from ~22 to ~60 pictures a second (QEMU at the board's speed, 2026-11-23).
+lv_obj_t* hid[8];
+uint8_t nHid = 0;
+void under(bool hide) {
+  if (!hide) {
+    while (nHid)
+      if (lv_obj_t* o = hid[--nHid]; lv_obj_is_valid(o)) lv_obj_remove_flag(o, LV_OBJ_FLAG_HIDDEN);
+    return;
+  }
+  for (int k = -1; k < (int)lv_obj_get_index(root) && nHid < 8; k++) {
+    lv_obj_t* o = k < 0 ? lv_screen_active() : lv_obj_get_child(lv_layer_top(), k);
+    if (!lv_obj_has_flag(o, LV_OBJ_FLAG_HIDDEN)) lv_obj_add_flag(o, LV_OBJ_FLAG_HIDDEN), hid[nHid++] = o;
+  }
+}
+
 int indexOf(lv_obj_t* c) {
   for (size_t i = 0; i < boxes.size(); i++)
     if (boxes[i] == c) return i;
@@ -1377,6 +1395,7 @@ void open(void (*closed)()) {
   onClosed = closed;
   lcd::setBacklight(os::brightness());  // lit as the rest of the device (the saver may be dim or at night 3 %)
   buildAll();
+  under(true);
   fetchTemplates();  // ready by the time "Mẫu" is tapped
   trace::add("saver editor open (%s %s %d)", land ? "land" : "port", page < 0 ? "night" : "page", page + 1);
 }
@@ -1389,6 +1408,7 @@ void close(bool save) {
   theme::refresh();
   if (dlg) lv_obj_delete_async(dlg), dlg = nullptr;
   if (save && edited) desksaver::save(d);
+  under(false);
   if (root) {
     lv_obj_t* r = root;
     root = nullptr;

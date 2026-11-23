@@ -221,8 +221,17 @@ constexpr size_t KEEP_MIN_INTERNAL = 24 * 1024;
 volatile bool dropKeep = false, keepOpen = false;
 bool keepForeign = false;  // the kept connection went to an app's host (Job::App): raw() must not take it as ours
 
+#ifdef ESPOS_QEMU
+// The emulator against a local mock over plain http (tests: sim/scripts/saver-dash-qemu.sh): http() takes it for an
+// http:// address. The TLS client's own plain start cannot (its select() has no FD_ZERO: "Interrupted system call").
+NetworkClient qemuPlain;
+#endif
+
 void dropKept() {
   if (keepTls) keepTls->stop();
+#ifdef ESPOS_QEMU
+  qemuPlain.stop();
+#endif
   keepOpen = false;
 }
 
@@ -284,7 +293,11 @@ int http(const Request& r, String& out, Response* res) {
     if (millis() - keepUsed > KEEP_IDLE_MS) dropKept();
     HTTPClient& h = *keepHttp;
     const char* keep[] = {"Location"};
-    if (!h.begin(*keepTls, url)) return -1;
+    NetworkClient* conn = keepTls;
+#ifdef ESPOS_QEMU
+    if (url.startsWith("http://")) conn = &qemuPlain;
+#endif
+    if (!h.begin(*conn, url)) return -1;
     h.collectHeaders(keep, 1);
     if (!r.url.length()) h.addHeader("Content-Type", "application/json");
     if (r.token.length()) h.addHeader("Authorization", "Device " + r.token);
@@ -746,6 +759,9 @@ void handle(Response* r) {
   // screen over Home, syncing keeps its pace; the first 200 of a sync or a ping ends it.
   if (r->status == 403 && !strcmp(err, "account_disabled")) lock::account(doc["state"] | "blocked");
   else if (r->status == 200 && (r->job == Job::Sync || r->job == Job::Ping)) lock::account(nullptr);
+  // A ping or a sync while a screen holds the connection's RAM (pingReady: under the saver): the connection closes
+  // once the worker is idle, so a sync the ping starts still rides it, and then the RAM goes back.
+  if (pingHold && (r->job == Job::Sync || r->job == Job::Ping)) dropKeep = true;
   switch (r->job) {
     case Job::Raw:
       if (rawDoneNow) rawDoneNow(rawCtxNow);
@@ -862,13 +878,14 @@ void handle(Response* r) {
 
 // Whether to ping now (UI loop). Holds back while a screen that asked for the connection's RAM is open, when the
 // periodic sync is due within the minute anyway, during a package download, and when only a fresh connection would do
-// and internal RAM is short.
+// and internal RAM is short. A screen that asked for the RAM, under the saver (the Control Center's Saver tile over
+// the aquarium, 0.6.2: the saver's Claude widget stood still for hours): the saver's widgets want fresh data and the
+// aquarium and the games pause under it, so the ping goes when internal RAM has room for a fresh connection, and
+// the connection is closed again after it (and after the sync it starts: handle()).
 bool pingReady(uint32_t now) {
   if (state != Link::Linked || (int32_t)(now - nextPing) < 0) return false;
-  if (pingHold) {
-    if (!os::atHome()) return false;
-    pingHold = false;  // back at Home: whatever asked for the RAM is closed
-  }
+  if (pingHold && os::atHome()) pingHold = false;  // back at Home: whatever asked for the RAM is closed
+  if (pingHold && !os::saverOn()) return false;
   if (appLastMs && now - appLastMs < 90000) {  // an app is talking to its server: keep the connection on its host
     nextPing = now + pingMs();
     return false;

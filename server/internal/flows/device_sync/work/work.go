@@ -210,8 +210,9 @@ func photoIDs(v string) bool {
 
 // checkHomeL: s3.home_l, the colour desk's landscape Home pages (s3desk/docs/widgets.md §4b, home.cpp readPages):
 // "" or {"v":1,"pages":[[entries]],"bg":[...]} within 6000 bytes, at most 8 pages. Entries as in s3.home: an app
-// ["a", id, x, y] (1 x 1) or a widget ["w", kind, x, y, size, style, opt, open?, skin?] (size by its first letter as
-// the device's sizeOf: m 4 x 2, l 4 x 4, anything else S 2 x 2), each inside the 5 x 4 grid. Overlaps are left to the
+// ["a", id, x, y] (1 x 1) or a widget ["w", kind, x, y, size, style, opt, open?, skin?, span?] (size by its first
+// letter as the device's sizeOf: m 4 x 2, l 4 x 4, anything else S 2 x 2; a span "WxH" at index 9, 1..4 each, takes
+// its place: docs/widgets.md §2b, firmware 0.6.2), each inside the 5 x 4 grid. Overlaps are left to the
 // device, which drops them. "bg": no longer than "pages", each null or an object. "" when good, else the reason.
 // The same function is in device_sync and save_device_settings: keep the two copies identical.
 func checkHomeL(v string) string {
@@ -266,6 +267,12 @@ func checkHomeL(v string) string {
 					cols, rows = 4, 2
 				} else if strings.HasPrefix(size, "l") {
 					cols, rows = 4, 4
+				}
+				if len(e) > 9 {
+					if sp, _ := e[9].(string); len(sp) == 3 && sp[1] == 'x' && sp[0] >= '1' && sp[0] <= '4' && sp[2] >= '1' && sp[2] <= '4' {
+						cols = float64(sp[0] - '0')
+						rows = float64(sp[2] - '0')
+					}
 				}
 			}
 			var x, y float64

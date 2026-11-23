@@ -14,9 +14,12 @@ struct Look {
 };
 
 // it: the item as it is now. cb(item, sizeChanged) after every change, from a pill's event: the caller stores the
-// item and redraws later (the rows are rebuilt by the caller, never inside cb). sizes: show the Cỡ row.
+// item and redraws later (the rows are rebuilt by the caller, never inside cb). sizes: show the Cỡ row. cols, rows
+// (Home's grid): the Cỡ row offers every span up to cols x rows the kind draws with its look (docs/widgets.md §2b),
+// not only Small, Medium, Large; at such a span the Kiểu row lists the looks that draw it.
 using Changed = void (*)(const wid::Item& it, bool sizeChanged);
-void build(lv_obj_t* parent, const wid::Item& it, const Look& look, int width, Changed cb, bool sizes = true);
+void build(lv_obj_t* parent, const wid::Item& it, const Look& look, int width, Changed cb, bool sizes = true, int cols = 0,
+           int rows = 0);
 
 // The market codes picker alone, as in a markets widget's sheet and the web's MarketCodes: quick sets, or codes one by
 // one (PNJ gold, indices, stocks typed on the keyboard, Vietcombank rates, coins) in the order picked, at most `most`.

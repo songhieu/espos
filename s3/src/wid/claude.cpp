@@ -16,7 +16,12 @@
 
 namespace wid {
 
-const std::vector<Style> CLAUDE_STYLES = {{"bars", N_("Bars")}, {"ring", N_("Gauge")}, {"today", N_("Today")}};
+// Free sizes (docs/widgets.md §2b): bars in 2x1, 3x1, 4x1, 3x2, 2x3, 4x3, 2x4; the gauge in strips and tall columns;
+// today in strips and 4x3.
+const std::vector<Style> CLAUDE_STYLES = {
+    {"bars", N_("Bars"), SPAN(2, 1) | SPAN(3, 1) | SPAN(4, 1) | SPAN(3, 2) | SPAN(2, 3) | SPAN(4, 3) | SPAN(2, 4)},
+    {"ring", N_("Gauge"), SPAN(3, 1) | SPAN(4, 1) | SPAN(2, 3) | SPAN(2, 4)},
+    {"today", N_("Today"), SPAN(3, 1) | SPAN(4, 1) | SPAN(4, 3)}};
 
 namespace {
 
@@ -162,8 +167,8 @@ void headRight(lv_obj_t* p, const U& u, Card c) {
   if (head.length() && textW(head.c_str(), 12, true) <= c.w - 70) right(p, head.c_str(), 0, 12, true, st.length() ? sc : GREY);
 }
 // The last 7 days' tokens as columns (today last, in the accent), the weekdays under them.
-void days(lv_obj_t* p, const U& u, int x, int y, int w, int h, bool values) {
-  const int labH = lineH(12, false), base = y + h - labH - 2;
+void days(lv_obj_t* p, const U& u, int x, int y, int w, int h, bool values, bool labels = true) {
+  const int labH = lineH(12, false), base = labels ? y + h - labH - 2 : y + h;
   const int gap = w >= 200 ? 10 : 5, bw = (w - 6 * gap) / 7;
   long long top = 1;
   for (int i = 0; i < u.nd; i++) top = max(top, u.days[i]);
@@ -180,7 +185,7 @@ void days(lv_obj_t* p, const U& u, int x, int y, int w, int h, bool values) {
     else rect(p, bx, base - 2, bw, 2, sep());
     const char* wd = WD_SHORT[(wd0 + i + 1) % 7];
     const String lab = whole ? String(wd) : first(wd);
-    mid(p, lab.c_str(), bx, base + 2, bw, 12, i == 6, i == 6 ? INK : GREY);
+    if (labels) mid(p, lab.c_str(), bx, base + 2, bw, 12, i == 6, i == 6 ? INK : GREY);
     if (values && v > 0) {
       const String s = tok(v);
       if (textW(s.c_str(), 12, true) <= bw + gap) mid(p, s.c_str(), bx - gap / 2, base - bh - labH - 1, bw + gap, 12, true, GREY);
@@ -372,6 +377,174 @@ void today(lv_obj_t* p, const Item& it, Card c, const U& u) {
   }
 }
 
+// ---------------------------------------------------------------- the other spans (web: claude.ts barsAt, ringAt, todayAt)
+void barsAt(lv_obj_t* p, Card c, const U& u, int cw, int ch) {
+  const Win* ws[2];
+  const char* names[2];
+  const int n = present(u, ws, names);
+  if (ch == 1 && cw == 2) {
+    // Two cells: the first window alone, its percent big beside its bar.
+    const String head = n ? String("Claude · ") + names[0] : String("Claude");
+    cap(p, head.c_str(), acc());
+    if (!n) return statusIn(p, u, 0, c.h - 17, c.w, 17);
+    const String pc = pctOf(ws[0]->pct);
+    at(p, pc.c_str(), 0, c.h - lineH(22, true) + 2, 22, true, INK);
+    const int bx = textW(pc.c_str(), 22, true) + 10;
+    bar(p, bx, c.h - 12, c.w - bx, 8, ws[0]->pct, level(ws[0]->pct));
+    return;
+  }
+  if (ch == 1) {
+    // A strip: the heading (the status at the right when it fits), the windows side by side.
+    cap(p, "Claude", acc());
+    headRight(p, u, c);
+    if (!n) {
+      fitIn(p, T_("Limits unknown"), 0, 18, c.w, c.h - 18, 13, 12, false, GREY, 2);
+      return;
+    }
+    const int mw = (c.w - 16) / 2;
+    for (int i = 0; i < n; i++) {
+      String name = names[i];
+      const String with = name + " · " + ws[i]->at;
+      if (ws[i]->at.length() && textW(with.c_str(), 12, false) + textW(pctOf(ws[i]->pct).c_str(), 16, true) + 8 <= mw) name = with;
+      row(p, name.c_str(), *ws[i], i * (mw + 16), c.h - lineH(16, true) - 8, mw, 16, 6, false);
+    }
+    return;
+  }
+  if (cw == 3 && ch == 2) {
+    // Three by two: the small look's rows, with their reset times when they fit.
+    cap(p, "Claude", acc());
+    headRight(p, u, c);
+    if (!n) return noLimits(p, u, 0, 22, c.w, c.h - 22);
+    for (int i = 0; i < n; i++) {
+      String name = names[i];
+      const String r = resets(*ws[i]);
+      const String with = name + " · " + r;
+      if (r.length() && textW(with.c_str(), 12, false) + textW(pctOf(ws[i]->pct).c_str(), 18, true) + 8 <= c.w) name = with;
+      row(p, name.c_str(), *ws[i], 0, 24 + i * 46, c.w, 18, 8, false);
+    }
+    return;
+  }
+  if (cw == 4 && ch == 3) {
+    // Four by three: the medium look, then the last 7 days and today's tokens.
+    cap(p, "Claude", acc());
+    headRight(p, u, c);
+    if (!n) return noLimits(p, u, 0, 22, c.w, c.h - 22);
+    const int colW = (c.w - 16) / 2;
+    for (int i = 0; i < n; i++) {
+      const int x = i * (colW + 16);
+      at(p, names[i], x, 22, 12, false, GREY);
+      const String pc = pctOf(ws[i]->pct);
+      at(p, pc.c_str(), x, 38, 34, true, INK);
+      bar(p, x, 80, colW, 8, ws[i]->pct, level(ws[i]->pct));
+      const String r = resets(*ws[i]);
+      if (r.length()) fit(p, r.c_str(), x, 94, colW, 18, 12, 12, false, GREY, 0);
+    }
+    rect(p, 0, 120, c.w, 1, sep());
+    const int tw = 84;
+    days(p, u, 0, 128, c.w - tw - 12, c.h - 128, false);
+    const int x = c.w - tw;
+    at(p, T_("Today"), x, 132, 12, false, GREY);
+    if (u.tokens >= 0) fit(p, tok(u.tokens).c_str(), x, 148, tw, 24, 20, 14, true, INK, 0);
+    if (u.usd > 0) at(p, ("~$" + data::num(u.usd, 2)).c_str(), x, 174, 12, false, GREY);
+    return;
+  }
+  // Tall (two cells across): each window with its reset time; with four rows the last 7 days and today's tokens.
+  cap(p, "Claude", acc());
+  if (!n) return noLimits(p, u, 0, 20, c.w, c.h - 20);
+  for (int i = 0; i < n; i++) row(p, names[i], *ws[i], 0, 22 + i * 56, c.w, 18, 8, true);
+  if (ch >= 4) {
+    rect(p, 0, 138, c.w, 1, sep());
+    days(p, u, 0, 148, c.w, 62, false, false);
+    if (u.tokens >= 0) fit(p, i18n::fmt(N_("{0} tokens"), tok(u.tokens)).c_str(), 0, 222, c.w, 20, 14, 12, true, INK, 0);
+  }
+  statusIn(p, u, 0, c.h - 17, c.w, 17);
+}
+
+void ringAt(lv_obj_t* p, Card c, const U& u, int cw, int ch) {
+  uint32_t sc;
+  const String st = status(u, sc);
+  const bool lim = u.five.ok;
+  if (ch == 1) {
+    // A strip: the gauge with the 5-hour percent, then its reset time, the week and (four cells) the sessions.
+    const int dd = c.h;
+    ring(p, 0, 0, dd, 6, lim ? u.five.pct : 0, lim ? level(u.five.pct) : sep());
+    const String in = lim ? String(u.five.pct) : String("--");
+    mid(p, in.c_str(), 0, (dd - lineH(16, true)) / 2, dd, 16, true, lim ? INK : GREY);
+    const String wk = u.week.ok ? pctOf(u.week.pct) : String("--");
+    const String rs = lim ? resets(u.five) : String();
+    String names[3] = {T_("5-hour"), T_("Week"), ""}, vals[3] = {rs.length() ? rs : String(T_("Unknown")), wk, ""};
+    uint32_t cols[3] = {INK, INK, INK};
+    int nc = 2;
+    if (cw >= 4) {
+      nc = 3;
+      if (!u.online) names[2] = "Mac", vals[2] = T_("Off"), cols[2] = sc;
+      else if (u.waiting > 0) names[2] = T_("Waiting"), vals[2] = String(u.waiting), cols[2] = sc;
+      else names[2] = T_("Sessions"), vals[2] = String(u.open);
+    }
+    const int x0 = dd + 12, gap = 10;
+    const int wide = cw >= 4 ? 104 : c.w - x0 - gap - 56;
+    const int rest = nc > 2 ? (c.w - x0 - wide - 2 * gap) / 2 : c.w - x0 - wide - gap;
+    int x = x0;
+    for (int i = 0; i < nc; i++) {
+      const int w = i ? rest : wide;
+      if (i) rect(p, x - gap / 2, 4, 1, c.h - 8, sep());
+      cap(p, names[i].c_str(), GREY, x, 0, w);
+      if (!fitIn(p, vals[i], x, 18, w, c.h - 18, 16, 12, true, cols[i], 0) && i == 0 && lim)
+        fit(p, u.five.at, x, 18, w, c.h - 18, 16, 12, true, cols[i], 0);
+      x += w + gap;
+    }
+    return;
+  }
+  // Tall: the small gauge, its reset time, then rows as the medium look writes them.
+  const int d = 96, x0 = (c.w - d) / 2;
+  const String pc = lim ? pctOf(u.five.pct) : String("--");
+  ring(p, x0, 0, d, 10, lim ? u.five.pct : 0, lim ? level(u.five.pct) : sep());
+  const int nh = lineH(28, true), uh = lineH(12, false), ny = 48 - (nh + uh) / 2;
+  mid(p, pc.c_str(), 0, ny, c.w, 28, true, lim ? INK : GREY);
+  mid(p, T_("5-hour"), 0, ny + nh, c.w, 12, false, GREY);
+  const String foot = lim ? resets(u.five) : String(T_("Limits unknown"));
+  if (foot.length()) fit(p, foot.c_str(), 0, 102, c.w, 17, 12, 12, true, GREY, 0);
+  String names[3] = {T_("Week"), "", ""}, vals[3] = {u.week.ok ? pctOf(u.week.pct) : String(T_("Unknown")), "", ""};
+  uint32_t cols[3] = {INK, INK, INK};
+  int nr = 1;
+  if (ch >= 4) {
+    nr = 3;
+    names[1] = T_("Today"), vals[1] = u.tokens >= 0 ? i18n::fmt(N_("{0} tokens"), tok(u.tokens)) : String("--");
+    names[2] = T_("Sessions"), vals[2] = st.length() ? st : String(T_("No session")), cols[2] = st.length() ? sc : INK;
+  }
+  for (int i = 0; i < nr; i++) {
+    const int y = 128 + i * 42;
+    cap(p, names[i].c_str(), GREY, 0, y, c.w);
+    fit(p, vals[i], 0, y + 16, c.w, 22, 18, 12, true, cols[i], 1);
+  }
+  if (ch < 4) statusIn(p, u, 0, c.h - 17, c.w, 17);
+}
+
+void todayAt(lv_obj_t* p, Card c, const U& u, int cw, int ch) {
+  const String t = u.tokens >= 0 ? tok(u.tokens) : String("0");
+  const String usd = u.usd > 0 ? "~$" + data::num(u.usd, 2) : String();
+  if (ch == 1) {
+    // A strip: today's tokens, the last 7 days as columns beside them.
+    const int lw = cw >= 4 ? 128 : 96;
+    cap(p, cw >= 4 ? T_("Claude today") : T_("Today"), acc(), 0, 0, lw);
+    fit(p, i18n::fmt(N_("{0} tokens"), t), 0, 18, lw, c.h - 18, 18, 12, true, INK, 0);
+    days(p, u, lw + 10, 2, c.w - lw - 10, c.h - 2, false, false);
+    return;
+  }
+  // Four by three: the large look's chart, then today and its API price.
+  cap(p, T_("Claude · 7 days"), acc());
+  if (u.name.length()) right(p, u.name.c_str(), 0, 12, true, GREY);
+  days(p, u, 0, 22, c.w, 112, true);
+  rect(p, 0, 142, c.w, 1, sep());
+  const String tk = i18n::fmt(N_("{0} tokens"), t);
+  const char* const lines[2][2] = {{T_("Today"), tk.c_str()}, {T_("At API prices"), usd.length() ? usd.c_str() : "·"}};
+  for (int i = 0; i < 2; i++) {
+    const int y = 150 + i * 22;
+    at(p, lines[i][0], 0, y, 13, false, GREY);
+    right(p, lines[i][1], y, 14, true, INK);
+  }
+}
+
 }  // namespace
 
 void wClaude(lv_obj_t*, const Item& it, Card c) {
@@ -380,6 +553,15 @@ void wClaude(lv_obj_t*, const Item& it, Card c) {
   if (!u.has) {
     cap(p, "Claude", acc());
     return empty(c, desk::dash().isNull() ? noData() : N_("Pair EspOS Desktop on your Mac to see Claude usage"), GREY, 22);
+  }
+  int cw, ch;
+  spanOf(it, cw, ch);
+  if (!legacy(cw, ch)) {
+    const String s = styleAt(it);
+    if (s == "ring") ringAt(p, c, u, cw, ch);
+    else if (s == "today") todayAt(p, c, u, cw, ch);
+    else barsAt(p, c, u, cw, ch);
+    return;
   }
   const String s = styleOf(it);
   if (s == "ring") ringLook(p, it, c, u);

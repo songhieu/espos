@@ -769,6 +769,19 @@ void buildSaver() {
   }
 }
 
+// The screen under the saver is hidden while the saver covers it. LVGL draws the active screen under the top layer
+// for every piece of the saver it redraws, so each aquarium picture and each widget change drew Home too. Checked at
+// every update: the dog's pop-up shows Home again when it closes, and the screen can change under the saver.
+lv_obj_t* underSaver = nullptr;
+void coverUnder(bool on) {
+  lv_obj_t* s = on ? lv_screen_active() : nullptr;
+  if (underSaver != s) {
+    if (underSaver && lv_obj_is_valid(underSaver)) lv_obj_remove_flag(underSaver, LV_OBJ_FLAG_HIDDEN);
+    underSaver = nullptr;
+  }
+  if (s && !lv_obj_has_flag(s, LV_OBJ_FLAG_HIDDEN)) lv_obj_add_flag(underSaver = s, LV_OBJ_FLAG_HIDDEN);
+}
+
 void updateSaver(const tm& t) {
   if (!saverShown) {
     // Not over a ringing alarm (it woke the screen; nobody has touched it since the night, so idle is long).
@@ -780,6 +793,7 @@ void updateSaver(const tm& t) {
       showSaver();
     return;
   }
+  coverUnder(true);
   if (saveredit::isOpen()) return saveredit::tick();  // lit and still while the editor or a finger is on it
   if (saverHeld) return;
   const bool q = quietNow(t);
@@ -1096,6 +1110,7 @@ void wake() {
   saveredit::close(true);  // an alarm or a notification while editing: keep what was done
   saverShown = false;
   saverHeld = false;
+  coverUnder(false);
   lv_obj_add_flag(saver, LV_OBJ_FLAG_HIDDEN);
   desksaver::show(false);
   lcd::setBacklight(bright);

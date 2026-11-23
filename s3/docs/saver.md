@@ -122,6 +122,41 @@ select, tap again to let go: a corner handle resizes (widgets jump between their
 Xuống dưới / Xoá and the options (free elements: format, size or 'Vừa khung', colour, Mảnh/Đậm, alignment; widgets:
 Home's rows). Xong, or 3 minutes untouched, saves `s3.saver_pages`.
 
+Speed (2026-11-23, the owner: "kéo widget Claude rất lag" on an aquarium page). The editor is a child of the top
+layer, over the saver, and LVGL draws the active screen and every child of the top layer for each piece it redraws:
+Home, then the saver (its aquarium and widgets), then the editor. And the saver's aquarium went on making 5 pictures a
+second behind the editor, each one a full-screen redraw. Now, while the editor is open:
+- What it covers is hidden: the screen, and the top layer's children under it (`under()`). They are shown again when
+  it closes.
+- The aquarium holds still (`tank::onSaver`, docs/tank.md).
+
+QEMU at the board's speed (`-icount shift=2`), dragging the Claude widget (M) on an aquarium page:
+
+| | before | after |
+|---|---|---|
+| editor open, untouched | 7.1 redraws/s, CPU 35 % | 0 redraws/s, CPU 0.1 % |
+| dragging | 22 redraws/s, CPU 91 %, render 37 ms each | ~60 redraws/s, CPU 64 %, render 10 ms each |
+
+Moving a picture of the element (an `lv_snapshot` while dragging) was tried and dropped: blending the ARGB picture
+cost more (15 ms) than drawing the widget (10 ms).
+
+The same day, two more changes:
+- The saver hides the screen under it while it is shown (`os.cpp` `coverUnder`). Every saver redraw (each aquarium
+  picture, a widget's change) had drawn Home too. This is checked at every update, because the dog's pop-up shows
+  Home again when it closes. `wake()` shows the screen again. Pop-ups, notifications and the saver's widgets are on
+  the top layer above it, unchanged.
+- The editor shows the page's aquarium as a still copy of the saver's last picture (`tank::saverBg`, `stillOf`),
+  not the deep-water gradient. The water under it holds still while the editor is open.
+
+QEMU at the board's speed, the saver with an aquarium page (clock, date, Claude widget), 5 aquarium pictures a second
+either way:
+
+| | before | after |
+|---|---|---|
+| CPU | 29 % | 16 % |
+| LVGL render per redraw | 21.7 ms | 5.0 ms |
+| the aquarium's own picture | 25.6 ms | 25.6 ms |
+
 ## 4. Flash room
 
 The app slot is 3,932,160 B and the image was 3,919,536 B. The built-in art (`src/art.c`: app icons and weather

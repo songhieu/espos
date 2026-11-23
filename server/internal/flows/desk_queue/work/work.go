@@ -314,25 +314,52 @@ func sessionName(st map[string]any, id string) (string, map[string]any) {
 
 // cmdText: the command in a few Vietnamese words, for the S3's dashboard note and the web ("thoát app Safari").
 func cmdText(cmd string, a map[string]any, st map[string]any) string {
+	return cmdTextIn("vi", cmd, a, st)
+}
+
+// cmdLangs: the firmware's languages besides Vietnamese (s3desk/i18n/languages.json), for the confirm note's titles.
+var cmdLangs = []string{"en", "de", "fr", "es", "pt-BR", "ru", "ja", "ko", "zh-Hans", "id"}
+
+// say: a template of cmdWords in the language (Vietnamese: the template itself, the text sent before 2026-11-23, byte
+// for byte), its {placeholders} filled in one pass (a value holding "{name}" stays as it is).
+func say(lang, vi string, kv ...string) string {
+	t := vi
+	if lang != "vi" {
+		if row, ok := cmdWords[vi]; ok {
+			if v := row[lang]; v != "" {
+				t = v
+			} else if v := row["en"]; v != "" {
+				t = v
+			}
+		}
+	}
+	if len(kv) == 0 {
+		return t
+	}
+	return strings.NewReplacer(kv...).Replace(t)
+}
+
+// cmdTextIn: what a command does, in words, in a language (cmdText: Vietnamese, as the callers always had it).
+func cmdTextIn(lang, cmd string, a map[string]any, st map[string]any) string {
 	s := func(k string) string { return wm.Str(a[k]) }
 	switch cmd {
 	case "claude.status":
 		if n, _ := sessionName(st, wm.Str(a["session"])); n != "" {
-			return "hỏi Claude ở " + n + " tình hình"
+			return say(lang, "hỏi Claude ở {name} tình hình", "{name}", n)
 		}
-		return "hỏi Claude tình hình các phiên"
+		return say(lang, "hỏi Claude tình hình các phiên")
 	case "app.open":
-		return "mở app " + s("name")
+		return say(lang, "mở app {name}", "{name}", s("name"))
 	case "app.switch":
-		return "chuyển sang " + s("name")
+		return say(lang, "chuyển sang {name}", "{name}", s("name"))
 	case "app.quit":
-		return "thoát app " + s("name")
+		return say(lang, "thoát app {name}", "{name}", s("name"))
 	case "win.hide_all":
-		return "ẩn hết cửa sổ"
+		return say(lang, "ẩn hết cửa sổ")
 	case "win.zoom":
-		return "phóng to cửa sổ"
+		return say(lang, "phóng to cửa sổ")
 	case "win.split":
-		return "chia đôi màn hình " + s("a") + " và " + s("b")
+		return say(lang, "chia đôi màn hình {a} và {b}", "{a}", s("a"), "{b}", s("b"))
 	case "folder.open":
 		name := s("id")
 		l, _ := st["folders"].([]any)
@@ -342,112 +369,173 @@ func cmdText(cmd string, a map[string]any, st map[string]any) string {
 				name = wm.Str(f["name"])
 			}
 		}
-		return "mở thư mục " + name
+		return say(lang, "mở thư mục {name}", "{name}", name)
 	case "url.open":
 		if u, err := url.Parse(s("url")); err == nil && u.Host != "" {
-			return "mở trang " + u.Host
+			return say(lang, "mở trang {host}", "{host}", u.Host)
 		}
-		return "mở một trang web"
+		return say(lang, "mở một trang web")
 	case "web.search":
 		if s("engine") == "youtube" {
-			return "tìm trên YouTube: " + s("q")
+			return say(lang, "tìm trên YouTube: {q}", "{q}", s("q"))
 		}
-		return "tìm trên Google: " + s("q")
+		return say(lang, "tìm trên Google: {q}", "{q}", s("q"))
 	case "tab.new":
-		return "mở thẻ mới"
+		return say(lang, "mở thẻ mới")
 	case "tab.next":
-		return "sang thẻ sau"
+		return say(lang, "sang thẻ sau")
 	case "tab.prev":
-		return "về thẻ trước"
+		return say(lang, "về thẻ trước")
 	case "page.back":
-		return "quay lại trang trước"
+		return say(lang, "quay lại trang trước")
 	case "page.reload":
-		return "tải lại trang"
+		return say(lang, "tải lại trang")
 	case "video.pause":
-		return "dừng video"
+		return say(lang, "dừng video")
 	case "video.play":
-		return "phát video"
+		return say(lang, "phát video")
 	case "video.full":
-		return "xem video toàn màn hình"
+		return say(lang, "xem video toàn màn hình")
 	case "video.seek":
 		if n := wm.Int(a["s"]); n < 0 {
-			return fmt.Sprintf("tua lại %d giây", -n)
+			return say(lang, "tua lại {n} giây", "{n}", fmt.Sprint(-n))
 		}
-		return fmt.Sprintf("tua tới %d giây", wm.Int(a["s"]))
+		return say(lang, "tua tới {n} giây", "{n}", fmt.Sprint(wm.Int(a["s"])))
 	case "yt.play":
 		switch {
 		case a["next"] == true:
-			return "đổi bài khác"
+			return say(lang, "đổi bài khác")
 		case s("song") != "" && s("artist") != "":
-			return "mở bài " + s("song") + " của " + s("artist")
+			return say(lang, "mở bài {song} của {artist}", "{song}", s("song"), "{artist}", s("artist"))
 		case s("song") != "":
-			return "mở bài " + s("song")
+			return say(lang, "mở bài {song}", "{song}", s("song"))
 		case s("artist") != "":
-			return "mở nhạc " + s("artist")
+			return say(lang, "mở nhạc {artist}", "{artist}", s("artist"))
 		case s("q") != "":
-			return "mở nhạc: " + s("q")
+			return say(lang, "mở nhạc: {q}", "{q}", s("q"))
 		}
-		return "mở nhạc quen của bạn"
+		return say(lang, "mở nhạc quen của bạn")
 	case "music.playlist":
-		return "phát danh sách nhạc " + s("name")
+		return say(lang, "phát danh sách nhạc {name}", "{name}", s("name"))
 	case "media.play":
-		return "phát nhạc"
+		return say(lang, "phát nhạc")
 	case "media.pause":
-		return "dừng nhạc"
+		return say(lang, "dừng nhạc")
 	case "media.toggle":
-		return "phát hay dừng nhạc"
+		return say(lang, "phát hay dừng nhạc")
 	case "media.next":
-		return "chuyển bài tiếp theo"
+		return say(lang, "chuyển bài tiếp theo")
 	case "media.prev":
-		return "quay lại bài trước"
+		return say(lang, "quay lại bài trước")
 	case "vol.up":
-		return fmt.Sprintf("tăng âm lượng %d", wm.Int(a["by"]))
+		return say(lang, "tăng âm lượng {n}", "{n}", fmt.Sprint(wm.Int(a["by"])))
 	case "vol.down":
-		return fmt.Sprintf("giảm âm lượng %d", wm.Int(a["by"]))
+		return say(lang, "giảm âm lượng {n}", "{n}", fmt.Sprint(wm.Int(a["by"])))
 	case "vol.set":
-		return fmt.Sprintf("đặt âm lượng %d%%", wm.Int(a["v"]))
+		return say(lang, "đặt âm lượng {n}%", "{n}", fmt.Sprint(wm.Int(a["v"])))
 	case "vol.mute":
 		if wm.Int(a["on"]) == 0 {
-			return "bật tiếng"
+			return say(lang, "bật tiếng")
 		}
-		return "tắt tiếng"
+		return say(lang, "tắt tiếng")
 	case "sys.lock":
-		return "khóa màn hình"
+		return say(lang, "khóa màn hình")
 	case "sys.display_off":
-		return "tắt màn hình"
+		return say(lang, "tắt màn hình")
 	case "sys.bright":
 		if wm.Int(a["by"]) < 0 {
-			return "giảm độ sáng màn hình"
+			return say(lang, "giảm độ sáng màn hình")
 		}
-		return "tăng độ sáng màn hình"
+		return say(lang, "tăng độ sáng màn hình")
 	case "sys.sleep":
-		return "cho máy ngủ"
+		return say(lang, "cho máy ngủ")
 	case "shortcut.run":
-		return "chạy phím tắt " + s("name")
+		return say(lang, "chạy phím tắt {name}", "{name}", s("name"))
 	case "claude.deny", "claude.approve", "claude.reply", "claude.stop", "claude.focus":
 		name, req := sessionName(st, s("session"))
 		where := ""
 		if name != "" {
-			where = " ở phiên " + name
+			where = say(lang, " ở phiên {name}", "{name}", name)
 		}
 		switch cmd {
 		case "claude.approve":
 			if c := wm.Str(req["cmd"]); c != "" && wm.Str(req["id"]) == s("req") {
-				return "cho Claude chạy " + c + where
+				return say(lang, "cho Claude chạy {c}{where}", "{c}", c, "{where}", where)
 			}
-			return "duyệt yêu cầu của Claude" + where
+			return say(lang, "duyệt yêu cầu của Claude{where}", "{where}", where)
 		case "claude.deny":
-			return "từ chối yêu cầu của Claude" + where
+			return say(lang, "từ chối yêu cầu của Claude{where}", "{where}", where)
 		case "claude.reply":
-			return "trả lời Claude" + where + ": " + s("text")
+			return say(lang, "trả lời Claude{where}: {text}", "{where}", where, "{text}", s("text"))
 		case "claude.stop":
-			return "dừng Claude" + where
+			return say(lang, "dừng Claude{where}", "{where}", where)
 		}
-		return "mở phiên Claude" + where
+		return say(lang, "mở phiên Claude{where}", "{where}", where)
 	case "claude.new":
-		return "giao việc mới cho Claude: " + s("task")
+		return say(lang, "giao việc mới cho Claude: {task}", "{task}", s("task"))
 	}
 	return cmd
+}
+
+// cmdWords: cmdText's templates (the Vietnamese key, as sent before) in the firmware's other languages (2026-11-23).
+// A confirm note is shown by every S3 of the account, each in its own language: the note keeps all of them
+// (data.titles) and build_dashboard picks the device's.
+var cmdWords = map[string]map[string]string{
+	"hỏi Claude ở {name} tình hình":     {"en": "ask Claude in {name} how it's going", "de": "Claude in {name} nach dem Stand fragen", "fr": "demander à Claude dans {name} où il en est", "es": "preguntar a Claude en {name} cómo va", "pt-BR": "perguntar ao Claude em {name} como está", "ru": "спросить Claude в {name}, как дела", "ja": "{name}のClaudeに状況を聞く", "ko": "{name}의 Claude에게 진행 상황 묻기", "zh-Hans": "询问 {name} 中 Claude 的进展", "id": "tanya Claude di {name} bagaimana kemajuannya"},
+	"hỏi Claude tình hình các phiên":    {"en": "ask Claude how the sessions are going", "de": "Claude nach dem Stand der Sitzungen fragen", "fr": "demander à Claude où en sont les sessions", "es": "preguntar a Claude cómo van las sesiones", "pt-BR": "perguntar ao Claude como estão as sessões", "ru": "спросить Claude, как идут сессии", "ja": "Claudeにセッションの状況を聞く", "ko": "Claude에게 세션 진행 상황 묻기", "zh-Hans": "询问 Claude 各会话的进展", "id": "tanya Claude bagaimana sesi-sesinya"},
+	"mở app {name}":                     {"en": "open the app {name}", "de": "App {name} öffnen", "fr": "ouvrir l'app {name}", "es": "abrir la app {name}", "pt-BR": "abrir o app {name}", "ru": "открыть приложение {name}", "ja": "アプリ {name} を開く", "ko": "앱 {name} 열기", "zh-Hans": "打开应用 {name}", "id": "buka aplikasi {name}"},
+	"chuyển sang {name}":                {"en": "switch to {name}", "de": "zu {name} wechseln", "fr": "passer à {name}", "es": "cambiar a {name}", "pt-BR": "mudar para {name}", "ru": "переключиться на {name}", "ja": "{name} に切り替える", "ko": "{name}(으)로 전환", "zh-Hans": "切换到 {name}", "id": "beralih ke {name}"},
+	"thoát app {name}":                  {"en": "quit the app {name}", "de": "App {name} beenden", "fr": "quitter l'app {name}", "es": "cerrar la app {name}", "pt-BR": "fechar o app {name}", "ru": "закрыть приложение {name}", "ja": "アプリ {name} を終了", "ko": "앱 {name} 종료", "zh-Hans": "退出应用 {name}", "id": "tutup aplikasi {name}"},
+	"ẩn hết cửa sổ":                     {"en": "hide all windows", "de": "alle Fenster ausblenden", "fr": "masquer toutes les fenêtres", "es": "ocultar todas las ventanas", "pt-BR": "ocultar todas as janelas", "ru": "скрыть все окна", "ja": "すべてのウィンドウを隠す", "ko": "모든 창 숨기기", "zh-Hans": "隐藏所有窗口", "id": "sembunyikan semua jendela"},
+	"phóng to cửa sổ":                   {"en": "zoom the window", "de": "Fenster maximieren", "fr": "agrandir la fenêtre", "es": "ampliar la ventana", "pt-BR": "ampliar a janela", "ru": "развернуть окно", "ja": "ウィンドウを拡大", "ko": "창 확대", "zh-Hans": "放大窗口", "id": "perbesar jendela"},
+	"chia đôi màn hình {a} và {b}":      {"en": "split the screen: {a} and {b}", "de": "Bildschirm teilen: {a} und {b}", "fr": "partager l'écran : {a} et {b}", "es": "dividir la pantalla: {a} y {b}", "pt-BR": "dividir a tela: {a} e {b}", "ru": "разделить экран: {a} и {b}", "ja": "画面を分割: {a} と {b}", "ko": "화면 분할: {a}, {b}", "zh-Hans": "分屏：{a} 和 {b}", "id": "bagi layar: {a} dan {b}"},
+	"mở thư mục {name}":                 {"en": "open the folder {name}", "de": "Ordner {name} öffnen", "fr": "ouvrir le dossier {name}", "es": "abrir la carpeta {name}", "pt-BR": "abrir a pasta {name}", "ru": "открыть папку {name}", "ja": "フォルダ {name} を開く", "ko": "폴더 {name} 열기", "zh-Hans": "打开文件夹 {name}", "id": "buka folder {name}"},
+	"mở trang {host}":                   {"en": "open {host}", "de": "{host} öffnen", "fr": "ouvrir {host}", "es": "abrir {host}", "pt-BR": "abrir {host}", "ru": "открыть {host}", "ja": "{host} を開く", "ko": "{host} 열기", "zh-Hans": "打开 {host}", "id": "buka {host}"},
+	"mở một trang web":                  {"en": "open a web page", "de": "eine Webseite öffnen", "fr": "ouvrir une page web", "es": "abrir una página web", "pt-BR": "abrir uma página da web", "ru": "открыть веб-страницу", "ja": "Webページを開く", "ko": "웹 페이지 열기", "zh-Hans": "打开网页", "id": "buka halaman web"},
+	"tìm trên YouTube: {q}":             {"en": "search YouTube: {q}", "de": "auf YouTube suchen: {q}", "fr": "chercher sur YouTube : {q}", "es": "buscar en YouTube: {q}", "pt-BR": "pesquisar no YouTube: {q}", "ru": "искать на YouTube: {q}", "ja": "YouTubeで検索: {q}", "ko": "YouTube에서 검색: {q}", "zh-Hans": "在 YouTube 搜索：{q}", "id": "cari di YouTube: {q}"},
+	"tìm trên Google: {q}":              {"en": "search Google: {q}", "de": "auf Google suchen: {q}", "fr": "chercher sur Google : {q}", "es": "buscar en Google: {q}", "pt-BR": "pesquisar no Google: {q}", "ru": "искать в Google: {q}", "ja": "Googleで検索: {q}", "ko": "Google에서 검색: {q}", "zh-Hans": "在 Google 搜索：{q}", "id": "cari di Google: {q}"},
+	"mở thẻ mới":                        {"en": "open a new tab", "de": "neuen Tab öffnen", "fr": "ouvrir un nouvel onglet", "es": "abrir una pestaña nueva", "pt-BR": "abrir uma nova aba", "ru": "открыть новую вкладку", "ja": "新しいタブを開く", "ko": "새 탭 열기", "zh-Hans": "打开新标签页", "id": "buka tab baru"},
+	"sang thẻ sau":                      {"en": "next tab", "de": "nächster Tab", "fr": "onglet suivant", "es": "pestaña siguiente", "pt-BR": "próxima aba", "ru": "следующая вкладка", "ja": "次のタブ", "ko": "다음 탭", "zh-Hans": "下一个标签页", "id": "tab berikutnya"},
+	"về thẻ trước":                      {"en": "previous tab", "de": "vorheriger Tab", "fr": "onglet précédent", "es": "pestaña anterior", "pt-BR": "aba anterior", "ru": "предыдущая вкладка", "ja": "前のタブ", "ko": "이전 탭", "zh-Hans": "上一个标签页", "id": "tab sebelumnya"},
+	"quay lại trang trước":              {"en": "go back a page", "de": "eine Seite zurück", "fr": "revenir à la page précédente", "es": "volver a la página anterior", "pt-BR": "voltar à página anterior", "ru": "вернуться на предыдущую страницу", "ja": "前のページに戻る", "ko": "이전 페이지로", "zh-Hans": "返回上一页", "id": "kembali ke halaman sebelumnya"},
+	"tải lại trang":                     {"en": "reload the page", "de": "Seite neu laden", "fr": "recharger la page", "es": "recargar la página", "pt-BR": "recarregar a página", "ru": "обновить страницу", "ja": "ページを再読み込み", "ko": "페이지 새로고침", "zh-Hans": "重新加载页面", "id": "muat ulang halaman"},
+	"dừng video":                        {"en": "pause the video", "de": "Video pausieren", "fr": "mettre la vidéo en pause", "es": "pausar el video", "pt-BR": "pausar o vídeo", "ru": "поставить видео на паузу", "ja": "動画を一時停止", "ko": "동영상 일시정지", "zh-Hans": "暂停视频", "id": "jeda video"},
+	"phát video":                        {"en": "play the video", "de": "Video abspielen", "fr": "lire la vidéo", "es": "reproducir el video", "pt-BR": "reproduzir o vídeo", "ru": "воспроизвести видео", "ja": "動画を再生", "ko": "동영상 재생", "zh-Hans": "播放视频", "id": "putar video"},
+	"xem video toàn màn hình":           {"en": "watch the video full screen", "de": "Video im Vollbild", "fr": "vidéo en plein écran", "es": "ver el video a pantalla completa", "pt-BR": "ver o vídeo em tela cheia", "ru": "видео на весь экран", "ja": "動画を全画面表示", "ko": "동영상 전체 화면", "zh-Hans": "全屏播放视频", "id": "video layar penuh"},
+	"tua lại {n} giây":                  {"en": "rewind {n} seconds", "de": "{n} Sekunden zurückspulen", "fr": "reculer de {n} secondes", "es": "retroceder {n} segundos", "pt-BR": "voltar {n} segundos", "ru": "назад на {n} с", "ja": "{n}秒戻す", "ko": "{n}초 뒤로", "zh-Hans": "后退 {n} 秒", "id": "mundur {n} detik"},
+	"tua tới {n} giây":                  {"en": "skip ahead {n} seconds", "de": "{n} Sekunden vorspulen", "fr": "avancer de {n} secondes", "es": "adelantar {n} segundos", "pt-BR": "avançar {n} segundos", "ru": "вперёд на {n} с", "ja": "{n}秒進める", "ko": "{n}초 앞으로", "zh-Hans": "快进 {n} 秒", "id": "maju {n} detik"},
+	"đổi bài khác":                      {"en": "play another song", "de": "anderen Song spielen", "fr": "changer de chanson", "es": "poner otra canción", "pt-BR": "tocar outra música", "ru": "включить другую песню", "ja": "別の曲にする", "ko": "다른 곡 틀기", "zh-Hans": "换一首歌", "id": "ganti lagu lain"},
+	"mở bài {song} của {artist}":        {"en": "play {song} by {artist}", "de": "{song} von {artist} spielen", "fr": "lancer {song} de {artist}", "es": "poner {song} de {artist}", "pt-BR": "tocar {song} de {artist}", "ru": "включить {song} — {artist}", "ja": "{artist}の{song}を再生", "ko": "{artist}의 {song} 재생", "zh-Hans": "播放 {artist} 的 {song}", "id": "putar {song} oleh {artist}"},
+	"mở bài {song}":                     {"en": "play {song}", "de": "{song} spielen", "fr": "lancer {song}", "es": "poner {song}", "pt-BR": "tocar {song}", "ru": "включить {song}", "ja": "{song}を再生", "ko": "{song} 재생", "zh-Hans": "播放 {song}", "id": "putar {song}"},
+	"mở nhạc {artist}":                  {"en": "play music by {artist}", "de": "Musik von {artist} spielen", "fr": "lancer de la musique de {artist}", "es": "poner música de {artist}", "pt-BR": "tocar música de {artist}", "ru": "включить музыку {artist}", "ja": "{artist}の曲を再生", "ko": "{artist} 음악 재생", "zh-Hans": "播放 {artist} 的音乐", "id": "putar musik {artist}"},
+	"mở nhạc: {q}":                      {"en": "play music: {q}", "de": "Musik spielen: {q}", "fr": "lancer de la musique : {q}", "es": "poner música: {q}", "pt-BR": "tocar música: {q}", "ru": "включить музыку: {q}", "ja": "音楽を再生: {q}", "ko": "음악 재생: {q}", "zh-Hans": "播放音乐：{q}", "id": "putar musik: {q}"},
+	"mở nhạc quen của bạn":              {"en": "play your usual music", "de": "deine übliche Musik spielen", "fr": "lancer votre musique habituelle", "es": "poner tu música de siempre", "pt-BR": "tocar sua música de sempre", "ru": "включить вашу обычную музыку", "ja": "いつもの音楽を再生", "ko": "평소 듣던 음악 재생", "zh-Hans": "播放你常听的音乐", "id": "putar musik favorit Anda"},
+	"phát danh sách nhạc {name}":        {"en": "play the playlist {name}", "de": "Playlist {name} abspielen", "fr": "lire la playlist {name}", "es": "reproducir la lista {name}", "pt-BR": "tocar a playlist {name}", "ru": "включить плейлист {name}", "ja": "プレイリスト {name} を再生", "ko": "재생목록 {name} 재생", "zh-Hans": "播放歌单 {name}", "id": "putar daftar putar {name}"},
+	"phát nhạc":                         {"en": "play music", "de": "Musik abspielen", "fr": "lire la musique", "es": "reproducir música", "pt-BR": "tocar música", "ru": "включить музыку", "ja": "音楽を再生", "ko": "음악 재생", "zh-Hans": "播放音乐", "id": "putar musik"},
+	"dừng nhạc":                         {"en": "pause the music", "de": "Musik pausieren", "fr": "mettre la musique en pause", "es": "pausar la música", "pt-BR": "pausar a música", "ru": "поставить музыку на паузу", "ja": "音楽を一時停止", "ko": "음악 일시정지", "zh-Hans": "暂停音乐", "id": "jeda musik"},
+	"phát hay dừng nhạc":                {"en": "play or pause the music", "de": "Musik abspielen oder pausieren", "fr": "lire ou mettre en pause la musique", "es": "reproducir o pausar la música", "pt-BR": "tocar ou pausar a música", "ru": "включить или приостановить музыку", "ja": "音楽を再生/一時停止", "ko": "음악 재생/일시정지", "zh-Hans": "播放或暂停音乐", "id": "putar atau jeda musik"},
+	"chuyển bài tiếp theo":              {"en": "next song", "de": "nächster Song", "fr": "chanson suivante", "es": "siguiente canción", "pt-BR": "próxima música", "ru": "следующая песня", "ja": "次の曲", "ko": "다음 곡", "zh-Hans": "下一首", "id": "lagu berikutnya"},
+	"quay lại bài trước":                {"en": "previous song", "de": "vorheriger Song", "fr": "chanson précédente", "es": "canción anterior", "pt-BR": "música anterior", "ru": "предыдущая песня", "ja": "前の曲", "ko": "이전 곡", "zh-Hans": "上一首", "id": "lagu sebelumnya"},
+	"tăng âm lượng {n}":                 {"en": "volume up {n}", "de": "Lautstärke +{n}", "fr": "volume +{n}", "es": "subir el volumen {n}", "pt-BR": "aumentar o volume {n}", "ru": "громкость +{n}", "ja": "音量を{n}上げる", "ko": "볼륨 {n} 올리기", "zh-Hans": "音量调高 {n}", "id": "naikkan volume {n}"},
+	"giảm âm lượng {n}":                 {"en": "volume down {n}", "de": "Lautstärke -{n}", "fr": "volume -{n}", "es": "bajar el volumen {n}", "pt-BR": "diminuir o volume {n}", "ru": "громкость -{n}", "ja": "音量を{n}下げる", "ko": "볼륨 {n} 내리기", "zh-Hans": "音量调低 {n}", "id": "turunkan volume {n}"},
+	"đặt âm lượng {n}%":                 {"en": "set the volume to {n}%", "de": "Lautstärke auf {n} % stellen", "fr": "régler le volume à {n} %", "es": "poner el volumen al {n} %", "pt-BR": "ajustar o volume para {n}%", "ru": "громкость {n}%", "ja": "音量を{n}%にする", "ko": "볼륨 {n}%로 설정", "zh-Hans": "音量设为 {n}%", "id": "atur volume ke {n}%"},
+	"bật tiếng":                         {"en": "unmute", "de": "Ton an", "fr": "réactiver le son", "es": "activar el sonido", "pt-BR": "ativar o som", "ru": "включить звук", "ja": "ミュート解除", "ko": "음소거 해제", "zh-Hans": "取消静音", "id": "nyalakan suara"},
+	"tắt tiếng":                         {"en": "mute", "de": "Ton aus", "fr": "couper le son", "es": "silenciar", "pt-BR": "silenciar", "ru": "выключить звук", "ja": "ミュート", "ko": "음소거", "zh-Hans": "静音", "id": "bisukan"},
+	"khóa màn hình":                     {"en": "lock the screen", "de": "Bildschirm sperren", "fr": "verrouiller l'écran", "es": "bloquear la pantalla", "pt-BR": "bloquear a tela", "ru": "заблокировать экран", "ja": "画面をロック", "ko": "화면 잠그기", "zh-Hans": "锁定屏幕", "id": "kunci layar"},
+	"tắt màn hình":                      {"en": "turn the screen off", "de": "Bildschirm ausschalten", "fr": "éteindre l'écran", "es": "apagar la pantalla", "pt-BR": "desligar a tela", "ru": "выключить экран", "ja": "画面をオフ", "ko": "화면 끄기", "zh-Hans": "关闭屏幕", "id": "matikan layar"},
+	"giảm độ sáng màn hình":             {"en": "dim the screen", "de": "Bildschirm dunkler", "fr": "baisser la luminosité", "es": "bajar el brillo", "pt-BR": "diminuir o brilho", "ru": "уменьшить яркость", "ja": "画面を暗くする", "ko": "화면 밝기 낮추기", "zh-Hans": "调低屏幕亮度", "id": "redupkan layar"},
+	"tăng độ sáng màn hình":             {"en": "brighten the screen", "de": "Bildschirm heller", "fr": "augmenter la luminosité", "es": "subir el brillo", "pt-BR": "aumentar o brilho", "ru": "увеличить яркость", "ja": "画面を明るくする", "ko": "화면 밝기 높이기", "zh-Hans": "调高屏幕亮度", "id": "terangkan layar"},
+	"cho máy ngủ":                       {"en": "put the computer to sleep", "de": "Computer in den Ruhezustand", "fr": "mettre l'ordinateur en veille", "es": "suspender el equipo", "pt-BR": "colocar o computador em repouso", "ru": "перевести компьютер в сон", "ja": "コンピュータをスリープ", "ko": "컴퓨터 잠자기", "zh-Hans": "让电脑睡眠", "id": "tidurkan komputer"},
+	"chạy phím tắt {name}":              {"en": "run the shortcut {name}", "de": "Kurzbefehl {name} ausführen", "fr": "lancer le raccourci {name}", "es": "ejecutar el atajo {name}", "pt-BR": "executar o atalho {name}", "ru": "запустить быструю команду {name}", "ja": "ショートカット {name} を実行", "ko": "단축어 {name} 실행", "zh-Hans": "运行快捷指令 {name}", "id": "jalankan pintasan {name}"},
+	"cho Claude chạy {c}{where}":        {"en": "let Claude run {c}{where}", "de": "Claude {c} ausführen lassen{where}", "fr": "laisser Claude lancer {c}{where}", "es": "dejar que Claude ejecute {c}{where}", "pt-BR": "deixar o Claude executar {c}{where}", "ru": "разрешить Claude выполнить {c}{where}", "ja": "Claudeに{c}の実行を許可{where}", "ko": "Claude가 {c} 실행하도록 허용{where}", "zh-Hans": "允许 Claude 运行 {c}{where}", "id": "izinkan Claude menjalankan {c}{where}"},
+	"duyệt yêu cầu của Claude{where}":   {"en": "approve Claude's request{where}", "de": "Claudes Anfrage genehmigen{where}", "fr": "approuver la demande de Claude{where}", "es": "aprobar la solicitud de Claude{where}", "pt-BR": "aprovar o pedido do Claude{where}", "ru": "одобрить запрос Claude{where}", "ja": "Claudeの要求を承認{where}", "ko": "Claude 요청 승인{where}", "zh-Hans": "批准 Claude 的请求{where}", "id": "setujui permintaan Claude{where}"},
+	"từ chối yêu cầu của Claude{where}": {"en": "deny Claude's request{where}", "de": "Claudes Anfrage ablehnen{where}", "fr": "refuser la demande de Claude{where}", "es": "rechazar la solicitud de Claude{where}", "pt-BR": "recusar o pedido do Claude{where}", "ru": "отклонить запрос Claude{where}", "ja": "Claudeの要求を拒否{where}", "ko": "Claude 요청 거부{where}", "zh-Hans": "拒绝 Claude 的请求{where}", "id": "tolak permintaan Claude{where}"},
+	"trả lời Claude{where}: {text}":     {"en": "reply to Claude{where}: {text}", "de": "Claude antworten{where}: {text}", "fr": "répondre à Claude{where} : {text}", "es": "responder a Claude{where}: {text}", "pt-BR": "responder ao Claude{where}: {text}", "ru": "ответить Claude{where}: {text}", "ja": "Claudeに返信{where}: {text}", "ko": "Claude에게 답장{where}: {text}", "zh-Hans": "回复 Claude{where}：{text}", "id": "balas Claude{where}: {text}"},
+	"dừng Claude{where}":                {"en": "stop Claude{where}", "de": "Claude stoppen{where}", "fr": "arrêter Claude{where}", "es": "detener a Claude{where}", "pt-BR": "parar o Claude{where}", "ru": "остановить Claude{where}", "ja": "Claudeを停止{where}", "ko": "Claude 중지{where}", "zh-Hans": "停止 Claude{where}", "id": "hentikan Claude{where}"},
+	"mở phiên Claude{where}":            {"en": "open the Claude session{where}", "de": "Claude-Sitzung öffnen{where}", "fr": "ouvrir la session Claude{where}", "es": "abrir la sesión de Claude{where}", "pt-BR": "abrir a sessão do Claude{where}", "ru": "открыть сессию Claude{where}", "ja": "Claudeのセッションを開く{where}", "ko": "Claude 세션 열기{where}", "zh-Hans": "打开 Claude 会话{where}", "id": "buka sesi Claude{where}"},
+	" ở phiên {name}":                   {"en": " in {name}", "de": " in {name}", "fr": " dans {name}", "es": " en {name}", "pt-BR": " em {name}", "ru": " в {name}", "ja": " ({name})", "ko": " ({name})", "zh-Hans": "（{name}）", "id": " di {name}"},
+	"giao việc mới cho Claude: {task}":  {"en": "give Claude a new task: {task}", "de": "Claude eine neue Aufgabe geben: {task}", "fr": "confier une nouvelle tâche à Claude : {task}", "es": "dar una nueva tarea a Claude: {task}", "pt-BR": "dar uma nova tarefa ao Claude: {task}", "ru": "дать Claude новую задачу: {task}", "ja": "Claudeに新しいタスク: {task}", "ko": "Claude에게 새 작업: {task}", "zh-Hans": "给 Claude 新任务：{task}", "id": "beri Claude tugas baru: {task}"},
+	"Bấm để xác nhận: {what}":           {"en": "Tap to confirm: {what}", "de": "Zum Bestätigen tippen: {what}", "fr": "Touchez pour confirmer : {what}", "es": "Toca para confirmar: {what}", "pt-BR": "Toque para confirmar: {what}", "ru": "Нажмите, чтобы подтвердить: {what}", "ja": "タップして確認: {what}", "ko": "탭하여 확인: {what}", "zh-Hans": "点按确认：{what}", "id": "Ketuk untuk konfirmasi: {what}"},
 }
 
 // fit: at most n letters, cut on a letter boundary, without an ellipsis (owner rule: no "…" on screens).
@@ -750,8 +838,12 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 	ops := []map[string]any{{"op": "insert", "table": "desk_cmds", "values": vals}}
 	if state == "confirm" {
 		// The S3s show it as an "EspOS" note within a minute (the note raises the ping's rev).
+		titles := map[string]any{}
+		for _, l := range cmdLangs {
+			titles[l] = fit(say(l, "Bấm để xác nhận: {what}", "{what}", cmdTextIn(l, cmd, args, st)), 120)
+		}
 		ops = append(ops, map[string]any{"op": "insert", "table": "notifications", "values": map[string]any{
-			"user_id": uid, "title": fit("Bấm để xác nhận: "+what, 120), "source": "desktop"}})
+			"user_id": uid, "title": fit("Bấm để xác nhận: "+what, 120), "source": "desktop", "data": map[string]any{"titles": titles}}})
 	}
 	if _, berr := wm.Batch(ops); berr != nil {
 		wm.Log("save: ", berr.Error())

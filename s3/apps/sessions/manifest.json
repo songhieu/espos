@@ -1,8 +1,8 @@
 {
  "id": "dev.espos.sessions",
  "name": "Sessions",
- "version": "1.0.1",
- "code": 10001,
+ "version": "1.0.2",
+ "code": 10002,
  "part": "core",
  "desc": "Watch and answer your Claude Code sessions from your Mac",
  "icon": {"bg": ["#2b2f3a", "#0d1018"], "glyph": "list"},

@@ -123,6 +123,55 @@ void boxSize(Size s, int& w, int& h) {
 int cols(Size s) { return s == S ? 2 : 4; }
 int rows(Size s) { return s == L ? 4 : 2; }
 
+void spanOf(const Item& it, int& cw, int& ch) {
+  if (it.cw && it.ch) cw = it.cw, ch = it.ch;
+  else cw = cols(it.size), ch = rows(it.size);
+}
+void boxSpan(int cw, int ch, int& w, int& h) {
+  w = cw * 78 - 12;
+  h = ch * 74 - 10;
+}
+void boxOf(const Item& it, int& w, int& h) {
+  int cw, ch;
+  spanOf(it, cw, ch);
+  boxSpan(cw, ch, w, h);
+}
+bool legacy(int cw, int ch, Size* s) {
+  const Size l = cw == 2 && ch == 2 ? S : cw == 4 && ch == 2 ? M : L;
+  const bool is = (cw == 2 && ch == 2) || (cw == 4 && (ch == 2 || ch == 4));
+  if (is && s) *s = l;
+  return is;
+}
+Size letterOf(int cw, int ch) { return cw >= 4 && ch >= 4 ? L : cw >= 4 && ch >= 2 ? M : S; }
+void setSpan(Item& it, int cw, int ch) {
+  Size l;
+  if (legacy(cw, ch, &l)) it.size = l, it.cw = it.ch = 0;
+  else it.size = letterOf(cw, ch), it.cw = cw, it.ch = ch;
+}
+bool draws(const String& k, int cw, int ch, const char* style) {
+  const Kind* kd = kind(k);
+  if (!kd || cw < 1 || ch < 1 || cw > 4 || ch > 4) return false;
+  Size l;
+  if (legacy(cw, ch, &l)) return kd->sizes & (1 << l);
+  for (const Style& s : kd->styles)
+    if ((!style || !strcmp(style, s.id)) && (s.spans & SPAN(cw, ch))) return true;
+  return false;
+}
+String styleAt(const Item& it) {
+  int cw, ch;
+  spanOf(it, cw, ch);
+  if (legacy(cw, ch)) return styleOf(it);
+  const Kind* kd = kind(it.kind);
+  if (!kd) return "";
+  const Style* first = nullptr;
+  for (const Style& s : kd->styles) {
+    if (!(s.spans & SPAN(cw, ch))) continue;
+    if (it.style == s.id) return it.style;
+    if (!first) first = &s;
+  }
+  return first ? String(first->id) : styleOf(it);
+}
+
 lv_obj_t* create(lv_obj_t* parent, const Item& it, int w, int h, bool interactive) {
   const String& k = it.kind;
   const bool dk = theme::kind() == theme::Kind::Dark;

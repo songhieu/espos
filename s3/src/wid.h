@@ -19,6 +19,9 @@ struct Item {
   String opt;    // per kind (market codes, a note id, a my-widget id...)
   String open;   // app opened by a tap ("" = the kind's own app)
   String skin;   // card look: "" theme, dark, light, glass, c:rrggbb, none (docs/widgets.md §2)
+  // A span of cells other than S 2x2, M 4x2, L 4x4 (docs/widgets.md §2b): cells across and down, 1..4 each; 0 = the
+  // size's own span. With a span, `size` keeps the letter firmware before 0.6.2 reads (the largest of S/M/L inside).
+  uint8_t cw = 0, ch = 0;
 };
 
 // One choice the editors list (a style, a flag, a skin): its id in the item and its English name (marked N_: the
@@ -26,7 +29,10 @@ struct Item {
 struct Style {
   const char* id;
   const char* name;
+  uint16_t spans = 0;  // the spans besides S, M, L this look draws (SPAN() bits); the kind draws their union
 };
+// The bit of a span in Style::spans: (ch - 1) * 4 + (cw - 1).
+constexpr uint16_t SPAN(int cw, int ch) { return 1u << ((ch - 1) * 4 + (cw - 1)); }
 
 // What a kind's option (Item::opt) holds, so the editors know which sheet to show (docs/widgets.md §2).
 enum class Opt : uint8_t {
@@ -72,6 +78,23 @@ const std::vector<uint32_t>& skinColours();
 void boxSize(Size s, int& w, int& h);
 int cols(Size s);  // grid cells: 2 or 4
 int rows(Size s);  // 2 or 4
+
+// ---- free sizes (docs/widgets.md §2b, mockups/widget-resize; web/app/src/os/model.ts and wid.ts the same)
+// The item's span (its own, else its size's).
+void spanOf(const Item& it, int& cw, int& ch);
+// The card of a span: cw * 78 - 12 by ch * 74 - 10 (the same in portrait and landscape).
+void boxSpan(int cw, int ch, int& w, int& h);
+// The card of an item, by its span.
+void boxOf(const Item& it, int& w, int& h);
+// Whether a span is S, M or L (its letter in s), and the letter written for any span.
+bool legacy(int cw, int ch, Size* s = nullptr);
+Size letterOf(int cw, int ch);
+// Sets the item's span (S, M, L become their letter, cw = ch = 0).
+void setSpan(Item& it, int cw, int ch);
+// Whether the kind draws a span (S, M, L by Kind::sizes, the others by its styles' spans); with a style, that look.
+bool draws(const String& kind, int cw, int ch, const char* style = nullptr);
+// The look drawn at the item's span: its style when that look draws the span, else the first that does.
+String styleAt(const Item& it);
 
 // Draws a widget into a new card of w x h (position it after). Taps open its app unless
 // `interactive` is false (edit mode, gallery previews).
