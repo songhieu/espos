@@ -1,0 +1,298 @@
+{
+ "id": "dev.espos.bubbles",
+ "name": "Bubbles",
+ "version": "1.0.0",
+ "code": 10000,
+ "part": "core",
+ "kind": "js",
+ "engine": "js",
+ "min_fw": 601,
+ "api": {
+  "min": 2
+ },
+ "category": "tool",
+ "author": "EspOS",
+ "desc": "Bubbles rise behind the time. A screen saver: choose it in Settings, Default apps.",
+ "icon": {
+  "bg": [
+   "#38bdf8",
+   "#0b4f6c"
+  ],
+  "glyph": "drop"
+ },
+ "provides": [
+  "saver"
+ ],
+ "entry": {
+  "saver": "saver.js",
+  "app": "main.js"
+ },
+ "settings": [
+  {
+   "key": "theme",
+   "type": "enum",
+   "label": "Colours",
+   "default": "ocean",
+   "options": [
+    {
+     "v": "ocean",
+     "label": "Ocean"
+    },
+    {
+     "v": "sunset",
+     "label": "Sunset"
+    },
+    {
+     "v": "night",
+     "label": "Night"
+    }
+   ],
+   "i18n": {
+    "vi": {
+     "label": "Màu",
+     "options": {
+      "ocean": "Biển",
+      "sunset": "Hoàng hôn",
+      "night": "Đêm"
+     }
+    },
+    "zh-Hans": {
+     "label": "颜色",
+     "options": {
+      "ocean": "海洋",
+      "sunset": "日落",
+      "night": "夜晚"
+     }
+    },
+    "es": {
+     "label": "Colores",
+     "options": {
+      "ocean": "Océano",
+      "sunset": "Atardecer",
+      "night": "Noche"
+     }
+    },
+    "fr": {
+     "label": "Couleurs",
+     "options": {
+      "ocean": "Océan",
+      "sunset": "Coucher de soleil",
+      "night": "Nuit"
+     }
+    },
+    "de": {
+     "label": "Farben",
+     "options": {
+      "ocean": "Ozean",
+      "sunset": "Sonnenuntergang",
+      "night": "Nacht"
+     }
+    },
+    "ja": {
+     "label": "色",
+     "options": {
+      "ocean": "海",
+      "sunset": "夕焼け",
+      "night": "夜"
+     }
+    },
+    "ko": {
+     "label": "색상",
+     "options": {
+      "ocean": "바다",
+      "sunset": "노을",
+      "night": "밤"
+     }
+    },
+    "pt-BR": {
+     "label": "Cores",
+     "options": {
+      "ocean": "Oceano",
+      "sunset": "Pôr do sol",
+      "night": "Noite"
+     }
+    },
+    "ru": {
+     "label": "Цвета",
+     "options": {
+      "ocean": "Океан",
+      "sunset": "Закат",
+      "night": "Ночь"
+     }
+    },
+    "id": {
+     "label": "Warna",
+     "options": {
+      "ocean": "Laut",
+      "sunset": "Senja",
+      "night": "Malam"
+     }
+    }
+   }
+  },
+  {
+   "key": "count",
+   "type": "number",
+   "label": "Bubbles",
+   "min": 4,
+   "max": 40,
+   "step": 1,
+   "int": true,
+   "default": 18,
+   "i18n": {
+    "vi": {
+     "label": "Số bong bóng"
+    },
+    "zh-Hans": {
+     "label": "泡泡数量"
+    },
+    "es": {
+     "label": "Burbujas"
+    },
+    "fr": {
+     "label": "Bulles"
+    },
+    "de": {
+     "label": "Blasen"
+    },
+    "ja": {
+     "label": "泡の数"
+    },
+    "ko": {
+     "label": "거품 수"
+    },
+    "pt-BR": {
+     "label": "Bolhas"
+    },
+    "ru": {
+     "label": "Пузыри"
+    },
+    "id": {
+     "label": "Gelembung"
+    }
+   }
+  },
+  {
+   "key": "speed",
+   "type": "number",
+   "label": "Speed",
+   "min": 1,
+   "max": 10,
+   "step": 1,
+   "int": true,
+   "default": 4,
+   "i18n": {
+    "vi": {
+     "label": "Tốc độ"
+    },
+    "zh-Hans": {
+     "label": "速度"
+    },
+    "es": {
+     "label": "Velocidad"
+    },
+    "fr": {
+     "label": "Vitesse"
+    },
+    "de": {
+     "label": "Tempo"
+    },
+    "ja": {
+     "label": "速さ"
+    },
+    "ko": {
+     "label": "속도"
+    },
+    "pt-BR": {
+     "label": "Velocidade"
+    },
+    "ru": {
+     "label": "Скорость"
+    },
+    "id": {
+     "label": "Kecepatan"
+    }
+   }
+  },
+  {
+   "key": "date",
+   "type": "bool",
+   "label": "Show the date",
+   "default": true,
+   "i18n": {
+    "vi": {
+     "label": "Hiện ngày"
+    },
+    "zh-Hans": {
+     "label": "显示日期"
+    },
+    "es": {
+     "label": "Mostrar la fecha"
+    },
+    "fr": {
+     "label": "Afficher la date"
+    },
+    "de": {
+     "label": "Datum anzeigen"
+    },
+    "ja": {
+     "label": "日付を表示"
+    },
+    "ko": {
+     "label": "날짜 표시"
+    },
+    "pt-BR": {
+     "label": "Mostrar a data"
+    },
+    "ru": {
+     "label": "Показывать дату"
+    },
+    "id": {
+     "label": "Tampilkan tanggal"
+    }
+   }
+  }
+ ],
+ "i18n": {
+  "vi": {
+   "name": "Bong bóng",
+   "desc": "Bong bóng nổi lên sau đồng hồ. Một màn chờ: chọn trong Cài đặt, Ứng dụng mặc định."
+  },
+  "zh-Hans": {
+   "name": "泡泡",
+   "desc": "泡泡在时间后面缓缓升起。这是一个屏保：在“设置”的“默认应用”中选择。"
+  },
+  "es": {
+   "name": "Burbujas",
+   "desc": "Burbujas que suben detrás de la hora. Un salvapantallas: elígelo en Ajustes, Apps predeterminadas."
+  },
+  "fr": {
+   "name": "Bulles",
+   "desc": "Des bulles montent derrière l'heure. Un écran de veille : choisissez-le dans Réglages, Apps par défaut."
+  },
+  "de": {
+   "name": "Blasen",
+   "desc": "Blasen steigen hinter der Uhrzeit auf. Ein Bildschirmschoner: wähle ihn in den Einstellungen unter Standard-Apps."
+  },
+  "ja": {
+   "name": "バブル",
+   "desc": "時刻の後ろを泡が昇っていきます。スクリーンセーバーです。設定の「デフォルトのアプリ」で選んでください。"
+  },
+  "ko": {
+   "name": "버블",
+   "desc": "시간 뒤로 거품이 올라갑니다. 화면 보호기예요. 설정의 기본 앱에서 고르세요."
+  },
+  "pt-BR": {
+   "name": "Bolhas",
+   "desc": "Bolhas sobem atrás da hora. Um protetor de tela: escolha em Ajustes, Apps padrão."
+  },
+  "ru": {
+   "name": "Пузыри",
+   "desc": "Пузыри поднимаются за часами. Это заставка: выберите её в разделе «Приложения по умолчанию» в Настройках."
+  },
+  "id": {
+   "name": "Gelembung",
+   "desc": "Gelembung naik di belakang jam. Sebuah screensaver: pilih di Pengaturan, App default."
+  }
+ }
+}

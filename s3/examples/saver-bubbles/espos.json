@@ -1,0 +1,9 @@
+{
+  "$schema": "https://espos.dev/schemas/project.schema.json",
+  "main": "main.js",
+  "files": [
+    "saver.js",
+    "icon.jpg"
+  ],
+  "out": "dist"
+}

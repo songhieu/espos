@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"net/url"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -470,6 +471,42 @@ func stateOf(v any) map[string]any {
 	return m
 }
 
+// noteKnock: a device of the account the Mac does not take commands from (allow_from) tried one. desk_state.knocks
+// keeps it (once a day per device, at most 10, a week long); desktop_sync hands the last day's to the Mac, which lists
+// the device under Máy ra lệnh and tells the person once a day (2026-11-23: a new S3's keys were refused and the
+// device could not even be ticked on the Mac, which only knew devices whose commands had reached it).
+func noteKnock(row map[string]any, devID int, name, via string, now int64) {
+	if row == nil || devID <= 0 || wm.Int(row["id"]) == 0 {
+		return
+	}
+	old := stateOf(row["knocks"])
+	key := fmt.Sprint(devID)
+	if k := stateOf(old[key]); len(k) > 0 && now-int64(wm.Num(k["ms"])) < 24*3600*1000 {
+		return // already noted today
+	}
+	keep := map[string]any{key: map[string]any{"name": name, "via": via, "ms": now}}
+	type kn struct {
+		k  string
+		ms int64
+	}
+	var rest []kn
+	for k, v := range old {
+		if m := stateOf(v); len(m) > 0 && k != key && now-int64(wm.Num(m["ms"])) < 7*24*3600*1000 {
+			rest = append(rest, kn{k, int64(wm.Num(m["ms"]))})
+		}
+	}
+	sort.Slice(rest, func(i, j int) bool { return rest[i].ms > rest[j].ms })
+	for i, r := range rest {
+		if i >= 9 {
+			break
+		}
+		keep[r.k] = old[r.k]
+	}
+	if _, err := wm.Update("desk_state", wm.Int(row["id"]), map[string]any{"knocks": keep}); err != nil {
+		wm.Log("knock: ", err.Error())
+	}
+}
+
 // newID: 32 hex from the time, the run and the desktop's token hash (a value only the server holds), so a nonce or a
 // command id cannot be guessed; the platform offers no random source to code nodes.
 func newID(parts ...any) string {
@@ -624,6 +661,7 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 			}
 		}
 		if !ok {
+			noteKnock(row, fromID, fit(wm.Str(in["from_name"]), 40), via, now)
 			return refuse(403, "sender_not_allowed", what)
 		}
 	}

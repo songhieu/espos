@@ -599,8 +599,20 @@ bool startListening(uint32_t fromSample, int maxMs, bool wakeTurn) {
 }
 
 
+// The slot has no assistant now (it changed while the pop-up was open: a sync, Settings): nothing is recorded or sent,
+// the turn stops and its pop-up goes (0.6.1: push-to-talk in the dog's pop-up still sent with the slot "none").
+bool noAssistant(const char* where) {
+  if (assistant::listens()) return false;
+  trace::add("talk: no assistant in the slot (%s): nothing recorded or sent, the pop-up closes", where);
+  cancelTurn();
+  finish();
+  assistant::close();
+  return true;
+}
+
 void trySubmit() {
   if (exBusy || warmBusy) return;  // (the warm-up holds desk's one raw slot for a moment)
+  if (noAssistant("send")) return;
   netRetried = false;
   uint8_t *w = pendingWav, *base = pendingBase;
   pendingWav = pendingBase = nullptr;
@@ -1087,6 +1099,7 @@ const char* sayAgainOf(const String& k) {
 void begin() { wake::onWake(onWake); }
 
 void press() {
+  if (noAssistant("press")) return;
   if (st == St::Listen) {
     if (byWake && millis() - stAt > 500) send();  // called by "Gâu": a tap says "done"
     return;

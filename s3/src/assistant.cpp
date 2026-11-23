@@ -54,14 +54,20 @@ bool runs(const pkg::Package* p) {
 // id() asked on every touch and every saver check: worked out again only when the packages or the settings changed.
 String cur = "none";
 uint32_t seenPkg = 0xffffffffu, seenSet = 0xffffffffu;
+void slotChanged(void*);
 const String& resolve() {
   const uint32_t pv = pkg::version(), sv = desk::settingsVersion();
   if (pv == seenPkg && sv == seenSet) return cur;
+  const bool first = seenPkg == 0xffffffffu;
   seenPkg = pv, seenSet = sv;
+  const String was = cur;
   const String v = desk::setting(KEY, "");
   if (v == "none") cur = "none";
   else if (v.length()) cur = runs(pkg::find(v.c_str())) ? v : String("none");
   else cur = runs(pkg::find(DOG)) ? String(DOG) : String("none");
+  // A pop-up open for the one before (a sync or Settings changed the slot under it) goes once this call returns: its
+  // mic would otherwise record for an assistant that is not there any more (0.6.1).
+  if (!first && was != cur) lv_async_call(slotChanged, nullptr);
   return cur;
 }
 
@@ -328,6 +334,31 @@ void closeCard() {
   card = nullptr;
   lv_obj_delete_async(c);
 }
+
+void close() {
+#ifndef NO_PET
+  if (pet::summoned()) pet::dismiss();
+#endif
+  popClose();
+  closeCard();
+}
+
+namespace {
+// The slot changed (resolve): the dog's pop-up goes when the dog is no longer the assistant, the OS's when the slot is
+// now the dog or none (another app keeps it: the OS's pop-up serves every app but the dog).
+void slotChanged(void*) {
+#ifndef NO_PET
+  if (pet::summoned() && !dog()) {
+    trace::add("assistant: the slot is now %s: the dog's pop-up closes", id().c_str());
+    pet::dismiss();
+  }
+#endif
+  if (pop && (dog() || !any())) {
+    trace::add("assistant: the slot is now %s: its pop-up closes", id().c_str());
+    popClose();
+  }
+}
+}  // namespace
 
 // The approved mockup (mockups/app-slots/assistant-install.html, "No assistant installed"): a card at the bottom over
 // the screen, a grey mic, two lines and "Store" (its Assistants). A tap outside closes it; it goes by itself in 10 s.

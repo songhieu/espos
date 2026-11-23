@@ -1605,5 +1605,7 @@
  "{0} draws the screen saver. To edit pages, choose Clock and photos in Default apps, in Settings.": "{0} 正在显示屏保。要编辑页面，请在“设置”的“默认应用”中选择“时钟和照片”。",
  "Screen savers": "屏保",
  "How can I help?": "有什么可以帮你？",
- "Hold the button and speak": "按住按钮说话"
+ "Hold the button and speak": "按住按钮说话",
+ "{0} stopped": "{0} 已停止",
+ "The screen saver app stopped 3 times, so the built-in saver shows instead. Choose it again in Settings, Default apps.": "屏保应用已停止 3 次，所以改用内置屏保。可在“设置”的“默认应用”中重新选择。"
 }

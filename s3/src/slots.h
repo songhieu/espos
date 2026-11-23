@@ -5,7 +5,8 @@
 // Setting `slot.saver` (synced with the web): "builtin" (the saver pages, s3.saver_pages: "Clock and photos"), or a
 // saver app's package id; unset = builtin. The saver apps this firmware runs: the aquarium (engine "tank"): chosen, it
 // draws the whole saver (its tank, the time and the date) in place of the saver pages, which stay as they were for
-// when "Clock and photos" is chosen again. Removing the chosen app hands the place back to the built-in one with one
+// when "Clock and photos" is chosen again; and JavaScript apps with "provides": ["saver"] (js/jssaver.h, 0.6.1), which
+// draw the whole saver too, except at night (the night page of the saver pages) or after they stopped. Removing the chosen app hands the place back to the built-in one with one
 // notification. The saver's timing (after how long, night hours) stays in Settings › Screen saver: the app only draws.
 // UI loop only.
 #include <Arduino.h>
@@ -19,6 +20,7 @@ bool saverBuiltin();
 String saverName();     // "Clock and photos" (translated) or the app's name
 // The pages an app saver draws (JSON as s3.saver_pages), nullptr for the built-in saver (desksaver.cpp).
 const char* saverDoc();
+bool saverJs();  // the saver slot's app is a JavaScript saver app (js/jssaver.h): it draws the whole saver
 bool saverApp(const char* pkgId);  // an installed app the saver slot can take
 
 void openDefaultApps();  // Settings › Default apps

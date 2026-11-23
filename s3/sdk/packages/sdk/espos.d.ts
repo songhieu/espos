@@ -459,3 +459,62 @@ interface EspOSButtonOpts {
   /** An OS glyph ("search", "plus"...) or a package .a8 icon, drawn instead of (or before) the text. */
   icon?: string;
 }
+
+// ---------------------------------------------------------------- API level 2: screen saver apps (firmware 0.6.1)
+// A package with "provides": ["saver"] (docs/app-slots.md §4, src/js/jssaver.cpp): picked in Settings, Default apps,
+// Screen saver, its saver file (manifest "entry": {"saver": "saver.js"}, else saver.js, else main.js) runs while the
+// saver shows, in a runtime of its own: app.onFrame draws each frame into g. Only these names exist there (no ui,
+// store, net, timer or sound); a touch leaves the saver. Guide: espos.dev/docs/guides/saver-apps.
+
+/** "#rrggbb", "#rgb" or a number 0xrrggbb. */
+type EspOSSaverColor = string | number;
+
+interface EspOSFrame {
+  /** The frame's size in pixels: the whole screen (320 x 480 portrait on the 3.5" board, 480 x 320 turned). */
+  readonly w: number;
+  readonly h: number;
+  /** The screen's size class ("medium" on the S3 boards) and depth (false: colour). */
+  readonly cls: string;
+  readonly mono: boolean;
+  /** Fills the frame and forgets what was drawn before in it. */
+  clear(c?: EspOSSaverColor): void;
+  /** r: the corners' radius; a: opacity 0..1. */
+  rect(x: number, y: number, w: number, h: number, c: EspOSSaverColor, o?: {r?: number; a?: number}): void;
+  circle(x: number, y: number, r: number, c: EspOSSaverColor, o?: {a?: number}): void;
+  /** w: the width in pixels (1..64, default 2), round ends. */
+  line(x1: number, y1: number, x2: number, y2: number, c: EspOSSaverColor, o?: {w?: number; a?: number}): void;
+  /** From c1 to c2, top to bottom ("v", the default) or left to right ("h"). */
+  gradient(x: number, y: number, w: number, h: number, c1: EspOSSaverColor, c2: EspOSSaverColor, o?: {dir?: "v" | "h"; a?: number}): void;
+  /** y is the text's top; x is where its left edge, middle or right edge goes (align). size 10..96 px (the
+   *  sizes over 24 have digits and : . , + - % ° only); "\n" starts a new line. */
+  text(s: unknown, x: number, y: number, o?: {size?: number; color?: EspOSSaverColor; align?: "left" | "center" | "right"; bold?: boolean; a?: number}): void;
+  /** The size text would take. */
+  measure(s: unknown, o?: {size?: number; bold?: boolean}): {w: number; h: number};
+}
+
+interface EspOSSaverInfo {
+  as: "saver";
+  w: number;
+  h: number;
+  cls: string;
+  mono: boolean;
+  scale: number;
+  landscape: boolean;
+}
+
+interface EspOSApp {
+  /** Saver apps: draw one frame into g; dt is the time since the last one in ms (0 the first time). A frame that
+   *  draws nothing keeps the last one on the screen. Up to 200 ms a call, 600 shapes and 4 KB of text. @since 2 */
+  onFrame?: (g: EspOSFrame, dt: number) => void;
+  /** Saver apps: the saver starts (once, before the first frame). @since 2 */
+  onStart?: (info: EspOSSaverInfo) => void;
+  /** Saver apps: the saver goes (a touch, the night, the screen turned). @since 2 */
+  onStop?: () => void;
+  /** Saver apps: the assistant's pop-up came over the saver (no frames until onResume). @since 2 */
+  onPause?: () => void;
+  onResume?: () => void;
+  /** Saver apps: frames a second wanted, 1..20 (10 when not asked); returns the rate given. @since 2 */
+  fps?: (n: number) => number;
+  /** Saver apps: the device's time now, formatted: HH H hh h mm ss a dd d MM M yyyy yy ("HH:mm" when left out). @since 2 */
+  time?: (fmt?: string) => string;
+}

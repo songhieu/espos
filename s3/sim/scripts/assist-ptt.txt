@@ -1,0 +1,34 @@
+# 0.6.1: push to talk with the slot set to none (docs/app-slots.md §16.1 "Done for 0.6.1"). Data and env:
+# sim/scripts/assist-slot-tests.sh (the dog the assistant, SIM_FAKE_ASSIST=voice, SIM_MIC=sim/bot/audio/question.wav).
+# Expected: "assistant: the slot is now none: the dog's pop-up closes" twice, "talk: no assistant in the slot (press):
+# nothing recorded or sent", "talk: pop-up closed: the turn stops (state 1)", and no "talk: push to talk turn".
+wait 2500
+drag 280 4 280 360 300
+wait 900
+tap 201 290
+wait 1500
+shot 01-dog-pop
+TALKPRESS
+wait 1000
+shot 02-listening
+set slot.assistant none
+wait 1500
+TALKRELEASE
+wait 800
+shot 03-closed-while-listening
+set slot.assistant vn.pawboop.pet
+wait 2500
+drag 280 4 280 360 300
+wait 900
+tap 201 290
+wait 1500
+shot 04-dog-pop-again
+set slot.assistant none
+wait 1500
+shot 05-closed-on-slot-none
+TALKPRESS
+wait 300
+TALKRELEASE
+wait 800
+shot 06-press-with-none
+quit

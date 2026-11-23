@@ -405,7 +405,7 @@ def entry(base, paths, show=False):
         fail("--entry needs the core part")
     out = {k: core[k] for k in ("id", "name", "version", "code", "kind", "engine", "min_fw", "category", "author", "desc",
                                 "icon", "perms", "addon_of", "set", "needs", "type", "runtime", "api", "requires", "screens", "refresh",
-                                "i18n", "lang", "font")
+                                "i18n", "lang", "font", "provides")  # provides: the store's Screen savers / Assistants
            if k in core}
     if core.get("type") not in DECL_TYPES:
         out.setdefault("engine", "js" if core.get("kind") == "js" else "")

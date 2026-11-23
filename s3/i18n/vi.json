@@ -1607,5 +1607,7 @@
  "{0} draws the screen saver. To edit pages, choose Clock and photos in Default apps, in Settings.": "{0} đang vẽ màn chờ. Muốn sửa trang, chọn Đồng hồ và ảnh trong Ứng dụng mặc định, ở Cài đặt.",
  "Screen savers": "Màn chờ",
  "How can I help?": "Mình giúp gì được bạn?",
- "Hold the button and speak": "Giữ nút rồi nói"
+ "Hold the button and speak": "Giữ nút rồi nói",
+ "{0} stopped": "{0} đã dừng",
+ "The screen saver app stopped 3 times, so the built-in saver shows instead. Choose it again in Settings, Default apps.": "Ứng dụng màn chờ đã dừng 3 lần nên máy dùng màn chờ có sẵn. Hãy chọn lại trong Cài đặt, Ứng dụng mặc định."
 }

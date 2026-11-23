@@ -1,0 +1,13 @@
+# espos sim --headless --script sim/saver.txt: the app opens first, then this. It picks Bubbles as the saver, shows the
+# saver, takes two frames and touches the screen to come back.
+set slot.saver dev.espos.bubbles
+home
+wait 800
+saver
+wait 1500
+shot saver-1
+wait 1000
+shot saver-2
+tap 160 240
+wait 800
+shot back

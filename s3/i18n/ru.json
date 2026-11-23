@@ -1605,5 +1605,7 @@
  "{0} draws the screen saver. To edit pages, choose Clock and photos in Default apps, in Settings.": "Заставку показывает {0}. Чтобы править страницы, выберите «Часы/фото» в разделе «Приложения по умолчанию» в Настройках.",
  "Screen savers": "Заставки",
  "How can I help?": "Чем помочь?",
- "Hold the button and speak": "Удерживайте кнопку и говорите"
+ "Hold the button and speak": "Удерживайте кнопку и говорите",
+ "{0} stopped": "{0} остановлено",
+ "The screen saver app stopped 3 times, so the built-in saver shows instead. Choose it again in Settings, Default apps.": "Приложение-заставка остановилось 3 раза, поэтому показывается встроенная заставка. Выберите его снова в разделе «Приложения по умолчанию» в Настройках."
 }

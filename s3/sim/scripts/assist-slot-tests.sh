@@ -1,5 +1,6 @@
 #!/bin/sh
-# The assistant and saver slot checks of lane 4b (docs/app-slots.md §16.1), as ai-assist ran them before the 0.6.0 RC:
+# The assistant and saver slot checks of lane 4b (docs/app-slots.md §16.1), as ai-assist ran them before the 0.6.0 RC,
+# plus push to talk with the slot none (0.6.1, assist-ptt.txt):
 #   sim/scripts/assist-slot-tests.sh SIM OUT       e.g. sim/scripts/assist-slot-tests.sh sim/build-rc35/espos-sim /tmp/slot
 # SIM is a portrait 3.5" simulator build. Each check gets a fresh copy of sim/data-calls (PawBoop and its dogs on the
 # card, the "Gâu" listener, the wake word on) in sim/data-slot, removed at the end. Needs
@@ -37,5 +38,7 @@ data vn.pawboop.pet
 run calls assist-calls.txt SIM_FAKE_ASSIST=voice SIM_MIC=sim/bot/audio/question.wav
 data vn.pawboop.pet tank
 run defaults assist-defaults.txt
+data vn.pawboop.pet
+run ptt assist-ptt.txt SIM_FAKE_ASSIST=voice SIM_MIC=sim/bot/audio/question.wav
 for f in "$OUT"/defaults/d-*.txt; do echo "$(basename "$f"): $(cat "$f")"; done
 rm -rf $D

@@ -1605,5 +1605,7 @@
  "{0} draws the screen saver. To edit pages, choose Clock and photos in Default apps, in Settings.": "{0} menampilkan screensaver. Untuk mengedit halaman, pilih Jam dan foto di App default, di Pengaturan.",
  "Screen savers": "Screensaver",
  "How can I help?": "Ada yang bisa dibantu?",
- "Hold the button and speak": "Tahan tombol lalu bicara"
+ "Hold the button and speak": "Tahan tombol lalu bicara",
+ "{0} stopped": "{0} berhenti",
+ "The screen saver app stopped 3 times, so the built-in saver shows instead. Choose it again in Settings, Default apps.": "App screensaver berhenti 3 kali, jadi screensaver bawaan yang tampil. Pilih lagi di Pengaturan, App default."
 }

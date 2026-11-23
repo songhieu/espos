@@ -1605,5 +1605,7 @@
  "{0} draws the screen saver. To edit pages, choose Clock and photos in Default apps, in Settings.": "{0}이(가) 화면 보호기를 그리고 있습니다. 페이지를 편집하려면 설정의 기본 앱에서 시계와 사진을 고르세요.",
  "Screen savers": "화면 보호기",
  "How can I help?": "무엇을 도와드릴까요?",
- "Hold the button and speak": "버튼을 누른 채 말하세요"
+ "Hold the button and speak": "버튼을 누른 채 말하세요",
+ "{0} stopped": "{0}이(가) 멈췄습니다",
+ "The screen saver app stopped 3 times, so the built-in saver shows instead. Choose it again in Settings, Default apps.": "화면 보호기 앱이 3번 멈춰서 기본 화면 보호기를 대신 보여 줍니다. 설정의 기본 앱에서 다시 고르세요."
 }

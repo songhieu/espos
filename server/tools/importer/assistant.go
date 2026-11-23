@@ -89,42 +89,42 @@ func portAssistant(code, stem, s string) string {
 }
 
 // The short prompt for a model on the person's own machine (ESPOS_AI_PROMPT=short, README "The dog assistant";
-// 2026-11-21, measured with Gemma 4 E2B in the TTS server's benchmark notes). The talk node keeps
-// building its full prompt; with the variable set, shortPrompt (short_prompt.go.in, appended to talk.go) swaps the
-// long persona, rules and actions for short ones and moves the time and the per-turn rules to the end, so a local
+// 2026-11-21, measured with Gemma 4 E2B in the TTS server's benchmark notes). The talk node keeps building its full
+// prompt with pbSystem (from the EspOS Assistant Protocol v1 request); with the variable set, shortSystem
+// (short_prompt.go.in, appended to talk.go) works out the same parts from the same request, swaps the long persona,
+// rules and actions for short ones and moves the time, the lists and the per-turn rules to the end, so a local
 // model's prefix cache covers almost all of the next turn's prompt. Without the variable nothing changes.
 //
 //go:embed short_prompt.go.in
 var shortPromptSrc string
 
-var (
-	nowCall   = "\tdata.WriteString(nowText(now, tzMin, wm.Str(devs[0][\"name\"]), city))\n"
-	whereCall = "\tdata.WriteString(whereText(wm.Str(devs[0][\"name\"]), board, boardOf(devs[0]), city, citySet, tzMin))\n"
-	buildCall = "\tsystem := build(memLines, maxEarlier)\n"
-)
+// pbCall: where the talk node's build closure gets pbSystem's prompt (the request, the extra values, the limits).
+const pbCall = "\t\tsys, sh, fx := pbSystem(req, internal, pbx, nMem, nEarlier)\n"
 
-const shortSwap = `	if wm.AIPromptShort() { // ESPOS_AI_PROMPT=short: a local model's prompt (short_prompt.go.in)
-		perTurn := botRule(board, long) + voiceRule(board, long, audio != "")
-		lists := alarmText(st[alarmKey(board)], loc, now) + "\n" + todoText(st["s3.todo"]) + "\n" + notesText(st["s3.notes"]) + "\n"
-		system = shortPrompt(system, [][2]string{
-			{nowLine, ""}, {whereLine, ""}, {lists, ""},
-			{personaText(dog, dogKey), shortPersona(dog, dogKey) + whereLine},
-			{rulesText(name, lang, more) + perTurn, shortRules(name, lang)},
-			{actionsText(board, st), shortActions(board, st)},
-		}, "\n"+lists, nowLine, shortSettings(board, st), perTurn, shortNews(text, news), shortJSON(more))
-	}
+const shortSwap = `		if wm.AIPromptShort() { // ESPOS_AI_PROMPT=short: a local model's prompt (short_prompt.go.in)
+			sys = shortSystem(sys, req, pbx)
+		}
 `
 
+// shortNeeds: what shortSystem calls in talk.go besides pbSystem's helpers it shares (a rename there must show here).
+var shortNeeds = []string{"func pbSystem(req, internal map[string]any, x pbExtra, nMem, nEarlier int)",
+	"func personaTextEN(d map[string]any, lang string)", "func rulesTextEN(name, lang, more string)",
+	"func actionsTextEN(kind string, st map[string]string)", "func personaText(d map[string]any, key string)",
+	"func rulesText(name, lang, more string)", "func actionsText(kind string, st map[string]string)",
+	"var eapSettingKeys = ", "var settableEN = ", "var settable = "}
+
 func portShortPrompt(code, stem, s string) string {
-	if strings.Count(s, nowCall) != 1 || strings.Count(s, whereCall) != 1 || strings.Count(s, buildCall) != 1 {
+	ok := strings.Count(s, pbCall) == 1
+	for _, n := range shortNeeds {
+		ok = ok && strings.Contains(s, n)
+	}
+	if !ok {
 		// The hosted prompt was rebuilt: the short prompt cannot be fitted in. The node keeps its full prompt and
-		// ESPOS_AI_PROMPT=short does nothing until portShortPrompt follows the new prompt (README says so).
+		// ESPOS_AI_PROMPT=short does nothing until portShortPrompt follows the new prompt.
 		log.Printf("%s/%s: the prompt's parts changed; the short prompt is left out (ESPOS_AI_PROMPT=short has no effect)", code, stem)
 		return s
 	}
-	s = strings.Replace(s, nowCall, "\tnowLine := nowText(now, tzMin, wm.Str(devs[0][\"name\"]), city)\n\tdata.WriteString(nowLine)\n", 1)
-	s = strings.Replace(s, whereCall, "\twhereLine := whereText(wm.Str(devs[0][\"name\"]), board, boardOf(devs[0]), city, citySet, tzMin)\n\tdata.WriteString(whereLine)\n", 1)
-	s = strings.Replace(s, buildCall, buildCall+shortSwap, 1)
+	s = strings.Replace(s, pbCall, pbCall+shortSwap, 1)
 	return s + "\n" + shortPromptSrc
 }
 

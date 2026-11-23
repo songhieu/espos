@@ -9,7 +9,7 @@
   "kind": "text",
   "where": [
    "src/data.cpp:303",
-   "src/desksaver.cpp:249",
+   "src/desksaver.cpp:250",
    "src/wid/cal.cpp:110",
    "src/wid/cal.cpp:207",
    "src/wid/cal.cpp:239",
@@ -359,7 +359,7 @@
  "@months_spelled": {
   "kind": "list",
   "where": [
-   "src/desksaver.cpp:216"
+   "src/desksaver.cpp:217"
   ],
   "notes": [
    "month names as the screen saver's month line spells them (vi \"Tháng Một\", \"Tháng Hai\"... \"Tháng Mười Hai\")"
@@ -737,7 +737,7 @@
  "Alarm {0}": {
   "kind": "text",
   "where": [
-   "src/desksaver.cpp:257"
+   "src/desksaver.cpp:258"
   ]
  },
  "Alarm {0} · {1}": {
@@ -755,13 +755,13 @@
  "Alas, our free talks have ended! Scan this code and let me speak again!": {
   "kind": "text",
   "where": [
-   "src/turn.cpp:1024"
+   "src/turn.cpp:1036"
   ]
  },
  "Alas, the door to talking is still locked! Scan this code and let me speak!": {
   "kind": "text",
   "where": [
-   "src/turn.cpp:1037"
+   "src/turn.cpp:1049"
   ]
  },
  "All": {
@@ -863,14 +863,14 @@
  "AM": {
   "kind": "text",
   "where": [
-   "src/desksaver.cpp:226",
+   "src/desksaver.cpp:227",
    "src/wid/clock.cpp:58"
   ]
  },
  "An app you remove, or one that stops working, hands its place back to the built-in one.": {
   "kind": "text",
   "where": [
-   "src/slots.cpp:205"
+   "src/slots.cpp:208"
   ]
  },
  "An orange dot at the top of the screen shows when the microphone is on. The microphone tile in the Control Center stops it at any time.": {
@@ -958,7 +958,7 @@
  "Apps that replace the screen saver": {
   "kind": "text",
   "where": [
-   "src/slots.cpp:152"
+   "src/slots.cpp:155"
   ]
  },
  "Aquarium": {
@@ -1023,20 +1023,20 @@
  "Assistant": {
   "kind": "text",
   "where": [
-   "src/slots.cpp:172",
-   "src/slots.cpp:196"
+   "src/slots.cpp:175",
+   "src/slots.cpp:199"
   ]
  },
  "Assistant app": {
   "kind": "text",
   "where": [
-   "src/slots.cpp:116"
+   "src/slots.cpp:118"
   ]
  },
  "Assistant apps": {
   "kind": "text",
   "where": [
-   "src/slots.cpp:182"
+   "src/slots.cpp:185"
   ]
  },
  "Assistants": {
@@ -1237,13 +1237,13 @@
  "Beep. Talking is not activated. Please scan the code.": {
   "kind": "text",
   "where": [
-   "src/turn.cpp:1034"
+   "src/turn.cpp:1046"
   ]
  },
  "Beep. Your trial talks have ended. Please scan the code to continue.": {
   "kind": "text",
   "where": [
-   "src/turn.cpp:1021"
+   "src/turn.cpp:1033"
   ]
  },
  "Beijing": {
@@ -1338,7 +1338,7 @@
  "Biscuit didn't catch that. Say it again for me.": {
   "kind": "text",
   "where": [
-   "src/turn.cpp:1079"
+   "src/turn.cpp:1091"
   ]
  },
  "Black": {
@@ -1369,13 +1369,13 @@
  "BOSS, TALKING ISN'T ON! SCAN THIS CODE, BOSS! HURRY!": {
   "kind": "text",
   "where": [
-   "src/turn.cpp:1031"
+   "src/turn.cpp:1043"
   ]
  },
  "BOSS, THE FREE TALKS ARE OVER! SCAN THIS CODE, BOSS! I'VE GOT TONS TO SAY!": {
   "kind": "text",
   "where": [
-   "src/turn.cpp:1018"
+   "src/turn.cpp:1030"
   ]
  },
  "Brazil, Argentina": {
@@ -1426,13 +1426,13 @@
  "Built in": {
   "kind": "text",
   "where": [
-   "src/slots.cpp:121"
+   "src/slots.cpp:123"
   ]
  },
  "Built in · your saver pages": {
   "kind": "text",
   "where": [
-   "src/slots.cpp:142"
+   "src/slots.cpp:145"
   ]
  },
  "Built-in wallpapers": {
@@ -1573,10 +1573,10 @@
  "Can't reach the server": {
   "kind": "text",
   "where": [
-   "src/turn.cpp:611",
-   "src/turn.cpp:751",
-   "src/turn.cpp:881",
-   "src/turn.cpp:898"
+   "src/turn.cpp:623",
+   "src/turn.cpp:763",
+   "src/turn.cpp:893",
+   "src/turn.cpp:910"
   ]
  },
  "Cancel": {
@@ -2072,8 +2072,8 @@
  "Clock and photos": {
   "kind": "text",
   "where": [
-   "src/slots.cpp:142",
-   "src/slots.cpp:221"
+   "src/slots.cpp:145",
+   "src/slots.cpp:224"
   ]
  },
  "Close": {
@@ -2142,7 +2142,7 @@
  "Command not received. Please repeat.": {
   "kind": "text",
   "where": [
-   "src/turn.cpp:1077"
+   "src/turn.cpp:1089"
   ]
  },
  "Compact": {
@@ -2446,13 +2446,13 @@
  "Darling, our free talks are over. Scan this code so the princess can keep chatting!": {
   "kind": "text",
   "where": [
-   "src/turn.cpp:1023"
+   "src/turn.cpp:1035"
   ]
  },
  "Darling, talking isn't open yet. Scan this code so the princess can chat with you!": {
   "kind": "text",
   "where": [
-   "src/turn.cpp:1036"
+   "src/turn.cpp:1048"
   ]
  },
  "Date": {
@@ -2549,7 +2549,7 @@
   "kind": "text",
   "where": [
    "src/app_settings.cpp:1276",
-   "src/slots.cpp:235"
+   "src/slots.cpp:246"
   ]
  },
  "Delete": {
@@ -2592,7 +2592,7 @@
  "Desk": {
   "kind": "text",
   "where": [
-   "src/desksaver.cpp:602"
+   "src/desksaver.cpp:606"
   ]
  },
  "Details": {
@@ -2651,13 +2651,13 @@
  "Didn't catch it! Say it again, loud and clear!": {
   "kind": "text",
   "where": [
-   "src/turn.cpp:1081"
+   "src/turn.cpp:1093"
   ]
  },
  "Didn't catch that, kid. Say it again.": {
   "kind": "text",
   "where": [
-   "src/turn.cpp:1072"
+   "src/turn.cpp:1084"
   ],
   "notes": [
    "the dog's own words when it could not make out what was said; each dog has its manner (docs: assistant-ai.md §8)"
@@ -2666,7 +2666,7 @@
  "Didn't hear. Again.": {
   "kind": "text",
   "where": [
-   "src/turn.cpp:1078"
+   "src/turn.cpp:1090"
   ]
  },
  "Digital": {
@@ -2690,7 +2690,7 @@
  "dim red time, alarm": {
   "kind": "text",
   "where": [
-   "src/desksaver.cpp:605"
+   "src/desksaver.cpp:609"
   ]
  },
  "Discard": {
@@ -3245,7 +3245,7 @@
  "Free talks are over. Scan the code. I'll wait.": {
   "kind": "text",
   "where": [
-   "src/turn.cpp:1022"
+   "src/turn.cpp:1034"
   ]
  },
  "Free this week": {
@@ -3383,14 +3383,14 @@
  "Get more in the Store": {
   "kind": "text",
   "where": [
-   "src/slots.cpp:152",
-   "src/slots.cpp:182"
+   "src/slots.cpp:155",
+   "src/slots.cpp:185"
   ]
  },
  "Get one in the Store: the PawBoop dog, or another.": {
   "kind": "text",
   "where": [
-   "src/assistant.cpp:367"
+   "src/assistant.cpp:398"
   ]
  },
  "Getting a code": {
@@ -3686,20 +3686,20 @@
  "Hold the button and speak": {
   "kind": "text",
   "where": [
-   "src/assistant.cpp:322"
+   "src/assistant.cpp:328"
   ]
  },
  "Hold the button while you speak": {
   "kind": "text",
   "where": [
-   "src/turn.cpp:1115"
+   "src/turn.cpp:1128"
   ]
  },
  "Hold to talk": {
   "kind": "text",
   "where": [
-   "src/assistant.cpp:209",
-   "src/assistant.cpp:239",
+   "src/assistant.cpp:215",
+   "src/assistant.cpp:245",
    "src/pet/summon.cpp:501",
    "src/pet/summon.cpp:651"
   ],
@@ -3758,7 +3758,7 @@
  "How can I help?": {
   "kind": "text",
   "where": [
-   "src/assistant.cpp:322"
+   "src/assistant.cpp:328"
   ]
  },
  "How easily it wakes": {
@@ -3777,7 +3777,7 @@
  "Huh? Say that again, boss!": {
   "kind": "text",
   "where": [
-   "src/turn.cpp:1074"
+   "src/turn.cpp:1086"
   ]
  },
  "Humidity": {
@@ -3811,23 +3811,23 @@
  "I didn't catch that. Say it again?": {
   "kind": "text",
   "where": [
-   "src/turn.cpp:1082"
+   "src/turn.cpp:1094"
   ]
  },
  "I'm here. Call me again, or hold the button and speak": {
   "kind": "text",
   "where": [
-   "src/turn.cpp:872",
-   "src/turn.cpp:976",
-   "src/turn.cpp:1107"
+   "src/turn.cpp:884",
+   "src/turn.cpp:988",
+   "src/turn.cpp:1120"
   ]
  },
  "I'm listening": {
   "kind": "text",
   "where": [
    "src/turn.cpp:595",
-   "src/turn.cpp:955",
-   "src/turn.cpp:995"
+   "src/turn.cpp:967",
+   "src/turn.cpp:1007"
   ]
  },
  "icon\u0004Lunar": {
@@ -4308,7 +4308,7 @@
  "Leaf didn't hear that. Say it again, please.": {
   "kind": "text",
   "where": [
-   "src/turn.cpp:1075"
+   "src/turn.cpp:1087"
   ]
  },
  "leap": {
@@ -4362,7 +4362,7 @@
  "Let go to send": {
   "kind": "text",
   "where": [
-   "src/assistant.cpp:239",
+   "src/assistant.cpp:245",
    "src/pet/summon.cpp:651",
    "src/turn.cpp:596"
   ],
@@ -4473,9 +4473,9 @@
  "Link this device to your account first": {
   "kind": "text",
   "where": [
-   "src/assistant.cpp:322",
-   "src/turn.cpp:1095",
-   "src/turn.cpp:1169"
+   "src/assistant.cpp:328",
+   "src/turn.cpp:1108",
+   "src/turn.cpp:1182"
   ]
  },
  "Link to an account": {
@@ -4564,9 +4564,9 @@
   "where": [
    "src/js/jsvoice.cpp:302",
    "src/turn.cpp:595",
-   "src/turn.cpp:837",
-   "src/turn.cpp:995",
-   "src/turn.cpp:1005"
+   "src/turn.cpp:849",
+   "src/turn.cpp:1007",
+   "src/turn.cpp:1017"
   ]
  },
  "Listening for \"Gâu\"": {
@@ -4628,8 +4628,8 @@
  "long\u0004{0} (lunar)": {
   "kind": "text",
   "where": [
-   "src/desksaver.cpp:241",
-   "src/desksaver.cpp:251",
+   "src/desksaver.cpp:242",
+   "src/desksaver.cpp:252",
    "src/wid/cal.cpp:114"
   ],
   "notes": [
@@ -4973,7 +4973,7 @@
  "Minimal": {
   "kind": "text",
   "where": [
-   "src/desksaver.cpp:603"
+   "src/desksaver.cpp:607"
   ]
  },
  "minutes read, streak": {
@@ -4985,7 +4985,7 @@
  "Missed that, man. Say it again, slowly.": {
   "kind": "text",
   "where": [
-   "src/turn.cpp:1073"
+   "src/turn.cpp:1085"
   ]
  },
  "missing {0}": {
@@ -5357,7 +5357,7 @@
  "Next %s · %s": {
   "kind": "text",
   "where": [
-   "src/desksaver.cpp:274"
+   "src/desksaver.cpp:275"
   ]
  },
  "Next 7 days": {
@@ -5497,13 +5497,13 @@
  "No assistant installed": {
   "kind": "text",
   "where": [
-   "src/assistant.cpp:365"
+   "src/assistant.cpp:396"
   ]
  },
  "No assistant on this device": {
   "kind": "text",
   "where": [
-   "src/assistant.cpp:426"
+   "src/assistant.cpp:457"
   ]
  },
  "No books read yet on the EspOS e-reader": {
@@ -5572,9 +5572,9 @@
  "No internet": {
   "kind": "text",
   "where": [
-   "src/turn.cpp:611",
-   "src/turn.cpp:1096",
-   "src/turn.cpp:1170"
+   "src/turn.cpp:623",
+   "src/turn.cpp:1109",
+   "src/turn.cpp:1183"
   ]
  },
  "No line breaks or control characters": {
@@ -5780,9 +5780,9 @@
   "where": [
    "src/appset.cpp:356",
    "src/saveredit.cpp:628",
-   "src/slots.cpp:180",
-   "src/slots.cpp:199",
-   "src/slots.cpp:229"
+   "src/slots.cpp:183",
+   "src/slots.cpp:202",
+   "src/slots.cpp:240"
   ]
  },
  "none": {
@@ -6112,7 +6112,7 @@
   "where": [
    "src/app_settings.cpp:1278",
    "src/app_settings.cpp:1309",
-   "src/slots.cpp:120"
+   "src/slots.cpp:122"
   ]
  },
  "Off: banners show only the app's name, not what it says.": {
@@ -6124,7 +6124,7 @@
  "Oh dear, Frost heard nothing at all! Say it again!": {
   "kind": "text",
   "where": [
-   "src/turn.cpp:1080"
+   "src/turn.cpp:1092"
   ]
  },
  "OK": {
@@ -6243,7 +6243,7 @@
  "only the time and date": {
   "kind": "text",
   "where": [
-   "src/desksaver.cpp:603"
+   "src/desksaver.cpp:607"
   ]
  },
  "Opacity": {
@@ -6399,7 +6399,7 @@
  "Pair this device again in Settings": {
   "kind": "text",
   "where": [
-   "src/turn.cpp:724"
+   "src/turn.cpp:736"
   ]
  },
  "Paris": {
@@ -6431,7 +6431,7 @@
  "PawBoop dog · answers when called": {
   "kind": "text",
   "where": [
-   "src/slots.cpp:114"
+   "src/slots.cpp:116"
   ]
  },
  "PawBoop Run": {
@@ -6472,7 +6472,7 @@
  "Photo frame": {
   "kind": "text",
   "where": [
-   "src/desksaver.cpp:604"
+   "src/desksaver.cpp:608"
   ]
  },
  "Photo removed from the device": {
@@ -6590,7 +6590,7 @@
  "PM": {
   "kind": "text",
   "where": [
-   "src/desksaver.cpp:226",
+   "src/desksaver.cpp:227",
    "src/wid/clock.cpp:58"
   ]
  },
@@ -6652,7 +6652,7 @@
  "Preview": {
   "kind": "text",
   "where": [
-   "src/slots.cpp:154"
+   "src/slots.cpp:157"
   ]
  },
  "Preview at its real size on Home.": {
@@ -6800,7 +6800,7 @@
  "Red clock": {
   "kind": "text",
   "where": [
-   "src/desksaver.cpp:605"
+   "src/desksaver.cpp:609"
   ]
  },
  "Red night": {
@@ -7241,7 +7241,7 @@
  "saver\u0004Day {0}, month {1}{2}": {
   "kind": "text",
   "where": [
-   "src/desksaver.cpp:249"
+   "src/desksaver.cpp:250"
   ],
   "notes": [
    "a lunar day and month in words; {2} is \" leap\" or nothing (vi \"Ngày {0} tháng {1}{2}\")"
@@ -7274,16 +7274,16 @@
  "Say it again, please": {
   "kind": "text",
   "where": [
-   "src/turn.cpp:725"
+   "src/turn.cpp:737"
   ]
  },
  "Say what you need": {
   "kind": "text",
   "where": [
    "src/turn.cpp:596",
-   "src/turn.cpp:837",
-   "src/turn.cpp:955",
-   "src/turn.cpp:1005"
+   "src/turn.cpp:849",
+   "src/turn.cpp:967",
+   "src/turn.cpp:1017"
   ]
  },
  "Saying of the day": {
@@ -7313,7 +7313,7 @@
  "Scan to keep talking": {
   "kind": "text",
   "where": [
-   "src/assistant.cpp:257",
+   "src/assistant.cpp:263",
    "src/pet/summon.cpp:630"
   ],
   "notes": [
@@ -7356,8 +7356,8 @@
    "src/app_settings.cpp:678",
    "src/app_settings.cpp:1277",
    "src/search.cpp:78",
-   "src/slots.cpp:139",
-   "src/slots.cpp:191"
+   "src/slots.cpp:142",
+   "src/slots.cpp:194"
   ]
  },
  "Screen savers": {
@@ -7421,10 +7421,10 @@
  "See espos.dev for details": {
   "kind": "text",
   "where": [
-   "src/turn.cpp:714",
-   "src/turn.cpp:937",
-   "src/turn.cpp:1100",
-   "src/turn.cpp:1173"
+   "src/turn.cpp:726",
+   "src/turn.cpp:949",
+   "src/turn.cpp:1113",
+   "src/turn.cpp:1186"
   ],
   "notes": [
    "the dog's pop-up when the person's EspOS account is blocked or being deleted (calm, not an error)"
@@ -7535,7 +7535,7 @@
  "Setting up the assistant. Ask again in a moment.": {
   "kind": "text",
   "where": [
-   "src/turn.cpp:722"
+   "src/turn.cpp:734"
   ]
  },
  "SETTINGS": {
@@ -7686,7 +7686,7 @@
  "Shows the saver now; touch to come back": {
   "kind": "text",
   "where": [
-   "src/slots.cpp:154"
+   "src/slots.cpp:157"
   ]
  },
  "Shuffle": {
@@ -7809,7 +7809,7 @@
  "Something went wrong, try again": {
   "kind": "text",
   "where": [
-   "src/turn.cpp:752"
+   "src/turn.cpp:764"
   ]
  },
  "Sound": {
@@ -7912,7 +7912,7 @@
  "starts after {0} min": {
   "kind": "text",
   "where": [
-   "src/slots.cpp:120"
+   "src/slots.cpp:122"
   ]
  },
  "Starts {0}, full moon {1}. {2}.": {
@@ -8017,7 +8017,7 @@
   "where": [
    "src/app_more.cpp:1401",
    "src/apps.cpp:44",
-   "src/assistant.cpp:368"
+   "src/assistant.cpp:399"
   ]
  },
  "store\u0004Buy": {
@@ -8116,13 +8116,13 @@
  "Sweetie, our free talks are all used up. Scan this code so we can keep talking!": {
   "kind": "text",
   "where": [
-   "src/turn.cpp:1019"
+   "src/turn.cpp:1031"
   ]
  },
  "Sweetie, talking isn't open yet. Scan this code so we can chat!": {
   "kind": "text",
   "where": [
-   "src/turn.cpp:1032"
+   "src/turn.cpp:1044"
   ]
  },
  "Swipe down from the top right: the Control Center. Tap {0} to call your dog.": {
@@ -8193,25 +8193,25 @@
  "Talking class hasn't started yet, team! Scan this code and the coach comes in! Go!": {
   "kind": "text",
   "where": [
-   "src/turn.cpp:1038"
+   "src/turn.cpp:1050"
   ]
  },
  "Talking isn't on for this device yet. Scan the code to turn it on.": {
   "kind": "text",
   "where": [
-   "src/turn.cpp:1039"
+   "src/turn.cpp:1051"
   ]
  },
  "Talking isn't on. Scan the code. I'll wait.": {
   "kind": "text",
   "where": [
-   "src/turn.cpp:1035"
+   "src/turn.cpp:1047"
   ]
  },
  "Talking isn't open on this device, kid. Scan the code below. I'll wait.": {
   "kind": "text",
   "where": [
-   "src/turn.cpp:1029"
+   "src/turn.cpp:1041"
   ],
   "notes": [
    "the dog's own words when talking is not on for this device's account: scan the QR code to turn it on"
@@ -8220,7 +8220,7 @@
  "Talking isn't open yet, man. Scan this code and we'll chat. No rush.": {
   "kind": "text",
   "where": [
-   "src/turn.cpp:1030"
+   "src/turn.cpp:1042"
   ]
  },
  "Tap a network to type its password on the screen keyboard.": {
@@ -8265,7 +8265,7 @@
  "Tap when done": {
   "kind": "text",
   "where": [
-   "src/assistant.cpp:239",
+   "src/assistant.cpp:245",
    "src/pet/summon.cpp:651"
   ],
   "notes": [
@@ -8426,7 +8426,7 @@
  "The built-in screen saver is back": {
   "kind": "text",
   "where": [
-   "src/slots.cpp:247"
+   "src/slots.cpp:258"
   ]
  },
  "The clock is not set yet.": {
@@ -8462,7 +8462,7 @@
  "The curtain isn't up yet, audience! Scan this code to put me on air!": {
   "kind": "text",
   "where": [
-   "src/turn.cpp:1033"
+   "src/turn.cpp:1045"
   ]
  },
  "The device checks at every sync.": {
@@ -8546,13 +8546,13 @@
  "The free preview is over, audience! Scan this code to see the rest of my show!": {
   "kind": "text",
   "where": [
-   "src/turn.cpp:1020"
+   "src/turn.cpp:1032"
   ]
  },
  "The free talks are over, man. Scan this code and we keep chatting. No rush.": {
   "kind": "text",
   "where": [
-   "src/turn.cpp:1017"
+   "src/turn.cpp:1029"
   ]
  },
  "The game has no MIDlet-1 in MANIFEST.MF": {
@@ -8603,7 +8603,7 @@
  "The microphone isn't working": {
   "kind": "text",
   "where": [
-   "src/turn.cpp:1104"
+   "src/turn.cpp:1117"
   ]
  },
  "the network dropped midway": {
@@ -8699,6 +8699,12 @@
    "src/lanform.cpp:293"
   ]
  },
+ "The screen saver app stopped 3 times, so the built-in saver shows instead. Choose it again in Settings, Default apps.": {
+  "kind": "text",
+  "where": [
+   "src/js/jssaver.cpp:193"
+  ]
+ },
  "The sea tank": {
   "kind": "text",
   "where": [
@@ -8727,7 +8733,7 @@
  "The star didn't catch that. Say it again, clearly.": {
   "kind": "text",
   "where": [
-   "src/turn.cpp:1076"
+   "src/turn.cpp:1088"
   ]
  },
  "the storage is full": {
@@ -8763,8 +8769,8 @@
  "The wake word does nothing": {
   "kind": "text",
   "where": [
-   "src/slots.cpp:180",
-   "src/slots.cpp:199"
+   "src/slots.cpp:183",
+   "src/slots.cpp:202"
   ]
  },
  "The wallpaper is the first of the device's photos (add photos on the web).": {
@@ -8800,8 +8806,8 @@
  "Thinking": {
   "kind": "text",
   "where": [
-   "src/turn.cpp:656",
-   "src/turn.cpp:1158"
+   "src/turn.cpp:668",
+   "src/turn.cpp:1171"
   ]
  },
  "This app has no settings.": {
@@ -9049,7 +9055,7 @@
  "time, weather, calendar": {
   "kind": "text",
   "where": [
-   "src/desksaver.cpp:602"
+   "src/desksaver.cpp:606"
   ]
  },
  "Timer": {
@@ -9200,7 +9206,7 @@
  "Too much on the screen saver: remove something to save": {
   "kind": "text",
   "where": [
-   "src/desksaver.cpp:712"
+   "src/desksaver.cpp:716"
   ]
  },
  "Tools": {
@@ -9247,7 +9253,7 @@
  "Trial class is over, team! Scan this code and the coach keeps teaching! Go!": {
   "kind": "text",
   "where": [
-   "src/turn.cpp:1025"
+   "src/turn.cpp:1037"
   ]
  },
  "Trial · ends today": {
@@ -9662,8 +9668,8 @@
  "Wait a moment, then ask again": {
   "kind": "text",
   "where": [
-   "src/turn.cpp:726",
-   "src/turn.cpp:750"
+   "src/turn.cpp:738",
+   "src/turn.cpp:762"
   ]
  },
  "Waiting": {
@@ -9846,7 +9852,7 @@
  "What an assistant app may know is what you allowed when you installed it (Settings, Apps).": {
   "kind": "text",
   "where": [
-   "src/slots.cpp:184"
+   "src/slots.cpp:187"
   ]
  },
  "What should {0} call you?": {
@@ -9873,7 +9879,7 @@
  "What's in today's news?": {
   "kind": "text",
   "where": [
-   "src/turn.cpp:1177"
+   "src/turn.cpp:1190"
   ],
   "notes": [
    "what the \"Today's news\" chip asks the dog: sent to the AI, and shown in the bubble under its answer"
@@ -10145,10 +10151,10 @@
   "where": [
    "src/desk.cpp:849",
    "src/lock.cpp:654",
-   "src/turn.cpp:714",
-   "src/turn.cpp:937",
-   "src/turn.cpp:1100",
-   "src/turn.cpp:1173"
+   "src/turn.cpp:726",
+   "src/turn.cpp:949",
+   "src/turn.cpp:1113",
+   "src/turn.cpp:1186"
   ],
   "notes": [
    "the dog's pop-up when the person's EspOS account is blocked or being deleted (calm, not an error)"
@@ -10183,13 +10189,13 @@
  "Your free talks are used up, kid. Scan the code below to keep going. I'll wait.": {
   "kind": "text",
   "where": [
-   "src/turn.cpp:1016"
+   "src/turn.cpp:1028"
   ]
  },
  "Your free trial of talking is over. Scan the code to keep chatting.": {
   "kind": "text",
   "where": [
-   "src/turn.cpp:1026"
+   "src/turn.cpp:1038"
   ]
  },
  "Your photo": {
@@ -10207,7 +10213,7 @@
  "your photos, the time in a corner": {
   "kind": "text",
   "where": [
-   "src/desksaver.cpp:604"
+   "src/desksaver.cpp:608"
   ]
  },
  "Your subscription has ended": {
@@ -10519,7 +10525,7 @@
  "{0} of the {1} year": {
   "kind": "text",
   "where": [
-   "src/desksaver.cpp:247"
+   "src/desksaver.cpp:248"
   ]
  },
  "{0} oh {1}": {
@@ -10541,6 +10547,12 @@
   "kind": "text",
   "where": [
    "src/popnote.cpp:398"
+  ]
+ },
+ "{0} stopped": {
+  "kind": "text",
+  "where": [
+   "src/js/jssaver.cpp:192"
   ]
  },
  "{0} tokens": {
@@ -10565,13 +10577,13 @@
  "{0} was removed. Choose another one in Default apps, in Settings.": {
   "kind": "text",
   "where": [
-   "src/slots.cpp:248"
+   "src/slots.cpp:259"
   ]
  },
  "{0} was removed. Get an assistant in the Store.": {
   "kind": "text",
   "where": [
-   "src/assistant.cpp:427"
+   "src/assistant.cpp:458"
   ]
  },
  "{0} widget": {
@@ -10725,7 +10737,7 @@
   "kind": "text",
   "where": [
    "src/app_more.cpp:246",
-   "src/desksaver.cpp:231",
+   "src/desksaver.cpp:232",
    "src/notif.cpp:338",
    "src/wid/cal.cpp:42",
    "src/wid/read.cpp:538",
@@ -10881,7 +10893,7 @@
  "{n} talk left|{n} talks left": {
   "kind": "plural",
   "where": [
-   "src/assistant.cpp:264",
+   "src/assistant.cpp:270",
    "src/pet/summon.cpp:365"
   ],
   "notes": [
@@ -10897,7 +10909,7 @@
  "{W}, {MM} {d}": {
   "kind": "text",
   "where": [
-   "src/desksaver.cpp:235",
+   "src/desksaver.cpp:236",
    "src/wid/clock.cpp:67"
   ]
  },
@@ -10906,8 +10918,8 @@
   "where": [
    "src/app_calendar.cpp:115",
    "src/data.cpp:148",
-   "src/desksaver.cpp:240",
-   "src/desksaver.cpp:242",
+   "src/desksaver.cpp:241",
+   "src/desksaver.cpp:243",
    "src/standby.cpp:31",
    "src/wid/cal.cpp:447",
    "src/wid/clock.cpp:66"
@@ -10931,7 +10943,7 @@
   "kind": "text",
   "where": [
    "src/app_more.cpp:194",
-   "src/desksaver.cpp:238",
+   "src/desksaver.cpp:239",
    "src/wid/cal.cpp:639",
    "src/wid/cal.cpp:850",
    "src/wid/cal.cpp:867",

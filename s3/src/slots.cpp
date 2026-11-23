@@ -9,6 +9,7 @@
 #include "assistant.h"
 #include "desk.h"
 #include "i18n.h"
+#include "js/jssaver.h"
 #include "notif.h"
 #include "os.h"
 #include "pkg/pkg.h"
@@ -32,7 +33,8 @@ const char* const TANK_DOC =
     R"("l":[{"bg":{"t":"tank"},"e":[{"t":"time","x":0,"y":48,"w":480,"h":68,"c":"ffffff","px":64},)"
     R"({"t":"date","f":"wdm","x":0,"y":116,"w":480,"h":24,"c":"ffffff","px":16}]}]})";
 
-bool canSave(const pkg::Package* p) { return p && !p->addonOf.length() && p->engine == "tank"; }
+// The aquarium (engine "tank": its pages, TANK_DOC) or a JavaScript saver app (jssaver.h: it draws the whole saver).
+bool canSave(const pkg::Package* p) { return p && !p->addonOf.length() && (p->engine == "tank" || jssaver::runs(p)); }
 
 lv_obj_t* daBody = nullptr;  // Settings › Default apps, filled again after a choice
 void fill();
@@ -128,6 +130,7 @@ void choseSaver(lv_event_t* e) {
   const char* id = (const char*)lv_event_get_user_data(e);
   desk::setSetting(SAVER_KEY, id);
   trace::add("slots: the saver is %s", id);
+  jssaver::unblock();  // chosen again: a saver app stopped too often may start again
   os::back();
   fill();
 }
@@ -223,7 +226,15 @@ String saverName() {
   return p ? p->name : id;
 }
 
-const char* saverDoc() { return saverBuiltin() ? nullptr : TANK_DOC; }
+const char* saverDoc() {
+  const pkg::Package* p = saverBuiltin() ? nullptr : pkg::find(saverId().c_str());
+  return p && p->engine == "tank" ? TANK_DOC : nullptr;
+}
+
+bool saverJs() {
+  const pkg::Package* p = saverBuiltin() ? nullptr : pkg::find(saverId().c_str());
+  return p && p->engine != "tank";
+}
 
 String summary() {
   const String a = assistant::any() ? assistantName(assistant::id()) : String(T_("None"));

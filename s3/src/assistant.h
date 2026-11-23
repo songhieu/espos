@@ -57,6 +57,9 @@ bool busy();       // a turn is on: listening, sending, waiting or speaking
 void summon(const char* reason);  // its pop-up, or the "No assistant installed" card
 void noneCard();   // "No assistant installed": get one in the Store
 void closeCard();
+// Every pop-up of the assistant goes (the dog's, the OS's, the "No assistant installed" card); a turn on stops. Also done
+// by itself when the slot changes under an open pop-up (another app, or none: 0.6.1, push-to-talk with the slot none).
+void close();
 // The OS's microphone glyph (no art for it: LVGL boxes), about 18 x 26 px, centred in `parent`.
 lv_obj_t* micIcon(lv_obj_t* parent, uint32_t color);
 

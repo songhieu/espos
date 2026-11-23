@@ -1605,5 +1605,7 @@
  "{0} draws the screen saver. To edit pages, choose Clock and photos in Default apps, in Settings.": "{0} affiche l'écran de veille. Pour modifier les pages, choisissez Horloge et photos dans Apps par défaut, dans Réglages.",
  "Screen savers": "Veille",
  "How can I help?": "Comment puis-je vous aider ?",
- "Hold the button and speak": "Maintenez le bouton et parlez"
+ "Hold the button and speak": "Maintenez le bouton et parlez",
+ "{0} stopped": "{0} s'est arrêté",
+ "The screen saver app stopped 3 times, so the built-in saver shows instead. Choose it again in Settings, Default apps.": "L'app d'écran de veille s'est arrêtée 3 fois, l'écran de veille intégré la remplace. Choisissez-la de nouveau dans Réglages, Apps par défaut."
 }

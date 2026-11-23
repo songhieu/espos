@@ -8,6 +8,7 @@ import (
 	"espos/internal/wm"
 	"fmt"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 )
@@ -88,6 +89,34 @@ func noticeTitle(title, body string) string {
 		s = t + " · " + b
 	}
 	return fit(s, 120)
+}
+
+// knocksOf: devices refused by allow_from in the last day (desk_queue noteKnock), newest first, for the Mac's list
+// of senders and its once-a-day notice. Filled by index (the live engine spreads a list appended into a []any).
+func knocksOf(row map[string]any, now int64) []any {
+	if row == nil {
+		return []any{}
+	}
+	type kn struct {
+		id int
+		m  map[string]any
+		ms int64
+	}
+	var ks []kn
+	for k, v := range objOf(row["knocks"]) {
+		m := objOf(v)
+		id := wm.Int(k)
+		if m == nil || id <= 0 || now-int64(wm.Num(m["ms"])) > 24*3600*1000 {
+			continue
+		}
+		ks = append(ks, kn{id, m, int64(wm.Num(m["ms"]))})
+	}
+	sort.Slice(ks, func(i, j int) bool { return ks[i].ms > ks[j].ms })
+	out := make([]any, len(ks))
+	for i, k := range ks {
+		out[i] = map[string]any{"device_id": k.id, "name": fit(wm.Str(k.m["name"]), 40), "via": wm.Str(k.m["via"]), "ms": k.ms}
+	}
+	return out
 }
 
 // cmdOut: a desk_cmds row as the Mac reads it (§2.2).
@@ -632,5 +661,5 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 		}
 	}
 	return answer(200, map[string]any{"now_ms": time.Now().UnixMilli(), "commands": cmds, "cancel": cancel,
-		"heartbeat_s": 60, "poll_s": 0, "dropped_notices": dropped, "watch": watch})
+		"heartbeat_s": 60, "poll_s": 0, "dropped_notices": dropped, "watch": watch, "knocks": knocksOf(row, now)})
 }

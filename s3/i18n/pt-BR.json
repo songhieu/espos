@@ -1596,7 +1596,7 @@
  "Assistant": "Assistente",
  "Assistant app": "App assistente",
  "Assistant apps": "Apps assistentes",
- "PawBoop dog · answers when called": "Cachorro do PawBoop · responde quando chamado",
+ "PawBoop dog · answers when called": "Cachorro PawBoop · responde",
  "The wake word does nothing": "A palavra de ativação não faz nada",
  "What an assistant app may know is what you allowed when you installed it (Settings, Apps).": "Um app assistente só sabe o que você permitiu ao instalar (Ajustes, Apps).",
  "An app you remove, or one that stops working, hands its place back to the built-in one.": "Um app removido, ou que para de funcionar, devolve o lugar ao integrado.",
@@ -1605,5 +1605,7 @@
  "{0} draws the screen saver. To edit pages, choose Clock and photos in Default apps, in Settings.": "{0} desenha o protetor de tela. Para editar as páginas, escolha Relógio e fotos em Apps padrão, nos Ajustes.",
  "Screen savers": "Protetores",
  "How can I help?": "Como posso ajudar?",
- "Hold the button and speak": "Segure o botão e fale"
+ "Hold the button and speak": "Segure o botão e fale",
+ "{0} stopped": "{0} parou",
+ "The screen saver app stopped 3 times, so the built-in saver shows instead. Choose it again in Settings, Default apps.": "O app de protetor de tela parou 3 vezes, então o integrado aparece no lugar. Escolha-o de novo em Ajustes, Apps padrão."
 }

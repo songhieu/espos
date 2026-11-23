@@ -10,12 +10,14 @@
 
 #include "apps.h"
 #include "art.h"
+#include "assistant.h"
 #include "data.h"
 #include "desk.h"
 #include "fonts.h"
 #include "lock.h"
 #include "os.h"
 #include "photo.h"
+#include "slots.h"
 #include "pkg/pkg.h"
 #include "pkg/store.h"
 #include "pkg/ui.h"
@@ -740,7 +742,8 @@ void fill() {
   bool any = false;
   for (const pkg::Package& p : pkg::list()) {
     if (st::entry(p.id.c_str()) || p.addonOf.length() || p.type == "pack") continue;
-    if (catSel && (catSel == ASSIST_CAT ? p.engine != "pet" : catSel == SAVER_CAT ? p.engine != "tank" : p.category != CATS[catSel].id)) continue;
+    if (catSel && (catSel == ASSIST_CAT ? !assistant::runs(p.id.c_str()) : catSel == SAVER_CAT ? !slots::saverApp(p.id.c_str())
+                                                                         : p.category != CATS[catSel].id)) continue;
     if (!any) caption(listBox, N_("Installed on the device")), any = true;
     appRow(listBox, p.id, nullptr);
   }

@@ -136,7 +136,7 @@ take the current one from the provider's list.
 | `ESPOS_AI_TOKENS_PARAM` | `max_tokens` | `max_completion_tokens` for APIs that want that name (OpenAI's reasoning models). |
 | `ESPOS_AI_MAX_TOKENS` | the preset's (the dog asks 700) | The answer's limit. A model that thinks spends part of it thinking: an answer cut at the limit is named in the log. |
 | `ESPOS_AI_AUDIO` | the preset's (`1` without one) | `1`: the model hears a recording itself. `0`: it cannot; a spoken question needs speech-to-text. |
-| `ESPOS_AI_PROMPT` | (full) | `short`: a shorter prompt, ordered so that a model on your own machine can reuse most of the last turn's prompt from its cache (below). Not applied in this version: the assistant's prompt was rebuilt and the short one has not been fitted to it yet, so every model gets the full prompt. |
+| `ESPOS_AI_PROMPT` | (full) | `short`: a shorter prompt, ordered so that a model on your own machine can reuse most of the last turn's prompt from its cache (below). Vietnamese devices get it in Vietnamese, every other language in English, as the full prompt. |
 | `ESPOS_AI_TIMEOUT` | `25` (`60` for `local`) | Seconds to wait for the model's answer. |
 
 **Recommended: Google Gemini.** It has a free tier, hears recordings directly (no speech-to-text
@@ -167,10 +167,12 @@ curl -s https://generativelanguage.googleapis.com/v1beta/openai/chat/completions
 
 **A model on your own machine.** A small model on a laptop or a Mac mini (for example Gemma 4 E2B) reads the prompt
 much more slowly than a hosted one: the dog's full prompt (about 8,000 tokens) takes 20 s or more the first time.
-Set `ESPOS_AI_PROMPT=short` (not applied in this version, see the table above): the same rules in fewer words, with what changes every turn (the time, the alarms and
-notes an action just changed) moved to the end, so a server with a prompt cache (llama.cpp-based servers do this)
-only reads the new part of each turn. Measured with Gemma 4 E2B on an M1 Pro: a turn in about 4 s instead of
-8.5 s, with as many questions answered right. Also raise `ESPOS_AI_TIMEOUT` (60): the first turn after the model
+Set `ESPOS_AI_PROMPT=short`: the same rules in fewer words (the fixed part about 40% shorter, with worked examples
+of the actions), with what changes every turn (the time, the alarms and notes an action just changed, the settings'
+values, this turn's notes) moved to the end, so a server with a prompt cache (llama.cpp-based servers do this) only
+reads the new part of each turn. Vietnamese devices get the short prompt in Vietnamese, every other language in
+English (the dog still answers in the device's language). Measured with Gemma 4 E2B on an M1 Pro: a turn in about
+4 s instead of 8.5 s, with as many questions answered right. Also raise `ESPOS_AI_TIMEOUT` (60): the first turn after the model
 starts still reads the whole prompt.
 
 ### 2. Speech-to-text (optional)

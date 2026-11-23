@@ -93,6 +93,7 @@ export default defineConfig({
             { label: 'Packaging, parts and add-ons', slug: 'guides/packaging' },
             { label: 'A networked app: Claude sessions', slug: 'guides/sessions-app', badge: preview },
             { label: 'Build your own assistant', slug: 'guides/assistant', badge: preview },
+            { label: 'Build a screen saver app', slug: 'guides/saver-apps', badge: preview },
             { label: 'Java (J2ME) games', slug: 'guides/java-games', badge: preview },
             { label: 'Test in the simulator', slug: 'guides/simulator' },
             { label: 'Test in QEMU', slug: 'guides/qemu' },

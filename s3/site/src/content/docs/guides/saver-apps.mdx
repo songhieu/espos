@@ -1,0 +1,151 @@
+---
+title: Build a screen saver app
+description: "Make an app that replaces the screen saver: the person picks it in Default apps, and your saver.js draws every frame while the device rests. The manifest, the drawing calls, the budget, and how to test it."
+---
+
+import { Aside, Steps } from '@astrojs/starlight/components';
+
+A **screen saver app** draws the screen while the device is not being used. The person picks it in **Settings,
+Default apps, Screen saver**. From then on the device runs your `saver.js` whenever the saver comes on, and a touch
+brings them back to where they were.
+
+<Aside type="caution" title="Preview">
+Saver apps need firmware 0.6.1 or later (`"min_fw": 601`). The drawing calls on this page are API level 2 and may
+still grow; what is here will keep working.
+</Aside>
+
+| You write | EspOS does |
+|---|---|
+| `saver.js`: what one frame looks like (`app.onFrame`) | Decides **when** the saver shows: after how long, the night hours, the brightness (Settings, Screen saver) |
+| A manifest with `"provides": ["saver"]` | Lists your app in Default apps and in the Store's "Screen savers" |
+| Optional settings (colours, speed) | Draws their form on the device and on the web, and hands you the values |
+| | Leaves the saver on a touch, shows its own night page at night, stops a saver that misbehaves |
+
+## From the sample to your device
+
+<Steps>
+
+1. Copy the sample `examples/saver-bubbles` (bubbles rise behind the time) and change its `id` in `manifest.json`.
+2. `espos check` and `espos build`: the package is `dist/<id>-1.0.0-core.espk`.
+3. Try it in the simulator: `espos sim --headless --script sim/saver.txt` picks it as the saver, takes two frames and
+   touches the screen. The shots go to `.espos/shots`.
+4. `espos upload` puts it on your own devices ([Your app on your own device](/guides/my-apps/)). On the device:
+   Settings, Default apps, Screen saver, then your app. **Preview** on the same page shows it at once.
+
+</Steps>
+
+## The manifest
+
+```json
+{
+  "id": "com.example.starfield",
+  "name": "Starfield",
+  "version": "1.0.0", "code": 10000,
+  "kind": "js", "engine": "js",
+  "min_fw": 601,
+  "provides": ["saver"],
+  "entry": {"saver": "saver.js", "app": "main.js"},
+  "settings": [{"key": "speed", "type": "number", "label": "Speed", "min": 1, "max": 10, "default": 4}]
+}
+```
+
+- `provides: ["saver"]` is what makes it a saver app.
+- The saver's file is `entry.saver`. Without it the device looks for `saver.js`, then `main.js`.
+- `main.js` is still the app on Home. A short page saying what it is and opening its settings is enough.
+- List `saver.js` under `files` in `espos.json` so `espos build` packs it.
+
+## Drawing a frame
+
+```js
+let x = 40, y = 40, dx = 2, dy = 3;
+app.onStart = (info) => {      // once, before the first frame: info.w, info.h, info.landscape
+  app.fps(15);                 // 1 to 20 frames a second (10 when you do not ask)
+};
+app.onFrame = (g, dt) => {      // dt: ms since the last frame
+  g.clear('#081020');
+  g.circle(x, y, 18, '#ffcc33');
+  g.text(app.time('HH:mm'), g.w / 2, g.h - 120, {size: 64, color: '#ffffff', align: 'center', bold: true});
+  x += dx, y += dy;
+  if (x < 18 || x > g.w - 18) dx = -dx;
+  if (y < 18 || y > g.h - 18) dy = -dy;
+};
+```
+
+Each frame starts empty and is shown whole once `onFrame` returns. **A frame that draws nothing keeps the last one on
+the screen**: a clock that changes once a minute can return early the rest of the time and costs almost nothing.
+
+| Call | What it draws |
+|---|---|
+| `g.clear(c)` | fills the frame and forgets what was drawn before in it |
+| `g.rect(x, y, w, h, c, {r, a})` | a rectangle; `r` rounds its corners, `a` is the opacity 0..1 |
+| `g.circle(x, y, r, c, {a})` | a disc centred on x, y |
+| `g.line(x1, y1, x2, y2, c, {w, a})` | a line `w` pixels wide (1..64, default 2) with round ends |
+| `g.gradient(x, y, w, h, c1, c2, {dir})` | from `c1` to `c2`, top to bottom (`"v"`) or left to right (`"h"`) |
+| `g.text(s, x, y, {size, color, align, bold, a})` | text whose top is at `y`; `align` puts its left edge, middle or right edge at `x` |
+| `g.measure(s, {size, bold})` | `{w, h}`: the room the text takes |
+| `g.w`, `g.h`, `g.cls`, `g.mono` | the frame's size, its size class, whether the screen is black and white |
+
+Colours are `"#rrggbb"`, `"#rgb"` or a number `0xrrggbb`. Text sizes go from 10 to 96 pixels. Above 24 the sizes have
+digits and `: . , + - % °` only (letters fall back to a smaller size), which suits a clock.
+
+<Aside type="tip" title="Move things a little">
+A clock that never moves stays on the same pixels all night. Move it a few pixels every minute, like the sample does
+(`app.time('mm')` picks the offset).
+</Aside>
+
+## What the saver file has
+
+The saver runs in a small runtime of its own, not in your app's. It has:
+
+| Name | What it is |
+|---|---|
+| `app.onStart(info)` | the saver starts: `info = {as: "saver", w, h, cls, mono, scale, landscape}` |
+| `app.onFrame(g, dt)` | draw one frame |
+| `app.onStop()` | the saver goes: a touch, the night, the screen turned |
+| `app.onPause()` / `app.onResume()` | the assistant's pop-up came over the saver and went (no frames meanwhile) |
+| `app.fps(n)` | frames a second, 1 to 20 |
+| `app.time(fmt)` | the device's time: `HH H hh h mm ss a dd d MM M yyyy yy`, e.g. `app.time('dd/MM')` |
+| `app.lang` | the language the device shows (`"en"`, `"vi"`...) for your own words |
+| `settings.get(key)` | one of your settings (the same values as in your app); read them in `onStart` |
+| `log(text)` | a line in the device's trace ("saver app &lt;id&gt; log: ...") |
+
+There is no `ui`, `store`, `net`, `timer` or `sound` in the saver, and it gets no touches: a touch always brings
+the person back. JavaScript's own `Math`, `Date`, arrays and classes are all there.
+
+## When it runs
+
+- **When** is the person's choice in Settings, Screen saver: after how many minutes, the brightness, the night hours.
+  Your app only draws.
+- **At night** (the night hours) the device shows its own dim night page instead of your app, and starts your app again
+  in the morning.
+- **The screen turned**: your app is stopped and started again with the new `info.w` and `info.h`.
+- **A setting changed** on the web or on the device: the new value is there the next time the saver starts.
+
+## The budget
+
+| | Limit |
+|---|---|
+| Memory | 512 KB for your script's objects |
+| One call (`onStart`, `onFrame`...) | 200 ms; the script's first run, 1.5 s |
+| Frames | 1 to 20 a second |
+| One frame | 600 shapes and 4 KB of text; more are left out |
+| `saver.js` | 128 KB |
+
+A saver that **throws**, runs past its time or memory, or takes over 100 ms for three frames in a row is stopped.
+The device's own saver ("Clock and photos") shows for the rest of that time. If that happens three times in ten
+minutes, your app is not started again and the person gets one notification saying so. Picking it again in Default
+apps, or an update of your app, lets it run again. `espos sim --headless` fails on such a stop and prints the reason.
+
+## Test it
+
+- `espos sim --headless --script sim/saver.txt`: the sample's script picks the app with `set slot.saver <id>`, shows
+  the saver (`saver`), takes shots and touches the screen. Write your own the same way; `clock 2026-11-22 23:30`
+  jumps the clock into the night hours.
+- In the s3desk tree, `python3 tools/saver_sim_test.py` runs the sample and five broken savers (one that throws, one
+  too slow, one that eats memory, one that does not parse, one that draws too much) and checks what the device does.
+
+## Not there yet
+
+- Pictures from your package (`g.image`), and the device's data feeds (weather, calendar) in the saver.
+- Declarative savers (a `face` file with `"provides": ["saver"]`, no code).
+- The Bot's small screen: saver apps run on the S3 boards only for now.

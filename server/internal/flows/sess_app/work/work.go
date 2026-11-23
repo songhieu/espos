@@ -282,7 +282,23 @@ func max64(a, b int64) int64 {
 	return b
 }
 
-func listAnswer(macs []mac, rev, now int64) map[string]any {
+// allowedFrom: whether the Mac takes commands from this device: its allow_from (a list of device ids, or none = every
+// device of the account), the same rule desk_queue refuses with 403 sender_not_allowed; the app shows "view only" for
+// a Mac that would refuse it (2026-11-23).
+func allowedFrom(st map[string]any, devID int) bool {
+	allow, isList := st["allow_from"].([]any)
+	if !isList {
+		return true
+	}
+	for _, x := range allow {
+		if devID > 0 && wm.Int(x) == devID {
+			return true
+		}
+	}
+	return false
+}
+
+func listAnswer(macs []mac, rev, now int64, devID int) map[string]any {
 	ml, sl := []any{}, []any{}
 	for _, m := range macs {
 		cmds := map[string]any{}
@@ -293,7 +309,7 @@ func listAnswer(macs []mac, rev, now int64) map[string]any {
 		}
 		why := m.streamWhy(now)
 		e := map[string]any{"id": m.id, "name": m.name, "online": m.online(now), "mode": m.mode, "seen_ms": m.seen,
-			"stream": why == "", "confirm_at": wm.Str(m.st["confirm_at"]), "cmds": cmds}
+			"stream": why == "", "confirm_at": wm.Str(m.st["confirm_at"]), "cmds": cmds, "allowed": allowedFrom(m.st, devID)}
 		if why != "" {
 			e["stream_why"] = why
 		}
@@ -421,7 +437,7 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 	devName := wm.Str(tr["dev_name"])
 	switch {
 	case method == "GET" && op == "sessions":
-		return sessions(uid, query, now)
+		return sessions(uid, devID, query, now)
 	case method == "GET" && op == "screen":
 		return screen(uid, devID, query, now)
 	case method == "POST" && op == "send":
@@ -455,7 +471,7 @@ func clampWait(v any, max int) int {
 	return w
 }
 
-func sessions(uid int, q map[string]any, now int64) map[string]any {
+func sessions(uid, devID int, q map[string]any, now int64) map[string]any {
 	macs, rev, err := macsOf(uid)
 	if err != nil {
 		return wm.Fail(err)
@@ -479,7 +495,7 @@ func sessions(uid int, q map[string]any, now int64) map[string]any {
 		}
 		now = time.Now().UnixMilli()
 	}
-	return answer(200, listAnswer(macs, rev, now))
+	return answer(200, listAnswer(macs, rev, now, devID))
 }
 
 func findMac(uid int, id int) (*mac, error) {
@@ -585,11 +601,14 @@ func screen(uid, devID int, q map[string]any, now int64) map[string]any {
 		}
 	}
 	out := answer(200, nil)
+	var body map[string]any
 	if wm.Str(row["epoch"]) == "" {
-		out["body"] = map[string]any{"epoch": "", "seq": 0, "full": true, "lines": []any{}, "starting": true}
+		body = map[string]any{"epoch": "", "seq": 0, "full": true, "lines": []any{}, "starting": true}
 	} else {
-		out["body"] = frame(row, since)
+		body = frame(row, since)
 	}
+	body["allowed"] = allowedFrom(m.st, devID) // this device's keys and replies reach the Mac (allow_from)
+	out["body"] = body
 	if poke {
 		out["poke"] = true
 		out["chan"] = m.chan_

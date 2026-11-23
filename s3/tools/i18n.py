@@ -127,7 +127,7 @@ FONTS = {
                            "chars": lambda: CYR},
 }
 FONT_VERSION = "1.0.0"
-LANG_VERSION = "1.0.12"  # bump for ANY change once a version is uploaded. 1.0.12 firmware 0.6.0 (Sessions, the assistant and saver slots, presets, the USB update notice); 1.0.11 "Getting {0}'s Coin Run part" (0.5.12); 1.0.10 the Claude widget (0.5.11). 1.0.9 the first-boot setup (onboard.cpp); 1.0.8 apps update themselves + the dog's calls ("It answers to"); 1.0.7 the Control Center flips the screen (Rotate held); 1.0.1 landscape strings; 1.0.2 PawBoop dogs (live 16:57); 1.0.3 Coin Run map strings; 1.0.4 the dog assistant talks + "Gâu" wake word + the aquarium (live with 0.5.6); 1.0.5 the trial and the locks (lock.h, the dog's 402 lines) (live 11-19); 1.0.6 the pop-up's "Today's news" chip
+LANG_VERSION = "1.0.13"  # bump for ANY change once a version is uploaded. 1.0.13 firmware 0.6.1 (saver apps: "{0} stopped"); 1.0.12 firmware 0.6.0 (Sessions, the assistant and saver slots, presets, the USB update notice); 1.0.11 "Getting {0}'s Coin Run part" (0.5.12); 1.0.10 the Claude widget (0.5.11). 1.0.9 the first-boot setup (onboard.cpp); 1.0.8 apps update themselves + the dog's calls ("It answers to"); 1.0.7 the Control Center flips the screen (Rotate held); 1.0.1 landscape strings; 1.0.2 PawBoop dogs (live 16:57); 1.0.3 Coin Run map strings; 1.0.4 the dog assistant talks + "Gâu" wake word + the aquarium (live with 0.5.6); 1.0.5 the trial and the locks (lock.h, the dog's 402 lines) (live 11-19); 1.0.6 the pop-up's "Today's news" chip
 
 # ---------------------------------------------------------------- C string literals
 ESC = {"n": "\n", "t": "\t", '"': '"', "\\": "\\", "'": "'", "r": "\r", "0": "\0", "a": "\a"}

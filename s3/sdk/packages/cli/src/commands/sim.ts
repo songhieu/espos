@@ -95,9 +95,11 @@ function writeScript(o: { dir: string; open?: string; arg?: string; user?: strin
   return f;
 }
 
-/** A JS error of one of our apps in a trace line ("app <id> start (main.js): ...", "app <id> render: ...", "app <id>: ..."). */
+/** A JS error of one of our apps in a trace line ("app <id> start (main.js): ...", "app <id> render: ...", "app <id>: ...";
+ *  a saver app's: "saver app <id> start (saver.js): ...", "saver app <id> error: ..."). */
 export function appError(line: string, ids: string[]): string | null {
-  const m = /\]\s+app (\S+)(?: start \((?:main\.js|prelude)\)| render)?: (.*)$/.exec(line);
+  const m = /\]\s+app (\S+)(?: start \((?:main\.js|prelude)\)| render)?: (.*)$/.exec(line) ??
+    /\]\s+saver app (\S+) (?:start \([^)]*\)|error): (.*)$/.exec(line);
   if (!m || !ids.includes(m[1])) return null;
   return `${m[1]}: ${m[2]}`;
 }

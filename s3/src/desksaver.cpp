@@ -20,6 +20,7 @@ extern std::string simDir;
 #include "data.h"
 #include "desk.h"
 #include "slots.h"
+#include "js/jssaver.h"
 #include "fonts.h"
 #include "jpeg.h"
 #include "os.h"
@@ -381,6 +382,9 @@ uint32_t seenSettings = 0;
 lv_obj_t *root, *bgBox, *layer;
 std::vector<lv_obj_t*> boxes;  // the elements of the page shown, in its order
 bool shown = false, pageNight = false, pageLand = false, dirty = true;
+// A JavaScript saver app (slots::saverJs, js/jssaver.h) draws the whole saver now; jsTried: it was started (or could not
+// be) this time the saver shows, so a stopped one leaves the saver pages until the next time.
+bool jsOn = false, jsTried = false;
 int pageIdx = 0, lastMin = -1, shift = 0;
 uint32_t pageAt = 0, builtAt = 0, slide = 0;
 
@@ -1060,6 +1064,7 @@ void build(lv_obj_t* parent) {
   lv_obj_set_pos(root, 0, 0);
   shown = false;
   dirty = true;
+  jsOn = jsTried = false;  // (an app saver's objects went with the old root: it stopped)
 }
 
 void show(bool on) {
@@ -1070,7 +1075,10 @@ void show(bool on) {
     dirty = true;  // draw everything fresh at the next update
     pageIdx = 0;
     pageAt = millis();
+    jsOn = jsTried = false;
   } else {
+    if (jsOn) jssaver::stop();
+    jsOn = jsTried = false;
     lv_obj_add_flag(root, LV_OBJ_FLAG_HIDDEN);
     lv_obj_clean(root);  // widgets and pictures are not needed until the next time
     boxes.clear();
@@ -1082,6 +1090,22 @@ void update(const tm& t, bool night) {
   reload();
   const bool land = os::landscape();
   const bool n = night && cur.night != "day";
+  // A saver app draws the whole saver (js/jssaver.h), but not at night (the night page below, the app again in the
+  // morning) and not after it stopped (the saver pages until the next time the saver shows).
+  if (jsOn && !jssaver::running()) {
+    jsOn = false, dirty = true;
+    trace::add("saver: the app saver stopped (%s): the saver pages show", jssaver::why().c_str());
+  }
+  if (jsOn && n) jssaver::stop(), jsOn = jsTried = false, dirty = true;
+  if (jsOn) return;
+  if (!jsTried && !n && slots::saverJs()) {
+    jsTried = true;
+    lv_obj_clean(root);
+    boxes.clear();
+    bgBox = nullptr;
+    if ((jsOn = jssaver::start(root, slots::saverId().c_str()))) return;
+    dirty = true;  // it cannot start: the saver pages
+  }
   const std::vector<Page>& v = land ? cur.l : cur.p;
   if (!n && cur.cycle > 0 && v.size() > 1 && millis() - pageAt >= (uint32_t)cur.cycle * 1000) {
     pageAt = millis();

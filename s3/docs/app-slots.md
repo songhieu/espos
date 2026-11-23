@@ -634,9 +634,28 @@ Built after (2026-11-22, the same lane):
 - The setup's dots count only the steps a unit shows. The web's removal sheet of an assistant app has "Also forget
   what the dogs remember" (unticked; `POST /v1/assist/memories/delete {"all": true}`).
 
-Still open: push to talk inside the dog's pop-up while the web set the slot to `none` asks the server and gets the
-409; JavaScript saver apps (`provides: ["saver"]`, lane 4a's API) are listed by the Store but not run as savers yet;
-the web's own Default apps card.
+Done for 0.6.1 (2026-11-22, ai-assist; not flashed or deployed):
+- **Push to talk with the slot `none`**: the slot changing under an open pop-up closes it (`assistant.cpp` resolve →
+  `slotChanged`: the dog's when the dog is no longer the assistant, the OS's when the slot is the dog or none), and
+  `turn.cpp` records and sends nothing without an assistant (`noAssistant` in `press` and `trySubmit`: the turn stops,
+  `assistant::close()`). Before, a held mic in a stale dog pop-up recorded and got the server's 409.
+- **JavaScript saver apps (§4.1, §4.2)**: `src/js/jssaver.{h,cpp}`. A JS package with `"provides": ["saver"]` can take
+  the saver slot (`slots::canSave`, `slots::saverJs`); `desksaver.cpp` starts it when the saver shows (its own QuickJS
+  runtime and 16 KB stack, made then and freed when it stops), stops it at night (the saver pages' night page shows,
+  the app again in the morning) and when the saver goes. The script records shapes into a list; a full-screen object
+  draws the last whole list in its draw event (a frame that draws nothing keeps the last one). API: `app.onFrame(g,
+  dt)`, `onStart(info)`, `onStop`, `onPause`/`onResume` (the assistant's pop-up), `app.fps(1..20)`, `app.time(fmt)`,
+  `settings.get`, `log`; `g.clear/rect/circle/line/gradient/text/measure`, `g.w/h/cls/mono`. Budget: 512 KB of PSRAM,
+  200 ms a call (1.5 s for the first run), 600 shapes and 4 KB of text a frame, three frames over 100 ms in a row; a
+  stop shows the saver pages for the rest of that time; three stops in ten minutes block it with one notification
+  until it is chosen again or the packages change. A touch leaves as always (no touches for the app). Trace lines:
+  `saver app <id> started|ended|error|start (<file>)|log`. Not yet: `g.image`, `data.*`, decl savers, the Bot.
+  Sample `examples/saver-bubbles`; guide `site/.../guides/saver-apps.mdx`; typings in `sdk/packages/sdk/espos.d.ts`;
+  `espos sim` fails a headless run on a saver error. Tests: `tools/saver_sim_test.py` (bubbles + five broken savers,
+  ASan), sim push-to-talk with the slot set to none.
+- **The web's Default apps card**: the S3 device page, Settings tab (`web/app/src/n2/settings.tsx` DefaultAppsGroup):
+  Screen saver and Assistant, the installed apps only (the device's package report and the catalog's `engine` /
+  `provides`), a chosen app the device no longer has kept with "(no longer on the device)".
 
 ---
 

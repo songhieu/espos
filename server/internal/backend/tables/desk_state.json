@@ -213,6 +213,20 @@
       "required": false,
       "type": "integer",
       "unique": false
+    },
+    {
+      "code": "knocks",
+      "default": null,
+      "help": "Devices of the account refused by allow_from lately: {device id: {name, via, ms}} (the Mac lists them under Máy ra lệnh)",
+      "indexed": false,
+      "label": "Refused senders",
+      "options": [],
+      "position": 16,
+      "read_only": false,
+      "ref_table": null,
+      "required": false,
+      "type": "json",
+      "unique": false
     }
   ]
 }

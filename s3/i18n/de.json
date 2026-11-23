@@ -1605,5 +1605,7 @@
  "{0} draws the screen saver. To edit pages, choose Clock and photos in Default apps, in Settings.": "{0} zeigt den Bildschirmschoner. Um Seiten zu bearbeiten, wähle in den Einstellungen unter Standard-Apps Uhr und Fotos.",
  "Screen savers": "Schoner",
  "How can I help?": "Wie kann ich helfen?",
- "Hold the button and speak": "Taste halten und sprechen"
+ "Hold the button and speak": "Taste halten und sprechen",
+ "{0} stopped": "{0} wurde beendet",
+ "The screen saver app stopped 3 times, so the built-in saver shows instead. Choose it again in Settings, Default apps.": "Die Bildschirmschoner-App wurde 3-mal beendet, daher läuft der eingebaute Schoner. Wähle sie in den Einstellungen unter Standard-Apps erneut."
 }
