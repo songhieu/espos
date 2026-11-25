@@ -53,6 +53,14 @@ void onDisconnect(arduino_event_id_t, arduino_event_info_t info) {
   lastReasonAt = millis() | 1;
 }
 
+// A phone on the setup WiFi (traced, so a setup that fails can be read back over USB).
+volatile int apJoins = 0, apLeaves = 0;
+void onApStation(arduino_event_id_t e, arduino_event_info_t) {
+  if (e == ARDUINO_EVENT_WIFI_AP_STACONNECTED) apJoins++;
+  else apLeaves++;
+}
+int apSeenJoins = 0, apSeenLeaves = 0;
+
 void send(const std::string& html) {
   web->sendHeader("Cache-Control", "no-store");
   web->send(200, "text/html; charset=utf-8", html.c_str());
@@ -82,22 +90,42 @@ void redirect() {
   web->send(302, "text/plain", "");
 }
 
+void takeScan(int n) {
+  if (n < 0) return;
+  std::vector<std::string> nets;
+  std::vector<std::pair<std::string, int>> chans;
+  for (int i = 0; i < n && nets.size() < 20; i++) {  // the strongest first (the scan's order)
+    const std::string s = WiFi.SSID(i).c_str();
+    if (!s.empty() && std::find(nets.begin(), nets.end(), s) == nets.end())
+      nets.push_back(s), chans.push_back({s, (int)WiFi.channel(i)});
+  }
+  WiFi.scanDelete();
+  if (!nets.empty() || networks.empty()) networks = nets, channels = chans;  // an empty scan keeps the last list
+  trace::add("portal: scan found %d networks", (int)nets.size());
+}
+
+// The list for the page. A scan takes the radio off the setup WiFi's channel for a moment and drops a phone that is
+// on it, so: only when no phone is there (every 30 s), or once a minute while the list is still empty.
 void scan() {
   const int n = WiFi.scanComplete();
-  if (n >= 0) {
-    networks.clear(), channels.clear();
-    for (int i = 0; i < n && networks.size() < 20; i++) {  // the strongest first (the scan's order)
-      const std::string s = WiFi.SSID(i).c_str();
-      if (!s.empty() && std::find(networks.begin(), networks.end(), s) == networks.end())
-        networks.push_back(s), channels.push_back({s, (int)WiFi.channel(i)});
-    }
-    WiFi.scanDelete();
-  }
-  if (n != WIFI_SCAN_RUNNING && millis() - scanAt > 20000) scanAt = millis(), WiFi.scanNetworks(true);
+  if (n >= 0) takeScan(n);
+  if (n == WIFI_SCAN_RUNNING) return;
+  const bool phone = WiFi.softAPgetStationNum() > 0;
+  const uint32_t every = phone ? (networks.empty() ? 60000u : 0u) : 30000u;
+  if (every && millis() - scanAt > every) scanAt = millis(), WiFi.scanNetworks(true);
 }
 
 void openPortal() {
   if (portalOn) return;
+  // The STA stops trying on its own: its reconnects scan every channel and the setup WiFi (on one channel) drops
+  // phones or never lets them in (2026-11-25: phones could not join it, or joined and saw no networks).
+  WiFi.setAutoReconnect(false);
+  WiFi.disconnect(false);
+  st = St::Idle;
+  idleAt = millis();
+  // The list first, before the setup WiFi is up (a scan with no AP is quick and clean).
+  WiFi.mode(WIFI_STA);
+  takeScan(WiFi.scanNetworks(false, false));
   WiFi.mode(WIFI_AP_STA);
   WiFi.softAP(apName().c_str(), store::apPass().c_str());  // WPA2: the password is on the OLED (text and QR)
   delay(100);
@@ -114,7 +142,7 @@ void openPortal() {
   web->begin();
   portalOn = true;
   portalAt = millis();
-  scanAt = 0;
+  scanAt = millis();  // just scanned
   join = portal::Join::None;
   trace::add("portal: %s on", apName().c_str());
 }
@@ -128,6 +156,7 @@ void closePortal() {
   web = nullptr, dns = nullptr;
   WiFi.softAPdisconnect(true);
   WiFi.mode(WIFI_STA);
+  WiFi.setAutoReconnect(true);
   portalOn = false;
   trace::add("portal: off");
 }
@@ -142,6 +171,7 @@ void tryNext() {
   int ch = 0;  // its channel from the last scan (0: any)
   for (const auto& c : channels)
     if (c.first == trySsid) ch = c.second;
+  WiFi.setAutoReconnect(!portalOn);
   WiFi.begin(nets[tryIdx].ssid.c_str(), nets[tryIdx].pass.c_str(), ch);
   trace::add("wifi: trying \"%s\" (channel %d)", trySsid.c_str(), ch);
   tryAt = millis() | 1;
@@ -240,6 +270,8 @@ void joinStep() {
 
 void begin() {
   WiFi.onEvent(onDisconnect, ARDUINO_EVENT_WIFI_STA_DISCONNECTED);
+  WiFi.onEvent(onApStation, ARDUINO_EVENT_WIFI_AP_STACONNECTED);
+  WiFi.onEvent(onApStation, ARDUINO_EVENT_WIFI_AP_STADISCONNECTED);
   WiFi.persistent(false);
   WiFi.mode(WIFI_STA);
   WiFi.setHostname(("espos-bot-" + mac12().substr(8)).c_str());
@@ -249,6 +281,11 @@ void begin() {
 }
 
 void loop() {
+  if (apJoins != apSeenJoins || apLeaves != apSeenLeaves) {
+    apSeenJoins = apJoins, apSeenLeaves = apLeaves;
+    trace::add("portal: phones on the setup WiFi %d (joined %d, left %d)", (int)WiFi.softAPgetStationNum(), apSeenJoins,
+               apSeenLeaves);
+  }
   if (portalOn) {
     dns->processNextRequest();
     web->handleClient();
