@@ -39,6 +39,37 @@ int main() {
                          "month", "tet", "weather_sun", "weather_rain", "night", "kennel_night", "butterfly", "newspaper",
                          "coffee", "window_rain", "aquarium", "eyes", "gold", "proverb"})
     CHECK(ui::screenIndex(id) >= 0);  // admin-users' 21 ids
+  CHECK(ui::screenIndex("weather_cloud") >= 0 && ui::screenIndex("weather_cloudsun") >= 0);
+  // the four weather screens until 2026-11-25 are the one that follows the sky, once
+  sc = logic::screensOf(R"([{"id":"weather_sun","s":8},{"id":"clock_bold","s":5},{"id":"night","s":9},{"id":"weather_rain","s":4},{"id":"weather","s":7}])");
+  CHECK(sc.size() == 2 && sc[0].id == ui::SCR_WEATHER_AUTO && sc[0].secs == 8 && !strcmp(ui::screenId(sc[1].id), "clock_bold"));
+  // the picture follows the sky: each icon, and the night between the city's sunset and sunrise (17:35, 05:45)
+  {
+    auto sky = [](const char* icon, int h, int m, int rise, int set) {
+      ui::Weather w;
+      w.valid = true, w.t = 30, w.icon = icon, w.rise = rise, w.set = set;
+      ui::setWeather(w);
+      ui::setNow(at(2026, 11, 25, 3, h, m));
+      ui::setScreens({{ui::SCR_WEATHER_AUTO, 60}});
+      ui::night();
+      ui::standby();
+      return std::string(ui::standbyId());
+    };
+    const int R = 5 * 60 + 45, S = 17 * 60 + 35;
+    CHECK(sky("sun", 12, 0, R, S) == "weather_sun");
+    CHECK(sky("cloudsun", 12, 0, R, S) == "weather_cloudsun");
+    CHECK(sky("cloud", 12, 0, R, S) == "weather_cloud" && sky("fog", 7, 0, R, S) == "weather_cloud");
+    CHECK(sky("cloud", 22, 0, R, S) == "weather_cloud");
+    CHECK(sky("rain", 12, 0, R, S) == "weather_rain" && sky("storm", 23, 0, R, S) == "weather_rain" &&
+          sky("snow", 9, 0, R, S) == "weather_rain");
+    CHECK(sky("sun", 17, 35, R, S) == "night" && sky("sun", 17, 34, R, S) == "weather_sun");  // the sunset minute
+    CHECK(sky("moon", 5, 44, R, S) == "night" && sky("moon", 5, 45, R, S) == "weather_sun");  // sunrise, icon behind
+    CHECK(sky("cloudsun", 19, 0, R, S) == "night");
+    // no sunrise or sunset from an older server: the server's day or night, then 18:00-06:00
+    CHECK(sky("moon", 17, 0, -1, -1) == "night" && sky("sun", 19, 0, -1, -1) == "weather_sun");
+    CHECK(sky("", 19, 0, -1, -1) == "night" && sky("", 12, 0, -1, -1) == "weather_sun");
+    ui::setWeather(ui::Weather());
+  }
   CHECK(logic::screensOf("not json").empty());
   CHECK(logic::intOf("60", 1, 5, 100) == 60 && logic::intOf("150", 1, 5, 100) == 100 && logic::intOf("x", 7, 0, 9) == 7);
   // night hours

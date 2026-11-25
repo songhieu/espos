@@ -87,7 +87,7 @@ int main(int argc, char** argv) {
         begin(), ui::claim("K7QM2XPA", "https://espos.dev/c/K7QM2XPA", false), save("claim" + sfx, 0, 100);
         begin(), ui::claim("K7QM2XPA", "", false), save("claim_noqr" + sfx, 0, 100);
         begin(), ui::note(ui::str(ui::S_UPDATING), "espos-bot 0.1.1", 42), save("updating" + sfx, 0, 100);
-        begin(), ui::note(ui::str(ui::S_CONNECTING), "Home 5G", -1), save("connecting" + sfx, 0, 100);
+        begin(), ui::note(ui::str(ui::S_CONNECTING), "Nhà Lan 5G", -1), save("connecting" + sfx, 0, 100);
         begin(), ui::note(ui::str(ui::S_HOLD_RESET), "3", -1), save("hold_reset" + sfx, 0, 100);
         begin(), ui::note(ui::str(ui::S_NO_SERVER), "", -1), save("no_server" + sfx, 0, 100);
       }
@@ -112,16 +112,26 @@ int main(int argc, char** argv) {
       ui::standby();
       save(std::string("standby_") + art::STANDBY[i].id + (lg ? "_vi" : "_en"), 4000, 100);
     }
-    // "weather" picks the picture: rain for rain, the night one after 18:00
-    w.icon = "rain", w.desc = "Mưa rào";
-    ui::setWeather(w);
+    // "weather" shows the real sky: the picture for each icon at 14:00, the night after the sunset (17:35)
     ui::setScreens({{ui::SCR_WEATHER_AUTO, 60}});
-    ui::night(), begin(), ui::standby();
-    save(std::string("auto_weather_rain") + (lg ? "_vi" : "_en"), 0, 100);
-    w.icon = "moon", w.desc = "Trời quang";
+    w.rise = 5 * 60 + 45, w.set = 17 * 60 + 35;
+    const char* SKY[][3] = {{"sun", "Trời quang", "sun"},       {"cloudsun", "Mây rải rác", "cloudsun"},
+                            {"cloud", "Nhiều mây", "cloud"},     {"fog", "Sương mù", "fog"},
+                            {"rain", "Mưa vừa", "rain"},         {"storm", "Dông", "storm"}};
+    for (auto& k : SKY) {
+      w.icon = k[0], w.desc = k[1];
+      ui::setWeather(w);
+      ui::setNow(NOW(14, 0, 0));
+      ui::night(), begin(), ui::standby();
+      save(std::string("auto_weather_") + k[2] + (lg ? "_vi" : "_en"), 3000, 100);
+    }
+    w.icon = "sun", w.desc = "Trời quang";
     ui::setWeather(w);
+    ui::setNow(NOW(17, 40, 0));
     ui::night(), begin(), ui::standby();
     save(std::string("auto_weather_night") + (lg ? "_vi" : "_en"), 0, 100);
+    w.rise = w.set = -1;
+    ui::setNow(NOW(21, 30, 42));
     // the calendar page gives way to the coffee 06:00-09:00
     ui::setNow(NOW(7, 5, 10));
     ui::setScreens({{(int16_t)ui::screenIndex("date_page"), 60}});

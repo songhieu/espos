@@ -233,6 +233,9 @@ void applySync(JsonDocument& doc) {
     wx.icon = w["icon"] | "cloud";
     wx.desc = w["desc"] | "";
     wx.city = w["city"] | "";
+    // "06:01" -> 361; the server sends them since 2026-11-25 (the night picture at the real sunset)
+    auto mins = [](const char* s) { return s && strlen(s) == 5 && s[2] == ':' ? atoi(s) * 60 + atoi(s + 3) : -1; };
+    wx.rise = mins(w["rise"] | ""), wx.set = mins(w["set"] | "");
   }
   if (doc["dashboard"]["lunar"].is<const char*>()) lunarNow = doc["dashboard"]["lunar"].as<const char*>();
   // the info screens' data, only when the rotation holds them (admin-users, 2026-11-20): dashboard.gold/fx/news,

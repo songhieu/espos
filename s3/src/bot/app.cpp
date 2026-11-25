@@ -253,7 +253,8 @@ void uiTest(const char* w) {
   else if (s == "alarm") ui::alarm("", 6, 30, false);
   else if (s == "night") ui::night();
   else if (!s.compare(0, 7, "screen ")) {  // one standby screen: clock, date, weather, dog
-    ui::setScreens(logic::screensOf("[{\"id\":\"" + arg + "\",\"s\":600}]"));
+    const int16_t k = ui::screenIndex(arg);  // exactly that picture (screensOf folds the old weather ids into one)
+    if (k != -2) ui::setScreens({{k, 600}});
     ui::night();
     ui::standby();
   } else if (!s.compare(0, 5, "look ")) ui::setLook((uint8_t)atoi(arg.c_str()));

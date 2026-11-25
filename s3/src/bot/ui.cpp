@@ -207,14 +207,27 @@ int rotIdx = 0, cur = 0;  // the rotation's place, the art2 screen it shows
 uint32_t rotAt = 0;
 bool noneShown = false;
 
-// "weather": rain, storm or snow -> weather_rain; else 18:00-06:00 -> night; else weather_sun (admin-users' rule).
+// Night for the weather picture: the clock between the city's sunset and sunrise (sent with the weather); without
+// them, the server's own day or night (a "moon" icon), and without that 18:00-06:00.
+bool darkNow() {
+  const int m = now_.valid ? now_.hour * 60 + now_.min : -1;
+  if (m >= 0 && wx_.rise >= 0 && wx_.set > wx_.rise) return m < wx_.rise || m >= wx_.set;
+  if (wx_.icon == "moon") return true;
+  if (wx_.icon == "sun" || wx_.icon == "cloudsun") return false;
+  return m >= 0 && (now_.hour >= 18 || now_.hour < 6);
+}
+
+// "weather" shows the sky the server reports (until 2026-11-25 it did not follow the weather; cloudy days showed
+// the sun): rain, storm, snow -> rain; cloud, fog -> clouds; clear or a few clouds -> the night after dark,
+// else the sun (alone, or behind a cloud for "cloudsun").
 // The calendar page gives way to the morning coffee 06:00-09:00 (2026-11-20).
 int resolve(int16_t id) {
   if (id == SCR_WEATHER_AUTO) {
     const std::string& k = wx_.icon;
     if (k == "rain" || k == "storm" || k == "snow") return idx("weather_rain");
-    if (now_.valid && (now_.hour >= 18 || now_.hour < 6)) return idx("night");
-    return idx("weather_sun");
+    if (k == "cloud" || k == "fog") return idx("weather_cloud");
+    if (darkNow()) return idx("night");
+    return idx(k == "cloudsun" ? "weather_cloudsun" : "weather_sun");
   }
   if (id == idx("date_page") && now_.valid && now_.hour >= 6 && now_.hour < 9) return idx("coffee");
   return id >= 0 && id < art::STANDBY_COUNT ? id : 0;
@@ -305,7 +318,7 @@ void buildVals(Vals& v) {
   // the weather
   const std::string words = weatherWords(wx_);
   v.s[art::FD_TEMP] = v.s[art::FD_TEMP_RAIN] = wx_.valid ? fmt("%d°", wx_.t) : "";
-  v.s[art::FD_WEATHER] = v.s[art::FD_RAIN_S] = words;
+  v.s[art::FD_WEATHER] = v.s[art::FD_RAIN_S] = v.s[art::FD_SKY_PART] = v.s[art::FD_SKY_CLOUD] = words;
   v.s[art::FD_CITY_HILO] = wx_.city + fmt(" %d°/%d°", wx_.hi, wx_.lo);
   v.s[art::FD_CITY_HUM] = info_.hum >= 0 ? wx_.city + (vi ? fmt(" ẩm %d%%", info_.hum) : fmt(" %d%% humid", info_.hum))
                                           : wx_.city + fmt(" %d°/%d°", wx_.hi, wx_.lo);
@@ -742,7 +755,7 @@ std::string weatherWords(const Weather& w) {
   if (drawLang == Lang::VI && !w.desc.empty()) return w.desc;
   const std::string& k = w.icon;
   const bool vi = drawLang == Lang::VI;
-  if (k == "sun") return vi ? "Nắng" : "Sunny";
+  if (k == "sun") return darkNow() ? (vi ? "Trời quang" : "Clear") : vi ? "Nắng" : "Sunny";  // the icon of the last sync, before sunset
   if (k == "moon") return vi ? "Trời quang" : "Clear";
   if (k == "cloudsun") return vi ? "Ít mây" : "Partly cloudy";
   if (k == "cloud") return vi ? "Nhiều mây" : "Cloudy";

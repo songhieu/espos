@@ -35,7 +35,8 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 		if d, ok := in["dashboard"].(map[string]any); ok {
 			if w, isMap := d["weather"].(map[string]any); isMap {
 				body["weather"] = map[string]any{"city": w["city"], "t": w["temp"], "icon": w["icon"], "desc": w["desc"],
-					"hi": w["max"], "lo": w["min"], "rain": w["rain"], "hum": w["hum"], "at": d["now_ms"]}
+					"hi": w["max"], "lo": w["min"], "rain": w["rain"], "hum": w["hum"], "rise": w["rise"], "set": w["set"],
+					"at": d["now_ms"]}
 			}
 		}
 	}

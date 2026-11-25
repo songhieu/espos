@@ -47,9 +47,14 @@ std::vector<ui::Screen> screensOf(const std::string& json) {
     const std::string id = o["id"] | "";
     const int s = o["s"] | 0;
     if (s < 3 || s > 600) continue;
-    const int16_t k = ui::screenIndex(id);
+    // The sun, rain and night screens were picked on their own until 2026-11-25 (four weather screens, none
+    // followed the weather): they are the one weather screen now, once.
+    const bool sky = id == "weather" || id == "weather_sun" || id == "weather_rain" || id == "night";
+    const int16_t k = sky ? ui::SCR_WEATHER_AUTO : ui::screenIndex(id);
     if (k == -2) continue;  // a screen of newer firmware
-    out.push_back({k, (uint16_t)s});
+    bool twice = false;
+    for (const ui::Screen& x : out) twice |= sky && x.id == k;
+    if (!twice) out.push_back({k, (uint16_t)s});
   }
   return out;
 }

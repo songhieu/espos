@@ -331,8 +331,14 @@ func Run(wmIn, wmCtx map[string]any) map[string]any {
 				if h, ok := w["_hum"]; ok {
 					w["hum"] = h // the bot's rain screen ("ẩm 90%")
 				}
+				if r, ok := w["_rise"]; ok {
+					w["rise"] = r // the bot's sky picture: the night from sunset to sunrise
+					w["set"] = w["_set"]
+				}
 			}
 			delete(w, "_hum")
+			delete(w, "_rise")
+			delete(w, "_set")
 			d["weather"] = w
 		}
 	}
@@ -781,6 +787,12 @@ func weather(st map[string]string, now time.Time, local time.Time, s3 bool, lang
 		w["max"] = int(math.Round(first(daily["temperature_2m_max"])))
 		w["min"] = int(math.Round(first(daily["temperature_2m_min"])))
 		w["rain"] = int(math.Round(first(daily["precipitation_probability_max"])))
+		// today's sunrise and sunset, kept only for the EspOS Bot: its weather screen turns to the night picture at
+		// the real sunset (2026-11-25)
+		if r, s := clockOf(at(daily["sunrise"], 0)), clockOf(at(daily["sunset"], 0)); r != "" && s != "" {
+			w["_rise"] = r // one map entry a statement: the engine panics on w[a], w[b] = x, y
+			w["_set"] = s
+		}
 	}
 	hours := []any{}
 	if hourly != nil {

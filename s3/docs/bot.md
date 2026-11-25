@@ -69,8 +69,9 @@ The console's `PINS` shows the three as they are read.
 ## Art (art2)
 
 - **Looks:** B "Mắt to" (`bot.style` eyes, the default), C "Chó pixel" (pixel), D "Nét mảnh" (line). Each has 9 scenes, and its reply box takes 13-px lines.
-- **Standby screens:** 21 of them, picked by id in `bot.screens`: clock_bold, clock_thin, clock_7seg, clock_dots, clock_analog, clock_flip, date_page, month, tet, weather_sun, weather_rain, night, kennel_night, butterfly, newspaper, coffee, window_rain, aquarium, eyes, gold, proverb.
-- **Special and older ids:** `weather` picks rain, night (18:00–06:00) or sun. The first firmware's `clock` / `date` / `dog` map to clock_bold / date_page / eyes.
+- **Standby screens:** picked by id in `bot.screens`: clock_bold, clock_thin, clock_7seg, clock_dots, clock_analog, clock_flip, date_page, month, tet, weather, kennel_night, butterfly, newspaper, coffee, window_rain, aquarium, eyes, gold, proverb.
+- **The weather screen:** `weather` shows the real sky from the server's icon: rain, storm or snow → weather_rain; cloud or fog → weather_cloud; cloudsun → weather_cloudsun; sun → weather_sun. Between the city's sunset and sunrise (`weather.rise` / `weather.set`, "HH:MM", from the server since 2026-11-25) clear skies show `night`. Without those times it goes by the icon (moon = night), then 18:00–06:00.
+- **Older ids:** weather_sun, weather_rain and night were separate screens until 2026-11-25; in `bot.screens` they now mean `weather`, once. The console's `UI screen <id>` still shows any one picture exactly. The first firmware's `clock` / `date` / `dog` map to clock_bold / date_page / eyes.
 - **Default rotation:** clock_bold 20 s, date_page 8, weather 8, eyes 20, aquarium 15. Coffee replaces the calendar page 06:00–09:00.
 - **Waiting for data:** a screen waits for what it shows (weather, the gold price from `dashboard.gold`/`fx`, the news from `dashboard.news.top`).
 - **Live fields:** `ui.cpp` draws digits, text (a marquee or wrapped and scrolled, never "…"), hands, the seconds run and the month grid, following `standby2.draw_live`.
@@ -161,7 +162,7 @@ Headless runs use the setup page on port 8199, so a window can keep 8099.
 The server side belongs to admin-users: `web/scripts/bot-keys.go.txt`, `web/scripts/test-bot.py`.
 
 - **Sync body:** `fw` "espos-bot-x.y.z", `board` "bot128", `kind` "bot", `settings_rev`, dirty `settings` [{k,v,age_s}], `wifi` {saved, acks}, `diag`.
-- **Sync answer:** `settings`, `settings_rev`, `lic`, `weather` {city,t,icon,desc,hi,lo}, `dashboard.lunar`, `wifi_ops`, and `fw_update` (by `bot.ota`).
+- **Sync answer:** `settings`, `settings_rev`, `lic`, `weather` {city,t,icon,desc,hi,lo,hum,rise,set}, `dashboard.lunar`, `wifi_ops`, and `fw_update` (by `bot.ota`).
 - **Keys:**
   - `bot.style` eyes|pixel|line
   - `bot.screens` [{id: clock|date|weather|dog, s}]

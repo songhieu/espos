@@ -442,7 +442,7 @@ screen("weather_sun", "Trời nắng", _sun_bg, 6.0, 120, [
     digits("temp", "bold24", 96, 4, "m"),
     textf("weather", "ub11", (64, 34, 127, 47), "m"),
     textf("city_hilo", "tiny5", (64, 53, 127, 61), "m", upper=True),
-], group="weather", note="Rays turn slowly. Other skies: weather_rain, night.")
+], group="weather", note="Rays turn slowly. Other skies: weather_cloudsun, weather_cloud, weather_rain, night.")
 SAMPLE["city_hilo"] = "Hà Nội 31°/22°"
 
 
@@ -496,6 +496,49 @@ screen("weather_rain", "Trời mưa", _rain_bg, 6.0, 60, [
 SAMPLE["temp_rain"] = "24°"
 SAMPLE["rain_s"] = "Mưa rào"
 SAMPLE["city_hum"] = "Hà Nội ẩm 90%"
+
+
+# The other skies of the "weather" screen (2026-11-25: four weather screens did not follow the sky; now one does):
+# the firmware picks sun, sun behind a cloud, clouds, rain or night from the real weather (src/bot/ui.cpp resolve).
+def _cloudsun_bg(t):
+    a = new()
+    sun_art(a, 24, 21, t, r=8)
+    c = cloud(39 + math.sin(t * 2 * math.pi / 6) * 3, 36, 1.0)
+    a[outer(c)] = False
+    draw_cloud(a, c, 6)
+    a[rect(66, 31, 125, 31) & px.vlines(2)] = True
+    return a
+
+
+screen("weather_cloudsun", "Ít mây", _cloudsun_bg, 6.0, 120, [
+    digits("temp", "bold24", 96, 4, "m"),
+    textf("sky_part", "ub11", (64, 34, 127, 47), "m"),
+    textf("city_hilo", "tiny5", (64, 53, 127, 61), "m", upper=True),
+], group="weather", note="The sun's rays turn behind a cloud that drifts a little.")
+SAMPLE["sky_part"] = "Ít mây"
+
+
+def _cloud_bg(t):
+    a = new()
+    w = 2 * math.pi / 8
+    c3 = cloud(46 + math.sin(t * w + 1) * 3, 11, 0.6)
+    draw_cloud(a, c3, 1)
+    c2 = cloud(17 + math.sin(t * w + 3) * 3, 17, 0.8)
+    a[outer(c2)] = False
+    draw_cloud(a, c2, 2)
+    c1 = cloud(35 + math.sin(t * w) * 4, 36, 1.0)
+    a[outer(c1)] = False
+    draw_cloud(a, c1, 6)
+    a[rect(66, 31, 125, 31) & px.vlines(2)] = True
+    return a
+
+
+screen("weather_cloud", "Nhiều mây", _cloud_bg, 8.0, 120, [
+    digits("temp", "bold24", 96, 4, "m"),
+    textf("sky_cloud", "ub11", (64, 34, 127, 47), "m"),
+    textf("city_hilo", "tiny5", (64, 53, 127, 61), "m", upper=True),
+], group="weather", note="Three clouds drift at their own pace (cloudy, fog).")
+SAMPLE["sky_cloud"] = "Nhiều mây"
 
 
 STARS = [(8, 6, 0.0), (48, 6, 0.6), (52, 24, 0.15), (40, 34, 0.9), (6, 34, 0.45), (120, 44, 0.7)]

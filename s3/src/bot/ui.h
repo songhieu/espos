@@ -12,8 +12,8 @@ namespace ui {
 
 enum class Lang : uint8_t { EN, VI };
 enum class Mood : uint8_t { TALK, HAPPY, SAD };
-// A standby screen of the rotation: one of art2's 21 (art::STANDBY, by index), or SCR_WEATHER_AUTO ("weather":
-// the rain picture for rain, the night one after 18:00, else the sun).
+// A standby screen of the rotation: one of art2's (art::STANDBY, by index), or SCR_WEATHER_AUTO ("weather": the
+// picture of the real sky, resolve() in ui.cpp: sun, sun behind a cloud, clouds, rain, or the night).
 constexpr int16_t SCR_WEATHER_AUTO = -1;
 struct Screen {
   int16_t id;
@@ -41,6 +41,7 @@ struct Weather {  // the sync answer's "weather" (device_sync merge.go)
   std::string icon;           // sun moon cloudsun cloud fog rain snow storm
   std::string desc;           // the server's words (Vietnamese)
   std::string city;
+  int rise = -1, set = -1;    // the city's sunrise and sunset today, minutes after midnight (-1 = not sent)
 };
 
 // The words the app shows through talk()/note() (English and Vietnamese, built in).
